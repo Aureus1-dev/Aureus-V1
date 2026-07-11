@@ -1,26 +1,22 @@
 {
-  "name": "aureus",
-  "version": "1.0.0",
-  "description": "Aureus Version 1 Platform",
-  "main": "index.js",
+  "name": "aureus-v1",
+  "private": true,
+  "packageManager": "pnpm@10.32.1",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "build": "turbo run build",
+    "dev": "turbo run dev --parallel",
+    "lint": "turbo run lint",
+    "check-types": "turbo run check-types"
   },
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/Aureus1-dev/Aureus-V1.git"
-  },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "bugs": {
-    "url": "https://github.com/Aureus1-dev/Aureus-V1/issues"
-  },
-  "homepage": "https://github.com/Aureus1-dev/Aureus-V1#readme",
   "devDependencies": {
-    "prisma": "^7.8.0"
+    "@types/node": "^24.0.0",
+    "prettier": "^3.3.3",
+    "prisma": "^7.8.0",
+    "turbo": "^2.0.0",
+    "typescript": "^5.7.3"
   },
   "dependencies": {
-    "@prisma/client": "^7.8.0"
+    "@prisma/client": "^7.8.0",
+    "dotenv": "^16.0.0"
   }
 }

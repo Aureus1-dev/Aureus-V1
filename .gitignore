@@ -1,7 +1,18 @@
 node_modules
-
-# Environment variables — never commit real credentials
+.pnpm-store
+.turbo
+.next
+out
+coverage
+dist
 .env
+.env.*
+*.log
+.DS_Store
+.vscode
+
+# npm lock file (this workspace uses pnpm)
+package-lock.json
 
 # Prisma generated client output
 /generated/prisma
