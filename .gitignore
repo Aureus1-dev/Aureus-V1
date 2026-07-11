@@ -5,3 +5,9 @@ node_modules
 
 # Prisma generated client output
 /generated/prisma
+
+# Build output
+/dist
+
+# Test coverage
+/coverage
