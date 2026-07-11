@@ -1,0 +1,7 @@
+node_modules
+
+# Environment variables — never commit real credentials
+.env
+
+# Prisma generated client output
+/generated/prisma
