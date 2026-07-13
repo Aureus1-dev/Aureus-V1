@@ -10,3 +10,9 @@ dist
 *.log
 .DS_Store
 .vscode
+
+# npm lock file (this workspace uses pnpm)
+package-lock.json
+
+# Prisma generated client output
+/generated/prisma

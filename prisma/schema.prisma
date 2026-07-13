@@ -1,0 +1,161 @@
+// Aureus V1 – Prisma Schema
+// Docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ===========================================================================
+// Enums
+// ===========================================================================
+
+enum UserStatus {
+  ACTIVE
+  INACTIVE
+  SUSPENDED
+}
+
+enum GoalStatus {
+  ACTIVE
+  PAUSED
+  COMPLETED
+  ARCHIVED
+}
+
+enum JourneyStatus {
+  ACTIVE
+  COMPLETED
+  ARCHIVED
+}
+
+enum MilestoneStatus {
+  PENDING
+  IN_PROGRESS
+  COMPLETED
+  SKIPPED
+}
+
+enum TaskStatus {
+  PENDING
+  IN_PROGRESS
+  COMPLETED
+  SKIPPED
+}
+
+enum TaskPriority {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+// ===========================================================================
+// User
+// ===========================================================================
+
+model User {
+  id            String     @id @default(uuid()) @db.Uuid
+  email         String     @unique
+  emailVerified Boolean    @default(false)
+  status        UserStatus @default(ACTIVE)
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+  deletedAt     DateTime?
+
+  profile Profile?
+  goals   Goal[]
+}
+
+// ===========================================================================
+// Profile
+// ===========================================================================
+
+model Profile {
+  id        String    @id @default(uuid()) @db.Uuid
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  userId String @unique @db.Uuid
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+// ===========================================================================
+// Goal  —  User has many Goals
+// ===========================================================================
+
+model Goal {
+  id        String     @id @default(uuid()) @db.Uuid
+  title     String
+  status    GoalStatus @default(ACTIVE)
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+  deletedAt DateTime?
+
+  userId  String   @db.Uuid
+  user    User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  journey Journey?
+
+  @@index([userId])
+}
+
+// ===========================================================================
+// Journey  —  Goal has one Journey
+// ===========================================================================
+
+model Journey {
+  id        String        @id @default(uuid()) @db.Uuid
+  title     String
+  status    JourneyStatus @default(ACTIVE)
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+  deletedAt DateTime?
+
+  goalId     String      @unique @db.Uuid
+  goal       Goal        @relation(fields: [goalId], references: [id], onDelete: Cascade)
+  milestones Milestone[]
+}
+
+// ===========================================================================
+// Milestone  —  Journey has many Milestones
+// ===========================================================================
+
+model Milestone {
+  id        String          @id @default(uuid()) @db.Uuid
+  title     String
+  status    MilestoneStatus @default(PENDING)
+  position  Int             @default(0)
+  createdAt DateTime        @default(now())
+  updatedAt DateTime        @updatedAt
+  deletedAt DateTime?
+
+  journeyId String  @db.Uuid
+  journey   Journey @relation(fields: [journeyId], references: [id], onDelete: Cascade)
+  tasks     Task[]
+
+  @@index([journeyId])
+}
+
+// ===========================================================================
+// Task  —  Milestone has many Tasks
+// ===========================================================================
+
+model Task {
+  id        String       @id @default(uuid()) @db.Uuid
+  title     String
+  status    TaskStatus   @default(PENDING)
+  priority  TaskPriority @default(MEDIUM)
+  position  Int          @default(0)
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+  deletedAt DateTime?
+
+  milestoneId String    @db.Uuid
+  milestone   Milestone @relation(fields: [milestoneId], references: [id], onDelete: Cascade)
+
+  @@index([milestoneId])
+}
