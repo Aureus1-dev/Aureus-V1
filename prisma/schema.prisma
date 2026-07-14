@@ -258,6 +258,7 @@ enum SourceType {
   ADMIN_ENTRY
   ORGANIZATION_SUBMISSION
   BUSINESS_SUBMISSION
+  EXTERNAL_SOURCE
 }
 
 enum TrackingStatus {
@@ -379,4 +380,129 @@ model UserInterest {
 
   @@unique([userId, category])
   @@index([userId])
+}
+
+// ===========================================================================
+// Resource Directory Enums (PA-014)
+// ===========================================================================
+
+enum ResourceCategory {
+  GOVERNMENT_AGENCY
+  NONPROFIT_ORGANIZATION
+  COMMUNITY_ORGANIZATION
+  EDUCATIONAL_INSTITUTION
+  HEALTHCARE_PROVIDER
+  FINANCIAL_SERVICES
+  LEGAL_SERVICES
+  HOUSING_RESOURCES
+  EMPLOYMENT_SERVICES
+  BUSINESS_SUPPORT
+  TECHNOLOGY_TOOLS
+  MENTAL_HEALTH_WELLNESS
+  OTHER
+}
+
+// What kind of thing the listing represents (PA-014: "organizations, programs,
+// services, professionals, tools, and community resources").
+enum ResourceType {
+  ORGANIZATION
+  PROGRAM
+  SERVICE
+  PROFESSIONAL
+  TOOL
+  COMMUNITY_RESOURCE
+  OTHER
+}
+
+enum ResourceStatus {
+  DRAFT
+  ACTIVE
+  INACTIVE
+  ARCHIVED
+}
+
+// ===========================================================================
+// Resource  —  Core Resource Directory model (PA-014)
+// ===========================================================================
+
+model Resource {
+  id                String              @id @default(uuid()) @db.Uuid
+  sequenceNumber    Int                 @default(autoincrement()) @unique
+  resourceRef       String?             @unique // AUR-RES-000001, set after insert
+
+  title             String
+  shortDescription  String
+  fullDescription   String
+  category          ResourceCategory
+  resourceType      ResourceType
+  tags              String[]            @default([])
+
+  organizationName  String
+  officialSourceUrl String
+  contactName       String?
+  contactEmail      String?
+  contactPhone      String?
+
+  location          String?
+  country           String?
+  state             String?
+  city              String?
+  isRemote          Boolean             @default(false)
+
+  eligibilityNotes  String?
+
+  status            ResourceStatus      @default(DRAFT)
+  verificationStatus VerificationStatus @default(DRAFT)
+  rejectionReason   String?
+
+  confidenceScore   Float               @default(0)
+  freshnessScore    Float               @default(0)
+
+  datePublished     DateTime?
+  dateLastVerified  DateTime?
+
+  sourceName        String
+  sourceUrl         String?
+  sourceType        SourceType          @default(ADMIN_ENTRY)
+
+  // The user (Organization/Business representative, Steward, or Admin) who
+  // manages this listing. Always the creator at insert time; Steward/Admin
+  // may edit any listing regardless of ownerId (PA-018 role-based access).
+  ownerId           String              @db.Uuid
+  submittedById     String              @db.Uuid
+  createdById       String              @db.Uuid
+  lastUpdatedById   String              @db.Uuid
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
+  deletedAt         DateTime?
+
+  savedBy           SavedResource[]
+
+  @@index([category])
+  @@index([resourceType])
+  @@index([verificationStatus])
+  @@index([status])
+  @@index([ownerId])
+  @@index([country])
+  @@index([createdAt])
+}
+
+// ===========================================================================
+// SavedResource  —  Members bookmark resources for later
+// ===========================================================================
+
+model SavedResource {
+  id         String   @id @default(uuid()) @db.Uuid
+  userId     String   @db.Uuid
+  resourceId String   @db.Uuid
+  isFavorite Boolean  @default(false)
+  notes      String?
+  savedAt    DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  resource   Resource @relation(fields: [resourceId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, resourceId])
+  @@index([userId])
+  @@index([resourceId])
 }
