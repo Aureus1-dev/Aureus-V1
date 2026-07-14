@@ -1,8 +1,43 @@
 import { Module } from '@nestjs/common';
+import { ConfigModule } from '@nestjs/config';
+import { APP_GUARD } from '@nestjs/core';
+import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
+import * as Joi from 'joi';
 import { PrismaModule } from './prisma/prisma.module';
 import { UsersModule } from './users/users.module';
+import { HealthModule } from './health/health.module';
 
 @Module({
-  imports: [PrismaModule, UsersModule],
+  imports: [
+    // ── Configuration + env validation ─────────────────────────────────────
+    ConfigModule.forRoot({
+      isGlobal: true,
+      validationSchema: Joi.object({
+        DATABASE_URL: Joi.string().required(),
+        PORT:         Joi.number().default(3000),
+        NODE_ENV:     Joi.string().valid('development', 'production', 'test').default('development'),
+        CORS_ORIGIN:  Joi.string().default('*'),
+      }),
+    }),
+
+    // ── Rate limiting ───────────────────────────────────────────────────────
+    ThrottlerModule.forRoot([
+      {
+        name:  'default',
+        ttl:   60_000,  // 1-minute window
+        limit: 100,     // 100 requests per window per IP
+      },
+    ]),
+
+    // ── Domain modules ──────────────────────────────────────────────────────
+    PrismaModule,
+    UsersModule,
+    HealthModule,
+  ],
+
+  providers: [
+    // Apply ThrottlerGuard globally to all routes
+    { provide: APP_GUARD, useClass: ThrottlerGuard },
+  ],
 })
 export class AppModule {}
