@@ -43,11 +43,12 @@ export class PrismaUserRepository implements IUserRepository {
     });
   }
 
-  async findAll({ page, limit, status }: PaginationParams): Promise<PaginatedResult<User>> {
+  async findAll({ page, limit, status, role }: PaginationParams): Promise<PaginatedResult<User>> {
     const skip = (page - 1) * limit;
     const where = {
       deletedAt: null,
       ...(status !== undefined && { status }),
+      ...(role !== undefined && { roles: { has: role } }),
     };
 
     const [data, total] = await Promise.all([

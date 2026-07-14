@@ -48,10 +48,11 @@ async function bootstrap(): Promise<void> {
     .setTitle('Aureus API')
     .setDescription('Aureus V1 Platform — REST API')
     .setVersion('1.0')
-    .addTag('auth',      'Authentication and identity endpoints')
-    .addTag('users',     'User management endpoints')
-    .addTag('resources', 'Resource Directory endpoints')
-    .addTag('health',    'Liveness and readiness endpoints')
+    .addTag('auth',           'Authentication and identity endpoints')
+    .addTag('users',          'User management endpoints')
+    .addTag('resources',      'Resource Directory endpoints')
+    .addTag('administration', 'Administration & Operations endpoints (role management)')
+    .addTag('health',         'Liveness and readiness endpoints')
     .addBearerAuth({ type: 'http', scheme: 'bearer', bearerFormat: 'JWT' })
     .build();
 

@@ -27,6 +27,7 @@ export interface PaginationParams {
   page: number;
   limit: number;
   status?: UserStatus;
+  role?: UserRole;
 }
 
 export interface PaginatedResult<T> {

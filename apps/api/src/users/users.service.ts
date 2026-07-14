@@ -47,6 +47,7 @@ export class UsersService {
       page,
       limit,
       status: query.status,
+      role: query.role,
     });
 
     return {
