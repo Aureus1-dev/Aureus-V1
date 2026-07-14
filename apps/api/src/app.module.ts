@@ -4,6 +4,7 @@ import { APP_GUARD } from '@nestjs/core';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import * as Joi from 'joi';
 import { PrismaModule } from './prisma/prisma.module';
+import { AuthModule } from './auth/auth.module';
 import { UsersModule } from './users/users.module';
 import { ProfileModule } from './users/profile/profile.module';
 import { GoalsModule } from './goals/goals.module';
@@ -24,6 +25,11 @@ import { HealthModule } from './health/health.module';
         PORT:         Joi.number().default(3000),
         NODE_ENV:     Joi.string().valid('development', 'production', 'test').default('development'),
         CORS_ORIGIN:  Joi.string().default('*'),
+
+        // ── Authentication (OAS-SEC-003) ────────────────────────────────────
+        JWT_ACCESS_SECRET:      Joi.string().min(32).required(),
+        JWT_ACCESS_EXPIRY:      Joi.string().default('15m'),
+        JWT_REFRESH_EXPIRY_DAYS: Joi.number().default(30),
       }),
     }),
 
@@ -38,6 +44,7 @@ import { HealthModule } from './health/health.module';
 
     // ── Domain modules ──────────────────────────────────────────────────────
     PrismaModule,
+    AuthModule,
     UsersModule,
     ProfileModule,
     GoalsModule,

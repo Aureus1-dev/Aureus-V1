@@ -1,6 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { ConflictException, NotFoundException } from '@nestjs/common';
-import { UserStatus } from '@prisma/client';
+import { UserRole, UserStatus } from '@prisma/client';
 import { UsersService } from './users.service';
 import {
   IUserRepository,
@@ -19,6 +19,8 @@ const makeUser = (overrides: Partial<User> = {}): User => ({
   id: 'uuid-001',
   email: 'alice@example.com',
   emailVerified: false,
+  passwordHash: null,
+  roles: [UserRole.MEMBER],
   status: UserStatus.ACTIVE,
   createdAt: NOW,
   updatedAt: NOW,
