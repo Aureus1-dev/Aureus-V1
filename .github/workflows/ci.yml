@@ -61,6 +61,9 @@ jobs:
       - name: Install dependencies
         run: pnpm install
 
+      - name: Prisma generate
+        run: npx prisma generate
+
       - name: Type check
         run: pnpm run check-types
 
