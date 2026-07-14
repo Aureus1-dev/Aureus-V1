@@ -59,7 +59,7 @@ enum TaskPriority {
 
 model User {
   id            String     @id @default(uuid()) @db.Uuid
-  email         String     @unique
+  email         String     // Uniqueness enforced by partial index (migration 004)
   emailVerified Boolean    @default(false)
   status        UserStatus @default(ACTIVE)
   createdAt     DateTime   @default(now())
@@ -75,10 +75,13 @@ model User {
 // ===========================================================================
 
 model Profile {
-  id        String    @id @default(uuid()) @db.Uuid
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
-  deletedAt DateTime?
+  id          String    @id @default(uuid()) @db.Uuid
+  displayName String?
+  bio         String?
+  avatarUrl   String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  deletedAt   DateTime?
 
   userId String @unique @db.Uuid
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
