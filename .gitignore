@@ -16,3 +16,14 @@ package-lock.json
 
 # Prisma generated client output
 /generated/prisma
+
+# TypeScript incremental build cache
+*.tsbuildinfo
+
+# Compiled outputs in package source directories (generated -- do not commit)
+packages/*/src/*.js
+packages/*/src/*.js.map
+packages/*/src/*.d.ts
+
+# Next.js auto-generated reference file
+apps/web/next-env.d.ts
