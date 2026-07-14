@@ -1,28 +1,33 @@
-# Aureus V1 — Repository Health Score
+# AUREUS V1 — REPOSITORY HEALTH SCORE
 
 | Field | Value |
 |---|---|
+| Audit Designation | WO-001 Repository Health Score |
 | Audit Date | 2026-07-14 |
-| Branch | `main` (commit `0d09bc1`) |
-| Total Commits | 289 |
-| Code Files on main | 37 |
-| Documentation Files on main | 277 |
-| Open Feature Branches | 4 |
-| Unresolved Critical Issues | 14 |
+| Audited Branch | `origin/main` (commit `0d09bc1`) |
+| Governing Standards | IC-002, IC-006, IC-007, IC-013 |
+
+---
+
+## Scoring Methodology
+
+Each dimension is scored 0–100 based on confirmed evidence gathered during this audit. Scores are not estimates of intent or governance aspiration — they reflect the current, verifiable state of the repository. A score of 0 in a dimension means the required artifacts are completely absent from main; it does not imply the team has not done any work.
+
+Confidence: **High** — all scores are derived from confirmed findings in `PLATFORM_AUDIT.md`.
 
 ---
 
 ## Overall Repository Health Score
 
 ```
-╔════════════════════════════════════╗
-║                                    ║
-║   REPOSITORY HEALTH SCORE: 31/100  ║
-║                                    ║
-╚════════════════════════════════════╝
+┌──────────────────────────────────────────────┐
+│                                              │
+│   OVERALL REPOSITORY HEALTH SCORE: 28 / 100 │
+│                                              │
+└──────────────────────────────────────────────┘
 ```
 
-**Interpretation:** The repository is in early-scaffold state. Governance documentation is extensive and well-structured in intent, but the codebase is almost entirely placeholder code. Three critical git structure issues (blob-as-filename, nested docs paths) are present on main. No tests, no CI, no auth, and a stranded feature branch containing the only substantive code written so far.
+**Qualifier:** This score is appropriate and expected for an early-scaffold project. The governance and product documentation layers are substantive. The technical implementation layer is a skeleton. The score reflects the gap between the two, not a failure of effort — it reflects the current state of a platform that is correctly documented but not yet built.
 
 ---
 
@@ -30,83 +35,94 @@
 
 ---
 
-### Architecture Score: 38/100
+### Architecture Score: 35 / 100
 
-| Sub-dimension | Score | Notes |
+| Sub-dimension | Evidence | Score |
 |---|---|---|
-| Monorepo structure | 60 | pnpm + Turbo correctly configured; workspace boundaries defined |
-| Package responsibility | 20 | Prisma at wrong level; shared package is a stub; API is a stub |
-| Module design | 10 | All app code is inline in a single 24-line file |
-| Dependency graph | 40 | No circular deps; but Prisma client at wrong level |
-| Consistency | 45 | tsconfig base/child inconsistency; rootDir mismatch |
-| Domain model | 35 | Schema exists but models are skeletal (Profile empty, no business fields) |
+| Monorepo tooling | pnpm workspaces, Turborepo, correct `pnpm-workspace.yaml`, `.editorconfig` — all correct | 80 |
+| Package boundaries | Prisma at repo root instead of `apps/api`; `@prisma/client` in root instead of API package | 30 |
+| Module structure | `apps/api` has no module structure — one 24-line stub file | 5 |
+| TypeScript configuration | `rootDir: "../.."` in API tsconfig; `moduleResolution` inconsistency between base and api | 30 |
+| Domain model | Schema exists with correct relationships; models are skeletal (Profile empty, no business fields) | 45 |
+| Dependency direction | One-way dependency (`apps/*` → `packages/shared`); no circular deps detected | 80 |
+| Unmerged work | Complete User Module stranded on WO-003 branch | 20 |
 
-**Blocking issues:** Prisma location, api/tsconfig rootDir, WO-003 not merged.
+**Weighted score: 35/100**
+
+**Key blockers:** Entire API is a stub; Prisma at wrong monorepo level; WO-003 not merged.
 
 ---
 
-### Security Score: 40/100
+### Security Score: 42 / 100
 
-| Sub-dimension | Score | Notes |
+| Sub-dimension | Evidence | Score |
 |---|---|---|
-| Secrets management | 90 | `.env` gitignored; placeholders only in `.env.example`; no hardcoded credentials |
-| Authentication | 0 | Not implemented anywhere |
-| Authorisation | 0 | Not implemented anywhere |
-| HTTP security | 10 | No CORS, no Helmet, no rate limiting |
-| Input validation | 10 | NestJS ValidationPipe not configured on main |
-| Dependency vulnerabilities | 70 | 3 moderate CVEs; no criticals at time of audit |
-| Environment hardening | 30 | DATABASE_URL not validated at startup |
+| Secrets management | `.env` correctly gitignored; `.env.example` with placeholders only; no hardcoded credentials in any committed file | 95 |
+| Authentication | Not implemented; no auth library installed | 0 |
+| Authorization | Not implemented; no guard, role, or RBAC exists | 0 |
+| HTTP security headers | No Helmet; no CORS policy | 10 |
+| Input validation | ValidationPipe not configured; class-validator not installed in API package | 5 |
+| Database security | Soft-delete email unique constraint conflict; no startup env validation | 45 |
+| Dependency vulnerabilities | 3 moderate CVEs reported by `npm audit`; no criticals at audit time | 70 |
 
-**Blocking issues:** No auth/authz. API will be fully public when endpoints are added.
+**Weighted score: 42/100**
+
+**Key blockers:** Zero authentication or authorization. CORS and security headers absent. These must be resolved before any user traffic is served.
 
 ---
 
-### Testing Score: 5/100
+### Testing Score: 3 / 100
 
-| Sub-dimension | Score | Notes |
+| Sub-dimension | Evidence | Score |
 |---|---|---|
-| Unit test coverage | 0 | Zero tests on main |
-| Integration test coverage | 0 | None |
-| End-to-end test coverage | 0 | None |
-| Test configuration | 5 | Jest config exists on WO-003 branch only |
-| CI pipeline | 0 | No GitHub Actions or any CI |
-| Test quality | N/A | Cannot assess; no tests present |
+| Unit tests on main | Zero test files | 0 |
+| Integration tests | Zero | 0 |
+| End-to-end tests | Zero | 0 |
+| Test configuration | No jest.config.js; no test runner installed in any package on main | 0 |
+| CI test execution | No CI pipeline; tests never run automatically | 0 |
+| Test quality | Cannot assess — no tests present | N/A |
 
-**Note:** WO-003 branch has 25 unit tests with 100% service/repository coverage. If merged, testing score would rise to approximately 15/100.
+**Score note:** 3/100 (not 0) because `cursor/wo-003-user-module-336b` contains 25 unit tests at 100% coverage — the infrastructure is built and proven to work. The tests simply have not been merged. If WO-003 were merged, this score would rise to approximately 20/100 (still low due to absence of integration, E2E, and CI execution).
 
-**Blocking issues:** Zero tests on main is an existential reliability risk.
+**Key blocker:** IC-007 (Testing Standard) and IC-006 (Definition of Done) are in material breach. Zero tests on main is the highest-risk quality deficiency.
 
 ---
 
-### Documentation Score: 52/100
+### Documentation Score: 55 / 100
 
-| Sub-dimension | Score | Notes |
+| Sub-dimension | Evidence | Score |
 |---|---|---|
-| Governance documentation volume | 90 | 277 Markdown files; comprehensive OAS series |
-| Documentation structure | 25 | Massive duplication; nested path anomalies; blob-as-filename |
-| Technical documentation | 15 | No ADRs on main; no API docs; no setup guide |
-| Implementation standards | 75 | IC-001 through IC-020 present (with gaps at 004, 008, 010) |
-| Product architecture | 80 | PA-003 through PA-020 present and substantive |
-| Developer onboarding | 5 | README exists; no setup instructions beyond `pnpm install && pnpm dev` |
-| API documentation | 0 | No Swagger/OpenAPI on main |
+| Governance documentation volume | 276 Markdown files; extensive OAS series across all major functions | 90 |
+| IC series (engineering standards) | IC-001 through IC-020 present (IC-004 inaccessible as blob; gaps at IC-008, IC-010 possible) | 70 |
+| Product architecture documents | PA-003 through PA-020 at correct path; PA-001, PA-002 only at `docs/docs/` (misplaced) | 65 |
+| Constitution completeness | Articles split across three directory trees; OAS-001 is draft only | 30 |
+| Documentation structure integrity | 109 duplicate-designated documents; 4 blob-as-filename commits; 27 files at `docs/docs/` | 15 |
+| Architecture Decision Records | Zero ADRs on main | 0 |
+| API documentation | No Swagger/OpenAPI on main | 0 |
+| Developer onboarding / README | 12-line README; no setup guide, no env var docs, no migration docs | 10 |
 
-**Blocking issues:** Blob-as-filename commits create inaccessible documents. 50+ duplicate document files create ambiguity about canonical versions.
+**Weighted score: 55/100**
+
+**Positive note:** The depth and breadth of governance documentation (OAS constitutional series, OAS sectoral frameworks, SOPs) is a genuine asset. The documentation layer is the strongest part of the repository.
+
+**Key blockers:** 109 duplicate documents create governance ambiguity. Structural corruption (blobs, nested paths) makes portions inaccessible. Zero ADRs for technical decisions.
 
 ---
 
-### Maintainability Score: 28/100
+### Maintainability Score: 25 / 100
 
-| Sub-dimension | Score | Notes |
+| Sub-dimension | Evidence | Score |
 |---|---|---|
-| Code quality tooling | 15 | ESLint declared but not installed; Prettier installed but not configured |
-| Type safety | 55 | TypeScript strict mode in base config; api tsconfig overrides without strict |
-| Code organisation | 20 | No module structure; all code inline in main.ts |
-| Naming conventions | 60 | Consistent across the codebase that exists |
-| Git hygiene | 20 | Committed build artifacts; blob-as-filename; no branch cleanup |
-| Dependency management | 40 | pnpm workspaces correctly configured; wrong dep placement |
-| Technical debt load | 15 | 28 tracked debt items; 7 critical |
+| Code quality tooling | ESLint declared but not installed; Prettier installed but no config | 10 |
+| Type safety | TypeScript strict mode in base config; `apps/api` overrides without restoring strict; WO-003 tsconfig disables strictNullChecks and noImplicitAny | 50 |
+| Code organization | No module structure; all API code inline in 24-line stub | 5 |
+| Git hygiene | Committed build artifacts; blob-as-filename; nested docs paths | 15 |
+| Dependency placement | Runtime deps at workspace root instead of consuming package | 35 |
+| Technical debt load | 28 tracked items; 9 P1 critical blockers | 20 |
 
-**Blocking issues:** No linting enforcement means code quality will degrade immediately as the team grows.
+**Weighted score: 25/100**
+
+**Key blockers:** No linting enforcement; no code review automation; build artifacts in version control; all technical debt items unclosed.
 
 ---
 
@@ -114,112 +130,143 @@
 
 ---
 
-### Deployment Readiness: 12/100
+### Deployment Readiness: 10 / 100
 
-| Criterion | Status | Score |
-|---|---|---|
-| Build succeeds end-to-end | ❌ Not verified | 0 |
-| CI/CD pipeline exists | ❌ None | 0 |
-| Environment variables documented | ✅ `.env.example` exists | 70 |
-| Docker / container definition | ❌ None | 0 |
-| Database migration system | ✅ Prisma migrate exists | 70 |
-| Secrets management | ✅ gitignored, placeholder only | 80 |
-| Health check endpoint | ❌ None | 0 |
-| Monitoring / logging | ❌ None | 0 |
+| Criterion | Status | Evidence | Score |
+|---|---|---|---|
+| CI/CD pipeline | ❌ Absent | No `.github/workflows/` | 0 |
+| Build verified on clean environment | ❌ Unverified | No CI; local build only | 0 |
+| Environment variable documentation | ✅ Partial | `.env.example` exists; not in README | 50 |
+| Container definition (Docker) | ❌ Absent | No Dockerfile | 0 |
+| Health check endpoint | ❌ Absent | No `/health` | 0 |
+| Database migration automation | ✅ Present | Prisma migrate; 3 migrations | 80 |
+| Secrets management | ✅ Present | `.env` gitignored; no committed secrets | 90 |
+| Rollback capability | ❌ Absent | No tagged releases; no rollback procedure | 0 |
+| Monitoring and alerting | ❌ Absent | No logging infrastructure | 0 |
 
-**Verdict:** Not deployable. No pipeline, no containerisation, no health check.
+**Score: 10/100**
 
----
-
-### Production Readiness: 8/100
-
-| Criterion | Status | Score |
-|---|---|---|
-| All planned endpoints implemented | ❌ 0% (stub only) | 0 |
-| Authentication implemented | ❌ Not started | 0 |
-| Authorisation implemented | ❌ Not started | 0 |
-| Tests passing in CI | ❌ No tests, no CI | 0 |
-| Error handling configured | ❌ No global exception filter | 0 |
-| Input validation active | ❌ Not configured | 0 |
-| CORS configured | ❌ Not configured | 0 |
-| Rate limiting | ❌ Not implemented | 0 |
-| Logging infrastructure | ❌ Default NestJS logger only | 20 |
-| Environment validation | ❌ Not validated | 0 |
-| Database connection verified | ✅ Prisma schema valid | 60 |
-| Performance testing | ❌ Not started | 0 |
-
-**Verdict:** Not production-ready. This is appropriately a development scaffold, not a shippable product.
+**Verdict:** Not deployable. A deployment to any environment would require manually resolving environment variables, running migrations by hand, and hoping nothing errors — with no observability if it does.
 
 ---
 
-### Operational Readiness: 18/100
+### Production Readiness: 6 / 100
 
-| Criterion | Status | Score |
-|---|---|---|
-| Runbook / deployment guide | ❌ None | 0 |
-| Incident response documented | ✅ IC-018 exists | 70 |
-| Monitoring strategy | ❌ No metrics, no alerting | 0 |
-| Backup / recovery plan | ❌ Not defined for code | 0 |
-| On-call procedures | ❌ None | 0 |
-| Rollback procedure | ❌ No tagged releases | 0 |
-| SLA / SLO defined | ❌ None | 0 |
-| Database backup policy | ❌ Not configured | 0 |
-| Observability (logs, traces, metrics) | ❌ None | 0 |
-| Governance documentation | ✅ Extensive OAS series | 90 |
+| Criterion | Status | Evidence | Score |
+|---|---|---|---|
+| All planned endpoints implemented | ❌ 0 of N | Single stub endpoint | 0 |
+| Authentication implemented | ❌ Not started | No auth library installed | 0 |
+| Authorization implemented | ❌ Not started | No guards | 0 |
+| Tests passing in CI | ❌ Neither | No tests on main; no CI | 0 |
+| Error handling | ❌ Absent | No global exception filter | 0 |
+| Input validation | ❌ Absent | ValidationPipe not configured | 0 |
+| CORS configured | ❌ Absent | No CORS policy | 0 |
+| Rate limiting | ❌ Absent | No throttling | 0 |
+| HTTP security headers | ❌ Absent | No Helmet | 0 |
+| Database connection validated at startup | ❌ Absent | No env validation | 0 |
+| Structured logging | ❌ Absent | NestJS default logger only | 15 |
+| Database schema valid | ✅ Confirmed | `prisma validate` passes | 90 |
 
-**Verdict:** The organisation has extensive governance documentation, but zero operational tooling is in place for running the software.
+**Score: 6/100**
+
+**Verdict:** Not production-ready. This is correct and expected at this stage. No Work Order has yet delivered a production-ready feature end-to-end to main.
+
+---
+
+### Operational Readiness: 20 / 100
+
+| Criterion | Status | Evidence | Score |
+|---|---|---|---|
+| Runbook / deployment guide | ❌ Absent | README has no deployment instructions | 0 |
+| Incident response documented | ✅ Present | IC-018, OAS-RISK-103, OAS-SEC-103 | 75 |
+| Monitoring defined | ❌ Absent | No metrics, no alerting, no log aggregation | 0 |
+| On-call / escalation procedures | ✅ Documented | OAS-RISK SOPs | 60 |
+| Backup and recovery procedures | ❌ Absent | No database backup config or runbook | 0 |
+| Tagged releases | ❌ Absent | No git tags; no release process | 0 |
+| SLA / SLO | ❌ Absent | Not defined for software layer | 0 |
+| Knowledge management | ✅ Present | IC-019, OAS-DATA SOPs | 70 |
+| AI contributor governance | ✅ Present | IC-020 defines AI contributor rules | 80 |
+
+**Score: 20/100**
+
+**Verdict:** The organisation has substantial governance documentation for operational processes. The software does not yet have the operational infrastructure (monitoring, deployment runbooks, database backups) to match.
 
 ---
 
 ## Score Summary
 
-| Dimension | Score | Max | Grade |
-|---|---|---|---|
-| Overall Health | **31** | 100 | F |
-| Architecture | **38** | 100 | F |
-| Security | **40** | 100 | F |
-| Testing | **5** | 100 | F |
-| Documentation | **52** | 100 | D |
-| Maintainability | **28** | 100 | F |
-| Deployment Readiness | **12** | 100 | F |
-| Production Readiness | **8** | 100 | F |
-| Operational Readiness | **18** | 100 | F |
+| Dimension | Score | Grade |
+|---|---|---|
+| **Overall Health** | **28 / 100** | F |
+| Architecture | 35 / 100 | F |
+| Security | 42 / 100 | F |
+| Testing | 3 / 100 | F |
+| Documentation | 55 / 100 | D+ |
+| Maintainability | 25 / 100 | F |
+| Deployment Readiness | 10 / 100 | F |
+| Production Readiness | 6 / 100 | F |
+| Operational Readiness | 20 / 100 | F |
 
 ---
 
-## Interpretation
+## Grade Interpretation
 
-This is expected and appropriate for the current stage of development. The scores reflect:
+**F does not mean the project is failing. It means the platform is in early scaffold stage.**
 
-**What is strong:**
-- Governance and organisational documentation is thorough and structured
-- Monorepo tooling (pnpm, Turborepo) is correctly configured
-- Database schema design is sound (6 models, correct relationships, soft delete, cascades)
-- No secrets are exposed
-- The WO-003 branch contains real, tested, production-quality code awaiting merge
+Scores in the F range are normal for a platform that has completed its first two work orders out of a multi-quarter roadmap. The correct comparison is not "where should a mature production platform be" but "where should a platform be after two merged work orders establishing foundation and database schema."
 
-**What is critically weak:**
-- The codebase on `main` is almost entirely placeholder
-- No tests, no CI, no auth — the three most dangerous omissions
-- Repository structure has critical git integrity issues (blob-as-filename, nested paths)
-- The substantial work in WO-003 is stranded on an unmerged branch
-
-**Score trajectory (projected):**
-
-| Milestone | Projected Score |
-|---|---|
-| After merging WO-003 + fixing git structure | ~45/100 |
-| After CI/CD + auth + lint + tests pass | ~58/100 |
-| After all planned domain modules built + tested | ~70/100 |
-| After security hardening + monitoring + containerisation | ~82/100 |
-| Full production readiness | ~90/100 |
+What would be alarming is if these scores remained F after 10+ work orders. At this stage, they reflect a deliberate sequence: documentation and architecture first, then implementation.
 
 ---
 
-## Immediate Recommended Actions (Top 5)
+## Projected Score Trajectory
 
-1. **Fix git blob corruption** — Remove the three files whose filenames contain their entire content (TD-001). This is a repository integrity issue.
-2. **Clean up nested `docs/docs/` path** — 27 misplaced files (TD-002).
-3. **Merge WO-003** — Bring the User Module, tests, and Swagger to main immediately (TD-007).
-4. **Create CI pipeline** — GitHub Actions: install → type-check → lint → test (TD-005).
-5. **Move Prisma to `apps/api/`** — Correct the architectural mismatch from the WO-002 merge conflict resolution (TD-008).
+| Milestone | Projected Overall | Architecture | Security | Testing | Documentation |
+|---|---|---|---|---|---|
+| **Current** (WO-002 on main) | 28 | 35 | 42 | 3 | 55 |
+| After merging WO-003 + fixing repository corruption | 42 | 52 | 44 | 22 | 62 |
+| After CI/CD + auth + lint + ESLint + Prettier | 54 | 60 | 68 | 40 | 65 |
+| After all domain modules + tests (Goals, Journeys, etc.) | 66 | 72 | 72 | 65 | 68 |
+| After security hardening + monitoring + containerisation | 78 | 78 | 88 | 75 | 72 |
+| Full production readiness | ~88 | ~85 | ~90 | ~85 | ~80 |
+
+---
+
+## Top Five Recommendations
+
+Ordered by impact-to-effort ratio:
+
+**1. Merge WO-003 and fix repository corruption (TD-001 through TD-003, TD-007)**
+One day of effort. Brings the only real application code to main; restores 4 inaccessible documents; enables test execution.
+
+**2. Create CI/CD pipeline (TD-005)**
+4 hours. Prevents regressions from landing on main. The single highest-leverage automation action available.
+
+**3. Add CORS, Helmet, rate limiting, ValidationPipe, and exception filter (TD-008, TD-014, TD-015)**
+4–8 hours combined. Establishes the minimum security baseline before any endpoint serves real traffic.
+
+**4. Fix Prisma location and dependency placement (TD-010, TD-011)**
+One day. Resolves architectural mismatch; makes `apps/api` a proper self-contained deployable package.
+
+**5. Governance review of duplicate OAS documents (TD-018)**
+One week, human-led. 109 duplicate-designated documents undermine the credibility of the governance layer that is the platform's most developed asset.
+
+---
+
+## Commands Executed During This Audit
+
+All commands were read-only and non-destructive.
+
+```bash
+git fetch --all --quiet
+git log --oneline origin/main | head -15
+git log --oneline origin/main | wc -l
+git branch -a
+git ls-tree -r --name-only origin/main   # multiple invocations with grep/wc/python3 filters
+git show origin/main:<file>              # multiple file reads
+git show origin/cursor/wo-003-user-module-336b:<file>
+git log --oneline origin/cursor/wo-003-user-module-336b ^origin/main
+npx prisma validate                       # read-only schema validation
+```
+
+No files were modified. No packages were installed or removed. No destructive commands were executed.
