@@ -11,6 +11,25 @@ jobs:
     name: Build & Test
     runs-on: ubuntu-latest
 
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: aureus
+          POSTGRES_PASSWORD: aureus
+          POSTGRES_DB: aureus
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U aureus"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      DATABASE_URL: "postgresql://aureus:aureus@localhost:5432/aureus?schema=public"
+      JWT_ACCESS_SECRET: "ci-only-secret-do-not-use-in-production-min-32-chars"
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -48,7 +67,10 @@ jobs:
       - name: Lint
         run: pnpm run lint
 
-      - name: Test (API unit tests)
+      - name: Prisma migrate deploy
+        run: npx prisma migrate deploy
+
+      - name: Test (API unit, integration, and e2e tests)
         run: pnpm --filter @aureus-v1/api run test --coverage
 
       - name: Build
