@@ -5,6 +5,11 @@ import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import * as Joi from 'joi';
 import { PrismaModule } from './prisma/prisma.module';
 import { UsersModule } from './users/users.module';
+import { ProfileModule } from './users/profile/profile.module';
+import { GoalsModule } from './goals/goals.module';
+import { JourneysModule } from './journeys/journeys.module';
+import { MilestonesModule } from './milestones/milestones.module';
+import { TasksModule } from './tasks/tasks.module';
 import { HealthModule } from './health/health.module';
 
 @Module({
@@ -32,6 +37,11 @@ import { HealthModule } from './health/health.module';
     // ── Domain modules ──────────────────────────────────────────────────────
     PrismaModule,
     UsersModule,
+    ProfileModule,
+    GoalsModule,
+    JourneysModule,
+    MilestonesModule,
+    TasksModule,
     HealthModule,
   ],
 
