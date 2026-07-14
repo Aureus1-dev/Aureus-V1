@@ -10,6 +10,8 @@ import { GoalsModule } from './goals/goals.module';
 import { JourneysModule } from './journeys/journeys.module';
 import { MilestonesModule } from './milestones/milestones.module';
 import { TasksModule } from './tasks/tasks.module';
+import { OpportunitiesModule } from './opportunities/opportunities.module';
+import { UserInterestsModule } from './users/interests/user-interests.module';
 import { HealthModule } from './health/health.module';
 
 @Module({
@@ -42,6 +44,8 @@ import { HealthModule } from './health/health.module';
     JourneysModule,
     MilestonesModule,
     TasksModule,
+    OpportunitiesModule,
+    UserInterestsModule,
     HealthModule,
   ],
 

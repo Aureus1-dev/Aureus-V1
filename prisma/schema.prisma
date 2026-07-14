@@ -144,6 +144,71 @@ model Milestone {
 }
 
 // ===========================================================================
+// Opportunity Engine Enums
+// ===========================================================================
+
+enum OpportunityCategory {
+  EMPLOYMENT
+  EDUCATION
+  SCHOLARSHIP
+  GRANT
+  GOVERNMENT_BENEFIT
+  HOUSING
+  FINANCIAL_ASSISTANCE
+  BANKING_INCENTIVE
+  CREDIT_BUILDING
+  BUSINESS
+  VOLUNTEER
+  COMMUNITY_PROGRAM
+  HEALTH_WELLNESS
+  OTHER
+}
+
+enum BenefitType {
+  JOB
+  GRANT
+  SCHOLARSHIP
+  LOAN
+  BENEFIT
+  HOUSING
+  CREDIT
+  TRAINING
+  VOLUNTEER
+  COMMUNITY
+  HEALTH
+  OTHER
+}
+
+enum OpportunityStatus {
+  DRAFT
+  ACTIVE
+  EXPIRED
+  ARCHIVED
+}
+
+enum VerificationStatus {
+  DRAFT
+  PENDING_REVIEW
+  VERIFIED
+  REJECTED
+  ARCHIVED
+}
+
+enum SourceType {
+  ADMIN_ENTRY
+  ORGANIZATION_SUBMISSION
+  BUSINESS_SUBMISSION
+}
+
+enum TrackingStatus {
+  SAVED
+  APPLYING
+  APPLIED
+  RECEIVED
+  NOT_INTERESTED
+}
+
+// ===========================================================================
 // Task  —  Milestone has many Tasks
 // ===========================================================================
 
@@ -161,4 +226,97 @@ model Task {
   milestone   Milestone @relation(fields: [milestoneId], references: [id], onDelete: Cascade)
 
   @@index([milestoneId])
+}
+
+// ===========================================================================
+// Opportunity  —  Core Opportunity Intelligence Engine model
+// ===========================================================================
+
+model Opportunity {
+  id                String              @id @default(uuid()) @db.Uuid
+  sequenceNumber    Int                 @default(autoincrement()) @unique
+  opportunityRef    String?             @unique // AUR-OPP-000001, set after insert
+
+  title             String
+  shortDescription  String
+  fullDescription   String
+  category          OpportunityCategory
+  tags              String[]            @default([])
+
+  provider          String
+  officialSourceUrl String
+  applicationUrl    String?
+  location          String?
+  country           String?
+  state             String?
+
+  eligibilityRules  String
+  benefitType       BenefitType
+  benefitAmount     String?
+  deadline          DateTime?
+
+  status            OpportunityStatus   @default(DRAFT)
+  verificationStatus VerificationStatus @default(DRAFT)
+  rejectionReason   String?
+
+  confidenceScore   Float               @default(0)
+  freshnessScore    Float               @default(0)
+
+  datePublished     DateTime?
+  dateLastVerified  DateTime?
+
+  sourceName        String
+  sourceUrl         String?
+  sourceType        SourceType          @default(ADMIN_ENTRY)
+
+  submittedById     String              @db.Uuid
+  createdById       String              @db.Uuid
+  lastUpdatedById   String              @db.Uuid
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
+  deletedAt         DateTime?
+
+  savedBy           SavedOpportunity[]
+
+  @@index([category])
+  @@index([verificationStatus])
+  @@index([status])
+  @@index([benefitType])
+  @@index([deadline])
+  @@index([createdAt])
+}
+
+// ===========================================================================
+// SavedOpportunity  —  Members save / favorite / track opportunities
+// ===========================================================================
+
+model SavedOpportunity {
+  id             String         @id @default(uuid()) @db.Uuid
+  userId         String         @db.Uuid
+  opportunityId  String         @db.Uuid
+  isFavorite     Boolean        @default(false)
+  trackingStatus TrackingStatus @default(SAVED)
+  notes          String?
+  savedAt        DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  opportunity    Opportunity    @relation(fields: [opportunityId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, opportunityId])
+  @@index([userId])
+  @@index([opportunityId])
+}
+
+// ===========================================================================
+// UserInterest  —  Recommendation foundation: preferred categories
+// ===========================================================================
+
+model UserInterest {
+  id        String              @id @default(uuid()) @db.Uuid
+  userId    String              @db.Uuid
+  category  OpportunityCategory
+  createdAt DateTime            @default(now())
+
+  @@unique([userId, category])
+  @@index([userId])
 }
