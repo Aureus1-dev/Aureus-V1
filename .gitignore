@@ -20,10 +20,13 @@ package-lock.json
 # TypeScript incremental build cache
 *.tsbuildinfo
 
-# Compiled outputs in package source directories (generated -- do not commit)
+# Compiled outputs in workspace source directories (generated -- do not commit)
 packages/*/src/*.js
 packages/*/src/*.js.map
 packages/*/src/*.d.ts
+apps/*/src/**/*.js
+apps/*/src/**/*.js.map
+apps/*/src/**/*.d.ts
 
 # Next.js auto-generated reference file
 apps/web/next-env.d.ts
