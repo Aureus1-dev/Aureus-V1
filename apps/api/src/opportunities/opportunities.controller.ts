@@ -1,10 +1,14 @@
 import {
   Body, Controller, Delete, Get, HttpCode, HttpStatus,
-  Param, Patch, Post, Query,
+  Param, Patch, Post, Query, UseGuards,
 } from '@nestjs/common';
 import {
-  ApiBody, ApiOperation, ApiParam, ApiResponse, ApiTags,
+  ApiBearerAuth, ApiBody, ApiOperation, ApiParam, ApiResponse, ApiTags,
 } from '@nestjs/swagger';
+import { UserRole } from '@prisma/client';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { RolesGuard } from '../auth/guards/roles.guard';
+import { Roles } from '../auth/decorators/roles.decorator';
 import { OpportunitiesService } from './opportunities.service';
 import { CreateOpportunityDto } from './dto/create-opportunity.dto';
 import { UpdateOpportunityDto } from './dto/update-opportunity.dto';
@@ -22,8 +26,18 @@ export class OpportunitiesController {
   // ── CRUD ──────────────────────────────────────────────────────────────────
 
   @Post()
-  @ApiOperation({ summary: 'Create an opportunity (Admin / Org / Business)' })
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(
+    UserRole.STEWARD,
+    UserRole.ORGANIZATION_REPRESENTATIVE,
+    UserRole.BUSINESS_REPRESENTATIVE,
+    UserRole.PLATFORM_ADMINISTRATOR,
+  )
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Create an opportunity (Steward / Org / Business / Admin)' })
   @ApiResponse({ status: 201, type: OpportunityResponseDto })
+  @ApiResponse({ status: 401, description: 'Missing or invalid access token' })
+  @ApiResponse({ status: 403, description: 'Caller does not hold a required role' })
   create(@Body() dto: CreateOpportunityDto): Promise<OpportunityResponseDto> {
     return this.service.create(dto);
   }
@@ -52,17 +66,27 @@ export class OpportunitiesController {
   }
 
   @Patch(':id')
-  @ApiOperation({ summary: 'Update an opportunity' })
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.STEWARD, UserRole.PLATFORM_ADMINISTRATOR)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Update an opportunity (Steward / Admin)' })
   @ApiParam({ name: 'id', description: 'Opportunity UUID' })
   @ApiResponse({ status: 200, type: OpportunityResponseDto })
+  @ApiResponse({ status: 401, description: 'Missing or invalid access token' })
+  @ApiResponse({ status: 403, description: 'Caller does not hold a required role' })
   update(@Param('id') id: string, @Body() dto: UpdateOpportunityDto): Promise<OpportunityResponseDto> {
     return this.service.update(id, dto);
   }
 
   @Delete(':id')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.PLATFORM_ADMINISTRATOR)
+  @ApiBearerAuth()
   @HttpCode(HttpStatus.NO_CONTENT)
-  @ApiOperation({ summary: 'Soft-delete an opportunity' })
+  @ApiOperation({ summary: 'Soft-delete an opportunity (Admin)' })
   @ApiParam({ name: 'id', description: 'Opportunity UUID' })
+  @ApiResponse({ status: 401, description: 'Missing or invalid access token' })
+  @ApiResponse({ status: 403, description: 'Caller does not hold a required role' })
   remove(@Param('id') id: string): Promise<void> {
     return this.service.remove(id);
   }
@@ -70,10 +94,20 @@ export class OpportunitiesController {
   // ── Verification Workflow ─────────────────────────────────────────────────
 
   @Post(':id/submit-for-review')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(
+    UserRole.STEWARD,
+    UserRole.ORGANIZATION_REPRESENTATIVE,
+    UserRole.BUSINESS_REPRESENTATIVE,
+    UserRole.PLATFORM_ADMINISTRATOR,
+  )
+  @ApiBearerAuth()
   @ApiOperation({ summary: 'Submit DRAFT → PENDING_REVIEW' })
   @ApiParam({ name: 'id', description: 'Opportunity UUID' })
   @ApiBody({ schema: { properties: { submittedById: { type: 'string' } }, required: ['submittedById'] } })
   @ApiResponse({ status: 200, type: OpportunityResponseDto })
+  @ApiResponse({ status: 401, description: 'Missing or invalid access token' })
+  @ApiResponse({ status: 403, description: 'Caller does not hold a required role' })
   submitForReview(
     @Param('id') id: string,
     @Body('submittedById') submittedById: string,
@@ -82,9 +116,14 @@ export class OpportunitiesController {
   }
 
   @Post(':id/verify')
-  @ApiOperation({ summary: 'Verify PENDING_REVIEW → VERIFIED (Admin only)' })
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.STEWARD, UserRole.PLATFORM_ADMINISTRATOR)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Verify PENDING_REVIEW → VERIFIED (Steward / Admin only)' })
   @ApiParam({ name: 'id', description: 'Opportunity UUID' })
   @ApiResponse({ status: 200, type: OpportunityResponseDto })
+  @ApiResponse({ status: 401, description: 'Missing or invalid access token' })
+  @ApiResponse({ status: 403, description: 'Caller does not hold a required role' })
   verify(
     @Param('id') id: string,
     @Body() dto: VerifyOpportunityDto,
@@ -93,9 +132,14 @@ export class OpportunitiesController {
   }
 
   @Post(':id/reject')
-  @ApiOperation({ summary: 'Reject PENDING_REVIEW → REJECTED (Admin only)' })
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.STEWARD, UserRole.PLATFORM_ADMINISTRATOR)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Reject PENDING_REVIEW → REJECTED (Steward / Admin only)' })
   @ApiParam({ name: 'id', description: 'Opportunity UUID' })
   @ApiResponse({ status: 200, type: OpportunityResponseDto })
+  @ApiResponse({ status: 401, description: 'Missing or invalid access token' })
+  @ApiResponse({ status: 403, description: 'Caller does not hold a required role' })
   reject(
     @Param('id') id: string,
     @Body() dto: RejectOpportunityDto,
@@ -104,10 +148,15 @@ export class OpportunitiesController {
   }
 
   @Post(':id/archive')
-  @ApiOperation({ summary: 'Archive an opportunity' })
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.STEWARD, UserRole.PLATFORM_ADMINISTRATOR)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Archive an opportunity (Steward / Admin)' })
   @ApiParam({ name: 'id', description: 'Opportunity UUID' })
   @ApiBody({ schema: { properties: { archivedById: { type: 'string' } }, required: ['archivedById'] } })
   @ApiResponse({ status: 200, type: OpportunityResponseDto })
+  @ApiResponse({ status: 401, description: 'Missing or invalid access token' })
+  @ApiResponse({ status: 403, description: 'Caller does not hold a required role' })
   archive(
     @Param('id') id: string,
     @Body('archivedById') archivedById: string,

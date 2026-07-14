@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { AuthGuardsModule } from '../auth/auth-guards.module';
 import { OpportunitiesController } from './opportunities.controller';
 import { OpportunitiesService } from './opportunities.service';
 import { PrismaOpportunityRepository } from './repositories/prisma-opportunity.repository';
@@ -10,6 +11,7 @@ import { PrismaSavedOpportunityRepository } from './saved/repositories/prisma-sa
 import { SAVED_OPPORTUNITY_REPOSITORY } from './saved/repositories/saved-opportunity.repository.interface';
 
 @Module({
+  imports: [AuthGuardsModule],
   controllers: [OpportunitiesController, SavedOpportunitiesController],
   providers: [
     OpportunitiesService,

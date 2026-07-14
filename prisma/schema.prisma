@@ -19,6 +19,18 @@ enum UserStatus {
   SUSPENDED
 }
 
+// Canonical roles per PA-003 (User Types & Roles) and PA-018 (Permissions & Access
+// Architecture). A user may hold multiple roles simultaneously.
+enum UserRole {
+  MEMBER
+  STEWARD
+  ORGANIZATION_REPRESENTATIVE
+  BUSINESS_REPRESENTATIVE
+  PLATFORM_ADMINISTRATOR
+  SYSTEM_ADMINISTRATOR
+  AI_SERVICE_ACCOUNT
+}
+
 enum GoalStatus {
   ACTIVE
   PAUSED
@@ -61,13 +73,61 @@ model User {
   id            String     @id @default(uuid()) @db.Uuid
   email         String     // Uniqueness enforced by partial index (migration 004)
   emailVerified Boolean    @default(false)
+  passwordHash  String?    // Nullable: pre-existing/imported users have no credential yet
+  roles         UserRole[] @default([MEMBER])
   status        UserStatus @default(ACTIVE)
   createdAt     DateTime   @default(now())
   updatedAt     DateTime   @updatedAt
   deletedAt     DateTime?
 
-  profile Profile?
-  goals   Goal[]
+  profile                Profile?
+  goals                  Goal[]
+  refreshTokens          RefreshToken[]
+  passwordResetTokens    PasswordResetToken[]
+  emailVerificationTokens EmailVerificationToken[]
+}
+
+// ===========================================================================
+// Authentication & Identity Access Management
+// (OAS-SEC-003, PA-018 — Identity lifecycle, credential protection)
+// ===========================================================================
+
+// Refresh tokens are stored hashed (never plaintext) and rotated on use.
+model RefreshToken {
+  id         String    @id @default(uuid()) @db.Uuid
+  tokenHash  String    @unique
+  userId     String    @db.Uuid
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt  DateTime
+  revokedAt  DateTime?
+  replacedByTokenHash String?
+  createdAt  DateTime  @default(now())
+
+  @@index([userId])
+}
+
+model PasswordResetToken {
+  id        String    @id @default(uuid()) @db.Uuid
+  tokenHash String    @unique
+  userId    String    @db.Uuid
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId])
+}
+
+model EmailVerificationToken {
+  id        String    @id @default(uuid()) @db.Uuid
+  tokenHash String    @unique
+  userId    String    @db.Uuid
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId])
 }
 
 // ===========================================================================

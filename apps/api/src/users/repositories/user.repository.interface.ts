@@ -1,4 +1,4 @@
-import { User, UserStatus } from '@prisma/client';
+import { User, UserRole, UserStatus } from '@prisma/client';
 
 /** DI injection token — string constant avoids Symbol serialisation issues. */
 export const USER_REPOSITORY = 'USER_REPOSITORY';
@@ -11,12 +11,16 @@ export interface CreateUserInput {
   email: string;
   emailVerified?: boolean;
   status?: UserStatus;
+  passwordHash?: string;
+  roles?: UserRole[];
 }
 
 export interface UpdateUserInput {
   email?: string;
   emailVerified?: boolean;
   status?: UserStatus;
+  passwordHash?: string;
+  roles?: UserRole[];
 }
 
 export interface PaginationParams {

@@ -1,5 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { UserStatus } from '@prisma/client';
+import { UserRole, UserStatus } from '@prisma/client';
 import { PrismaUserRepository } from './prisma-user.repository';
 import { PrismaService } from '../../prisma/prisma.service';
 import type { User } from '@prisma/client';
@@ -14,6 +14,8 @@ const makeUser = (overrides: Partial<User> = {}): User => ({
   id: 'uuid-001',
   email: 'alice@example.com',
   emailVerified: false,
+  passwordHash: null,
+  roles: [UserRole.MEMBER],
   status: UserStatus.ACTIVE,
   createdAt: NOW,
   updatedAt: NOW,
