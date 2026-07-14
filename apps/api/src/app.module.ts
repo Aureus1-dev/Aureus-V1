@@ -13,6 +13,7 @@ import { MilestonesModule } from './milestones/milestones.module';
 import { TasksModule } from './tasks/tasks.module';
 import { OpportunitiesModule } from './opportunities/opportunities.module';
 import { ResourcesModule } from './resources/resources.module';
+import { AdministrationModule } from './administration/administration.module';
 import { UserInterestsModule } from './users/interests/user-interests.module';
 import { HealthModule } from './health/health.module';
 
@@ -54,6 +55,7 @@ import { HealthModule } from './health/health.module';
     TasksModule,
     OpportunitiesModule,
     ResourcesModule,
+    AdministrationModule,
     UserInterestsModule,
     HealthModule,
   ],

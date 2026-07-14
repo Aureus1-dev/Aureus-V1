@@ -1,7 +1,7 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { IsEnum, IsInt, IsOptional, Max, Min } from 'class-validator';
 import { Type } from 'class-transformer';
-import { UserStatus } from '@prisma/client';
+import { UserRole, UserStatus } from '@prisma/client';
 
 export class ListUsersQueryDto {
   @ApiPropertyOptional({ example: 1, default: 1, description: 'Page number (1-based)' })
@@ -23,4 +23,9 @@ export class ListUsersQueryDto {
   @IsOptional()
   @IsEnum(UserStatus)
   status?: UserStatus;
+
+  @ApiPropertyOptional({ enum: UserRole, description: 'Filter to users holding this role' })
+  @IsOptional()
+  @IsEnum(UserRole)
+  role?: UserRole;
 }

@@ -118,6 +118,16 @@ describe('UsersService', () => {
       );
     });
 
+    it('should forward role filter to the repository', async () => {
+      mockRepo.findAll.mockResolvedValue({ data: [], total: 0, page: 1, limit: 20 });
+
+      await service.findAll({ role: UserRole.STEWARD });
+
+      expect(mockRepo.findAll).toHaveBeenCalledWith(
+        expect.objectContaining({ role: UserRole.STEWARD }),
+      );
+    });
+
     it('should default page=1 and limit=20 when not provided', async () => {
       mockRepo.findAll.mockResolvedValue({ data: [], total: 0, page: 1, limit: 20 });
 

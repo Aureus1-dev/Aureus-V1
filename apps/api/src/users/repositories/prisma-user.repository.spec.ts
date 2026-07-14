@@ -191,6 +191,19 @@ describe('PrismaUserRepository', () => {
       );
     });
 
+    it('should forward an optional role filter using array containment', async () => {
+      userDelegate.findMany.mockResolvedValue([]);
+      userDelegate.count.mockResolvedValue(0);
+
+      await repo.findAll({ page: 1, limit: 20, role: UserRole.STEWARD });
+
+      expect(userDelegate.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({ roles: { has: UserRole.STEWARD } }),
+        }),
+      );
+    });
+
     it('should return a PaginatedResult with correct shape', async () => {
       const users = [makeUser()];
       userDelegate.findMany.mockResolvedValue(users);
