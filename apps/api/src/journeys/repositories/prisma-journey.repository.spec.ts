@@ -46,4 +46,20 @@ describe('PrismaJourneyRepository', () => {
     await repo.softDelete('j-001');
     expect(d.update).toHaveBeenCalledWith({ where: { id: 'j-001' }, data: { deletedAt: expect.any(Date) } });
   });
+
+  describe('findOwnerId', () => {
+    it('resolves the owner via the parent goal', async () => {
+      d.findFirst.mockResolvedValue({ goal: { userId: 'u-001' } });
+      expect(await repo.findOwnerId('j-001')).toBe('u-001');
+      expect(d.findFirst).toHaveBeenCalledWith({
+        where: { id: 'j-001', deletedAt: null },
+        select: { goal: { select: { userId: true } } },
+      });
+    });
+
+    it('returns null when the journey does not exist', async () => {
+      d.findFirst.mockResolvedValue(null);
+      expect(await repo.findOwnerId('missing')).toBeNull();
+    });
+  });
 });

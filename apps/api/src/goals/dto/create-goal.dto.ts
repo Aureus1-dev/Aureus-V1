@@ -8,9 +8,13 @@ export class CreateGoalDto {
   @MinLength(1)
   title: string;
 
-  @ApiProperty({ example: '550e8400-e29b-41d4-a716-446655440000', description: 'Owner user ID' })
+  @ApiPropertyOptional({
+    example: '550e8400-e29b-41d4-a716-446655440000',
+    description: 'Owner user ID. Defaults to the caller. Only a Platform/System Administrator may set this to a different user.',
+  })
+  @IsOptional()
   @IsUUID()
-  userId: string;
+  userId?: string;
 
   @ApiPropertyOptional({ enum: GoalStatus, default: GoalStatus.ACTIVE })
   @IsOptional()

@@ -46,4 +46,12 @@ export class PrismaTaskRepository implements ITaskRepository {
   async softDelete(id: string): Promise<Task> {
     return this.prisma.db.task.update({ where: { id }, data: { deletedAt: new Date() } });
   }
+
+  async findOwnerId(id: string): Promise<string | null> {
+    const task = await this.prisma.db.task.findFirst({
+      where: { id, deletedAt: null },
+      select: { milestone: { select: { journey: { select: { goal: { select: { userId: true } } } } } } },
+    });
+    return task?.milestone.journey.goal.userId ?? null;
+  }
 }

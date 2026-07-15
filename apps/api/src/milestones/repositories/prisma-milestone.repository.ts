@@ -47,4 +47,12 @@ export class PrismaMilestoneRepository implements IMilestoneRepository {
   async softDelete(id: string): Promise<Milestone> {
     return this.prisma.db.milestone.update({ where: { id }, data: { deletedAt: new Date() } });
   }
+
+  async findOwnerId(id: string): Promise<string | null> {
+    const milestone = await this.prisma.db.milestone.findFirst({
+      where: { id, deletedAt: null },
+      select: { journey: { select: { goal: { select: { userId: true } } } } },
+    });
+    return milestone?.journey.goal.userId ?? null;
+  }
 }
