@@ -17,6 +17,7 @@ import { OrganizationsModule } from './organizations/organizations.module';
 import { StewardshipModule } from './stewardship/stewardship.module';
 import { CommunicationModule } from './communication/communication.module';
 import { KnowledgeModule } from './knowledge/knowledge.module';
+import { AcademyModule } from './academy/academy.module';
 import { AdministrationModule } from './administration/administration.module';
 import { UserInterestsModule } from './users/interests/user-interests.module';
 import { HealthModule } from './health/health.module';
@@ -74,6 +75,7 @@ import { HealthModule } from './health/health.module';
     StewardshipModule,
     CommunicationModule,
     KnowledgeModule,
+    AcademyModule,
     AdministrationModule,
     UserInterestsModule,
     HealthModule,

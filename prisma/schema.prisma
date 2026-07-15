@@ -94,6 +94,8 @@ model User {
   announcementsAsSteward  Announcement[]            @relation("AnnouncementSteward")
   conversationMemberships ConversationParticipant[]
   sentMessages            Message[]
+  enrollments             Enrollment[]
+  certifications          Certification[]
 }
 
 // ===========================================================================
@@ -582,6 +584,7 @@ model Organization {
   members       OrganizationMember[]
   announcements Announcement[]
   conversations Conversation[]
+  courses       Course[]
 
   @@index([organizationType])
   @@index([verificationStatus])
@@ -1152,7 +1155,8 @@ model KnowledgeArticle {
   updatedAt       DateTime  @updatedAt
   deletedAt       DateTime?
 
-  revisions KnowledgeArticleRevision[]
+  revisions      KnowledgeArticleRevision[]
+  relatedLessons Lesson[]
 
   @@index([category])
   @@index([verificationStatus])
@@ -1185,4 +1189,325 @@ model KnowledgeArticleRevision {
 
   @@unique([articleId, versionNumber])
   @@index([articleId])
+}
+
+// ===========================================================================
+// Academy Enums (PA-010)
+// ===========================================================================
+
+// Shared Draft/Active/Archived lifecycle for Course and LearningPath — the
+// same shape as KnowledgeArticleStatus/ResourceStatus, named generically
+// since two Academy entities share it (ADR-014).
+enum AcademyContentStatus {
+  DRAFT
+  ACTIVE
+  ARCHIVED
+}
+
+enum LearningDomain {
+  PERSONAL_DEVELOPMENT
+  FINANCIAL_LITERACY
+  CAREER_READINESS
+  ENTREPRENEURSHIP
+  LEADERSHIP
+  TECHNOLOGY_AND_AI
+  HEALTH_AND_WELLBEING
+  CIVIC_AND_COMMUNITY_ENGAGEMENT
+  STEWARDSHIP
+  MISSION_SPECIFIC_PROGRAMS
+}
+
+enum EnrollmentStatus {
+  ACTIVE
+  COMPLETED
+  ABANDONED
+}
+
+enum LessonProgressStatus {
+  NOT_STARTED
+  IN_PROGRESS
+  COMPLETED
+}
+
+enum MediaType {
+  VIDEO
+  DOCUMENT
+  IMAGE
+  AUDIO
+  ATTACHMENT
+}
+
+// ===========================================================================
+// Course  —  Core Academy model (PA-010). Reuses the shared VerificationStatus
+// verification workflow verbatim (Resources/Opportunities/Organizations/
+// Knowledge — a fifth domain now sharing this pattern), plus a `version`
+// counter and CourseRevision pre-edit snapshots (identical shape to
+// KnowledgeArticle/KnowledgeArticleRevision, ADR-013) for "versioned
+// curriculum." `organizationId` is an optional Business Portal integration
+// point (attribution only — course authority remains Steward/Admin-only
+// per the founder's WO-026 canonical decision, unlike Resources/Knowledge's
+// broader creator set).
+// ===========================================================================
+
+model Course {
+  id             String  @id @default(uuid()) @db.Uuid
+  sequenceNumber Int     @unique @default(autoincrement())
+  courseRef      String? @unique // AUR-CRS-000001, set after insert
+
+  title                    String
+  shortDescription         String
+  fullDescription          String
+  learningDomain           LearningDomain
+  estimatedDurationMinutes Int?
+
+  status             AcademyContentStatus @default(DRAFT)
+  verificationStatus VerificationStatus   @default(DRAFT)
+  rejectionReason    String?
+
+  version             Int     @default(1)
+  grantsCertification Boolean @default(false)
+
+  // Optional Business Portal integration — attribution only.
+  organizationId String?       @db.Uuid
+  organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+
+  authorId        String    @db.Uuid
+  lastUpdatedById String    @db.Uuid
+  datePublished   DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  deletedAt       DateTime?
+
+  modules             Module[]
+  revisions           CourseRevision[]
+  learningPathCourses LearningPathCourse[]
+  enrollments         Enrollment[]
+  certifications       Certification[]
+  media                CourseMedia[]
+
+  @@index([learningDomain])
+  @@index([verificationStatus])
+  @@index([status])
+  @@index([authorId])
+  @@index([organizationId])
+  @@index([createdAt])
+}
+
+model CourseRevision {
+  id               String   @id @default(uuid()) @db.Uuid
+  courseId         String   @db.Uuid
+  course           Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  versionNumber    Int
+  title            String
+  shortDescription String
+  fullDescription  String
+  editedById       String   @db.Uuid
+  createdAt        DateTime @default(now())
+
+  @@unique([courseId, versionNumber])
+  @@index([courseId])
+}
+
+// ===========================================================================
+// Module / Lesson  —  A Course's structural content tree. `Lesson.
+// relatedArticleId` is an optional Knowledge System integration point
+// (supplementary reading), validated against a real KnowledgeArticle row.
+// ===========================================================================
+
+model Module {
+  id          String   @id @default(uuid()) @db.Uuid
+  courseId    String   @db.Uuid
+  course      Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  title       String
+  description String?
+  position    Int
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  lessons Lesson[]
+
+  @@index([courseId])
+}
+
+model Lesson {
+  id                       String  @id @default(uuid()) @db.Uuid
+  moduleId                 String  @db.Uuid
+  module                   Module  @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+  title                    String
+  content                  String
+  position                 Int
+  estimatedDurationMinutes Int?
+
+  relatedArticleId String?           @db.Uuid
+  relatedArticle   KnowledgeArticle? @relation(fields: [relatedArticleId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  progress LessonProgress[]
+  media    CourseMedia[]
+
+  @@index([moduleId])
+  @@index([relatedArticleId])
+}
+
+// ===========================================================================
+// LearningPath  —  A curated, ordered sequence of Courses (PA-010). Enrollment
+// and completion are Course-scoped only in this foundation, not LearningPath-
+// scoped — a LearningPath is a discovery/curation structure a member browses
+// and works through course-by-course; see ADR-014 for the deferred
+// path-level-progress-aggregation Future Extension Point.
+// ===========================================================================
+
+model LearningPath {
+  id             String  @id @default(uuid()) @db.Uuid
+  sequenceNumber Int     @unique @default(autoincrement())
+  pathRef        String? @unique // AUR-LP-000001, set after insert
+
+  title            String
+  shortDescription String
+  fullDescription  String
+
+  status             AcademyContentStatus @default(DRAFT)
+  verificationStatus VerificationStatus   @default(DRAFT)
+  rejectionReason    String?
+
+  authorId        String    @db.Uuid
+  lastUpdatedById String    @db.Uuid
+  datePublished   DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  deletedAt       DateTime?
+
+  pathCourses LearningPathCourse[]
+
+  @@index([verificationStatus])
+  @@index([status])
+  @@index([authorId])
+}
+
+model LearningPathCourse {
+  id             String       @id @default(uuid()) @db.Uuid
+  learningPathId String       @db.Uuid
+  learningPath   LearningPath @relation(fields: [learningPathId], references: [id], onDelete: Cascade)
+  courseId       String       @db.Uuid
+  course         Course       @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  position       Int
+  createdAt      DateTime     @default(now())
+
+  @@unique([learningPathId, courseId])
+  @@index([learningPathId])
+  @@index([courseId])
+}
+
+// ===========================================================================
+// Enrollment / LessonProgress  —  A member's (or steward's) participation in
+// a Course. Real FK to User: a genuine relationship, mirroring the
+// StewardshipRelationship/ConversationParticipant precedent, not an audit
+// pointer. `Enrollment` auto-completes when every Lesson in the Course
+// reaches COMPLETED (ADR-014).
+// ===========================================================================
+
+model Enrollment {
+  id       String           @id @default(uuid()) @db.Uuid
+  userId   String           @db.Uuid
+  user     User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  courseId String           @db.Uuid
+  course   Course           @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  status   EnrollmentStatus @default(ACTIVE)
+
+  enrolledAt  DateTime  @default(now())
+  completedAt DateTime?
+  updatedAt   DateTime  @updatedAt
+
+  lessonProgress LessonProgress[]
+
+  @@unique([userId, courseId])
+  @@index([userId])
+  @@index([courseId])
+}
+
+model LessonProgress {
+  id           String               @id @default(uuid()) @db.Uuid
+  enrollmentId String               @db.Uuid
+  enrollment   Enrollment           @relation(fields: [enrollmentId], references: [id], onDelete: Cascade)
+  lessonId     String               @db.Uuid
+  lesson       Lesson               @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+  status       LessonProgressStatus @default(NOT_STARTED)
+
+  startedAt   DateTime?
+  completedAt DateTime?
+  updatedAt   DateTime  @updatedAt
+
+  @@unique([enrollmentId, lessonId])
+  @@index([enrollmentId])
+  @@index([lessonId])
+}
+
+// ===========================================================================
+// Certification  —  Steward certification foundation (PA-010). Auto-issued
+// when a Course with `grantsCertification: true` is completed. A minimal,
+// genuinely functional foundation — no renewal/expiration/external-
+// verification logic yet (ADR-014 Known Limitations).
+// ===========================================================================
+
+model Certification {
+  id             String   @id @default(uuid()) @db.Uuid
+  sequenceNumber Int      @unique @default(autoincrement())
+  userId         String   @db.Uuid
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  courseId       String   @db.Uuid
+  course         Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  certificateRef String?  @unique // AUR-CERT-000001, set after insert
+  issuedAt       DateTime @default(now())
+
+  @@unique([userId, courseId])
+  @@index([userId])
+}
+
+// ===========================================================================
+// MediaAsset / CourseMedia  —  Steward Content Studio (PA-010, part of
+// Academy per the founder's canonical decision, not a standalone domain).
+// `storageRef` is an opaque pointer (key/URL) — a storage abstraction only;
+// no cloud storage provider is implemented in this WO (ADR-014 Decision 5).
+// ===========================================================================
+
+model MediaAsset {
+  id             String  @id @default(uuid()) @db.Uuid
+  sequenceNumber Int     @unique @default(autoincrement())
+  mediaRef       String? @unique // AUR-MED-000001, set after insert
+
+  type        MediaType
+  title       String
+  description String?
+  storageRef  String
+  mimeType    String?
+  sizeBytes   Int?
+  durationSeconds Int?
+
+  uploadedById String    @db.Uuid
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  deletedAt    DateTime?
+
+  courseMedia CourseMedia[]
+
+  @@index([type])
+  @@index([uploadedById])
+}
+
+model CourseMedia {
+  id           String     @id @default(uuid()) @db.Uuid
+  courseId     String     @db.Uuid
+  course       Course     @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  lessonId     String?    @db.Uuid
+  lesson       Lesson?    @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+  mediaAssetId String     @db.Uuid
+  mediaAsset   MediaAsset @relation(fields: [mediaAssetId], references: [id], onDelete: Cascade)
+  position     Int        @default(0)
+  createdAt    DateTime   @default(now())
+
+  @@index([courseId])
+  @@index([lessonId])
+  @@index([mediaAssetId])
 }
