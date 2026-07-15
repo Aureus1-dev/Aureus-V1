@@ -7,6 +7,7 @@ import * as bcrypt from 'bcryptjs';
 import { AuthService } from './auth.service';
 import { IUserRepository, USER_REPOSITORY } from '../users/repositories/user.repository.interface';
 import { IAuthRepository, AUTH_REPOSITORY } from './repositories/auth.repository.interface';
+import { IEmailService, EMAIL_SERVICE } from '../email/email.service.interface';
 import type { User, RefreshToken, PasswordResetToken, EmailVerificationToken } from '@prisma/client';
 
 const NOW = new Date('2026-01-01T00:00:00.000Z');
@@ -46,6 +47,11 @@ const mockAuthRepo: jest.Mocked<IAuthRepository> = {
   markEmailVerificationTokenUsed: jest.fn(),
 };
 
+const mockEmailService: jest.Mocked<IEmailService> = {
+  sendEmailVerification: jest.fn(),
+  sendPasswordReset: jest.fn(),
+};
+
 const mockJwt = { signAsync: jest.fn().mockResolvedValue('signed.jwt.token') } as unknown as JwtService;
 
 const mockConfig = {
@@ -67,6 +73,7 @@ describe('AuthService', () => {
         AuthService,
         { provide: USER_REPOSITORY, useValue: mockUserRepo },
         { provide: AUTH_REPOSITORY, useValue: mockAuthRepo },
+        { provide: EMAIL_SERVICE, useValue: mockEmailService },
         { provide: JwtService, useValue: mockJwt },
         { provide: ConfigService, useValue: mockConfig },
       ],
@@ -94,6 +101,10 @@ describe('AuthService', () => {
       expect(createCall.passwordHash).not.toBe('Str0ngPassw0rd');
       expect(await bcrypt.compare('Str0ngPassw0rd', createCall.passwordHash!)).toBe(true);
       expect(mockAuthRepo.createEmailVerificationToken).toHaveBeenCalled();
+      expect(mockEmailService.sendEmailVerification).toHaveBeenCalledWith(
+        'alice@example.com',
+        expect.any(String),
+      );
       expect(result.tokens.accessToken).toBe('signed.jwt.token');
       expect(result.tokens.refreshToken).toBeDefined();
       expect(result.user.email).toBe('alice@example.com');
@@ -228,12 +239,13 @@ describe('AuthService', () => {
   // ── forgotPassword ────────────────────────────────────────────────────
 
   describe('forgotPassword', () => {
-    it('issues a reset token when the email exists', async () => {
+    it('issues a reset token and emails it when the email exists', async () => {
       mockUserRepo.findByEmail.mockResolvedValue(makeUser());
 
       await service.forgotPassword({ email: 'alice@example.com' });
 
       expect(mockAuthRepo.createPasswordResetToken).toHaveBeenCalled();
+      expect(mockEmailService.sendPasswordReset).toHaveBeenCalledWith('alice@example.com', expect.any(String));
     });
 
     it('does not reveal whether the email exists', async () => {
@@ -241,6 +253,7 @@ describe('AuthService', () => {
 
       await expect(service.forgotPassword({ email: 'ghost@example.com' })).resolves.toBeUndefined();
       expect(mockAuthRepo.createPasswordResetToken).not.toHaveBeenCalled();
+      expect(mockEmailService.sendPasswordReset).not.toHaveBeenCalled();
     });
   });
 

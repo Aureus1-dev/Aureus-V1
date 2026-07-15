@@ -32,6 +32,17 @@ import { HealthModule } from './health/health.module';
         JWT_ACCESS_SECRET:      Joi.string().min(32).required(),
         JWT_ACCESS_EXPIRY:      Joi.string().default('15m'),
         JWT_REFRESH_EXPIRY_DAYS: Joi.number().default(30),
+
+        // ── Email delivery (ADR-009) ─────────────────────────────────────────
+        // SMTP_HOST is intentionally optional: unset (local dev, CI) falls back
+        // to nodemailer's jsonTransport, which captures rather than delivers.
+        SMTP_HOST:       Joi.string().optional(),
+        SMTP_PORT:       Joi.number().default(587),
+        SMTP_SECURE:     Joi.boolean().default(false),
+        SMTP_USER:       Joi.string().optional(),
+        SMTP_PASSWORD:   Joi.string().optional(),
+        SMTP_FROM_EMAIL: Joi.string().default('no-reply@aureus.app'),
+        FRONTEND_URL:    Joi.string().default('http://localhost:3001'),
       }),
     }),
 

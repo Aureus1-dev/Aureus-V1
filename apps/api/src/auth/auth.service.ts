@@ -24,6 +24,7 @@ import { VerifyEmailDto } from './dto/verify-email.dto';
 import { IAuthRepository, AUTH_REPOSITORY } from './repositories/auth.repository.interface';
 import { generateOpaqueToken, hashOpaqueToken } from './token.util';
 import { JwtPayload } from './strategies/jwt.strategy';
+import { IEmailService, EMAIL_SERVICE } from '../email/email.service.interface';
 
 const BCRYPT_SALT_ROUNDS = 12;
 const PASSWORD_RESET_TTL_MINUTES = 30;
@@ -36,6 +37,7 @@ export class AuthService {
   constructor(
     @Inject(USER_REPOSITORY) private readonly users: IUserRepository,
     @Inject(AUTH_REPOSITORY) private readonly authRepo: IAuthRepository,
+    @Inject(EMAIL_SERVICE) private readonly emailService: IEmailService,
     private readonly jwt: JwtService,
     private readonly config: ConfigService,
   ) {}
@@ -126,10 +128,10 @@ export class AuthService {
     const expiresAt = new Date(Date.now() + PASSWORD_RESET_TTL_MINUTES * 60_000);
     await this.authRepo.createPasswordResetToken({ userId: user.id, tokenHash, expiresAt });
 
-    // No email delivery infrastructure exists yet (tracked as follow-up WO).
-    // The token is logged, matching the structured-logging precedent set by
-    // the Opportunity Engine (ADR-004) for V1 audit/operational visibility.
-    this.logger.log(`Password reset token issued for ${user.id}: ${token}`);
+    await this.emailService.sendPasswordReset(user.email, token);
+    // The plaintext token is never logged (ADR-009) — it is a live credential
+    // once issued, and logs are a broader-access surface than the recipient's inbox.
+    this.logger.log(`Password reset token issued and emailed for ${user.id}`);
   }
 
   async resetPassword(dto: ResetPasswordDto): Promise<void> {
@@ -169,7 +171,8 @@ export class AuthService {
     const { token, tokenHash } = generateOpaqueToken();
     const expiresAt = new Date(Date.now() + EMAIL_VERIFICATION_TTL_HOURS * 3_600_000);
     await this.authRepo.createEmailVerificationToken({ userId, tokenHash, expiresAt });
-    this.logger.log(`Email verification token issued for ${email}: ${token}`);
+    await this.emailService.sendEmailVerification(email, token);
+    this.logger.log(`Email verification token issued and emailed for ${email}`);
   }
 
   // ── Token issuance ───────────────────────────────────────────────────
