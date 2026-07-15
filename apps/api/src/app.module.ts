@@ -18,6 +18,7 @@ import { StewardshipModule } from './stewardship/stewardship.module';
 import { CommunicationModule } from './communication/communication.module';
 import { KnowledgeModule } from './knowledge/knowledge.module';
 import { AcademyModule } from './academy/academy.module';
+import { AiModule } from './ai/ai.module';
 import { AdministrationModule } from './administration/administration.module';
 import { UserInterestsModule } from './users/interests/user-interests.module';
 import { HealthModule } from './health/health.module';
@@ -48,6 +49,17 @@ import { HealthModule } from './health/health.module';
         SMTP_PASSWORD:   Joi.string().optional(),
         SMTP_FROM_EMAIL: Joi.string().default('no-reply@aureus.app'),
         FRONTEND_URL:    Joi.string().default('http://localhost:3001'),
+
+        // ── AI Intelligence Engine (ADR-015) ─────────────────────────────────
+        // AI_PROVIDER defaults to 'stub': unset (local dev, CI, this
+        // environment) falls back to a deterministic local completion, never
+        // an external network call — mirrors SMTP_HOST's optional-with-safe-
+        // fallback shape above.
+        AI_PROVIDER:        Joi.string().valid('openai', 'anthropic', 'stub').default('stub'),
+        OPENAI_API_KEY:     Joi.string().optional(),
+        OPENAI_MODEL:       Joi.string().default('gpt-4o-mini'),
+        ANTHROPIC_API_KEY:  Joi.string().optional(),
+        ANTHROPIC_MODEL:    Joi.string().default('claude-3-5-haiku-20241022'),
       }),
     }),
 
@@ -76,6 +88,7 @@ import { HealthModule } from './health/health.module';
     CommunicationModule,
     KnowledgeModule,
     AcademyModule,
+    AiModule,
     AdministrationModule,
     UserInterestsModule,
     HealthModule,
