@@ -89,6 +89,11 @@ model User {
   stewardCapacity         StewardCapacity?
   stewardshipAsMember     StewardshipRelationship[] @relation("StewardshipRelationshipMember")
   stewardshipAsSteward    StewardshipRelationship[] @relation("StewardshipRelationshipSteward")
+  notifications           Notification[]
+  notificationPreferences NotificationPreference[]
+  announcementsAsSteward  Announcement[]            @relation("AnnouncementSteward")
+  conversationMemberships ConversationParticipant[]
+  sentMessages            Message[]
 }
 
 // ===========================================================================
@@ -574,7 +579,9 @@ model Organization {
   updatedAt       DateTime  @updatedAt
   deletedAt       DateTime?
 
-  members OrganizationMember[]
+  members       OrganizationMember[]
+  announcements Announcement[]
+  conversations Conversation[]
 
   @@index([organizationType])
   @@index([verificationStatus])
@@ -723,6 +730,7 @@ model StewardshipRelationship {
   tasks           StewardshipTask[]
   recommendations StewardshipRecommendation[]
   escalations     StewardshipEscalation[]
+  conversation    Conversation?
 
   @@index([memberId])
   @@index([stewardId])
@@ -818,4 +826,264 @@ model StewardshipEscalation {
 
   @@index([relationshipId])
   @@index([status])
+}
+
+// ===========================================================================
+// Communication System Enums (PA-015)
+// ===========================================================================
+
+// The coarse "what is this about" classification, doubling as the
+// integration-source domain (Notification.type carries the fine-grained,
+// free-text event key so future domains never need an enum migration to add
+// a new notification kind — see ADR-012 Decision 2).
+enum NotificationCategory {
+  ACCOUNT
+  STEWARDSHIP
+  JOURNEY
+  OPPORTUNITY
+  RESOURCE
+  ORGANIZATION
+  ANNOUNCEMENT
+  MESSAGE
+  SYSTEM
+  ACADEMY
+  POD
+  AI_GUIDANCE
+}
+
+enum DeliveryChannel {
+  IN_APP
+  EMAIL
+}
+
+// DELIVERED is only ever set for IN_APP (persistence itself is the honest
+// delivery confirmation); EMAIL tops out at SENT — there is no delivery
+// webhook yet, so EMAIL never fabricates DELIVERED (ADR-012 Decision 6).
+enum DeliveryStatus {
+  PENDING
+  SENT
+  DELIVERED
+  FAILED
+  SKIPPED
+}
+
+enum AnnouncementScope {
+  PLATFORM
+  ORGANIZATION
+  ROLE
+  STEWARD_MEMBERS
+}
+
+enum AnnouncementStatus {
+  DRAFT
+  SCHEDULED
+  PUBLISHED
+  EXPIRED
+  ARCHIVED
+}
+
+enum ConversationType {
+  STEWARDSHIP
+  ORGANIZATION
+}
+
+// Reserved for forward compatibility with a future external delivery
+// channel; every V1 message is in-app and synchronously persisted, so SENT
+// is the only value ever actually written (ADR-012 Decision 5).
+enum MessageStatus {
+  SENT
+  DELIVERED
+  FAILED
+}
+
+// ===========================================================================
+// Notification  —  In-app notification delivered to a single recipient
+// (PA-015). `category` is the coarse classification; `type` is a free-text,
+// dot-namespaced event key (e.g. "stewardship.relationship.activated") so
+// any current or future domain can mint new notification kinds without a
+// schema migration. `dedupeKey`, when supplied by the calling domain, gives
+// the integration point (NotificationsService.notify()) DB-enforced
+// idempotency against retried domain-event delivery.
+// ===========================================================================
+
+model Notification {
+  id          String               @id @default(uuid()) @db.Uuid
+  recipientId String               @db.Uuid
+  recipient   User                 @relation(fields: [recipientId], references: [id], onDelete: Cascade)
+  category    NotificationCategory
+  type        String
+  title       String
+  body        String
+  data        Json?
+  actorId     String?              @db.Uuid
+  dedupeKey   String?
+  readAt      DateTime?
+  archivedAt  DateTime?
+  expiresAt   DateTime?
+  createdAt   DateTime             @default(now())
+
+  deliveries NotificationDelivery[]
+
+  @@unique([recipientId, dedupeKey])
+  @@index([recipientId, readAt])
+  @@index([recipientId, createdAt])
+  @@index([category])
+}
+
+// ===========================================================================
+// NotificationDelivery  —  Per-channel delivery attempt/status record for a
+// Notification (PA-015 §Delivery Tracking). The unique constraint on
+// [notificationId, channel] is what makes a repeated send request a no-op
+// rather than a duplicate send (ADR-012 Decision 6).
+// ===========================================================================
+
+model NotificationDelivery {
+  id             String          @id @default(uuid()) @db.Uuid
+  notificationId String          @db.Uuid
+  notification   Notification    @relation(fields: [notificationId], references: [id], onDelete: Cascade)
+  channel        DeliveryChannel
+  status         DeliveryStatus  @default(PENDING)
+  attempts       Int             @default(0)
+  lastAttemptAt  DateTime?
+  deliveredAt    DateTime?
+  failureReason  String?
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+
+  @@unique([notificationId, channel])
+  @@index([status])
+}
+
+// ===========================================================================
+// NotificationPreference  —  Per-user, per-category channel preferences
+// (PA-015 §Communication Preferences). Absence of a row for a given
+// [userId, category] means the secure default (both channels enabled)
+// applies — rows only exist once a user has customized a category. SYSTEM
+// category's inAppEnabled cannot be set false (enforced in the service, not
+// the schema) — the platform's one non-disableable channel, per PA-015's
+// "Override member communication preferences except for critical platform
+// or safety notifications" boundary. digestEnabled/quietHours* are a stored
+// foundation for a future scheduled-digest capability; nothing reads them
+// yet (ADR-012 Decision 4).
+// ===========================================================================
+
+model NotificationPreference {
+  id              String               @id @default(uuid()) @db.Uuid
+  userId          String               @db.Uuid
+  user            User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  category        NotificationCategory
+  inAppEnabled    Boolean              @default(true)
+  emailEnabled    Boolean              @default(true)
+  digestEnabled   Boolean              @default(false)
+  quietHoursStart Int?
+  quietHoursEnd   Int?
+  createdAt       DateTime             @default(now())
+  updatedAt       DateTime             @updatedAt
+
+  @@unique([userId, category])
+}
+
+// ===========================================================================
+// Announcement  —  Platform/organization/role/steward-audience broadcast
+// (PA-015 §Announcements). Exactly one of organizationId/targetRole/
+// stewardId is set, matching `scope` (enforced in the service layer, mirrors
+// StewardshipRecommendation's type/target pairing). Publishing fans out one
+// Notification per resolved recipient (ADR-012 Decision 3). `isCritical`
+// bypasses recipient ANNOUNCEMENT-category preference filtering for the
+// in-app channel only — the schema-level mechanism for PA-015's "critical
+// platform or safety notifications" carve-out.
+// ===========================================================================
+
+model Announcement {
+  id             String             @id @default(uuid()) @db.Uuid
+  title          String
+  body           String
+  scope          AnnouncementScope
+  organizationId String?            @db.Uuid
+  organization   Organization?      @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  targetRole     UserRole?
+  stewardId      String?            @db.Uuid
+  steward        User?              @relation("AnnouncementSteward", fields: [stewardId], references: [id], onDelete: Cascade)
+  status         AnnouncementStatus @default(DRAFT)
+  isCritical     Boolean            @default(false)
+  scheduledFor   DateTime?
+  publishedAt    DateTime?
+  expiresAt      DateTime?
+  archivedAt     DateTime?
+  authorId       String             @db.Uuid
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
+
+  @@index([scope])
+  @@index([status])
+  @@index([organizationId])
+}
+
+// ===========================================================================
+// Conversation  —  A messaging thread (PA-015 §Direct and Contextual
+// Messaging). STEWARDSHIP conversations are 1:1 with a StewardshipRelationship
+// (the unique `relationshipId` makes "start a conversation" idempotent —
+// get-or-create by relationship, never a duplicate thread per relationship).
+// ORGANIZATION conversations scope participants to representatives of the
+// same Organization (no member-enrollment model exists yet — mirrors
+// ADR-011 Decision 8's documented Business Portal scoping limitation).
+// ===========================================================================
+
+model Conversation {
+  id             String                   @id @default(uuid()) @db.Uuid
+  type           ConversationType
+  relationshipId String?                  @unique @db.Uuid
+  relationship   StewardshipRelationship? @relation(fields: [relationshipId], references: [id], onDelete: Cascade)
+  organizationId String?                  @db.Uuid
+  organization   Organization?            @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  lastMessageAt  DateTime?
+  createdAt      DateTime                 @default(now())
+  updatedAt      DateTime                 @updatedAt
+
+  participants ConversationParticipant[]
+  messages     Message[]
+
+  @@index([organizationId])
+}
+
+// ===========================================================================
+// ConversationParticipant  —  Explicit participant whitelist for a
+// Conversation. Authorization always checks membership in this table, never
+// re-derives it from the Conversation's type-specific scoping fields at
+// message-send time — defense in depth if a relationship/org membership
+// later changes shape (ADR-012 Decision 7). `lastReadAt` is the read-state
+// foundation ("Message status" requirement) without per-message receipts.
+// ===========================================================================
+
+model ConversationParticipant {
+  id             String       @id @default(uuid()) @db.Uuid
+  conversationId String       @db.Uuid
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  userId         String       @db.Uuid
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  lastReadAt     DateTime?
+  joinedAt       DateTime     @default(now())
+
+  @@unique([conversationId, userId])
+  @@index([userId])
+}
+
+// ===========================================================================
+// Message  —  A single message within a Conversation. `senderId` is always
+// derived from the authenticated JWT, never trusted from the request body.
+// ===========================================================================
+
+model Message {
+  id             String        @id @default(uuid()) @db.Uuid
+  conversationId String        @db.Uuid
+  conversation   Conversation  @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  senderId       String        @db.Uuid
+  sender         User          @relation(fields: [senderId], references: [id], onDelete: Cascade)
+  body           String
+  status         MessageStatus @default(SENT)
+  createdAt      DateTime      @default(now())
+  deletedAt      DateTime?
+
+  @@index([conversationId, createdAt])
+  @@index([senderId])
 }

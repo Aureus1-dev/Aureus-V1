@@ -15,6 +15,7 @@ import { OpportunitiesModule } from './opportunities/opportunities.module';
 import { ResourcesModule } from './resources/resources.module';
 import { OrganizationsModule } from './organizations/organizations.module';
 import { StewardshipModule } from './stewardship/stewardship.module';
+import { CommunicationModule } from './communication/communication.module';
 import { AdministrationModule } from './administration/administration.module';
 import { UserInterestsModule } from './users/interests/user-interests.module';
 import { HealthModule } from './health/health.module';
@@ -70,6 +71,7 @@ import { HealthModule } from './health/health.module';
     ResourcesModule,
     OrganizationsModule,
     StewardshipModule,
+    CommunicationModule,
     AdministrationModule,
     UserInterestsModule,
     HealthModule,

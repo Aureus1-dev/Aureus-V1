@@ -79,7 +79,7 @@ const mockOrgRepo: jest.Mocked<IOrganizationRepository> = {
   create: jest.fn(), setRef: jest.fn(), findById: jest.fn(), findByRef: jest.fn(), findAll: jest.fn(), update: jest.fn(), softDelete: jest.fn(),
 };
 const mockOrgMemberRepo: jest.Mocked<IOrganizationMemberRepository> = {
-  add: jest.fn(), findByOrgAndUser: jest.fn(), findByOrganization: jest.fn(), countAdmins: jest.fn(), updateRole: jest.fn(), remove: jest.fn(),
+  add: jest.fn(), findByOrgAndUser: jest.fn(), findByOrganization: jest.fn(), findByUser: jest.fn(), countAdmins: jest.fn(), updateRole: jest.fn(), remove: jest.fn(),
 };
 const mockGoalRepo: jest.Mocked<IGoalRepository> = {
   create: jest.fn(), findById: jest.fn(), findAll: jest.fn(), update: jest.fn(), softDelete: jest.fn(),

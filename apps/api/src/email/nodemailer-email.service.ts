@@ -82,6 +82,20 @@ export class NodemailerEmailService implements IEmailService, OnModuleInit {
     });
   }
 
+  async sendNotification(to: string, subject: string, body: string): Promise<void> {
+    await this.send({
+      to,
+      subject,
+      text: body,
+      html: `<!DOCTYPE html>
+<html>
+  <body style="font-family: sans-serif; color: #1a1a1a; max-width: 480px; margin: 0 auto;">
+    <p>${body}</p>
+  </body>
+</html>`,
+    });
+  }
+
   private async send(message: { to: string; subject: string; text: string; html: string }): Promise<void> {
     const info = await this.transport.sendMail({
       from: this.fromAddress,
