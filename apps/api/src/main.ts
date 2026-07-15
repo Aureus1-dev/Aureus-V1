@@ -56,6 +56,7 @@ async function bootstrap(): Promise<void> {
     .addTag('communication',  'Communication System endpoints (notifications, preferences, announcements, messaging)')
     .addTag('knowledge',      'Knowledge System endpoints (verified articles, categorization, revision history)')
     .addTag('academy',        'Academy endpoints (courses, learning paths, enrollments, certifications, Steward Content Studio media)')
+    .addTag('ai',              'AI Intelligence Engine endpoints (conversations, explanations, guidance, recommendations, request history)')
     .addTag('administration', 'Administration & Operations endpoints (role management)')
     .addTag('health',         'Liveness and readiness endpoints')
     .addBearerAuth({ type: 'http', scheme: 'bearer', bearerFormat: 'JWT' })

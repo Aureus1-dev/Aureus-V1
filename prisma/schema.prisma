@@ -96,6 +96,9 @@ model User {
   sentMessages            Message[]
   enrollments             Enrollment[]
   certifications          Certification[]
+  aiConversations         AiConversation[]
+  aiRequests              AiRequest[]
+  aiRecommendations       AiRecommendation[]
 }
 
 // ===========================================================================
@@ -350,6 +353,7 @@ model Opportunity {
 
   savedBy                    SavedOpportunity[]
   stewardshipRecommendations StewardshipRecommendation[]
+  aiRecommendations          AiRecommendation[]
 
   @@index([category])
   @@index([verificationStatus])
@@ -490,6 +494,7 @@ model Resource {
 
   savedBy                    SavedResource[]
   stewardshipRecommendations StewardshipRecommendation[]
+  aiRecommendations          AiRecommendation[]
 
   @@index([category])
   @@index([resourceType])
@@ -1284,6 +1289,7 @@ model Course {
   enrollments         Enrollment[]
   certifications       Certification[]
   media                CourseMedia[]
+  aiRecommendations     AiRecommendation[]
 
   @@index([learningDomain])
   @@index([verificationStatus])
@@ -1510,4 +1516,141 @@ model CourseMedia {
   @@index([courseId])
   @@index([lessonId])
   @@index([mediaAssetId])
+}
+
+// ===========================================================================
+// AI Intelligence Engine  —  Orchestrates the existing Aureus platform for a
+// member/steward (PA-006). NOT a general chatbot: every capability is scoped
+// to explaining/recommending against real platform data (Journeys,
+// Opportunities, Resources, Knowledge, Academy, Stewardship, Business
+// Portal). The AI never performs an irreversible action automatically — a
+// Recommendation is a suggestion record only; approving one is a status
+// flip, not an auto-executed action (ADR-015 Decision 6).
+// ===========================================================================
+
+enum AiProvider {
+  OPENAI
+  ANTHROPIC
+  STUB
+}
+
+enum AiCapability {
+  QUESTION_ANSWERING
+  RECOMMENDATION
+  OPPORTUNITY_EXPLANATION
+  RESOURCE_EXPLANATION
+  JOURNEY_GUIDANCE
+  ACADEMY_GUIDANCE
+  KNOWLEDGE_SEARCH
+}
+
+enum AiRequestStatus {
+  SUCCESS
+  FAILED
+}
+
+enum AiMessageRole {
+  USER
+  ASSISTANT
+  SYSTEM
+}
+
+enum AiRecommendationStatus {
+  PENDING
+  ACCEPTED
+  DISMISSED
+}
+
+// AiConversation / AiMessage  —  Conversation-memory abstraction for AI
+// Question Answering. Real FK to User: a genuine per-member record, not an
+// audit pointer (mirrors Enrollment/Certification, ADR-014).
+model AiConversation {
+  id     String @id @default(uuid()) @db.Uuid
+  userId String @db.Uuid
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title  String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  messages AiMessage[]
+  requests AiRequest[]
+
+  @@index([userId])
+}
+
+model AiMessage {
+  id             String         @id @default(uuid()) @db.Uuid
+  conversationId String         @db.Uuid
+  conversation   AiConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  role           AiMessageRole
+  content        String
+  createdAt      DateTime       @default(now())
+
+  @@index([conversationId])
+}
+
+// AiRequest  —  One row per provider call. Unifies "AI request history,"
+// "cost tracking," and "audit logging" into a single ledger, the same
+// reasoning as ADR-014 Decision 7's single completion/certification code
+// path: they are one event, not three independently-invoked mechanisms.
+model AiRequest {
+  id     String @id @default(uuid()) @db.Uuid
+  userId String @db.Uuid
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  conversationId String?         @db.Uuid
+  conversation   AiConversation? @relation(fields: [conversationId], references: [id], onDelete: SetNull)
+
+  capability       AiCapability
+  provider         AiProvider
+  model            String
+  promptTokens     Int
+  completionTokens Int
+  costUsd          Float
+  latencyMs        Int
+  status           AiRequestStatus
+  errorMessage     String?
+
+  createdAt DateTime @default(now())
+
+  recommendations AiRecommendation[]
+
+  @@index([userId])
+  @@index([capability])
+  @@index([createdAt])
+}
+
+// AiRecommendation  —  A suggestion the AI Engine produced. Real, nullable,
+// mutually-exclusive FKs per target type, reusing the StewardshipRecommendation
+// precedent (a fixed, small target-type set) rather than a polymorphic loose
+// pointer (ADR-015 Decision 5). Approval never triggers an automatic action —
+// the member/steward always completes the real action (enroll, save, etc.)
+// through the existing domain's own endpoints.
+model AiRecommendation {
+  id     String @id @default(uuid()) @db.Uuid
+  userId String @db.Uuid
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  opportunityId String?      @db.Uuid
+  opportunity   Opportunity? @relation(fields: [opportunityId], references: [id], onDelete: Cascade)
+  resourceId    String?      @db.Uuid
+  resource      Resource?    @relation(fields: [resourceId], references: [id], onDelete: Cascade)
+  courseId      String?      @db.Uuid
+  course        Course?      @relation(fields: [courseId], references: [id], onDelete: Cascade)
+
+  rationale String
+  status    AiRecommendationStatus @default(PENDING)
+  decidedAt DateTime?
+
+  aiRequestId String?    @db.Uuid
+  aiRequest   AiRequest? @relation(fields: [aiRequestId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([status])
+  @@index([opportunityId])
+  @@index([resourceId])
+  @@index([courseId])
 }
