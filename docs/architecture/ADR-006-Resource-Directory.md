@@ -105,3 +105,7 @@ WO-020 implements the Resource Directory as a complete, production-ready domain,
 - Normalize `Resource.organizationName` → `Resource.organizationId` once PA-011 Business Portal's `Organization` model exists.
 - Geographic search (PostGIS) for location-based resource matching, as anticipated by ADR-004's equivalent future extension point for Opportunities.
 - AI-powered resource recommendations (PA-006 AI Intelligence Engine) replacing formula-based scoring, mirroring the Opportunity Engine's stated evolution path.
+
+---
+
+**Update (WO-024, 2026-07-15):** The `Organization` model now exists (ADR-010 — Business Portal). The `Resource.organizationName` → `Resource.organizationId` normalization named above remains deliberately deferred — ADR-010 Decision 6 scoped WO-024 to the `Organization` entity and its membership only, leaving `Resource`/`Opportunity` untouched to avoid doubling that Work Order's blast radius across two already-shipped domains. This paragraph exists so the next engineer confirms the forward declaration is still accurate rather than assuming it was silently dropped.

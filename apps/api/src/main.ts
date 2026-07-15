@@ -51,6 +51,7 @@ async function bootstrap(): Promise<void> {
     .addTag('auth',           'Authentication and identity endpoints')
     .addTag('users',          'User management endpoints')
     .addTag('resources',      'Resource Directory endpoints')
+    .addTag('organizations',  'Business Portal endpoints (organization profiles and membership)')
     .addTag('administration', 'Administration & Operations endpoints (role management)')
     .addTag('health',         'Liveness and readiness endpoints')
     .addBearerAuth({ type: 'http', scheme: 'bearer', bearerFormat: 'JWT' })
