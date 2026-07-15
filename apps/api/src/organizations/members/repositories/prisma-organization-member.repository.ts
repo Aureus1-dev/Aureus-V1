@@ -24,6 +24,10 @@ export class PrismaOrganizationMemberRepository implements IOrganizationMemberRe
     });
   }
 
+  async findByUser(userId: string): Promise<OrganizationMember[]> {
+    return this.prisma.db.organizationMember.findMany({ where: { userId } });
+  }
+
   async countAdmins(organizationId: string): Promise<number> {
     return this.prisma.db.organizationMember.count({
       where: { organizationId, role: OrganizationMemberRole.ADMIN },

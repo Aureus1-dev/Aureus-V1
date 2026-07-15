@@ -42,7 +42,7 @@ const mockRepo: jest.Mocked<IOrganizationRepository> = {
 };
 
 const mockMemberRepo: jest.Mocked<IOrganizationMemberRepository> = {
-  add: jest.fn(), findByOrgAndUser: jest.fn(), findByOrganization: jest.fn(),
+  add: jest.fn(), findByOrgAndUser: jest.fn(), findByOrganization: jest.fn(), findByUser: jest.fn(),
   countAdmins: jest.fn(), updateRole: jest.fn(), remove: jest.fn(),
 };
 

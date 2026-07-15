@@ -53,6 +53,7 @@ async function bootstrap(): Promise<void> {
     .addTag('resources',      'Resource Directory endpoints')
     .addTag('organizations',  'Business Portal endpoints (organization profiles and membership)')
     .addTag('stewardship',    'Stewardship System endpoints (relationships, notes, tasks, recommendations, escalations, metrics)')
+    .addTag('communication',  'Communication System endpoints (notifications, preferences, announcements, messaging)')
     .addTag('administration', 'Administration & Operations endpoints (role management)')
     .addTag('health',         'Liveness and readiness endpoints')
     .addBearerAuth({ type: 'http', scheme: 'bearer', bearerFormat: 'JWT' })
