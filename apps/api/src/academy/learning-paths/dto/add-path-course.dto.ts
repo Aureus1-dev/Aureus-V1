@@ -1,0 +1,7 @@
+import { ApiProperty } from '@nestjs/swagger';
+import { IsInt, IsUUID, Min } from 'class-validator';
+
+export class AddPathCourseDto {
+  @ApiProperty() @IsUUID() courseId: string;
+  @ApiProperty({ minimum: 0 }) @IsInt() @Min(0) position: number;
+}
