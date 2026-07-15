@@ -71,20 +71,21 @@ enum TaskPriority {
 
 model User {
   id            String     @id @default(uuid()) @db.Uuid
-  email         String     // Uniqueness enforced by partial index (migration 004)
+  email         String // Uniqueness enforced by partial index (migration 004)
   emailVerified Boolean    @default(false)
-  passwordHash  String?    // Nullable: pre-existing/imported users have no credential yet
+  passwordHash  String? // Nullable: pre-existing/imported users have no credential yet
   roles         UserRole[] @default([MEMBER])
   status        UserStatus @default(ACTIVE)
   createdAt     DateTime   @default(now())
   updatedAt     DateTime   @updatedAt
   deletedAt     DateTime?
 
-  profile                Profile?
-  goals                  Goal[]
-  refreshTokens          RefreshToken[]
-  passwordResetTokens    PasswordResetToken[]
+  profile                 Profile?
+  goals                   Goal[]
+  refreshTokens           RefreshToken[]
+  passwordResetTokens     PasswordResetToken[]
   emailVerificationTokens EmailVerificationToken[]
+  organizationMemberships OrganizationMember[]
 }
 
 // ===========================================================================
@@ -94,14 +95,14 @@ model User {
 
 // Refresh tokens are stored hashed (never plaintext) and rotated on use.
 model RefreshToken {
-  id         String    @id @default(uuid()) @db.Uuid
-  tokenHash  String    @unique
-  userId     String    @db.Uuid
-  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  expiresAt  DateTime
-  revokedAt  DateTime?
+  id                  String    @id @default(uuid()) @db.Uuid
+  tokenHash           String    @unique
+  userId              String    @db.Uuid
+  user                User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt           DateTime
+  revokedAt           DateTime?
   replacedByTokenHash String?
-  createdAt  DateTime  @default(now())
+  createdAt           DateTime  @default(now())
 
   @@index([userId])
 }
@@ -294,15 +295,15 @@ model Task {
 // ===========================================================================
 
 model Opportunity {
-  id                String              @id @default(uuid()) @db.Uuid
-  sequenceNumber    Int                 @default(autoincrement()) @unique
-  opportunityRef    String?             @unique // AUR-OPP-000001, set after insert
+  id             String  @id @default(uuid()) @db.Uuid
+  sequenceNumber Int     @unique @default(autoincrement())
+  opportunityRef String? @unique // AUR-OPP-000001, set after insert
 
-  title             String
-  shortDescription  String
-  fullDescription   String
-  category          OpportunityCategory
-  tags              String[]            @default([])
+  title            String
+  shortDescription String
+  fullDescription  String
+  category         OpportunityCategory
+  tags             String[]            @default([])
 
   provider          String
   officialSourceUrl String
@@ -311,33 +312,33 @@ model Opportunity {
   country           String?
   state             String?
 
-  eligibilityRules  String
-  benefitType       BenefitType
-  benefitAmount     String?
-  deadline          DateTime?
+  eligibilityRules String
+  benefitType      BenefitType
+  benefitAmount    String?
+  deadline         DateTime?
 
-  status            OpportunityStatus   @default(DRAFT)
+  status             OpportunityStatus  @default(DRAFT)
   verificationStatus VerificationStatus @default(DRAFT)
-  rejectionReason   String?
+  rejectionReason    String?
 
-  confidenceScore   Float               @default(0)
-  freshnessScore    Float               @default(0)
+  confidenceScore Float @default(0)
+  freshnessScore  Float @default(0)
 
-  datePublished     DateTime?
-  dateLastVerified  DateTime?
+  datePublished    DateTime?
+  dateLastVerified DateTime?
 
-  sourceName        String
-  sourceUrl         String?
-  sourceType        SourceType          @default(ADMIN_ENTRY)
+  sourceName String
+  sourceUrl  String?
+  sourceType SourceType @default(ADMIN_ENTRY)
 
-  submittedById     String              @db.Uuid
-  createdById       String              @db.Uuid
-  lastUpdatedById   String              @db.Uuid
-  createdAt         DateTime            @default(now())
-  updatedAt         DateTime            @updatedAt
-  deletedAt         DateTime?
+  submittedById   String    @db.Uuid
+  createdById     String    @db.Uuid
+  lastUpdatedById String    @db.Uuid
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  deletedAt       DateTime?
 
-  savedBy           SavedOpportunity[]
+  savedBy SavedOpportunity[]
 
   @@index([category])
   @@index([verificationStatus])
@@ -361,7 +362,7 @@ model SavedOpportunity {
   savedAt        DateTime       @default(now())
   updatedAt      DateTime       @updatedAt
 
-  opportunity    Opportunity    @relation(fields: [opportunityId], references: [id], onDelete: Cascade)
+  opportunity Opportunity @relation(fields: [opportunityId], references: [id], onDelete: Cascade)
 
   @@unique([userId, opportunityId])
   @@index([userId])
@@ -426,16 +427,16 @@ enum ResourceStatus {
 // ===========================================================================
 
 model Resource {
-  id                String              @id @default(uuid()) @db.Uuid
-  sequenceNumber    Int                 @default(autoincrement()) @unique
-  resourceRef       String?             @unique // AUR-RES-000001, set after insert
+  id             String  @id @default(uuid()) @db.Uuid
+  sequenceNumber Int     @unique @default(autoincrement())
+  resourceRef    String? @unique // AUR-RES-000001, set after insert
 
-  title             String
-  shortDescription  String
-  fullDescription   String
-  category          ResourceCategory
-  resourceType      ResourceType
-  tags              String[]            @default([])
+  title            String
+  shortDescription String
+  fullDescription  String
+  category         ResourceCategory
+  resourceType     ResourceType
+  tags             String[]         @default([])
 
   organizationName  String
   officialSourceUrl String
@@ -443,40 +444,40 @@ model Resource {
   contactEmail      String?
   contactPhone      String?
 
-  location          String?
-  country           String?
-  state             String?
-  city              String?
-  isRemote          Boolean             @default(false)
+  location String?
+  country  String?
+  state    String?
+  city     String?
+  isRemote Boolean @default(false)
 
-  eligibilityNotes  String?
+  eligibilityNotes String?
 
-  status            ResourceStatus      @default(DRAFT)
+  status             ResourceStatus     @default(DRAFT)
   verificationStatus VerificationStatus @default(DRAFT)
-  rejectionReason   String?
+  rejectionReason    String?
 
-  confidenceScore   Float               @default(0)
-  freshnessScore    Float               @default(0)
+  confidenceScore Float @default(0)
+  freshnessScore  Float @default(0)
 
-  datePublished     DateTime?
-  dateLastVerified  DateTime?
+  datePublished    DateTime?
+  dateLastVerified DateTime?
 
-  sourceName        String
-  sourceUrl         String?
-  sourceType        SourceType          @default(ADMIN_ENTRY)
+  sourceName String
+  sourceUrl  String?
+  sourceType SourceType @default(ADMIN_ENTRY)
 
   // The user (Organization/Business representative, Steward, or Admin) who
   // manages this listing. Always the creator at insert time; Steward/Admin
   // may edit any listing regardless of ownerId (PA-018 role-based access).
-  ownerId           String              @db.Uuid
-  submittedById     String              @db.Uuid
-  createdById       String              @db.Uuid
-  lastUpdatedById   String              @db.Uuid
-  createdAt         DateTime            @default(now())
-  updatedAt         DateTime            @updatedAt
-  deletedAt         DateTime?
+  ownerId         String    @db.Uuid
+  submittedById   String    @db.Uuid
+  createdById     String    @db.Uuid
+  lastUpdatedById String    @db.Uuid
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  deletedAt       DateTime?
 
-  savedBy           SavedResource[]
+  savedBy SavedResource[]
 
   @@index([category])
   @@index([resourceType])
@@ -500,9 +501,100 @@ model SavedResource {
   savedAt    DateTime @default(now())
   updatedAt  DateTime @updatedAt
 
-  resource   Resource @relation(fields: [resourceId], references: [id], onDelete: Cascade)
+  resource Resource @relation(fields: [resourceId], references: [id], onDelete: Cascade)
 
   @@unique([userId, resourceId])
   @@index([userId])
   @@index([resourceId])
+}
+
+// ===========================================================================
+// Business Portal Enums (PA-011)
+// ===========================================================================
+
+enum OrganizationType {
+  BUSINESS
+  NONPROFIT
+  EDUCATIONAL_INSTITUTION
+  GOVERNMENT_AGENCY
+  COMMUNITY_ORGANIZATION
+  STRATEGIC_PARTNER
+}
+
+enum OrganizationStatus {
+  DRAFT
+  ACTIVE
+  INACTIVE
+  ARCHIVED
+}
+
+enum OrganizationMemberRole {
+  ADMIN
+  MEMBER
+}
+
+// ===========================================================================
+// Organization  —  Core Business Portal model (PA-011)
+// ===========================================================================
+
+model Organization {
+  id              String  @id @default(uuid()) @db.Uuid
+  sequenceNumber  Int     @unique @default(autoincrement())
+  organizationRef String? @unique // AUR-ORG-000001, set after insert
+
+  name             String
+  shortDescription String
+  fullDescription  String
+  organizationType OrganizationType
+
+  websiteUrl   String
+  contactEmail String?
+  contactPhone String?
+
+  location String?
+  country  String?
+  state    String?
+  city     String?
+
+  status             OrganizationStatus @default(DRAFT)
+  verificationStatus VerificationStatus @default(DRAFT)
+  rejectionReason    String?
+
+  datePublished    DateTime?
+  dateLastVerified DateTime?
+
+  createdById     String    @db.Uuid
+  lastUpdatedById String    @db.Uuid
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  deletedAt       DateTime?
+
+  members OrganizationMember[]
+
+  @@index([organizationType])
+  @@index([verificationStatus])
+  @@index([status])
+  @@index([country])
+  @@index([createdAt])
+}
+
+// ===========================================================================
+// OrganizationMember  —  Verified representatives acting on an Organization's
+// behalf (PA-011). ADMIN manages the org profile and membership; MEMBER is a
+// recognized representative without membership-management authority.
+// ===========================================================================
+
+model OrganizationMember {
+  id             String                 @id @default(uuid()) @db.Uuid
+  organizationId String                 @db.Uuid
+  userId         String                 @db.Uuid
+  role           OrganizationMemberRole @default(MEMBER)
+  createdAt      DateTime               @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, userId])
+  @@index([organizationId])
+  @@index([userId])
 }

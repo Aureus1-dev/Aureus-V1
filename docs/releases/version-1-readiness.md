@@ -3,15 +3,36 @@
 > **This is the canonical, living release-tracking document for Aureus Version 1.**
 > It is updated after every completed Work Order rather than superseded by a new file. Do not create a new readiness report — edit this one.
 
-Last updated: 2026-07-15 (after WO-023 — Email Delivery Integration)
+Last updated: 2026-07-15 (after WO-024 — Business Portal)
+
+---
+
+## Founder Directive: Backend-Before-Frontend Sequencing
+
+**2026-07-15 — the founder has made a Version 1 architectural decision: the entire canonical backend (all twelve PA-020-named Version 1 systems) will be completed before any frontend work begins.** This supersedes the WO-023-era recommendation to start a frontend foundation next. Until every canonical Version 1 backend business domain is implemented and verified, this report's Recommended Next Work Order section will name only backend Work Orders — frontend implementation remains a known, tracked gap (see Version 1 Release Blockers) but is explicitly out of sequence until that condition is met.
 
 ---
 
 ## Executive Summary
 
-- **Overall Version 1 readiness: ~40%.**
-- **Implementation status:** The backend architecture is mature and consistent — six domain modules (Member Core, Journey Engine, Opportunity Engine, Resource Directory, Authentication/IAM, Administration & Operations) are implemented, tested, and live-verified, every one of them enforces authentication and ownership on every endpoint (WO-022), and account verification/password reset now deliver real email (WO-023). However, only 4 of the 12 named Version 1 systems (PA-020) are substantially complete, there is no member-facing frontend, and the AI Intelligence Engine — called out as a core V1 objective — has not been started.
-- **Release recommendation:** **Do not invite external members yet.** The API backend for the systems built so far is production-quality, fully authorization-enforced, and can now deliver real account-verification/password-reset email — but the platform as a whole is not ready: there is no UI a member could use. Continue Work Order execution; re-assess after the current Release Blockers (below) are resolved.
+- **Overall Version 1 readiness: ~44%.**
+- **Implementation status:** The backend architecture is mature and consistent — seven domain modules (Member Core, Journey Engine, Opportunity Engine, Resource Directory, Authentication/IAM, Administration & Operations, and, as of WO-024, Business Portal) are implemented, tested, and live-verified, every one of them enforces authentication and ownership on every endpoint (WO-022), and account verification/password reset deliver real email (WO-023). A full domain audit against PA-020 (performed before WO-024) confirmed 5 of 12 named Version 1 systems were substantially complete at that point; Business Portal is now the 6th. Six domains remain: AI Intelligence Engine, Stewardship System, Knowledge System, Communication System, Pods, and Academy — see Remaining Backend Domains below.
+- **Release recommendation:** **Do not invite external members yet, and do not begin frontend work yet** (see Founder Directive above). The API backend for the systems built so far is production-quality, fully authorization-enforced, and can now deliver real account-verification/password-reset email — but the canonical backend itself is not yet complete, and per founder directive no frontend work begins until it is. Continue backend Work Order execution in canonical priority order; re-assess after every remaining backend domain (below) is implemented and verified.
+
+---
+
+## Remaining Backend Domains (PA-020 Audit)
+
+A full audit against PA-020's twelve named Version 1 systems, cross-referenced with the actual repository state, was performed before WO-024 (see WO-024's founder-instruction record). Result at that time: **5 of 12 implemented, 7 remaining.** WO-024 (Business Portal) closes one of the seven. **6 remain, in priority order:**
+
+1. **AI Intelligence Engine (PA-006).** Named explicitly in PA-020's mission ("Deliver AI-assisted guidance") and flagged as a likely Release Blocker. Highest strategic priority, but **blocked on a founder MVP-scope decision** (which capabilities, which provider/cost model) — not currently engineering-ready to start without that input.
+2. **Stewardship System as a dedicated domain (PA-012).** `STEWARD` currently exists only as an inline role check embedded in Opportunities/Resources/Organizations moderation. PA-012's fuller responsibilities (mentorship, escalation management, community moderation, steward performance review) have no dedicated implementation. **Engineering-ready now** — a baseline stewardship function already works, but formalizing it requires no founder scope decision, mirroring exactly the reasoning that made Business Portal WO-024's pick.
+3. **Communication System (PA-015).** WO-023 built only the transactional email *delivery mechanism* for Auth, not the domain itself (notification service, messaging, announcements, preferences, delivery tracking — PA-015's actual scope). Pods, Academy, and the AI Engine will all need it for delivery once built, so building it before them avoids rework later. **Engineering-ready now.**
+4. **Academy (PA-010).** Substantial new domain (courses, learning paths, content); needs curriculum/content-sourcing product decisions before backend schema design — **partially blocked on product decisions.**
+5. **Pods (PA-009).** Community formation; benefits from Stewardship (moderation) and Communication (pod messaging) existing first; also needs product decisions on formation/matching logic — **blocked on both dependencies and product decisions.**
+6. **Knowledge System (PA-013).** Lowest immediate priority; Resource Directory and Opportunity Engine already deliver substantial "trustworthy information" value. Per PA-020's "simplify before expanding" principle, defer furthest. **Engineering-ready but lowest priority.**
+
+---
 
 ---
 
@@ -32,44 +53,39 @@ Last updated: 2026-07-15 (after WO-023 — Email Delivery Integration)
 | — | CI fix: generate Prisma client before type-checking | #14 | Merged to `main` | 2026-07-14 |
 | WO-021 (ADR-007) | Administration & Operations: Role Management | #15 | Merged to `main` | 2026-07-14 |
 | WO-022 (ADR-008) | Authorization Retrofit: Goals, Journeys, Milestones, Tasks, UserInterests, Profile, SavedOpportunities | #16 | Merged to `main` | 2026-07-15 |
-| — | Next.js dependency patch (`apps/web`: 15.3.3 → 15.5.20) | *pending PR* | Implemented, not yet merged | 2026-07-15 |
-| WO-023 (ADR-009) | Email Delivery Integration | *pending PR* | Implemented, not yet merged | 2026-07-15 |
+| — | Next.js dependency patch (`apps/web`: 15.3.3 → 15.5.20) | #17 | Merged to `main` | 2026-07-15 |
+| WO-023 (ADR-009) | Email Delivery Integration | #17 | Merged to `main` | 2026-07-15 |
+| WO-024 (ADR-010) | Business Portal (PA-011) | *pending PR* | Implemented, not yet merged | 2026-07-15 |
 
 **Note:** Batch A–E and Phase 1/Phase 2 predate the WO-numbered convention introduced with WO-018 and have no formal `docs/work-orders/WO-0XX-*.md` document — only ADR-003 and ADR-004 record their architectural decisions. This is a minor, low-risk documentation gap (see Documentation Status).
 
 ---
 
-## Remaining Work Orders
+## Remaining Infrastructure & Operations Items
 
-Ordered by implementation priority:
+Non-domain items — not part of the PA-020 backend-domain audit above, tracked separately:
 
-1. **Business Portal — Organization entity (PA-011).** Resource and Opportunity ownership currently model an "organization" as a free-text field plus the managing user's account (ADR-006 §3). A real `Organization` model is needed before businesses/nonprofits can be onboarded as first-class participants rather than individual user accounts.
-2. **Stewardship System as a dedicated domain (PA-012).** `STEWARD` currently exists only as a role check embedded in Opportunities/Resources moderation. PA-012's fuller responsibilities (mentorship, escalation management, community moderation, steward performance review) have no dedicated implementation.
-3. **AI Intelligence Engine (PA-006).** Named as a core Version 1 objective ("Deliver AI-assisted guidance") in PA-020 but entirely unstarted. Likely the largest remaining system; needs a founder decision on MVP scope before implementation begins.
-4. **Platform-wide `AuditLog` table.** Every domain currently uses structured `Logger` output as an explicitly-accepted V1 interim measure (ADR-004 §7 and carried through every subsequent ADR). A real, queryable audit trail is needed before this becomes a compliance/trust liability at scale.
-5. **Frontend implementation (`apps/web`).** Still the unmodified Next.js scaffold with zero business logic (now on a patched, non-vulnerable Next.js version). No member can use the platform without this, regardless of backend completeness. This is now the single largest remaining gap between the current backend and a usable Version 1.
-6. **Pods, Academy, Knowledge System, Communication System (PA-009, PA-010, PA-013, PA-015).** Not started. Lower immediate priority than the above — these expand the member experience but are not required to safely invite an initial cohort.
-7. **Bootstrap tooling for the first `SYSTEM_ADMINISTRATOR` account.** Currently requires one manual database write per environment (ADR-007 §Risks). Low effort, low risk, but should exist before a real production environment is stood up.
-8. **MFA support.** Explicitly named as "where appropriate" in OAS-SEC-003; not a hard blocker for an initial invite-only or small cohort, but expected before wide public registration.
-9. **Background job queue for outbound email.** WO-023 sends email synchronously within the request path (ADR-009 Risks) — acceptable at current traffic, worth revisiting if email volume or provider latency becomes a bottleneck.
-
-**Resolved as of this update:** Next.js dependency vulnerability (patched to 15.5.20) and email delivery integration (WO-023) — see Version 1 Release Blockers.
+1. **Platform-wide `AuditLog` table.** Every domain currently uses structured `Logger` output as an explicitly-accepted V1 interim measure (ADR-004 §7 and carried through every subsequent ADR). A real, queryable audit trail is needed before this becomes a compliance/trust liability at scale.
+2. **Bootstrap tooling for the first `SYSTEM_ADMINISTRATOR` account.** Currently requires one manual database write per environment (ADR-007 §Risks). Low effort, low risk, but should exist before a real production environment is stood up.
+3. **MFA support.** Explicitly named as "where appropriate" in OAS-SEC-003; not a hard blocker for an initial invite-only or small cohort, but expected before wide public registration.
+4. **Background job queue for outbound email.** WO-023 sends email synchronously within the request path (ADR-009 Risks) — acceptable at current traffic, worth revisiting if email volume or provider latency becomes a bottleneck.
+5. **Frontend implementation (`apps/web`).** Still the unmodified Next.js scaffold with zero business logic (now on a patched, non-vulnerable Next.js version). Explicitly deferred until every canonical backend domain is complete, per the Founder Directive above — tracked here as a known gap, not as an actionable next item.
 
 ---
 
 ## Repository Health
 
-- **Test status:** ✅ 351/351 automated tests passing (unit, Prisma integration, and full HTTP end-to-end tiers) as of WO-023.
+- **Test status:** ✅ 407/407 automated tests passing (unit, Prisma integration, and full HTTP end-to-end tiers) as of WO-024.
 - **CI status:** ✅ Green. `.github/workflows/ci.yml` provisions a PostgreSQL service container, generates the Prisma client, runs `migrate deploy`, the full test suite, and the full monorepo build on every push/PR.
 - **Build status:** ✅ All 3 packages (`@aureus-v1/api`, `@aureus-v1/shared`, `@aureus-v1/web`) build cleanly.
-- **Database migration status:** ✅ 7 migrations, all applied, `prisma migrate deploy` idempotent.
-- **Dependency health:** ✅ `apps/web`'s `next` dependency was patched from `15.3.3` to `15.5.20` — the critical RCE and 24 other known vulnerabilities previously reported are resolved. `apps/api` and `packages/shared` continue to have no known vulnerabilities in their dependency trees; the new `nodemailer` dependency (WO-023) adds no known vulnerabilities. A few dev-only packages emit deprecation warnings (`@types/helmet`, transitive `glob`/`inflight`) — cosmetic, no action required.
+- **Database migration status:** ✅ 8 migrations, all applied, `prisma migrate deploy` idempotent.
+- **Dependency health:** ✅ `apps/web`'s `next` dependency was patched from `15.3.3` to `15.5.20` — the critical RCE and 24 other known vulnerabilities previously reported are resolved. `apps/api` and `packages/shared` continue to have no known vulnerabilities in their dependency trees. A few dev-only packages emit deprecation warnings (`@types/helmet`, transitive `glob`/`inflight`) — cosmetic, no action required.
 
 ---
 
 ## Architecture Health
 
-- **ADR compliance:** Nine ADRs (ADR-003 through ADR-009) record every significant architectural decision made so far. Every new domain (Journey Engine, Opportunity Engine, Resource Directory, Authentication, Administration) has followed the layering pattern established in ADR-003: `interface → Prisma repository → service → controller → DTO`, with dependency injection via string tokens and module-level exports rather than direct cross-module instantiation. WO-023's `EmailModule` extends this pattern to a non-persistence infrastructure dependency (`IEmailService`/`EMAIL_SERVICE`), confirming the pattern generalizes beyond repositories.
+- **ADR compliance:** Ten ADRs (ADR-003 through ADR-010) record every significant architectural decision made so far. Every new domain (Journey Engine, Opportunity Engine, Resource Directory, Authentication, Administration, Business Portal) has followed the layering pattern established in ADR-003: `interface → Prisma repository → service → controller → DTO`, with dependency injection via string tokens and module-level exports rather than direct cross-module instantiation. WO-023's `EmailModule` extended this pattern to a non-persistence infrastructure dependency; WO-024's `Organization`/`OrganizationMember` reuse the Resources/Opportunities verification-workflow shape verbatim, confirming both extension directions hold.
 - **Invariant compliance:**
   - Soft deletion (`deletedAt`), never hard delete — consistently applied across every domain.
   - Response DTOs with `fromEntity()` static factories — consistently applied.
@@ -77,8 +93,9 @@ Ordered by implementation priority:
   - Ownership derived from the JWT, never trusted from the request body — followed by Resources, Administration, and, as of WO-022, Goals/Journeys/Milestones/Tasks/Profile/UserInterests/SavedOpportunities; **not** followed by the original Opportunity Engine, which still trusts body-supplied `submittedById`/`reviewedById` (flagged as technical debt in ADR-004/ADR-005, not yet remediated).
   - Guard reuse (`JwtAuthGuard`, `RolesGuard`, `@Roles()`, `@CurrentUser()`) via the dependency-free `AuthGuardsModule` — consistently applied across every domain module as of WO-022.
   - Transitive ownership resolution (Journey→Goal, Milestone→Journey→Goal, Task→Milestone→Journey→Goal) via a `findOwnerId()` repository method resolved in a single Prisma nested-`select` query (ADR-008) — new pattern, consistently applied across the three domains that needed it.
+  - Real vs. loose foreign keys: `OrganizationMember.userId`/`.organizationId` (WO-024) carry real FKs, matching the majority precedent (`Profile`, `Goal`, auth token tables) rather than `Resource.ownerId`/`Opportunity.submittedById`'s documented loose-pointer exception (ADR-010 Decision 3 makes this distinction explicit).
 - **Remaining architectural concerns:**
-  - No `Organization` entity — Business Portal ownership is modeled as a stopgap (documented, intentional, per ADR-006 §3).
+  - `Organization` now exists (WO-024/ADR-010), but `Resource`/`Opportunity` are not yet linked to it — `organizationName`/`provider` remain free text (deliberately deferred, ADR-010 Decision 6; ADR-006 §3 addendum records this explicitly).
   - No platform-wide audit table — every domain relies on structured logging (documented, intentional, per ADR-004 §7).
   - `AdministrationModule` currently has a single responsibility (role management); as more administrative capabilities are added, watch for it becoming a dumping ground rather than staying cohesive.
   - `hasRole()` (WO-022) is used by every new authorization check but was deliberately not retrofitted onto the pre-existing inline role checks in `UsersController`/`ResourcesController`/`AdministrationModule` (ADR-008 §4) — a minor, tracked inconsistency, not a functional gap.
@@ -104,10 +121,10 @@ Ordered by implementation priority:
 
 ## Testing
 
-- **Unit coverage:** Every service in every domain has a dedicated `*.spec.ts` with a mocked repository, covering success paths, not-found, conflict, and authorization branches. `UserRolesService` (WO-021), `ResourcesService` (WO-020), `GoalsService`/`JourneysService`/`MilestonesService`/`TasksService` (WO-022), and, as of WO-023, `NodemailerEmailService` (transport selection, message content) have full branch coverage of their respective logic.
+- **Unit coverage:** Every service in every domain has a dedicated `*.spec.ts` with a mocked repository, covering success paths, not-found, conflict, and authorization branches. `UserRolesService` (WO-021), `ResourcesService` (WO-020), `GoalsService`/`JourneysService`/`MilestonesService`/`TasksService` (WO-022), `NodemailerEmailService` (WO-023), and, as of WO-024, `OrganizationsService`/`OrganizationMembersService` (including the last-remaining-`ADMIN` invariant) have full branch coverage of their respective logic.
 - **Integration coverage:** Introduced in WO-020 (`resources.integration.spec.ts`) — real PostgreSQL, no mocks, verifying Prisma query correctness (array containment, case-insensitive search, unique constraints). Not yet extended to any other domain's repository beyond the `findOwnerId()` unit tests added in WO-022.
-- **End-to-end coverage:** Introduced in WO-020, extended in WO-021, WO-022, and WO-023 — full HTTP requests via Supertest against a booted application (real guards, pipes, filters, database), now covering Resources, Administration, Goals/Journeys/Milestones/Tasks, Profile, UserInterests, SavedOpportunities, and, as of WO-023, Auth (register/verify-email/forgot-password/reset-password, with `EMAIL_SERVICE` overridden via DI rather than a real SMTP call). **Not present** for Users or Opportunities.
-- **Aggregate coverage (`apps/api`, current):** 92.8% statements / 71.8% branches / 80.8% functions / 93.3% lines. 351/351 tests passing across 34 suites (up from 342/342 across 32 suites at WO-022).
+- **End-to-end coverage:** Introduced in WO-020, extended in WO-021 through WO-024 — full HTTP requests via Supertest against a booted application (real guards, pipes, filters, database), now covering Resources, Administration, Goals/Journeys/Milestones/Tasks, Profile, UserInterests, SavedOpportunities, Auth (WO-023), and, as of WO-024, Organizations + membership management (real registered users used for personas that become `OrganizationMember` rows, mirroring the WO-022 `Goal.userId` finding). **Not present** for Users or Opportunities.
+- **Aggregate coverage (`apps/api`, current):** 407/407 tests passing across 37 suites (up from 351/351 across 34 suites at WO-023).
 - **Missing tests:**
   - End-to-end tests for Users and Opportunities.
   - Integration-tier (`*.integration.spec.ts`) tests for domains beyond Resources.
@@ -132,8 +149,8 @@ Ordered by implementation priority:
 
 ## Documentation Status
 
-- **Completed:** Constitution (OAS series), Implementation Constitution (IC-001–020), Product Architecture (PA-001–020), 9 ADRs, 6 formal Work Order documents (WO-018–023) with matching Operational Verification reports, this Readiness Report.
-- **Missing:** Formal WO documents for Batch A–E and Phase 1/Phase 2 (see Technical Debt); a CONTRIBUTING/onboarding guide for new engineers beyond the ADRs themselves; a dedicated Business Portal PA-011 implementation plan (the PA doc exists, no implementation plan yet since the domain hasn't started).
+- **Completed:** Constitution (OAS series), Implementation Constitution (IC-001–020), Product Architecture (PA-001–020), 10 ADRs, 7 formal Work Order documents (WO-018–024) with matching Operational Verification reports, this Readiness Report.
+- **Missing:** Formal WO documents for Batch A–E and Phase 1/Phase 2 (see Technical Debt); a CONTRIBUTING/onboarding guide for new engineers beyond the ADRs themselves.
 
 ---
 
@@ -141,12 +158,14 @@ Ordered by implementation priority:
 
 Only items that should reasonably be resolved before inviting the first external members:
 
-1. **No member-facing frontend.** `apps/web` has zero business logic. There is nothing for an invited member to use. This is now the only unconditional Release Blocker remaining.
+1. **No member-facing frontend.** `apps/web` has zero business logic. There is nothing for an invited member to use. This remains the only unconditional Release Blocker — and, per the Founder Directive above, is now deliberately sequenced *after* every canonical backend domain rather than started next.
 2. **AI Intelligence Engine.** PA-020 names AI-assisted guidance as a core Version 1 objective. Whether this specifically blocks an initial invite (versus a fast-follow) is a founder scope decision, not an engineering one — flagged here as a likely blocker pending that confirmation, not asserted outright.
 
 **Resolved as of WO-022:** Unguarded domain endpoints (Goals, Journeys, Milestones, Tasks, UserInterests, Profile, SavedOpportunities) — every domain now enforces authentication and ownership.
 
 **Resolved as of WO-023:** No email delivery — account verification and password reset now send real email. Critical Next.js vulnerability in `apps/web` — patched to `15.5.20`.
+
+**Resolved as of WO-024:** Business Portal had zero implementation — verified organization profiles and representative membership now exist (ADR-010).
 
 ---
 
@@ -156,9 +175,8 @@ Safe to defer to Version 1.1 or later:
 
 - MFA
 - Platform-wide `AuditLog` table (structured logging is an accepted interim measure)
-- Pods, Academy, Knowledge System, Communication System
-- Business Portal / `Organization` entity (unless the founder scopes early business participation into the initial invite cohort)
-- Stewardship System as a dedicated domain (role-based moderation already functions; richer stewardship tooling can follow)
+- Linking `Organization` into `Resource`/`Opportunity` ownership (ADR-010 Decision 6 — purely additive whenever built, per ADR-006 §3's forward declaration)
+- Recruitment tooling, partnership management, organization dashboards/analytics (PA-011 components beyond WO-024's foundational scope)
 - Cursor-based pagination (offset pagination is adequate at V1 scale)
 - Geographic radius search (PostGIS) for Opportunities/Resources
 - ML-powered opportunity/resource scoring (current formula-based scoring is intentional and auditable)
@@ -173,23 +191,25 @@ Safe to defer to Version 1.1 or later:
 
 | Category | Score (0–100) | Notes |
 |---|---|---|
-| Architecture | 88 | Consistent, well-documented layering across every implemented domain, now including proven transitive-ownership-resolution (ADR-008) and infrastructure-DI (ADR-009) patterns; deductions for the stopgap ownership model and a still-narrow Administration module. |
-| Security | 85 | Full authorization enforcement across every implemented domain (WO-022), a patched frontend dependency tree, and real email delivery with plaintext tokens removed from logs (WO-023); remaining deductions for no MFA and no platform-wide audit trail. |
-| Testing | 85 | 351 passing tests across three tiers; end-to-end coverage now extends to 8 of 10 implemented domains, up from 2 at WO-021; Users/Opportunities remain unit-tested only. |
-| Documentation | 85 | Exceptionally thorough governance and per-Work-Order documentation; a few early batches lack formal WO records. |
-| Operations | 46 | CI is solid, but there is no deployment pipeline, no monitoring/observability, and no disaster-recovery implementation — only policy documents (IC series) describing what should exist. Real email delivery (WO-023) is a small operational-readiness improvement. |
+| Architecture | 89 | Consistent, well-documented layering across every implemented domain, now including proven transitive-ownership-resolution (ADR-008), infrastructure-DI (ADR-009), and real-FK-join-table (ADR-010) patterns; deductions for a still-narrow Administration module and the deliberately-deferred `Organization` linkage into Resources/Opportunities. |
+| Security | 86 | Full authorization enforcement across every implemented domain (WO-022), a patched frontend dependency tree, real email delivery with plaintext tokens removed from logs (WO-023), and organization-membership authorization mirroring the same server-derived-ownership invariant (WO-024); remaining deductions for no MFA and no platform-wide audit trail. |
+| Testing | 86 | 407 passing tests across three tiers; end-to-end coverage now extends to 9 of 11 implemented domains, up from 2 at WO-021; Users/Opportunities remain unit-tested only. |
+| Documentation | 86 | Exceptionally thorough governance and per-Work-Order documentation; a few early batches lack formal WO records. |
+| Operations | 46 | CI is solid, but there is no deployment pipeline, no monitoring/observability, and no disaster-recovery implementation — only policy documents (IC series) describing what should exist. |
 | Performance | 50 | Unverified rather than confirmed poor — no load testing has been performed anywhere in the platform. |
-| Developer Experience | 80 | Clear, repeatable patterns a new contributor can follow domain-to-domain, including the ownership-chain and infrastructure-DI patterns; missing a dedicated onboarding guide. |
-| User Readiness | 25 | No frontend, no AI guidance, no Business Portal — a real member cannot yet use this platform end-to-end. Authorization, email delivery, and the frontend dependency vulnerability are no longer factors here, but the frontend itself is now the dominant blocker a member would notice. |
+| Developer Experience | 81 | Clear, repeatable patterns a new contributor can follow domain-to-domain, including the ownership-chain, infrastructure-DI, and verification-workflow-reuse patterns; missing a dedicated onboarding guide. |
+| User Readiness | 25 | No frontend, no AI guidance — a real member cannot yet use this platform end-to-end. Business Portal backend now exists, but with no frontend it changes nothing a member would directly experience yet; the frontend remains the dominant blocker. |
 
-**Overall Version 1 readiness: ~40%.**
+**Overall Version 1 readiness: ~44%.**
 
-This number is higher than the pre-WO-023 assessment because two of the platform's four hard Release Blockers — email delivery and the critical frontend dependency vulnerability — are now resolved, alongside WO-022's earlier resolution of the unguarded-endpoints risk. It remains well below the Architecture/Testing/Documentation scores because it weighs what an actual invited member would experience today: a mature, well-tested, fully authorization-enforced backend that can now complete real account verification and password recovery, for roughly a third of the named Version 1 systems, still reachable through no usable interface. Backend engineering velocity and quality are high; the gap to a genuine Version 1 launch is now dominated by exactly two things — the frontend and the AI Intelligence Engine scope decision — no remaining item is a live security gap or missing critical infrastructure in already-shipped code.
+This number is higher than the pre-WO-024 assessment because a sixth PA-020-named Version 1 system (Business Portal) is now implemented, tested, and live-verified, following the founder's backend-before-frontend sequencing decision. It remains well below the Architecture/Testing/Documentation scores because it weighs what an actual invited member would experience today: a mature, well-tested, fully authorization-enforced backend spanning half the named Version 1 systems, still reachable through no usable interface — and, per the Founder Directive, deliberately not gaining one until the remaining six backend domains are also complete. Backend engineering velocity and quality are high; the score will climb domain-by-domain from here without a frontend counting against it, since the frontend is now explicitly out of sequence rather than a currently-expected next step.
 
 ---
 
 ## Recommended Next Work Order
 
-**WO-024 — Frontend Foundation (`apps/web`).**
+**Per the Founder Directive (above), this section names only backend Work Orders until every canonical Version 1 backend business domain is implemented and verified.**
 
-With WO-022 (authorization) and WO-023 (email delivery, Next.js patch) resolved, every remaining hard Release Blocker except the frontend itself is either closed or a founder scope decision (AI Intelligence Engine). `apps/web` is still the unmodified Next.js scaffold — zero business logic, no auth integration, no pages beyond the default template — and it is now the single largest gap between the current backend (six fully authorization-enforced, tested, documented domains, real email delivery) and a platform an actual invited member could use end-to-end. This is squarely an engineering scoping task, not a founder product decision: the backend API surface (`/auth/*`, `/goals`, `/journeys`, `/opportunities`, `/resources`, etc.) is stable, documented (Swagger at `/api/docs`), and ready to be consumed. Recommended first slice: authentication (register/login/verify-email/reset-password screens wired to the existing `/auth/*` endpoints) plus a minimal authenticated shell (session persistence, protected routing) — the smallest useful foundation every subsequent frontend Work Order (Goals/Journeys UI, Opportunity/Resource browsing, etc.) will build on. Business Portal, Stewardship, the AI Intelligence Engine, and the remaining PA-009/010/013/015 systems all either require a founder scope decision or are lower-priority expansions that should not be started before the platform has a usable interface for the domains already built.
+**WO-025 — Stewardship System as a dedicated domain (PA-012).**
+
+With Business Portal (WO-024) closing the gap it was chosen to close, Stewardship System is the next domain in the Remaining Backend Domains priority order (see above) that is both (a) not blocked on a founder MVP-scope decision — unlike the AI Intelligence Engine, which remains the single highest-priority item but cannot start without founder input — and (b) not itself blocked on another undelivered domain — unlike Communication System, Pods, and Academy, which each benefit from or depend on capabilities Stewardship formalizes. `STEWARD` already exists as a platform role and is already checked inline across Opportunities, Resources, and Organizations moderation (`verify`/`reject` actions), so this WO's job is to give that role a real, dedicated domain — mentorship assignment, escalation management, community moderation records, and steward performance review, per PA-012's Core Responsibilities — rather than leaving it as a bare role check with no data model or workflow of its own. Expect the same shape of work as WO-021/WO-024: a new bounded module, reusing the established layering and (where applicable) verification-workflow patterns, with no schema changes to any existing domain required.
