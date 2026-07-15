@@ -10,6 +10,6 @@ import { TASK_REPOSITORY } from './repositories/task.repository.interface';
   imports: [AuthGuardsModule, MilestonesModule],
   controllers: [TasksController],
   providers: [TasksService, { provide: TASK_REPOSITORY, useClass: PrismaTaskRepository }],
-  exports: [TasksService],
+  exports: [TasksService, TASK_REPOSITORY],
 })
 export class TasksModule {}

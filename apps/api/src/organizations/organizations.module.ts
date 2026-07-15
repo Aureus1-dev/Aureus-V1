@@ -18,6 +18,6 @@ import { ORGANIZATION_MEMBER_REPOSITORY } from './members/repositories/organizat
     OrganizationMembersService,
     { provide: ORGANIZATION_MEMBER_REPOSITORY, useClass: PrismaOrganizationMemberRepository },
   ],
-  exports: [OrganizationsService, OrganizationMembersService],
+  exports: [OrganizationsService, OrganizationMembersService, ORGANIZATION_REPOSITORY, ORGANIZATION_MEMBER_REPOSITORY],
 })
 export class OrganizationsModule {}

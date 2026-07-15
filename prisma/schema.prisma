@@ -86,6 +86,9 @@ model User {
   passwordResetTokens     PasswordResetToken[]
   emailVerificationTokens EmailVerificationToken[]
   organizationMemberships OrganizationMember[]
+  stewardCapacity         StewardCapacity?
+  stewardshipAsMember     StewardshipRelationship[] @relation("StewardshipRelationshipMember")
+  stewardshipAsSteward    StewardshipRelationship[] @relation("StewardshipRelationshipSteward")
 }
 
 // ===========================================================================
@@ -338,7 +341,8 @@ model Opportunity {
   updatedAt       DateTime  @updatedAt
   deletedAt       DateTime?
 
-  savedBy SavedOpportunity[]
+  savedBy                    SavedOpportunity[]
+  stewardshipRecommendations StewardshipRecommendation[]
 
   @@index([category])
   @@index([verificationStatus])
@@ -477,7 +481,8 @@ model Resource {
   updatedAt       DateTime  @updatedAt
   deletedAt       DateTime?
 
-  savedBy SavedResource[]
+  savedBy                    SavedResource[]
+  stewardshipRecommendations StewardshipRecommendation[]
 
   @@index([category])
   @@index([resourceType])
@@ -597,4 +602,220 @@ model OrganizationMember {
   @@unique([organizationId, userId])
   @@index([organizationId])
   @@index([userId])
+}
+
+// ===========================================================================
+// Stewardship System Enums (PA-012)
+// ===========================================================================
+
+enum StewardshipRelationshipStatus {
+  PENDING
+  ACTIVE
+  ENDED
+}
+
+// How a relationship came to exist. AI_RECOMMENDATION always lands in
+// PENDING — the canonical product decision is that AI may recommend a
+// steward but may never automatically assign one.
+enum StewardshipRelationshipOrigin {
+  MEMBER_REQUEST
+  AI_RECOMMENDATION
+  ORGANIZATION_ASSIGNMENT
+  ADMIN_ASSIGNMENT
+}
+
+enum StewardshipEndReason {
+  MEMBER_REQUEST
+  STEWARD_RESIGNATION
+  ORGANIZATION_REASSIGNMENT
+  ADMIN_REASSIGNMENT
+  STEWARD_INACTIVITY
+}
+
+enum StewardshipNoteVisibility {
+  PRIVATE
+  SHARED
+}
+
+enum StewardshipTaskStatus {
+  PENDING
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+enum StewardshipRecommendationType {
+  OPPORTUNITY
+  RESOURCE
+}
+
+enum StewardshipEscalationSeverity {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum StewardshipEscalationStatus {
+  OPEN
+  IN_PROGRESS
+  RESOLVED
+  CLOSED
+}
+
+// ===========================================================================
+// StewardCapacity  —  Configurable per-steward active-member ceiling
+// (PA-012). The default (25) lives exactly once, here, as the Prisma column
+// default — application code never hardcodes it; a lazily-created row is
+// upserted with this default the first time a steward's capacity matters.
+// ===========================================================================
+
+model StewardCapacity {
+  id               String   @id @default(uuid()) @db.Uuid
+  stewardId        String   @unique @db.Uuid
+  steward          User     @relation(fields: [stewardId], references: [id], onDelete: Cascade)
+  maxActiveMembers Int      @default(25)
+  updatedById      String   @db.Uuid
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+}
+
+// ===========================================================================
+// StewardshipRelationship  —  Core steward<->member pairing and its full
+// lifecycle history (PA-012). A steward is a guide, not an owner: rows are
+// never deleted and never mutated back to an earlier state once ENDED —
+// reassignment ends one row and creates another, preserving complete history.
+// ===========================================================================
+
+model StewardshipRelationship {
+  id String @id @default(uuid()) @db.Uuid
+
+  memberId String @db.Uuid
+  member   User   @relation("StewardshipRelationshipMember", fields: [memberId], references: [id], onDelete: Cascade)
+
+  // Nullable: a PENDING relationship created by a member's generic request
+  // may not yet name a specific steward.
+  stewardId String? @db.Uuid
+  steward   User?   @relation("StewardshipRelationshipSteward", fields: [stewardId], references: [id], onDelete: Cascade)
+
+  status StewardshipRelationshipStatus @default(PENDING)
+  origin StewardshipRelationshipOrigin
+
+  // Actor-audit pointers (who requested/assigned/recommended this), loose
+  // UUID references with no FK — mirrors Resource/Opportunity's ownerId-style
+  // audit fields (ADR-006 §3), distinct from memberId/stewardId above, which
+  // are the real relationship parties and carry real FKs (ADR-010 Decision 3).
+  requestedById            String? @db.Uuid
+  assignedById             String? @db.Uuid
+  assignedByOrganizationId String? @db.Uuid
+  recommendedById          String? @db.Uuid
+
+  endReason StewardshipEndReason?
+  endedById String?               @db.Uuid
+  endedAt   DateTime?
+
+  activatedAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  notes           StewardshipNote[]
+  tasks           StewardshipTask[]
+  recommendations StewardshipRecommendation[]
+  escalations     StewardshipEscalation[]
+
+  @@index([memberId])
+  @@index([stewardId])
+  @@index([status])
+}
+
+// ===========================================================================
+// StewardshipNote  —  Steward-authored notes on a relationship. PRIVATE by
+// default (least privilege); only SHARED notes are ever visible to the
+// member (PA-012 Member Experience / Steward Authority boundaries).
+// ===========================================================================
+
+model StewardshipNote {
+  id             String                    @id @default(uuid()) @db.Uuid
+  relationshipId String                    @db.Uuid
+  relationship   StewardshipRelationship   @relation(fields: [relationshipId], references: [id], onDelete: Cascade)
+  authorId       String                    @db.Uuid
+  content        String
+  visibility     StewardshipNoteVisibility @default(PRIVATE)
+  createdAt      DateTime                  @default(now())
+  updatedAt      DateTime                  @updatedAt
+
+  @@index([relationshipId])
+}
+
+// ===========================================================================
+// StewardshipTask  —  Steward-created follow-up tasks for a member (PA-012).
+// Distinct from the member's own Journey Engine Task: this is authored by
+// the steward, not owned by the member, and is visible to the member as a
+// read-only "assigned task."
+// ===========================================================================
+
+model StewardshipTask {
+  id             String                  @id @default(uuid()) @db.Uuid
+  relationshipId String                  @db.Uuid
+  relationship   StewardshipRelationship @relation(fields: [relationshipId], references: [id], onDelete: Cascade)
+  title          String
+  description    String?
+  status         StewardshipTaskStatus   @default(PENDING)
+  dueDate        DateTime?
+  createdById    String                  @db.Uuid
+  createdAt      DateTime                @default(now())
+  updatedAt      DateTime                @updatedAt
+
+  @@index([relationshipId])
+}
+
+// ===========================================================================
+// StewardshipRecommendation  —  A steward recommends an Opportunity or a
+// Resource to a member (PA-012). Exactly one of opportunityId/resourceId is
+// set, enforced in the service layer (matches `type`).
+// ===========================================================================
+
+model StewardshipRecommendation {
+  id             String                        @id @default(uuid()) @db.Uuid
+  relationshipId String                        @db.Uuid
+  relationship   StewardshipRelationship       @relation(fields: [relationshipId], references: [id], onDelete: Cascade)
+  type           StewardshipRecommendationType
+
+  opportunityId String?      @db.Uuid
+  opportunity   Opportunity? @relation(fields: [opportunityId], references: [id], onDelete: Cascade)
+  resourceId    String?      @db.Uuid
+  resource      Resource?    @relation(fields: [resourceId], references: [id], onDelete: Cascade)
+
+  note        String?
+  createdById String   @db.Uuid
+  createdAt   DateTime @default(now())
+
+  @@index([relationshipId])
+  @@index([opportunityId])
+  @@index([resourceId])
+}
+
+// ===========================================================================
+// StewardshipEscalation  —  Steward-raised issue requiring human review
+// (PA-012). An internal accountability record, not exposed to members —
+// "Escalate issues" is listed under Steward Authority, not Member Experience.
+// ===========================================================================
+
+model StewardshipEscalation {
+  id              String                        @id @default(uuid()) @db.Uuid
+  relationshipId  String                        @db.Uuid
+  relationship    StewardshipRelationship       @relation(fields: [relationshipId], references: [id], onDelete: Cascade)
+  title           String
+  description     String
+  severity        StewardshipEscalationSeverity @default(MEDIUM)
+  status          StewardshipEscalationStatus   @default(OPEN)
+  raisedById      String                        @db.Uuid
+  resolvedById    String?                       @db.Uuid
+  resolutionNotes String?
+  createdAt       DateTime                      @default(now())
+  resolvedAt      DateTime?
+
+  @@index([relationshipId])
+  @@index([status])
 }
