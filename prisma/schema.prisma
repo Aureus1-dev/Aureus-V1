@@ -849,6 +849,7 @@ enum NotificationCategory {
   ACADEMY
   POD
   AI_GUIDANCE
+  KNOWLEDGE
 }
 
 enum DeliveryChannel {
@@ -1086,4 +1087,102 @@ model Message {
 
   @@index([conversationId, createdAt])
   @@index([senderId])
+}
+
+// ===========================================================================
+// Knowledge System Enums (PA-013)
+// ===========================================================================
+
+enum KnowledgeCategory {
+  ARTICLE
+  GUIDE
+  POLICY
+  BEST_PRACTICE
+  RESEARCH_SUMMARY
+  FAQ
+  TRAINING_MATERIAL
+  INSTITUTIONAL_DOCUMENTATION
+  REFERENCE_RESOURCE
+}
+
+enum KnowledgeArticleStatus {
+  DRAFT
+  ACTIVE
+  ARCHIVED
+}
+
+// ===========================================================================
+// KnowledgeArticle  —  Core Knowledge System model (PA-013). Reuses the
+// shared VerificationStatus verification workflow verbatim from Resources/
+// Opportunities/Organizations (PA-013 "verify information before
+// publication" is the same shape of problem those domains already solved).
+// `version` + KnowledgeArticleRevision together satisfy "track revisions and
+// version history" — the one genuinely new capability this domain needs
+// beyond the established verification-workflow pattern.
+// ===========================================================================
+
+model KnowledgeArticle {
+  id             String  @id @default(uuid()) @db.Uuid
+  sequenceNumber Int     @unique @default(autoincrement())
+  articleRef     String? @unique // AUR-KB-000001, set after insert
+
+  title    String
+  summary  String
+  content  String
+  category KnowledgeCategory
+  tags     String[]          @default([])
+
+  // "Approved external sources" (PA-013 Inputs) — optional provenance link.
+  sourceUrl String?
+
+  status             KnowledgeArticleStatus @default(DRAFT)
+  verificationStatus VerificationStatus     @default(DRAFT)
+  rejectionReason    String?
+
+  version Int @default(1)
+
+  datePublished    DateTime?
+  dateLastVerified DateTime?
+
+  // Loose audit pointers (no FK), mirroring Resource.ownerId (ADR-006 §3) —
+  // authorship attribution, not a relational identity.
+  authorId        String    @db.Uuid
+  lastUpdatedById String    @db.Uuid
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  deletedAt       DateTime?
+
+  revisions KnowledgeArticleRevision[]
+
+  @@index([category])
+  @@index([verificationStatus])
+  @@index([status])
+  @@index([authorId])
+  @@index([createdAt])
+}
+
+// ===========================================================================
+// KnowledgeArticleRevision  —  A snapshot of a KnowledgeArticle's content
+// immediately before a substantive edit (title/summary/content/category).
+// Real FK to KnowledgeArticle: this is genuine containment, not an audit
+// pointer — a revision cannot outlive its article (mirrors
+// StewardshipNote/StewardshipTask's relationship to StewardshipRelationship,
+// ADR-011). Articles are never hard-deleted (soft delete only), so revision
+// history is preserved for the life of the platform.
+// ===========================================================================
+
+model KnowledgeArticleRevision {
+  id            String           @id @default(uuid()) @db.Uuid
+  articleId     String           @db.Uuid
+  article       KnowledgeArticle @relation(fields: [articleId], references: [id], onDelete: Cascade)
+  versionNumber Int
+  title         String
+  summary       String
+  content       String
+  category      KnowledgeCategory
+  editedById    String           @db.Uuid
+  createdAt     DateTime         @default(now())
+
+  @@unique([articleId, versionNumber])
+  @@index([articleId])
 }
