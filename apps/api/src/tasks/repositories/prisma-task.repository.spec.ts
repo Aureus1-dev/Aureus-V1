@@ -50,4 +50,20 @@ describe('PrismaTaskRepository', () => {
     await repo.softDelete('t-001');
     expect(d.update).toHaveBeenCalledWith({ where: { id: 't-001' }, data: { deletedAt: expect.any(Date) } });
   });
+
+  describe('findOwnerId', () => {
+    it('resolves the owner via milestone → journey → goal', async () => {
+      d.findFirst.mockResolvedValue({ milestone: { journey: { goal: { userId: 'u-001' } } } });
+      expect(await repo.findOwnerId('t-001')).toBe('u-001');
+      expect(d.findFirst).toHaveBeenCalledWith({
+        where: { id: 't-001', deletedAt: null },
+        select: { milestone: { select: { journey: { select: { goal: { select: { userId: true } } } } } } },
+      });
+    });
+
+    it('returns null when the task does not exist', async () => {
+      d.findFirst.mockResolvedValue(null);
+      expect(await repo.findOwnerId('missing')).toBeNull();
+    });
+  });
 });

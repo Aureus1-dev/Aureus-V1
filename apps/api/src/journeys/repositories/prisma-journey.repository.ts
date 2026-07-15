@@ -30,4 +30,12 @@ export class PrismaJourneyRepository implements IJourneyRepository {
   async softDelete(id: string): Promise<Journey> {
     return this.prisma.db.journey.update({ where: { id }, data: { deletedAt: new Date() } });
   }
+
+  async findOwnerId(id: string): Promise<string | null> {
+    const journey = await this.prisma.db.journey.findFirst({
+      where: { id, deletedAt: null },
+      select: { goal: { select: { userId: true } } },
+    });
+    return journey?.goal.userId ?? null;
+  }
 }

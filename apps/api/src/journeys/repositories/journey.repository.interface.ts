@@ -19,4 +19,6 @@ export interface IJourneyRepository {
   findByGoalId(goalId: string): Promise<Journey | null>;
   update(id: string, data: UpdateJourneyInput): Promise<Journey>;
   softDelete(id: string): Promise<Journey>;
+  /** Resolves the owning user's ID via the parent Goal. Null if the journey does not exist. */
+  findOwnerId(id: string): Promise<string | null>;
 }

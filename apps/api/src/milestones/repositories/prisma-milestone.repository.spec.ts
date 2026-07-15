@@ -44,4 +44,20 @@ describe('PrismaMilestoneRepository', () => {
     await repo.softDelete('m-001');
     expect(d.update).toHaveBeenCalledWith({ where: { id: 'm-001' }, data: { deletedAt: expect.any(Date) } });
   });
+
+  describe('findOwnerId', () => {
+    it('resolves the owner via journey → goal', async () => {
+      d.findFirst.mockResolvedValue({ journey: { goal: { userId: 'u-001' } } });
+      expect(await repo.findOwnerId('m-001')).toBe('u-001');
+      expect(d.findFirst).toHaveBeenCalledWith({
+        where: { id: 'm-001', deletedAt: null },
+        select: { journey: { select: { goal: { select: { userId: true } } } } },
+      });
+    });
+
+    it('returns null when the milestone does not exist', async () => {
+      d.findFirst.mockResolvedValue(null);
+      expect(await repo.findOwnerId('missing')).toBeNull();
+    });
+  });
 });

@@ -38,4 +38,6 @@ export interface ITaskRepository {
   findAll(params: TaskPaginationParams): Promise<PaginatedTasks>;
   update(id: string, data: UpdateTaskInput): Promise<Task>;
   softDelete(id: string): Promise<Task>;
+  /** Resolves the owning user's ID via Milestone → Journey → Goal. Null if the task does not exist. */
+  findOwnerId(id: string): Promise<string | null>;
 }
