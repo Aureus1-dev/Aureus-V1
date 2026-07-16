@@ -1,7 +1,9 @@
-import { render, screen } from '@testing-library/react';
+import { act, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { axe } from 'jest-axe';
+import { useEffect } from 'react';
 import { OpportunityCard } from './OpportunityCard';
+import { HighlightRegistryProvider, useHighlightRegistry } from '../../../state/highlight/HighlightRegistryContext';
 
 const opportunity = {
   id: 'opp-1', opportunityRef: 'AUR-OPP-000001', title: 'Community Grant', shortDescription: 'A grant for the community.',
@@ -39,5 +41,29 @@ describe('OpportunityCard', () => {
   it('has no accessibility violations', async () => {
     const { container } = render(<OpportunityCard opportunity={opportunity} saved={false} onToggleSave={jest.fn()} onOpen={jest.fn()} />);
     expect(await axe(container)).toHaveNoViolations();
+  });
+
+  it('registers as Opportunity.Card.<id> in the Global Highlight Registry so the voice steward can point it out (DOMAIN-005)', () => {
+    let api!: ReturnType<typeof useHighlightRegistry>;
+    function Harness() {
+      const registry = useHighlightRegistry();
+      useEffect(() => {
+        api = registry;
+      });
+      return null;
+    }
+
+    render(
+      <HighlightRegistryProvider>
+        <OpportunityCard opportunity={opportunity} saved={false} onToggleSave={jest.fn()} onOpen={jest.fn()} />
+        <Harness />
+      </HighlightRegistryProvider>,
+    );
+
+    let found = false;
+    act(() => {
+      found = api.activate('Opportunity.Card.opp-1');
+    });
+    expect(found).toBe(true);
   });
 });

@@ -116,4 +116,69 @@ describe('RealtimeEventMapper', () => {
     const mapper = new RealtimeEventMapper();
     expect(mapper.map({ type: 'response.done', response: {} })).toEqual([]);
   });
+
+  it('emits a function-call-requested event for a Dynamic Screen Orchestration tool call (DOMAIN-005)', () => {
+    const mapper = new RealtimeEventMapper(() => new Date('2026-01-01T00:00:00.000Z'));
+    mapper.map({ type: 'response.created', response: { id: 'resp-4' } });
+
+    const done = mapper.map({
+      type: 'response.done',
+      response: {
+        id: 'resp-4',
+        status: 'completed',
+        output: [{ type: 'function_call', call_id: 'call-1', name: 'navigate_to_route', arguments: '{"route":"journey"}' }],
+      },
+    });
+
+    expect(done).toEqual([
+      {
+        kind: 'function-call-requested',
+        callId: 'call-1',
+        name: 'navigate_to_route',
+        arguments: '{"route":"journey"}',
+        occurredAt: '2026-01-01T00:00:00.000Z',
+      },
+      { kind: 'steward-response-completed', responseId: 'resp-4', itemId: null, transcript: '', occurredAt: '2026-01-01T00:00:00.000Z' },
+    ]);
+  });
+
+  it('emits one function-call-requested event per tool call when a response requests several at once', () => {
+    const mapper = new RealtimeEventMapper(() => new Date('2026-01-01T00:00:00.000Z'));
+    mapper.map({ type: 'response.created', response: { id: 'resp-5' } });
+
+    const done = mapper.map({
+      type: 'response.done',
+      response: {
+        id: 'resp-5',
+        status: 'completed',
+        output: [
+          { type: 'function_call', call_id: 'call-a', name: 'focus_interface_target', arguments: '{"targetId":"Home.NextMission"}' },
+          { type: 'function_call', call_id: 'call-b', name: 'navigate_to_route', arguments: '{"route":"home"}' },
+        ],
+      },
+    });
+
+    expect(done.filter((e) => e.kind === 'function-call-requested')).toHaveLength(2);
+  });
+
+  it('finds the spoken-message output item alongside a tool call and reports its itemId', () => {
+    const mapper = new RealtimeEventMapper(() => new Date('2026-01-01T00:00:00.000Z'));
+    mapper.map({ type: 'response.created', response: { id: 'resp-6' } });
+    mapper.map({ type: 'response.audio_transcript.delta', response_id: 'resp-6', delta: 'Here is your journey.' });
+
+    const done = mapper.map({
+      type: 'response.done',
+      response: {
+        id: 'resp-6',
+        status: 'completed',
+        output: [
+          { type: 'function_call', call_id: 'call-c', name: 'navigate_to_route', arguments: '{"route":"journey"}' },
+          { id: 'item-msg-1', type: 'message' },
+        ],
+      },
+    });
+
+    const completed = done.find((e) => e.kind === 'steward-response-completed');
+    expect(completed).toMatchObject({ itemId: 'item-msg-1', transcript: 'Here is your journey.' });
+  });
 });

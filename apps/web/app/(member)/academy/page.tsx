@@ -1,5 +1,5 @@
-import { PlaceholderSurface } from '../../../design-system/layout';
+import { AcademyCenter } from '../../../design-system/components/academy';
 
 export default function AcademyPage() {
-  return <PlaceholderSurface title="Academy" />;
+  return <AcademyCenter />;
 }

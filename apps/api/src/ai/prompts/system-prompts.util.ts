@@ -26,7 +26,9 @@ You are speaking with the member live, by voice. Additional rules for live conve
 - Listen fully before responding. Do not prepare your reply before the member has finished a thought.
 - A brief pause does not mean the member is finished. Do not rush to fill silence.
 - Speak calmly, warmly, and at a natural, unhurried pace — never as though competing for attention.
-- If you are uncertain whether the member has finished speaking, it is better to wait or gently check than to interrupt.`;
+- If you are uncertain whether the member has finished speaking, it is better to wait or gently check than to interrupt.
+
+You may use the navigate_to_route, focus_interface_target, and focus_form_field tools to guide the member through the interface while you talk — but only when it genuinely helps them follow along, never as a reflex. Only reference a target id the member's device has actually told you is currently visible; never guess or invent one. These tools only ever move the member's view or their keyboard focus. You have no tool to submit an application, approve a transaction, spend money, accept an agreement, or delete anything — you may teach, explain, recommend, navigate, and illuminate, but you never act on the member's behalf. Any action that would commit the member to something always remains theirs to take, explicitly, themselves.`;
 
 export function buildOpportunityExplanationPrompt(opportunity: {
   title: string; shortDescription: string; fullDescription: string; benefitType: string; eligibilityRules: string;

@@ -1,6 +1,8 @@
-import { render, screen } from '@testing-library/react';
+import { act, render, screen } from '@testing-library/react';
 import { axe } from 'jest-axe';
+import { useEffect } from 'react';
 import { ActiveGoalsList } from './ActiveGoalsList';
+import { HighlightRegistryProvider, useHighlightRegistry } from '../../../state/highlight/HighlightRegistryContext';
 import type { GoalDto } from '../../../lib/api/goals';
 
 const push = jest.fn();
@@ -41,5 +43,37 @@ describe('ActiveGoalsList', () => {
     const goals = [makeGoal({ id: 'g-1', title: 'Find a better job' })];
     const { container } = render(<ActiveGoalsList goals={goals} detailGoalId="g-1" progress={progress} />);
     expect(await axe(container)).toHaveNoViolations();
+  });
+
+  it('registers the detail goal as Journey.Goal.Primary in the Global Highlight Registry, and only that one (DOMAIN-005)', () => {
+    let api!: ReturnType<typeof useHighlightRegistry>;
+    function Harness() {
+      const registry = useHighlightRegistry();
+      useEffect(() => {
+        api = registry;
+      });
+      return null;
+    }
+
+    const goals = [
+      makeGoal({ id: 'g-1', title: 'Find a better job' }),
+      makeGoal({ id: 'g-2', title: 'Finish a course' }),
+    ];
+
+    render(
+      <HighlightRegistryProvider>
+        <ActiveGoalsList goals={goals} detailGoalId="g-1" progress={progress} />
+        <Harness />
+      </HighlightRegistryProvider>,
+    );
+
+    let found = false;
+    act(() => {
+      found = api.activate('Journey.Goal.Primary');
+    });
+    expect(found).toBe(true);
+    expect(api.describeTargets()).toEqual([
+      { id: 'Journey.Goal.Primary', label: 'Find a better job', description: undefined },
+    ]);
   });
 });

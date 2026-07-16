@@ -1,6 +1,8 @@
-import { render, screen } from '@testing-library/react';
+import { act, render, screen } from '@testing-library/react';
 import { axe } from 'jest-axe';
+import { useEffect } from 'react';
 import { NextStepCard } from './NextStepCard';
+import { HighlightRegistryProvider, useHighlightRegistry } from '../../../state/highlight/HighlightRegistryContext';
 
 describe('NextStepCard', () => {
   it('shows the next task and its parent milestone when one exists', () => {
@@ -30,5 +32,29 @@ describe('NextStepCard', () => {
       <NextStepCard nextStep={{ taskTitle: 'Update your resume', milestoneTitle: 'Prepare to apply' }} hasGoal />,
     );
     expect(await axe(container)).toHaveNoViolations();
+  });
+
+  it('registers as Home.NextMission in the Global Highlight Registry so the voice steward can point it out (DOMAIN-005)', () => {
+    let api!: ReturnType<typeof useHighlightRegistry>;
+    function Harness() {
+      const registry = useHighlightRegistry();
+      useEffect(() => {
+        api = registry;
+      });
+      return null;
+    }
+
+    render(
+      <HighlightRegistryProvider>
+        <NextStepCard nextStep={{ taskTitle: 'Update your resume', milestoneTitle: 'Prepare to apply' }} hasGoal />
+        <Harness />
+      </HighlightRegistryProvider>,
+    );
+
+    let found = false;
+    act(() => {
+      found = api.activate('Home.NextMission');
+    });
+    expect(found).toBe(true);
   });
 });

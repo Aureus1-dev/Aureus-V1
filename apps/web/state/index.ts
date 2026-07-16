@@ -34,6 +34,7 @@ export {
   type VoiceError,
   type VoiceErrorKind,
   type VoiceTranscriptEntry,
+  type PendingToolCall,
 } from './voice/VoiceContext';
 export {
   NotificationsProvider,
@@ -41,3 +42,19 @@ export {
   type NotificationsError,
   type NotificationsErrorKind,
 } from './notifications/NotificationsContext';
+export {
+  HighlightRegistryProvider,
+  useHighlightRegistry,
+  useRegisterHighlightTarget,
+  type HighlightTargetDescriptor,
+  type RegisteredTargetSummary,
+  type UseRegisterHighlightTargetOptions,
+  type UseRegisterHighlightTargetResult,
+} from './highlight/HighlightRegistryContext';
+export {
+  AcademyProvider,
+  useAcademy,
+  type AcademyError,
+  type AcademyErrorKind,
+  type GrowthSummary,
+} from './academy/AcademyContext';

@@ -15,6 +15,7 @@ import type { AuthenticatedUser } from '../../auth/strategies/jwt.strategy';
 import { VoiceSessionService } from './voice-session.service';
 import { VOICE_PROVIDER, IVoiceProvider } from './providers/voice-provider.interface';
 import { VOICE_TIMING_POLICY } from './voice-timing-policy';
+import { VOICE_TOOLS } from './voice-tools';
 import {
   AI_CONVERSATION_REPOSITORY,
   IAiConversationRepository,
@@ -178,6 +179,16 @@ describe('VoiceSessionService', () => {
           turnDetectionConfig: VOICE_TIMING_POLICY.config,
         }),
       );
+    });
+
+    it('injects the fixed Dynamic Screen Orchestration toolset into every brokered session, never a client-supplied one (DOMAIN-005)', async () => {
+      mockConversationRepo.create.mockResolvedValue(makeConversation());
+      mockVoiceProvider.brokerSession.mockResolvedValue({ clientSecret: 's', expiresAt: NOW, providerSessionRef: null });
+      mockVoiceSessionRepo.create.mockResolvedValue(makeVoiceSession());
+
+      await service.startSession({}, USER);
+
+      expect(mockVoiceProvider.brokerSession).toHaveBeenCalledWith(expect.objectContaining({ tools: VOICE_TOOLS }));
     });
 
     it('supersedes an existing active session for the same member (graceful reconnection, not a hard rejection)', async () => {
