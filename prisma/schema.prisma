@@ -113,6 +113,7 @@ model User {
   aiConversations         AiConversation[]
   aiRequests              AiRequest[]
   aiRecommendations       AiRecommendation[]
+  aiVoiceSessions         AiVoiceSession[]
   podMemberships          PodMembership[]
   podEventRsvps           PodEventRsvp[]
   podRequests             PodRequest[]
@@ -1593,6 +1594,7 @@ enum AiCapability {
   ACADEMY_GUIDANCE
   KNOWLEDGE_SEARCH
   POD_INSIGHT
+  VOICE_CONVERSATION
 }
 
 enum AiRequestStatus {
@@ -1624,8 +1626,9 @@ model AiConversation {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  messages AiMessage[]
-  requests AiRequest[]
+  messages      AiMessage[]
+  requests      AiRequest[]
+  voiceSessions AiVoiceSession[]
 
   @@index([userId])
 }
@@ -1638,7 +1641,104 @@ model AiMessage {
   content        String
   createdAt      DateTime       @default(now())
 
+  // Voice Domain additive fields (ADR-017). A text message leaves all three
+  // null/default — voice and text share this one canonical message table
+  // rather than forking a parallel one, per Founder Decision 2 ("One Steward
+  // and One Canonical Conversation").
+  completionStatus AiMessageCompletionStatus @default(COMPLETE)
+  voiceSessionId   String?                   @db.Uuid
+  voiceSession     AiVoiceSession?           @relation(fields: [voiceSessionId], references: [id], onDelete: SetNull)
+  providerItemId   String?
+
+  @@unique([voiceSessionId, providerItemId])
   @@index([conversationId])
+}
+
+enum AiMessageCompletionStatus {
+  COMPLETE
+  INTERRUPTED
+  CANCELLED
+}
+
+enum VoiceSessionEndReason {
+  MEMBER_ENDED
+  TIMEOUT
+  DURATION_LIMIT
+  ERROR
+  RECONNECT_SUPERSEDED
+}
+
+// AiVoiceSession  —  One realtime voice connection against the canonical
+// AiConversation (Founder Decision 2). The backend never proxies audio
+// (Founder Decision 1: client connects directly to the provider over
+// WebRTC) — this row is the durable record of policy applied, timing, and
+// how the session ended, not a media relay. Raw audio is never referenced
+// or persisted here (Founder Decision 3/5).
+model AiVoiceSession {
+  id             String         @id @default(uuid()) @db.Uuid
+  conversationId String         @db.Uuid
+  conversation   AiConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  userId         String         @db.Uuid
+  user           User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  provider AiProvider @default(OPENAI)
+  model    String
+  voice    String
+
+  // Snapshot of the Conversation Timing Layer policy actually applied to
+  // this session (turn_detection mode + config sent to the provider at
+  // broker time) — recorded here, not accepted from the client, so timing
+  // is auditable backend architecture rather than a frontend setting
+  // (Founder instruction: "Treat timing as a first-class architectural
+  // concern, not a frontend animation").
+  turnDetectionMode   String
+  turnDetectionConfig Json
+
+  providerSessionRef String?
+
+  startedAt DateTime               @default(now())
+  endedAt   DateTime?
+  endReason VoiceSessionEndReason?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  messages   AiMessage[]
+  turnEvents AiTurnEvent[]
+
+  @@index([conversationId])
+  @@index([userId])
+  @@index([userId, endedAt])
+}
+
+enum AiTurnEventType {
+  MEMBER_SPEECH_STARTED
+  MEMBER_SPEECH_STOPPED
+  MEMBER_TURN_FINALIZED
+  STEWARD_RESPONSE_STARTED
+  STEWARD_RESPONSE_COMPLETED
+  STEWARD_RESPONSE_INTERRUPTED
+  SILENCE_TIMEOUT
+}
+
+// AiTurnEvent  —  Conversation Timing Layer evidence (AFX-002, AFX-003 §3-5,
+// §9). An append-only log of turn-taking state, reported by the client as
+// events finalize and correlated by providerItemId. This is what lets the
+// Domain Readiness Report validate timing behavior (e.g. that a pause alone
+// never finalizes a member turn) instead of merely asserting it.
+model AiTurnEvent {
+  id             String         @id @default(uuid()) @db.Uuid
+  voiceSessionId String         @db.Uuid
+  voiceSession   AiVoiceSession @relation(fields: [voiceSessionId], references: [id], onDelete: Cascade)
+
+  type           AiTurnEventType
+  providerItemId String?
+  occurredAt     DateTime
+  recordedAt     DateTime        @default(now())
+  metadata       Json?
+
+  @@unique([voiceSessionId, type, providerItemId])
+  @@index([voiceSessionId, occurredAt])
 }
 
 // AiRequest  —  One row per provider call. Unifies "AI request history,"

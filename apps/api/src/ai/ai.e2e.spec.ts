@@ -342,4 +342,110 @@ describe('AI Intelligence Engine — E2E', () => {
         .expect(409);
     });
   });
+
+  describe('Voice Domain — realtime sessions and the Conversation Timing Layer', () => {
+    let voiceSessionId: string;
+    let firstSyncedMessageId: string;
+
+    it('starts a voice session via the stub provider (no OPENAI_API_KEY in this environment), never exposing a permanent key', async () => {
+      const res = await request(app.getHttpServer())
+        .post('/ai/voice/sessions')
+        .set('Authorization', `Bearer ${learnerToken}`)
+        .send({})
+        .expect(201);
+      voiceSessionId = res.body.id;
+      expect(res.body.clientSecret).toMatch(/^stub_secret_/);
+      expect(res.body.turnDetectionMode).toBe('semantic_vad');
+      expect(res.body.conversationId).toBeDefined();
+    });
+
+    it('rejects a member message with no corresponding MEMBER_TURN_FINALIZED turn event (Conversation Timing Layer enforcement)', async () => {
+      await request(app.getHttpServer())
+        .post(`/ai/voice/sessions/${voiceSessionId}/events`)
+        .set('Authorization', `Bearer ${learnerToken}`)
+        .send({ messages: [{ role: 'USER', content: 'Not finalized', providerItemId: 'e2e-item-unbacked' }] })
+        .expect(400);
+    });
+
+    it('accepts a member message once backed by a MEMBER_TURN_FINALIZED turn event, and records an interrupted steward reply accurately', async () => {
+      const res = await request(app.getHttpServer())
+        .post(`/ai/voice/sessions/${voiceSessionId}/events`)
+        .set('Authorization', `Bearer ${learnerToken}`)
+        .send({
+          turnEvents: [
+            { type: 'MEMBER_SPEECH_STARTED', providerItemId: 'e2e-item-001', occurredAt: new Date().toISOString() },
+            { type: 'MEMBER_TURN_FINALIZED', providerItemId: 'e2e-item-001', occurredAt: new Date().toISOString() },
+          ],
+          messages: [
+            { role: 'USER', content: 'What is a Journey?', providerItemId: 'e2e-item-001' },
+            {
+              role: 'ASSISTANT', content: 'A Journey tracks progress tow', providerItemId: 'e2e-item-002',
+              completionStatus: 'INTERRUPTED',
+            },
+          ],
+        })
+        .expect(201);
+
+      expect(res.body.turnEvents).toHaveLength(2);
+      expect(res.body.messages).toHaveLength(2);
+      const assistantMessage = res.body.messages.find((m: { role: string }) => m.role === 'ASSISTANT');
+      expect(assistantMessage.completionStatus).toBe('INTERRUPTED');
+      const userMessage = res.body.messages.find((m: { role: string }) => m.role === 'USER');
+      firstSyncedMessageId = userMessage.id;
+    });
+
+    it('is idempotent — re-syncing the same finalized message returns the same row rather than duplicating it', async () => {
+      const res = await request(app.getHttpServer())
+        .post(`/ai/voice/sessions/${voiceSessionId}/events`)
+        .set('Authorization', `Bearer ${learnerToken}`)
+        .send({
+          turnEvents: [{ type: 'MEMBER_TURN_FINALIZED', providerItemId: 'e2e-item-001', occurredAt: new Date().toISOString() }],
+          messages: [{ role: 'USER', content: 'What is a Journey?', providerItemId: 'e2e-item-001' }],
+        })
+        .expect(201);
+      expect(res.body.messages[0].id).toBe(firstSyncedMessageId);
+    });
+
+    it('forbids another member from syncing events on this session', async () => {
+      await request(app.getHttpServer())
+        .post(`/ai/voice/sessions/${voiceSessionId}/events`)
+        .set('Authorization', `Bearer ${otherLearnerToken}`)
+        .send({})
+        .expect(403);
+    });
+
+    it('ends the session and is idempotent on a second end call', async () => {
+      const res1 = await request(app.getHttpServer())
+        .post(`/ai/voice/sessions/${voiceSessionId}/end`)
+        .set('Authorization', `Bearer ${learnerToken}`)
+        .expect(201);
+      expect(res1.body.endReason).toBe('MEMBER_ENDED');
+
+      const res2 = await request(app.getHttpServer())
+        .post(`/ai/voice/sessions/${voiceSessionId}/end`)
+        .set('Authorization', `Bearer ${learnerToken}`)
+        .expect(201);
+      expect(res2.body.endReason).toBe('MEMBER_ENDED');
+    });
+
+    it('starting a new session gracefully supersedes an existing active one for the same member', async () => {
+      const first = await request(app.getHttpServer())
+        .post('/ai/voice/sessions')
+        .set('Authorization', `Bearer ${learnerToken}`)
+        .send({})
+        .expect(201);
+
+      const second = await request(app.getHttpServer())
+        .post('/ai/voice/sessions')
+        .set('Authorization', `Bearer ${learnerToken}`)
+        .send({})
+        .expect(201);
+
+      expect(second.body.id).not.toBe(first.body.id);
+      await request(app.getHttpServer())
+        .post(`/ai/voice/sessions/${second.body.id}/end`)
+        .set('Authorization', `Bearer ${learnerToken}`)
+        .expect(201);
+    });
+  });
 });

@@ -1,0 +1,3 @@
+-- AlterEnum
+ALTER TYPE "AiCapability" ADD VALUE 'VOICE_CONVERSATION';
+
