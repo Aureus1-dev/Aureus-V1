@@ -8,6 +8,7 @@ import { JourneyProvider } from './journey/JourneyContext';
 import { OpportunitiesProvider } from './opportunities/OpportunitiesContext';
 import { RecommendationsProvider } from './recommendations/RecommendationsContext';
 import { VoiceProvider } from './voice/VoiceContext';
+import { NotificationsProvider } from './notifications/NotificationsContext';
 
 /**
  * Composes the full state foundation (FPB-010 §3). Every domain provider
@@ -26,7 +27,9 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
             <VoiceProvider>
               <JourneyProvider>
                 <OpportunitiesProvider>
-                  <RecommendationsProvider>{children}</RecommendationsProvider>
+                  <RecommendationsProvider>
+                    <NotificationsProvider>{children}</NotificationsProvider>
+                  </RecommendationsProvider>
                 </OpportunitiesProvider>
               </JourneyProvider>
             </VoiceProvider>

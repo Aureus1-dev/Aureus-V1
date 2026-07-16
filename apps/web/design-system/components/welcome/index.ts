@@ -1,6 +1,5 @@
-export { WelcomeFlow } from './WelcomeFlow';
+export { WelcomeFlow, type WelcomeFlowProps } from './WelcomeFlow';
 export { FirstRunWelcome, type FirstRunWelcomeProps } from './FirstRunWelcome';
-export { ReturningWelcome, type ReturningWelcomeProps } from './ReturningWelcome';
 export { HospitalityStep, type HospitalityStepProps } from './steps/HospitalityStep';
 export { ImmediateNeedStep, type ImmediateNeedStepProps } from './steps/ImmediateNeedStep';
 export { FirstMissionStep, type FirstMissionStepProps } from './steps/FirstMissionStep';

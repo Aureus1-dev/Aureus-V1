@@ -12,13 +12,18 @@ import { MessageComposer } from './MessageComposer';
 import { conversationErrorCopy } from './conversation-error-copy';
 import styles from './ConversationSurface.module.css';
 
+export interface ConversationSurfaceProps {
+  /** From `?mode=voice` — lets another surface (e.g. Home's voice shortcut) deep-link straight into voice mode without importing any Voice Domain internals itself. */
+  initialMode?: 'text' | 'voice';
+}
+
 /**
  * The Conversation Core surface (FPB-015 Phase Two). Conversation
  * remains the primary interface (AFX-001 §3); this component composes
  * history, timeline, composer, and recovery presentation around the
  * existing `/ai/conversations` backend contract.
  */
-export function ConversationSurface() {
+export function ConversationSurface({ initialMode = 'text' }: ConversationSurfaceProps) {
   const { session } = useSession();
   const {
     state,
@@ -30,7 +35,7 @@ export function ConversationSurface() {
     sendMessage,
     clearError,
   } = useConversation();
-  const [mode, setMode] = useState<'text' | 'voice'>('text');
+  const [mode, setMode] = useState<'text' | 'voice'>(initialMode);
 
   useEffect(() => {
     if (session.isAuthenticated) {

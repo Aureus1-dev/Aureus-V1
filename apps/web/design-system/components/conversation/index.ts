@@ -1,4 +1,4 @@
-export { ConversationSurface } from './ConversationSurface';
+export { ConversationSurface, type ConversationSurfaceProps } from './ConversationSurface';
 export { ConversationTimeline, type ConversationTimelineProps } from './ConversationTimeline';
 export { MemberMessage, type MemberMessageProps } from './MemberMessage';
 export { StewardMessage, type StewardMessageProps } from './StewardMessage';

@@ -1,27 +1,21 @@
-.wrapper {
+.card {
   display: flex;
   flex-direction: column;
-  gap: var(--space-4);
-  max-width: 40rem;
+  gap: var(--space-2);
+  align-items: flex-start;
 }
 
 .title {
   margin: 0;
-  font-size: var(--font-size-2xl);
+  font-size: var(--font-size-md);
   font-weight: var(--font-weight-semibold);
   color: var(--color-text-primary);
 }
 
 .body {
-  margin: 0;
+  margin: 0 0 var(--space-2) 0;
   font-size: var(--font-size-base);
   color: var(--color-text-secondary);
-}
-
-.goals {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-3);
 }
 
 .actions {

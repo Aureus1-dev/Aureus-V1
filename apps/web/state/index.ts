@@ -35,3 +35,9 @@ export {
   type VoiceErrorKind,
   type VoiceTranscriptEntry,
 } from './voice/VoiceContext';
+export {
+  NotificationsProvider,
+  useNotifications,
+  type NotificationsError,
+  type NotificationsErrorKind,
+} from './notifications/NotificationsContext';
