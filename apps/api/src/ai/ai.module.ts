@@ -34,6 +34,14 @@ import { AI_RECOMMENDATION_REPOSITORY } from './recommendations/repositories/ai-
 import { PodInsightsController } from './pod-insights/pod-insights.controller';
 import { PodInsightsService } from './pod-insights/pod-insights.service';
 
+import { VoiceProviderModule } from './voice/providers/voice-provider.module';
+import { VoiceController } from './voice/voice.controller';
+import { VoiceSessionService } from './voice/voice-session.service';
+import { PrismaAiVoiceSessionRepository } from './voice/repositories/prisma-ai-voice-session.repository';
+import { AI_VOICE_SESSION_REPOSITORY } from './voice/repositories/ai-voice-session.repository.interface';
+import { PrismaAiTurnEventRepository } from './voice/repositories/prisma-ai-turn-event.repository';
+import { AI_TURN_EVENT_REPOSITORY } from './voice/repositories/ai-turn-event.repository.interface';
+
 /**
  * The AI Intelligence Engine (PA-006, ADR-015) sits at the top of the
  * module dependency graph — it reads from every domain it orchestrates
@@ -46,6 +54,7 @@ import { PodInsightsService } from './pod-insights/pod-insights.service';
   imports: [
     AuthGuardsModule,
     AiProviderModule,
+    VoiceProviderModule,
     CommunicationModule,
     OpportunitiesModule,
     ResourcesModule,
@@ -62,6 +71,7 @@ import { PodInsightsService } from './pod-insights/pod-insights.service';
     InsightsController,
     RecommendationsController,
     PodInsightsController,
+    VoiceController,
   ],
   providers: [
     AiRequestsService,
@@ -73,6 +83,9 @@ import { PodInsightsService } from './pod-insights/pod-insights.service';
     RecommendationsService,
     { provide: AI_RECOMMENDATION_REPOSITORY, useClass: PrismaAiRecommendationRepository },
     PodInsightsService,
+    VoiceSessionService,
+    { provide: AI_VOICE_SESSION_REPOSITORY, useClass: PrismaAiVoiceSessionRepository },
+    { provide: AI_TURN_EVENT_REPOSITORY, useClass: PrismaAiTurnEventRepository },
   ],
 })
 export class AiModule {}

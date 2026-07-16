@@ -1,7 +1,9 @@
 import { Injectable } from '@nestjs/common';
-import { AiMessage } from '@prisma/client';
+import { AiMessage, Prisma } from '@prisma/client';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { CreateAiMessageInput, IAiMessageRepository } from './ai-message.repository.interface';
+
+const UNIQUE_CONSTRAINT_VIOLATION = 'P2002';
 
 @Injectable()
 export class PrismaAiMessageRepository implements IAiMessageRepository {
@@ -9,6 +11,30 @@ export class PrismaAiMessageRepository implements IAiMessageRepository {
 
   async create(data: CreateAiMessageInput): Promise<AiMessage> {
     return this.prisma.db.aiMessage.create({ data });
+  }
+
+  async createIfNotExists(data: CreateAiMessageInput): Promise<AiMessage> {
+    try {
+      return await this.prisma.db.aiMessage.create({ data });
+    } catch (err) {
+      if (
+        err instanceof Prisma.PrismaClientKnownRequestError &&
+        err.code === UNIQUE_CONSTRAINT_VIOLATION &&
+        data.voiceSessionId &&
+        data.providerItemId
+      ) {
+        const existing = await this.prisma.db.aiMessage.findUnique({
+          where: {
+            voiceSessionId_providerItemId: {
+              voiceSessionId: data.voiceSessionId,
+              providerItemId: data.providerItemId,
+            },
+          },
+        });
+        if (existing) return existing;
+      }
+      throw err;
+    }
   }
 
   async findByConversation(conversationId: string): Promise<AiMessage[]> {

@@ -13,6 +13,21 @@ Rules you must follow:
 - If you are not confident in an answer, say so rather than inventing platform details.
 - Keep answers concise and practical.`;
 
+/**
+ * Voice Domain system prompt (AFX-003 Voice & Presence Canon). Same scope
+ * boundary as PLATFORM_ASSISTANT_SYSTEM_PROMPT — voice grants no broader
+ * tool or action permission than text (Founder Decision 5) — with explicit
+ * conversational-presence instructions matching AFX-003 §2-5, §9: listen
+ * fully before responding, tolerate pauses, never rush.
+ */
+export const VOICE_ASSISTANT_SYSTEM_PROMPT = `${PLATFORM_ASSISTANT_SYSTEM_PROMPT}
+
+You are speaking with the member live, by voice. Additional rules for live conversation:
+- Listen fully before responding. Do not prepare your reply before the member has finished a thought.
+- A brief pause does not mean the member is finished. Do not rush to fill silence.
+- Speak calmly, warmly, and at a natural, unhurried pace — never as though competing for attention.
+- If you are uncertain whether the member has finished speaking, it is better to wait or gently check than to interrupt.`;
+
 export function buildOpportunityExplanationPrompt(opportunity: {
   title: string; shortDescription: string; fullDescription: string; benefitType: string; eligibilityRules: string;
 }): string {

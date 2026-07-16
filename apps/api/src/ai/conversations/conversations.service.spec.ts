@@ -27,7 +27,7 @@ const mockConversationRepo: jest.Mocked<IAiConversationRepository> = {
   create: jest.fn(), findById: jest.fn(), findAll: jest.fn(), touch: jest.fn(),
 };
 const mockMessageRepo: jest.Mocked<IAiMessageRepository> = {
-  create: jest.fn(), findByConversation: jest.fn(), findRecentByConversation: jest.fn(),
+  create: jest.fn(), createIfNotExists: jest.fn(), findByConversation: jest.fn(), findRecentByConversation: jest.fn(),
 };
 const mockAiRequests = { runCompletion: jest.fn() } as unknown as jest.Mocked<AiRequestsService>;
 
