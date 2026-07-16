@@ -3,12 +3,15 @@
 import { createContext, useContext, useMemo, useState } from 'react';
 
 /**
- * Session State (FPB-010 §3 "Session State"). Foundation-phase shape
- * only — populated with real values once authentication (FPB-009 §5)
- * is integrated in a later work order. No live backend calls occur here.
+ * Session State (FPB-010 §3 "Session State"). `accessToken` fills in
+ * FPB-010 §3's "Authentication" category so authenticated backend calls
+ * (FPB-009) are possible — no login/authentication flow itself is
+ * implemented here; a member's session is expected to be populated by a
+ * future authentication Work Order.
  */
 export interface SessionState {
   isAuthenticated: boolean;
+  accessToken: string | null;
   memberId: string | null;
   permissions: string[];
   connectedServices: string[];
@@ -22,6 +25,7 @@ interface SessionContextValue {
 
 const initialSessionState: SessionState = {
   isAuthenticated: false,
+  accessToken: null,
   memberId: null,
   permissions: [],
   connectedServices: [],
