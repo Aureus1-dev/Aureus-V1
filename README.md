@@ -21,6 +21,15 @@ Aureus Version 1 is a TypeScript monorepo using Turborepo, implementing the cano
 
 See `docs/releases/version-1-readiness.md` for the canonical, continuously-updated Version 1 readiness assessment, remaining Work Orders, and release blockers.
 
+## Frontend Governance
+
+Frontend implementation is governed by a dedicated canon and blueprint series, subordinate to the OAS Constitution and the Architecture/Backend/AI Canons:
+
+- `docs/frontend/canon/` — Frontend Experience Canons (AFX-001–006): the constitutional principles governing every member interaction (conversation-first, voice and presence, visual design system, member flourishing).
+- `docs/frontend/blueprints/` — Frontend Production Blueprints (FPB-000–016): the engineering specification for implementing the canon, starting from `FPB-000-Frontend-Blueprint-Index.md`.
+
+Frontend Work Orders (FWO series) execute the blueprint one vertical slice at a time and will live in `docs/work-orders/` alongside the existing backend Work Orders once issued.
+
 ## Workspace Tooling
 
 - pnpm workspaces for dependency management.
