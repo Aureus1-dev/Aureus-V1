@@ -3,12 +3,15 @@ import { useEffect } from 'react';
 import { SessionProvider, useSession } from '../../../state/session/SessionContext';
 import { useRecommendationSubjects } from './useRecommendationSubjects';
 import * as opportunitiesApi from '../../../lib/api/opportunities';
+import * as academyApi from '../../../lib/api/academy';
 import type { RecommendationDto } from '../../../lib/api/recommendations';
 import type { RecommendationSubject } from './RecommendationCard';
 
 jest.mock('../../../lib/api/opportunities');
+jest.mock('../../../lib/api/academy');
 
 const mockedOpportunities = opportunitiesApi as jest.Mocked<typeof opportunitiesApi>;
+const mockedAcademy = academyApi as jest.Mocked<typeof academyApi>;
 
 function makeRecommendation(o: Partial<RecommendationDto>): RecommendationDto {
   return {
@@ -77,11 +80,29 @@ describe('useRecommendationSubjects', () => {
     expect(getApi().subjectsById['rec-1']).toEqual({ title: 'Community Grant', description: 'A grant.' });
   });
 
-  it('never fetches for recommendations with no opportunity target', async () => {
+  it('never fetches for recommendations with no opportunity or course target', async () => {
     const { getApi } = renderHarness([makeRecommendation({ id: 'rec-1', opportunityId: null, resourceId: 'res-1' })]);
     await act(async () => getApi().setToken('token-123'));
     await act(async () => Promise.resolve());
 
     expect(mockedOpportunities.getOpportunity).not.toHaveBeenCalled();
+    expect(mockedAcademy.getCourse).not.toHaveBeenCalled();
+  });
+
+  it('resolves each course-linked recommendation to its title and short description, keyed by recommendation id', async () => {
+    mockedAcademy.getCourse.mockResolvedValue({
+      id: 'course-1', courseRef: null, title: 'Financial Foundations', shortDescription: 'Build good money habits.',
+      fullDescription: 'x', learningDomain: 'FINANCIAL_LITERACY', estimatedDurationMinutes: 60, status: 'ACTIVE',
+      verificationStatus: 'VERIFIED', rejectionReason: null, version: 1, grantsCertification: false,
+      organizationId: null, authorId: 'steward-1', lastUpdatedById: 'steward-1', datePublished: 'x',
+      createdAt: 'x', updatedAt: 'x',
+    });
+
+    const { getApi } = renderHarness([makeRecommendation({ id: 'rec-1', opportunityId: null, courseId: 'course-1' })]);
+    await act(async () => getApi().setToken('token-123'));
+    await act(async () => Promise.resolve());
+
+    expect(mockedAcademy.getCourse).toHaveBeenCalledWith('token-123', 'course-1');
+    expect(getApi().subjectsById['rec-1']).toEqual({ title: 'Financial Foundations', description: 'Build good money habits.' });
   });
 });

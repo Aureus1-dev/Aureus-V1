@@ -14,6 +14,7 @@ export const VOICE_ALLOWED_ROUTE_PATHS: Record<string, string> = {
   home: '/home',
   journey: '/journey',
   opportunities: '/opportunities',
+  academy: '/academy',
   conversation: '/conversation',
   welcome: '/welcome',
 };

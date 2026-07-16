@@ -51,3 +51,10 @@ export {
   type UseRegisterHighlightTargetOptions,
   type UseRegisterHighlightTargetResult,
 } from './highlight/HighlightRegistryContext';
+export {
+  AcademyProvider,
+  useAcademy,
+  type AcademyError,
+  type AcademyErrorKind,
+  type GrowthSummary,
+} from './academy/AcademyContext';

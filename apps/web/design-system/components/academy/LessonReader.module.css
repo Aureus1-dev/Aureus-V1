@@ -1,0 +1,55 @@
+.reader {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.title {
+  margin: 0;
+  font-size: var(--font-size-xl);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+}
+
+.content {
+  margin: 0;
+  color: var(--color-text-primary);
+  line-height: var(--line-height-relaxed, 1.7);
+  white-space: pre-wrap;
+}
+
+.reflection {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-4);
+  border-left: 3px solid var(--color-action-primary);
+  background: var(--color-surface-secondary);
+  border-radius: var(--radius-md);
+}
+
+.reflectionHeading {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+  text-transform: uppercase;
+  letter-spacing: var(--letter-spacing-wide);
+}
+
+.reflectionBody {
+  margin: 0;
+  color: var(--color-text-secondary);
+  font-style: italic;
+}
+
+.footer {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.completedBadge {
+  color: var(--color-text-tertiary);
+  font-size: var(--font-size-sm);
+}

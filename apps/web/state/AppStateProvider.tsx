@@ -10,6 +10,7 @@ import { RecommendationsProvider } from './recommendations/RecommendationsContex
 import { VoiceProvider } from './voice/VoiceContext';
 import { NotificationsProvider } from './notifications/NotificationsContext';
 import { HighlightRegistryProvider } from './highlight/HighlightRegistryContext';
+import { AcademyProvider } from './academy/AcademyContext';
 
 /**
  * Composes the full state foundation (FPB-010 §3). Every domain provider
@@ -36,7 +37,9 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
                 <JourneyProvider>
                   <OpportunitiesProvider>
                     <RecommendationsProvider>
-                      <NotificationsProvider>{children}</NotificationsProvider>
+                      <NotificationsProvider>
+                        <AcademyProvider>{children}</AcademyProvider>
+                      </NotificationsProvider>
                     </RecommendationsProvider>
                   </OpportunitiesProvider>
                 </JourneyProvider>

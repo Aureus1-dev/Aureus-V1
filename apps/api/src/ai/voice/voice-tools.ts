@@ -16,7 +16,7 @@
  * what is absent from this list, not by a runtime permission check on a
  * broader capability the model could otherwise reach for.
  */
-export const VOICE_ALLOWED_ROUTES = ['home', 'journey', 'opportunities', 'conversation', 'welcome'] as const;
+export const VOICE_ALLOWED_ROUTES = ['home', 'journey', 'opportunities', 'academy', 'conversation', 'welcome'] as const;
 
 export type VoiceAllowedRoute = (typeof VOICE_ALLOWED_ROUTES)[number];
 
