@@ -1,15 +1,27 @@
 import type { Metadata } from 'next';
+import { ThemeStyle, ThemeProvider } from '../design-system/theme';
+import { AppShell } from '../design-system/layout';
+import { AppStateProvider } from '../state';
 import './globals.css';
 
 export const metadata: Metadata = {
-  title: 'Aureus V1',
-  description: 'Aureus V1 monorepo foundation',
+  title: 'Aureus',
+  description: 'Aureus — a steward for every member’s journey.',
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
-      <body>{children}</body>
+      <head>
+        <ThemeStyle />
+      </head>
+      <body>
+        <ThemeProvider>
+          <AppStateProvider>
+            <AppShell>{children}</AppShell>
+          </AppStateProvider>
+        </ThemeProvider>
+      </body>
     </html>
   );
 }
