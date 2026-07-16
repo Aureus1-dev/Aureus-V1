@@ -1,0 +1,36 @@
+.list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.milestone {
+  padding: var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-primary);
+}
+
+.milestoneLabel {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-weight: var(--font-weight-medium);
+  font-size: var(--font-size-base);
+  color: var(--color-text-primary);
+  cursor: pointer;
+}
+
+.completedText {
+  color: var(--color-text-tertiary);
+  text-decoration: line-through;
+}
+
+.tasks {
+  list-style: none;
+  margin: var(--space-2) 0 0 var(--space-6);
+  padding: 0;
+}

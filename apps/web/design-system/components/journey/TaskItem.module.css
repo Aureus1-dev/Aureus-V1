@@ -1,0 +1,18 @@
+.item {
+  list-style: none;
+}
+
+.label {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-1) 0;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-primary);
+  cursor: pointer;
+}
+
+.completedText {
+  color: var(--color-text-tertiary);
+  text-decoration: line-through;
+}
