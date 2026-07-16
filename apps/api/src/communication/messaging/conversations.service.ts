@@ -53,6 +53,26 @@ export class ConversationsService {
     return ConversationResponseDto.fromEntity(created);
   }
 
+  /**
+   * Pod messaging (WO-030 §1.6) — reuses Conversation/Message/
+   * ConversationParticipant directly, per ADR-012 Decision 8's own
+   * forward-declaration of this exact extension. Idempotent: one thread per
+   * Pod. The Pods domain is responsible for resolving the current ACTIVE
+   * membership roster and verifying the caller belongs to it — Communication
+   * does not depend on Pods, so it trusts the participant list it is given.
+   */
+  async startPodConversation(podId: string, participantIds: string[], caller: AuthenticatedUser): Promise<ConversationResponseDto> {
+    if (!participantIds.includes(caller.id) && !hasRole(caller, PLATFORM_ADMIN_ROLES)) {
+      throw new ForbiddenException('You are not a member of this Pod');
+    }
+
+    const existing = await this.repo.findByPodId(podId);
+    if (existing) return ConversationResponseDto.fromEntity(existing);
+
+    const created = await this.repo.create({ type: ConversationType.POD, podId, participantIds });
+    return ConversationResponseDto.fromEntity(created);
+  }
+
   /** Organization-authorized communication between two representatives of the same organization. */
   async startOrganizationConversation(
     organizationId: string, counterpartUserId: string, caller: AuthenticatedUser,

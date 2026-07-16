@@ -26,6 +26,13 @@ export class PrismaStewardshipEscalationRepository implements IStewardshipEscala
     });
   }
 
+  async findByPod(podId: string): Promise<StewardshipEscalation[]> {
+    return this.prisma.db.stewardshipEscalation.findMany({
+      where: { podId },
+      orderBy: { createdAt: 'desc' },
+    });
+  }
+
   async update(id: string, data: UpdateEscalationInput): Promise<StewardshipEscalation> {
     return this.prisma.db.stewardshipEscalation.update({ where: { id }, data });
   }

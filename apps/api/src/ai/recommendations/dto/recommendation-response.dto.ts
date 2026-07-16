@@ -8,6 +8,7 @@ export class RecommendationResponseDto {
   @ApiPropertyOptional({ nullable: true }) opportunityId: string | null;
   @ApiPropertyOptional({ nullable: true }) resourceId: string | null;
   @ApiPropertyOptional({ nullable: true }) courseId: string | null;
+  @ApiPropertyOptional({ nullable: true }) podId: string | null;
   @ApiProperty() rationale: string;
   @ApiProperty({ enum: AiRecommendationStatus }) status: AiRecommendationStatus;
   @ApiPropertyOptional({ nullable: true }) decidedAt: Date | null;

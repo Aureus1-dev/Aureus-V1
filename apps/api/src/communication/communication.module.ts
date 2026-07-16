@@ -52,6 +52,9 @@ import { MESSAGE_REPOSITORY } from './messaging/repositories/message.repository.
   exports: [
     NotificationsService,
     NOTIFICATION_REPOSITORY,
+    // Pods (WO-030) reuses Conversation/Message directly for Pod messaging
+    // (§1.6) — the exact extension ADR-012 Decision 8 pre-declared.
+    ConversationsService,
   ],
 })
 export class CommunicationModule {}

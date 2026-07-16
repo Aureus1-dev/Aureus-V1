@@ -18,6 +18,7 @@ import { StewardshipModule } from './stewardship/stewardship.module';
 import { CommunicationModule } from './communication/communication.module';
 import { KnowledgeModule } from './knowledge/knowledge.module';
 import { AcademyModule } from './academy/academy.module';
+import { PodsModule } from './pods/pods.module';
 import { AiModule } from './ai/ai.module';
 import { AdministrationModule } from './administration/administration.module';
 import { UserInterestsModule } from './users/interests/user-interests.module';
@@ -88,6 +89,7 @@ import { HealthModule } from './health/health.module';
     CommunicationModule,
     KnowledgeModule,
     AcademyModule,
+    PodsModule,
     AiModule,
     AdministrationModule,
     UserInterestsModule,

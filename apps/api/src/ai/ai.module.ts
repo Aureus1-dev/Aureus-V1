@@ -8,6 +8,7 @@ import { GoalsModule } from '../goals/goals.module';
 import { MilestonesModule } from '../milestones/milestones.module';
 import { AcademyModule } from '../academy/academy.module';
 import { KnowledgeModule } from '../knowledge/knowledge.module';
+import { PodsModule } from '../pods/pods.module';
 import { AiProviderModule } from './providers/ai-provider.module';
 
 import { AiRequestsController } from './requests/ai-requests.controller';
@@ -30,6 +31,9 @@ import { RecommendationsService } from './recommendations/recommendations.servic
 import { PrismaAiRecommendationRepository } from './recommendations/repositories/prisma-ai-recommendation.repository';
 import { AI_RECOMMENDATION_REPOSITORY } from './recommendations/repositories/ai-recommendation.repository.interface';
 
+import { PodInsightsController } from './pod-insights/pod-insights.controller';
+import { PodInsightsService } from './pod-insights/pod-insights.service';
+
 /**
  * The AI Intelligence Engine (PA-006, ADR-015) sits at the top of the
  * module dependency graph — it reads from every domain it orchestrates
@@ -50,12 +54,14 @@ import { AI_RECOMMENDATION_REPOSITORY } from './recommendations/repositories/ai-
     MilestonesModule,
     AcademyModule,
     KnowledgeModule,
+    PodsModule,
   ],
   controllers: [
     AiRequestsController,
     ConversationsController,
     InsightsController,
     RecommendationsController,
+    PodInsightsController,
   ],
   providers: [
     AiRequestsService,
@@ -66,6 +72,7 @@ import { AI_RECOMMENDATION_REPOSITORY } from './recommendations/repositories/ai-
     InsightsService,
     RecommendationsService,
     { provide: AI_RECOMMENDATION_REPOSITORY, useClass: PrismaAiRecommendationRepository },
+    PodInsightsService,
   ],
 })
 export class AiModule {}

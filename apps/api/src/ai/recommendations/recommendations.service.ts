@@ -1,10 +1,11 @@
 import { ConflictException, ForbiddenException, Injectable, Logger, NotFoundException, Inject } from '@nestjs/common';
-import { AiCapability, AiRecommendationStatus, NotificationCategory } from '@prisma/client';
+import { AiCapability, AiRecommendationStatus, NotificationCategory, PodType } from '@prisma/client';
 import { AuthenticatedUser } from '../../auth/strategies/jwt.strategy';
 import { OpportunitiesService } from '../../opportunities/opportunities.service';
 import { ResourcesService } from '../../resources/resources.service';
 import { GoalsService } from '../../goals/goals.service';
 import { CoursesService } from '../../academy/courses/courses.service';
+import { PodMatchingService } from '../../pods/matching/pod-matching.service';
 import { NotificationsService } from '../../communication/notifications/notifications.service';
 import { buildRecommendationRationalePrompt } from '../prompts/system-prompts.util';
 import { AiRequestsService } from '../requests/ai-requests.service';
@@ -36,6 +37,7 @@ export class RecommendationsService {
     private readonly resourcesService: ResourcesService,
     private readonly goalsService: GoalsService,
     private readonly coursesService: CoursesService,
+    private readonly podMatching: PodMatchingService,
     private readonly aiRequests: AiRequestsService,
     private readonly notificationsService: NotificationsService,
   ) {}
@@ -51,7 +53,7 @@ export class RecommendationsService {
    */
   async generate(dto: RequestRecommendationsDto, caller: AuthenticatedUser): Promise<RecommendationResponseDto[]> {
     const goals = await this.goalsService.findAll({ page: 1, limit: 20 }, caller);
-    const candidates = await this.fetchCandidates(dto.category);
+    const candidates = await this.fetchCandidates(dto.category, caller.id);
 
     if (candidates.length === 0) {
       return [];
@@ -132,7 +134,7 @@ export class RecommendationsService {
 
   // ── Helpers ───────────────────────────────────────────────────────────
 
-  private async fetchCandidates(category: RecommendationCategory): Promise<Candidate[]> {
+  private async fetchCandidates(category: RecommendationCategory, callerId: string): Promise<Candidate[]> {
     if (category === RecommendationCategory.OPPORTUNITY) {
       const result = await this.opportunitiesService.findAll({ page: 1, limit: CANDIDATE_POOL_SIZE });
       return result.data.map((o) => ({ id: o.id, title: o.title, description: o.shortDescription }));
@@ -141,13 +143,28 @@ export class RecommendationsService {
       const result = await this.resourcesService.findAll({ page: 1, limit: CANDIDATE_POOL_SIZE });
       return result.data.map((r) => ({ id: r.id, title: r.title, description: r.shortDescription }));
     }
+    if (category === RecommendationCategory.POD) {
+      // Candidate pool always comes from the deterministic scoring function
+      // (§2.3) — the AI Engine never decides which Pods exist or who
+      // belongs where, only writes a human rationale for a shortlist the
+      // scorer already produced (ADR-015 Decision 6, extended to Pods).
+      const [home, interest] = await Promise.all([
+        this.podMatching.rankCandidates(callerId, PodType.HOME, CANDIDATE_POOL_SIZE),
+        this.podMatching.rankCandidates(callerId, PodType.INTEREST, CANDIDATE_POOL_SIZE),
+      ]);
+      return [...home, ...interest]
+        .sort((a, b) => b.score - a.score)
+        .slice(0, CANDIDATE_POOL_SIZE)
+        .map((c) => ({ id: c.pod.id, title: c.pod.name, description: c.pod.shortDescription }));
+    }
     const result = await this.coursesService.findAll({ page: 1, limit: CANDIDATE_POOL_SIZE });
     return result.data.map((c) => ({ id: c.id, title: c.title, description: c.shortDescription }));
   }
 
-  private targetFieldsFor(category: RecommendationCategory, id: string): { opportunityId?: string; resourceId?: string; courseId?: string } {
+  private targetFieldsFor(category: RecommendationCategory, id: string): { opportunityId?: string; resourceId?: string; courseId?: string; podId?: string } {
     if (category === RecommendationCategory.OPPORTUNITY) return { opportunityId: id };
     if (category === RecommendationCategory.RESOURCE) return { resourceId: id };
+    if (category === RecommendationCategory.POD) return { podId: id };
     return { courseId: id };
   }
 

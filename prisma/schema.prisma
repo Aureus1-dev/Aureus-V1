@@ -65,6 +65,20 @@ enum TaskPriority {
   CRITICAL
 }
 
+// A current life season, not a demographic classification (WO-030 Founder
+// Decision #9). No season is ranked above another; member-selected,
+// optional, and changeable at any time.
+enum SeasonOfLife {
+  STUDENT
+  EARLY_CAREER
+  YOUNG_FAMILY
+  ESTABLISHED_CAREER
+  MID_LIFE_TRANSITION
+  EMPTY_NEST
+  RETIRED
+  OTHER
+}
+
 // ===========================================================================
 // User
 // ===========================================================================
@@ -99,6 +113,10 @@ model User {
   aiConversations         AiConversation[]
   aiRequests              AiRequest[]
   aiRecommendations       AiRecommendation[]
+  podMemberships          PodMembership[]
+  podEventRsvps           PodEventRsvp[]
+  podRequests             PodRequest[]
+  podInvitationsReceived  PodInvitation[]           @relation("PodInvitationInvitee")
 }
 
 // ===========================================================================
@@ -156,6 +174,21 @@ model Profile {
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
   deletedAt   DateTime?
+
+  // Pods matching signals (WO-030, Founder Decisions #7-#9). Every field
+  // below is optional, member-owned, editable, and purpose-bound — the
+  // Institution learns about a person because they chose to share, never
+  // because a field was required or defaulted.
+  city                 String? // coarse location — Founder Decision #8, never precise geolocation
+  region               String?
+  stateProvince        String?
+  country              String?
+  localAreaDescription String? // free text: "describe the community area you consider local to you"
+  profession           String?
+  seasonOfLife         SeasonOfLife? // Founder Decision #9 — a current season, never a permanent category
+  availabilityNotes    String?
+  preferredLanguage    String?
+  faithPreference      String? // voluntary only; never defaulted, never required (§6 privacy model)
 
   userId String @unique @db.Uuid
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -813,15 +846,24 @@ model StewardshipRecommendation {
 }
 
 // ===========================================================================
-// StewardshipEscalation  —  Steward-raised issue requiring human review
-// (PA-012). An internal accountability record, not exposed to members —
-// "Escalate issues" is listed under Steward Authority, not Member Experience.
+// StewardshipEscalation  —  A confidential request for additional
+// stewardship, never an accusation, disciplinary record, or presumption of
+// wrongdoing (PA-012; reframed constitutionally by WO-030 Founder Decision
+// #4, which now governs this model platform-wide). Not exposed to the
+// member concerned — "Escalate issues" is listed under Steward Authority,
+// not Member Experience. Exactly one of relationshipId/podId is set,
+// mirroring StewardshipRecommendation's real-nullable-FK-per-target shape;
+// enforced in the service layer. A Pod escalation may be raised by any
+// ACTIVE Pod member, not only the Pod Steward, so a concern about a
+// Steward's own conduct is never filterable by that Steward.
 // ===========================================================================
 
 model StewardshipEscalation {
   id              String                        @id @default(uuid()) @db.Uuid
-  relationshipId  String                        @db.Uuid
-  relationship    StewardshipRelationship       @relation(fields: [relationshipId], references: [id], onDelete: Cascade)
+  relationshipId  String?                       @db.Uuid
+  relationship    StewardshipRelationship?      @relation(fields: [relationshipId], references: [id], onDelete: Cascade)
+  podId           String?                       @db.Uuid
+  pod             Pod?                          @relation(fields: [podId], references: [id], onDelete: Cascade)
   title           String
   description     String
   severity        StewardshipEscalationSeverity @default(MEDIUM)
@@ -833,6 +875,7 @@ model StewardshipEscalation {
   resolvedAt      DateTime?
 
   @@index([relationshipId])
+  @@index([podId])
   @@index([status])
 }
 
@@ -894,6 +937,7 @@ enum AnnouncementStatus {
 enum ConversationType {
   STEWARDSHIP
   ORGANIZATION
+  POD
 }
 
 // Reserved for forward compatibility with a future external delivery
@@ -1036,6 +1080,10 @@ model Announcement {
 // ORGANIZATION conversations scope participants to representatives of the
 // same Organization (no member-enrollment model exists yet — mirrors
 // ADR-011 Decision 8's documented Business Portal scoping limitation).
+// POD conversations are 1:1 with a Pod (unique `podId`, same get-or-create
+// idempotency as STEWARDSHIP) with every ACTIVE PodMembership seated as a
+// participant — the exact N-participant extension ADR-012 Decision 8
+// pre-declared for this moment (WO-030).
 // ===========================================================================
 
 model Conversation {
@@ -1045,6 +1093,8 @@ model Conversation {
   relationship   StewardshipRelationship? @relation(fields: [relationshipId], references: [id], onDelete: Cascade)
   organizationId String?                  @db.Uuid
   organization   Organization?            @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  podId          String?                  @unique @db.Uuid
+  pod            Pod?                     @relation(fields: [podId], references: [id], onDelete: Cascade)
   lastMessageAt  DateTime?
   createdAt      DateTime                 @default(now())
   updatedAt      DateTime                 @updatedAt
@@ -1181,16 +1231,16 @@ model KnowledgeArticle {
 // ===========================================================================
 
 model KnowledgeArticleRevision {
-  id            String           @id @default(uuid()) @db.Uuid
-  articleId     String           @db.Uuid
-  article       KnowledgeArticle @relation(fields: [articleId], references: [id], onDelete: Cascade)
+  id            String            @id @default(uuid()) @db.Uuid
+  articleId     String            @db.Uuid
+  article       KnowledgeArticle  @relation(fields: [articleId], references: [id], onDelete: Cascade)
   versionNumber Int
   title         String
   summary       String
   content       String
   category      KnowledgeCategory
-  editedById    String           @db.Uuid
-  createdAt     DateTime         @default(now())
+  editedById    String            @db.Uuid
+  createdAt     DateTime          @default(now())
 
   @@unique([articleId, versionNumber])
   @@index([articleId])
@@ -1287,9 +1337,9 @@ model Course {
   revisions           CourseRevision[]
   learningPathCourses LearningPathCourse[]
   enrollments         Enrollment[]
-  certifications       Certification[]
-  media                CourseMedia[]
-  aiRecommendations     AiRecommendation[]
+  certifications      Certification[]
+  media               CourseMedia[]
+  aiRecommendations   AiRecommendation[]
 
   @@index([learningDomain])
   @@index([verificationStatus])
@@ -1336,9 +1386,9 @@ model Module {
 }
 
 model Lesson {
-  id                       String  @id @default(uuid()) @db.Uuid
-  moduleId                 String  @db.Uuid
-  module                   Module  @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+  id                       String @id @default(uuid()) @db.Uuid
+  moduleId                 String @db.Uuid
+  module                   Module @relation(fields: [moduleId], references: [id], onDelete: Cascade)
   title                    String
   content                  String
   position                 Int
@@ -1483,12 +1533,12 @@ model MediaAsset {
   sequenceNumber Int     @unique @default(autoincrement())
   mediaRef       String? @unique // AUR-MED-000001, set after insert
 
-  type        MediaType
-  title       String
-  description String?
-  storageRef  String
-  mimeType    String?
-  sizeBytes   Int?
+  type            MediaType
+  title           String
+  description     String?
+  storageRef      String
+  mimeType        String?
+  sizeBytes       Int?
   durationSeconds Int?
 
   uploadedById String    @db.Uuid
@@ -1542,6 +1592,7 @@ enum AiCapability {
   JOURNEY_GUIDANCE
   ACADEMY_GUIDANCE
   KNOWLEDGE_SEARCH
+  POD_INSIGHT
 }
 
 enum AiRequestStatus {
@@ -1565,9 +1616,9 @@ enum AiRecommendationStatus {
 // Question Answering. Real FK to User: a genuine per-member record, not an
 // audit pointer (mirrors Enrollment/Certification, ADR-014).
 model AiConversation {
-  id     String @id @default(uuid()) @db.Uuid
-  userId String @db.Uuid
-  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id     String  @id @default(uuid()) @db.Uuid
+  userId String  @db.Uuid
+  user   User    @relation(fields: [userId], references: [id], onDelete: Cascade)
   title  String?
 
   createdAt DateTime @default(now())
@@ -1638,6 +1689,8 @@ model AiRecommendation {
   resource      Resource?    @relation(fields: [resourceId], references: [id], onDelete: Cascade)
   courseId      String?      @db.Uuid
   course        Course?      @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  podId         String?      @db.Uuid
+  pod           Pod?         @relation(fields: [podId], references: [id], onDelete: Cascade)
 
   rationale String
   status    AiRecommendationStatus @default(PENDING)
@@ -1653,4 +1706,341 @@ model AiRecommendation {
   @@index([opportunityId])
   @@index([resourceId])
   @@index([courseId])
+  @@index([podId])
 }
+
+// ===========================================================================
+// Pods System (PA-009, OAS-ACA-009)  —  Aureus's smallest living
+// communities. WO-030. "They do not exist to manage people. They exist to
+// care for people." (Article I). Every model and enum below carries the 13
+// Founder Decisions made during Founder Review — see
+// docs/work-orders/WO-030-Pods-Founder-Review-Specification.md for the full
+// constitutional reasoning behind each choice.
+// ===========================================================================
+
+enum PodType {
+  HOME
+  INTEREST
+}
+
+enum PodStatus {
+  FORMING
+  ACTIVE
+  DORMANT
+  ARCHIVED
+}
+
+enum PodMemberRole {
+  MEMBER
+  STEWARD
+}
+
+// DECLINED and ENDED are distinct: DECLINED/DEFERRED describe a response to
+// an invitation that never became membership; ENDED describes membership
+// that concluded. A proactive Home Pod invitation is never automatic
+// assignment (Founder Decision #1).
+enum PodMembershipStatus {
+  PENDING
+  ACTIVE
+  DECLINED
+  DEFERRED
+  ENDED
+}
+
+enum PodMembershipOrigin {
+  MEMBER_REQUEST
+  AI_MATCH_SUGGESTION
+  STEWARD_INVITATION
+  ADMIN_ASSIGNMENT
+}
+
+enum PodEventType {
+  MEETING
+  SERVICE_PROJECT
+  CELEBRATION
+  OTHER
+}
+
+enum PodEventStatus {
+  SCHEDULED
+  COMPLETED
+  CANCELLED
+}
+
+enum RsvpResponse {
+  YES
+  NO
+  MAYBE
+}
+
+enum MeetingCadence {
+  WEEKLY
+  BIWEEKLY
+  MONTHLY
+  AD_HOC
+}
+
+enum ServiceProjectStatus {
+  PROPOSED
+  ACTIVE
+  COMPLETED
+  ARCHIVED
+}
+
+enum PodRequestType {
+  JOIN
+  LEAVE
+  REASSIGNMENT
+  PROPOSE_NEW_POD
+}
+
+enum PodRequestStatus {
+  PENDING
+  APPROVED
+  DECLINED
+  WITHDRAWN
+}
+
+enum PodInvitationStatus {
+  PENDING
+  ACCEPTED
+  DECLINED
+  EXPIRED
+}
+
+// Pod  —  The community itself. PodStatus is intentionally not the shared
+// VerificationStatus enum: a Pod is a living group with an operational
+// lifecycle, not publishable content with a moderation workflow.
+// `parentPodId` is "Stewardship Origin" (Founder Decision #11) — institutional
+// memory of faithful multiplication, never hierarchy, ownership, or ranking.
+// Every child Pod is a fully independent community from the moment it exists.
+model Pod {
+  id               String    @id @default(uuid()) @db.Uuid
+  sequenceNumber   Int       @unique @default(autoincrement())
+  podRef           String?   @unique // AUR-POD-000001, set after insert
+  name             String
+  shortDescription String
+  fullDescription  String
+  type             PodType
+  status           PodStatus @default(FORMING)
+  capacity         Int       @default(12)
+  primaryLanguage  String?
+
+  // Coarse local-area signal (Founder Decision #8) — the community area this
+  // Pod (especially a HOME Pod) primarily serves, set by its Steward/Admin.
+  // Same shape as Profile's member-facing location fields; never precise
+  // geolocation. This is what a member's own Profile location is matched
+  // against in the deterministic scoring function (§2.3).
+  city          String?
+  region        String?
+  stateProvince String?
+  country       String?
+
+  // Column default, never a hardcoded app constant (StewardCapacity
+  // precedent) — no PodEvent held within this many days signals DORMANT.
+  dormancyThresholdDays Int @default(60)
+
+  // Stewardship Origin (Founder Decision #11) — see model doc-comment.
+  parentPodId String? @db.Uuid
+  parentPod   Pod?    @relation("PodStewardshipOrigin", fields: [parentPodId], references: [id])
+  childPods   Pod[]   @relation("PodStewardshipOrigin")
+
+  createdById String    @db.Uuid
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  deletedAt   DateTime?
+
+  members           PodMembership[]
+  events            PodEvent[]
+  meetingSchedule   PodMeetingSchedule?
+  serviceProjects   PodServiceProject[]
+  requests          PodRequest[]
+  invitations       PodInvitation[]
+  escalations       StewardshipEscalation[]
+  aiRecommendations AiRecommendation[]
+  conversation      Conversation?
+
+  @@index([type])
+  @@index([status])
+  @@index([parentPodId])
+}
+
+// PodMembership  —  Who belongs to which Pod, and how. Mirrors
+// StewardshipRelationship's real-FK join-with-lifecycle shape: rows are
+// never rewritten, only superseded (ADR-011). AI_MATCH_SUGGESTION always
+// lands PENDING — AI may suggest a Pod, it may never finalize a membership
+// (ADR-015 Decision 6, extended here for a second domain). A member's Home
+// Pod is derived (their one ACTIVE membership where Pod.type = HOME); no
+// denormalized field lives on User. "At most one ACTIVE and one PENDING
+// membership per (pod, user)" is a service-layer invariant, not a DB
+// constraint — the same choice StewardshipRelationship already makes, since
+// a DB-level unique on (podId, userId, status) would wrongly block a
+// member's second ENDED cycle (join, leave, rejoin, leave again).
+model PodMembership {
+  id     String @id @default(uuid()) @db.Uuid
+  podId  String @db.Uuid
+  pod    Pod    @relation(fields: [podId], references: [id], onDelete: Cascade)
+  userId String @db.Uuid
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  role   PodMemberRole       @default(MEMBER)
+  status PodMembershipStatus @default(PENDING)
+  origin PodMembershipOrigin
+
+  invitedById String? @db.Uuid
+
+  joinedAt  DateTime?
+  endedAt   DateTime?
+  endReason String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([podId])
+  @@index([userId])
+  @@index([status])
+}
+
+// PodEvent  —  A concrete, scheduled gathering with attendance. Kept
+// intentionally minimal: OAS-OPS-104 is a facilitation script for the human
+// Steward to follow, not data the platform needs to store.
+model PodEvent {
+  id          String         @id @default(uuid()) @db.Uuid
+  podId       String         @db.Uuid
+  pod         Pod            @relation(fields: [podId], references: [id], onDelete: Cascade)
+  title       String
+  description String?
+  type        PodEventType   @default(MEETING)
+  startsAt    DateTime
+  endsAt      DateTime?
+  location    String?
+  createdById String         @db.Uuid
+  status      PodEventStatus @default(SCHEDULED)
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+
+  rsvps PodEventRsvp[]
+
+  @@index([podId])
+  @@index([startsAt])
+}
+
+// PodEventRsvp  —  Upcoming RSVPs are visible to fellow Pod members;
+// `attended` (set after the fact by the Steward) is visible only to the
+// member themselves, their Steward, and Admins, and is never a performance
+// metric anywhere it is surfaced (Founder Decision #5).
+model PodEventRsvp {
+  id       String       @id @default(uuid()) @db.Uuid
+  eventId  String       @db.Uuid
+  event    PodEvent     @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  userId   String       @db.Uuid
+  user     User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  response RsvpResponse @default(MAYBE)
+  attended Boolean?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([eventId, userId])
+  @@index([userId])
+}
+
+// PodMeetingSchedule  —  The recurring pattern, kept separate from
+// individual PodEvent instances. Never auto-generates future PodEvents
+// (Founder Decision #10) — instead, its stored defaults (cadence, location,
+// durationMinutes) pre-fill the next PodEvent a Steward creates. The
+// Steward always reviews, edits as needed, and publishes: "Automation shall
+// remove unnecessary administrative burden, but it shall never replace
+// intentional stewardship."
+model PodMeetingSchedule {
+  id              String         @id @default(uuid()) @db.Uuid
+  podId           String         @unique @db.Uuid
+  pod             Pod            @relation(fields: [podId], references: [id], onDelete: Cascade)
+  cadence         MeetingCadence @default(WEEKLY)
+  dayOfWeek       Int? // 0-6, null for AD_HOC
+  timeOfDay       String? // "19:00" — no timezone-aware scheduling infra exists yet
+  location        String?
+  durationMinutes Int?
+  createdById     String         @db.Uuid
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+}
+
+// PodServiceProject  —  Article IX's "who needs us?" — lightweight, not a
+// project-management system. Deliberately no task list, budget, or
+// volunteer sign-up matrix.
+model PodServiceProject {
+  id           String               @id @default(uuid()) @db.Uuid
+  podId        String               @db.Uuid
+  pod          Pod                  @relation(fields: [podId], references: [id], onDelete: Cascade)
+  title        String
+  description  String
+  status       ServiceProjectStatus @default(PROPOSED)
+  proposedById String               @db.Uuid
+  createdAt    DateTime             @default(now())
+  updatedAt    DateTime             @updatedAt
+
+  @@index([podId])
+  @@index([status])
+}
+
+// PodRequest  —  A member's request to join, leave, be reassigned, or
+// propose a new Pod — Article VIII's "Freedom of Belonging" made concrete.
+// Always reviewed, never silently auto-applied. An approved
+// PROPOSE_NEW_POD request creates a new Pod{status: FORMING}; per Founder
+// Decision #2, its first Steward is institutionally appointed, never
+// automatically the proposer.
+model PodRequest {
+  id     String         @id @default(uuid()) @db.Uuid
+  userId String         @db.Uuid
+  user   User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type   PodRequestType
+
+  // Target Pod for JOIN/LEAVE/REASSIGNMENT; null for PROPOSE_NEW_POD.
+  podId String? @db.Uuid
+  pod   Pod?    @relation(fields: [podId], references: [id], onDelete: Cascade)
+
+  proposedPodName        String?
+  proposedPodDescription String?
+  reason                 String?
+
+  status      PodRequestStatus @default(PENDING)
+  decidedById String?          @db.Uuid
+  decidedAt   DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+  @@index([podId])
+  @@index([status])
+}
+
+// PodInvitation  —  Article IV's "never forced... always invited." Who may
+// issue one depends on the target Pod's type (Founder Decision #3): Home
+// Pod — Steward/Institution only; Interest Pod — any ACTIVE member.
+// Enforced in the service layer against the target Pod's `type`.
+model PodInvitation {
+  id            String              @id @default(uuid()) @db.Uuid
+  podId         String              @db.Uuid
+  pod           Pod                 @relation(fields: [podId], references: [id], onDelete: Cascade)
+  invitedUserId String              @db.Uuid
+  invitedUser   User                @relation("PodInvitationInvitee", fields: [invitedUserId], references: [id], onDelete: Cascade)
+  invitedById   String              @db.Uuid
+  message       String?
+  status        PodInvitationStatus @default(PENDING)
+  respondedAt   DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([podId])
+  @@index([invitedUserId])
+  @@index([status])
+}
+
+// No PodMetrics model exists by design. Per Article X and the founder's
+// non-surveillance instruction, Pod metrics (attendance rate, membership
+// size/stability, service-project completion, meeting cadence adherence)
+// are computed on read, at the Pod level, from the operational models
+// above — never persisted per-member, never a stored score or ranking.

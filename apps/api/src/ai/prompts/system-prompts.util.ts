@@ -82,6 +82,40 @@ ${articleLines}
 Write a short (under 150 words) synthesized answer to their question, referencing the article titles above. If no articles are relevant, say so honestly and suggest they rephrase their search.`;
 }
 
+/**
+ * Institutional Wisdom (WO-030 §7.2, Founder Decision #6). Input is
+ * strictly the Pod-level aggregate metrics already defined in §1.10 —
+ * never message content, individual RSVP/attendance records, or
+ * faithPreference. "AI assists Stewards in understanding communities. It
+ * does not judge the people entrusted to their care."
+ */
+export function buildPodStewardInsightPrompt(metrics: {
+  activeMemberCount: number;
+  attendanceRatePercent: number | null;
+  serviceProjectCount: number;
+  serviceProjectsCompleted: number;
+  eventsHeldLast90Days: number;
+}): string {
+  return `A Pod Steward has requested AI-generated insight about their own Pod, using only aggregate, non-identifying data they are already authorized to see. Offer explainable, actionable observations that help the Steward strengthen stewardship, Human Flourishing, and community health. Never generate a score, rating, or judgment about any individual member — you have not been given any individual-level data, and must not invent any. Keep it under 150 words.
+
+Pod aggregate metrics:
+- Active members: ${metrics.activeMemberCount}
+- Meeting attendance rate: ${metrics.attendanceRatePercent === null ? 'not enough data yet' : `${metrics.attendanceRatePercent}%`}
+- Service projects: ${metrics.serviceProjectCount} total, ${metrics.serviceProjectsCompleted} completed
+- Meetings held in the last 90 days: ${metrics.eventsHeldLast90Days}`;
+}
+
+export function buildPodInstitutionalWisdomPrompt(
+  pods: { activeMemberCount: number; attendanceRatePercent: number | null; serviceProjectCount: number; eventsHeldLast90Days: number }[],
+): string {
+  const lines = pods.map((p, i) => `${i + 1}. members=${p.activeMemberCount}, attendance=${p.attendanceRatePercent ?? 'n/a'}%, serviceProjects=${p.serviceProjectCount}, meetingsLast90d=${p.eventsHeldLast90Days}`).join('\n');
+
+  return `Aureus is generating aggregate Institutional Wisdom (Article X) from anonymized, Pod-level metrics across ${pods.length} Pods. Identify honest patterns in what strengthens Human Flourishing and community health (e.g. cadence vs. attendance, service activity vs. stability). Never reference or imply which specific Pod any observation came from — every sentence must describe a pattern across the group, not any single Pod's identity. Keep it under 200 words.
+
+Aggregate Pod metrics (one row per Pod, no names or identifiers):
+${lines}`;
+}
+
 export function buildRecommendationRationalePrompt(context: {
   category: string;
   memberGoalTitles: string[];

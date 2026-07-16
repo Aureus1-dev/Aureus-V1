@@ -36,7 +36,7 @@ export class PrismaAiRecommendationRepository implements IAiRecommendationReposi
 
   async findExistingPending(
     userId: string,
-    target: { opportunityId?: string; resourceId?: string; courseId?: string },
+    target: { opportunityId?: string; resourceId?: string; courseId?: string; podId?: string },
   ): Promise<AiRecommendation | null> {
     return this.prisma.db.aiRecommendation.findFirst({
       where: {
@@ -45,6 +45,7 @@ export class PrismaAiRecommendationRepository implements IAiRecommendationReposi
         opportunityId: target.opportunityId ?? null,
         resourceId: target.resourceId ?? null,
         courseId: target.courseId ?? null,
+        podId: target.podId ?? null,
       },
     });
   }

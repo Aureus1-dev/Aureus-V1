@@ -5,6 +5,7 @@ export enum RecommendationCategory {
   OPPORTUNITY = 'OPPORTUNITY',
   RESOURCE = 'RESOURCE',
   COURSE = 'COURSE',
+  POD = 'POD',
 }
 
 export class RequestRecommendationsDto {

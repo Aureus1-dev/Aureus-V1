@@ -4,7 +4,8 @@ import type { StewardshipEscalation } from '@prisma/client';
 
 export class EscalationResponseDto {
   @ApiProperty() id: string;
-  @ApiProperty() relationshipId: string;
+  @ApiPropertyOptional({ nullable: true }) relationshipId: string | null;
+  @ApiPropertyOptional({ nullable: true }) podId: string | null;
   @ApiProperty() title: string;
   @ApiProperty() description: string;
   @ApiProperty({ enum: StewardshipEscalationSeverity }) severity: StewardshipEscalationSeverity;
