@@ -1,0 +1,21 @@
+.panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  border: 1px solid var(--color-steward);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface-primary);
+}
+
+.rationale {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-primary);
+  line-height: var(--line-height-relaxed);
+}
+
+.actions {
+  display: flex;
+  gap: var(--space-2);
+}

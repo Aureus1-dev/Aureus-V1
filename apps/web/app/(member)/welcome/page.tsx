@@ -1,5 +1,5 @@
-import { PlaceholderSurface } from '../../../design-system/layout';
+import { WelcomeFlow } from '../../../design-system/components/welcome';
 
 export default function WelcomePage() {
-  return <PlaceholderSurface title="Welcome" />;
+  return <WelcomeFlow />;
 }
