@@ -7,6 +7,8 @@ export interface VoiceSessionBrokerInput {
   voice: string;
   instructions: string;
   turnDetectionConfig: Record<string, unknown>;
+  /** Dynamic Screen Orchestration toolset (voice-tools.ts) — backend-owned, never client-supplied. */
+  tools: readonly Record<string, unknown>[];
 }
 
 export interface VoiceSessionBrokerOutput {

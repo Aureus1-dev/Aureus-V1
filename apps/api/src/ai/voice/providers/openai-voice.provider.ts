@@ -43,6 +43,8 @@ export class OpenAiVoiceProvider implements IVoiceProvider {
         voice: input.voice,
         instructions: input.instructions,
         turn_detection: input.turnDetectionConfig,
+        tools: input.tools,
+        tool_choice: 'auto',
       }),
     });
 

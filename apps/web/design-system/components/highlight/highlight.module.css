@@ -1,0 +1,31 @@
+/**
+ * Shared visual treatment for anything registered with the Global
+ * Highlight Registry (DOMAIN-005 Founder Decision 4). Calm and
+ * attention-drawing without being flashy (AFX-003 §2, §10 — the steward
+ * "never competes for attention"): a settled ring with a single gentle
+ * outward pulse, not a strobing or bouncing effect.
+ */
+.highlighted {
+  outline: 3px solid var(--color-focus-ring);
+  outline-offset: 2px;
+  border-radius: var(--radius-lg);
+  animation: highlight-pulse 1.4s ease-out 1;
+}
+
+@keyframes highlight-pulse {
+  0% {
+    outline-offset: 2px;
+  }
+  50% {
+    outline-offset: 8px;
+  }
+  100% {
+    outline-offset: 2px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .highlighted {
+    animation: none;
+  }
+}

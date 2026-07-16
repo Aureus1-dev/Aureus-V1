@@ -22,6 +22,7 @@ export type NormalizedVoiceEvent =
   | { kind: 'steward-transcript-delta'; responseId: string; delta: string }
   | { kind: 'steward-response-completed'; responseId: string; itemId: string | null; transcript: string; occurredAt: string }
   | { kind: 'steward-response-interrupted'; responseId: string; itemId: string | null; transcript: string; occurredAt: string }
+  | { kind: 'function-call-requested'; callId: string; name: string; arguments: string; occurredAt: string }
   | { kind: 'provider-error'; message: string };
 
 export interface RawRealtimeEvent {
@@ -85,19 +86,49 @@ export class RealtimeEventMapper {
       }
 
       case 'response.done': {
-        const response = raw.response as { id?: string; status?: string; output?: { id?: string }[] } | undefined;
+        type OutputItem = { id?: string; type?: string; call_id?: string; name?: string; arguments?: string };
+        const response = raw.response as { id?: string; status?: string; output?: OutputItem[] } | undefined;
         const responseId = response?.id ?? '';
         if (!responseId) return [];
 
-        const transcript = this.transcriptByResponseId.get(responseId) ?? '';
-        const itemId = response?.output?.[0]?.id ?? null;
-        this.transcriptByResponseId.delete(responseId);
         const occurredAt = this.nowIso();
+        const output = response?.output ?? [];
+        const events: NormalizedVoiceEvent[] = [];
 
-        if (response?.status === 'cancelled' || response?.status === 'incomplete') {
-          return [{ kind: 'steward-response-interrupted', responseId, itemId, transcript, occurredAt }];
+        // A single response may request one or more Dynamic Screen
+        // Orchestration tool calls (DOMAIN-005) alongside, or instead of,
+        // a spoken message — each is reported independently so
+        // `VoiceOrchestrator` can execute all of them.
+        for (const item of output) {
+          if (item.type === 'function_call' && item.call_id && item.name) {
+            events.push({
+              kind: 'function-call-requested',
+              callId: item.call_id,
+              name: item.name,
+              arguments: item.arguments ?? '{}',
+              occurredAt,
+            });
+          }
         }
-        return [{ kind: 'steward-response-completed', responseId, itemId, transcript, occurredAt }];
+
+        const transcript = this.transcriptByResponseId.get(responseId) ?? '';
+        const messageItem = output.find((item) => item.type !== 'function_call');
+        const itemId = messageItem?.id ?? null;
+        this.transcriptByResponseId.delete(responseId);
+
+        // A response's turn always resolves (even with an empty
+        // transcript — e.g. a response that was purely a tool call),
+        // exactly as before this event could also carry tool calls: the
+        // state machine depends on this event to leave 'thinking'/
+        // 'speaking' and return to 'listening' regardless of what, if
+        // anything, was said.
+        if (response?.status === 'cancelled' || response?.status === 'incomplete') {
+          events.push({ kind: 'steward-response-interrupted', responseId, itemId, transcript, occurredAt });
+        } else {
+          events.push({ kind: 'steward-response-completed', responseId, itemId, transcript, occurredAt });
+        }
+
+        return events;
       }
 
       case 'error': {

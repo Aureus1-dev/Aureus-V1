@@ -18,6 +18,7 @@ import { AI_MESSAGE_REPOSITORY, IAiMessageRepository } from '../conversations/re
 import { AI_REQUEST_REPOSITORY, IAiRequestRepository } from '../requests/repositories/ai-request.repository.interface';
 import { VOICE_PROVIDER, IVoiceProvider } from './providers/voice-provider.interface';
 import { VOICE_TIMING_POLICY } from './voice-timing-policy';
+import { VOICE_TOOLS } from './voice-tools';
 import {
   AI_VOICE_SESSION_REPOSITORY,
   IAiVoiceSessionRepository,
@@ -81,6 +82,7 @@ export class VoiceSessionService {
         voice,
         instructions: VOICE_ASSISTANT_SYSTEM_PROMPT,
         turnDetectionConfig: VOICE_TIMING_POLICY.config,
+        tools: VOICE_TOOLS,
       });
 
       const session = await this.voiceSessionRepo.create({

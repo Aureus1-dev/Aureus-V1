@@ -31,12 +31,20 @@ export interface VoiceTranscriptEntry {
   createdAt: string;
 }
 
+/** A Dynamic Screen Orchestration tool call (DOMAIN-005) awaiting execution by `VoiceOrchestrator`. */
+export interface PendingToolCall {
+  callId: string;
+  name: string;
+  arguments: string;
+}
+
 interface State {
   turnState: VoiceTurnState;
   sessionId: string | null;
   conversationId: string | null;
   muted: boolean;
   transcript: VoiceTranscriptEntry[];
+  pendingToolCalls: PendingToolCall[];
   error: VoiceError | null;
 }
 
@@ -52,6 +60,8 @@ type Action =
   | { type: 'transcript/steward-started'; responseId: string }
   | { type: 'transcript/steward-delta'; responseId: string; delta: string }
   | { type: 'transcript/steward-resolved'; responseId: string; transcript: string; interrupted: boolean }
+  | { type: 'tool-call/requested'; callId: string; name: string; arguments: string }
+  | { type: 'tool-call/resolved'; callId: string }
   | { type: 'reset' };
 
 const initialState: State = {
@@ -60,6 +70,7 @@ const initialState: State = {
   conversationId: null,
   muted: false,
   transcript: [],
+  pendingToolCalls: [],
   error: null,
 };
 
@@ -119,6 +130,13 @@ function reducer(state: State, action: Action): State {
             : entry,
         ),
       };
+    case 'tool-call/requested':
+      return {
+        ...state,
+        pendingToolCalls: [...state.pendingToolCalls, { callId: action.callId, name: action.name, arguments: action.arguments }],
+      };
+    case 'tool-call/resolved':
+      return { ...state, pendingToolCalls: state.pendingToolCalls.filter((call) => call.callId !== action.callId) };
     case 'reset':
       return initialState;
     default:
@@ -161,6 +179,10 @@ interface VoiceContextValue {
   endSession: () => Promise<void>;
   setMuted: (muted: boolean) => void;
   interrupt: () => void;
+  /** Reports a Dynamic Screen Orchestration tool call's result back to the provider and lets the steward continue. */
+  resolveToolCall: (callId: string, output: Record<string, unknown>) => void;
+  /** Tells the steward, mid-session, what is currently visible/interactive — additive context, never overwrites the base persona instructions the backend set at session start. */
+  syncInterfaceContext: (summary: string) => void;
   clearError: () => void;
 }
 
@@ -239,6 +261,15 @@ export function VoiceProvider({ children }: { children: React.ReactNode }) {
           void flush();
           break;
         }
+        case 'function-call-requested':
+          // Dynamic Screen Orchestration (DOMAIN-005) — execution lives
+          // entirely in `VoiceOrchestrator`, which knows about routing
+          // and the Highlight Registry; this context only ever queues
+          // the request and, once told the result, reports it back to
+          // the provider. No backend involvement: the client-to-provider
+          // data channel is the only party in this exchange.
+          dispatch({ type: 'tool-call/requested', callId: event.callId, name: event.name, arguments: event.arguments });
+          break;
         case 'provider-error':
           dispatch({ type: 'error/set', error: { kind: 'connection', message: event.message, retryable: true } });
           break;
@@ -320,13 +351,39 @@ export function VoiceProvider({ children }: { children: React.ReactNode }) {
     clientRef.current?.interrupt();
   }, []);
 
+  const resolveToolCall = useCallback((callId: string, output: Record<string, unknown>) => {
+    clientRef.current?.sendEvent({
+      type: 'conversation.item.create',
+      item: { type: 'function_call_output', call_id: callId, output: JSON.stringify(output) },
+    });
+    clientRef.current?.sendEvent({ type: 'response.create' });
+    dispatch({ type: 'tool-call/resolved', callId });
+  }, []);
+
+  const syncInterfaceContext = useCallback((summary: string) => {
+    clientRef.current?.sendEvent({
+      type: 'conversation.item.create',
+      item: { type: 'message', role: 'system', content: [{ type: 'input_text', text: summary }] },
+    });
+  }, []);
+
   const clearError = useCallback(() => {
     dispatch({ type: 'error/clear' });
   }, []);
 
   const value = useMemo(
-    () => ({ state, remoteStream, startSession, endSession, setMuted, interrupt, clearError }),
-    [state, remoteStream, startSession, endSession, setMuted, interrupt, clearError],
+    () => ({
+      state,
+      remoteStream,
+      startSession,
+      endSession,
+      setMuted,
+      interrupt,
+      resolveToolCall,
+      syncInterfaceContext,
+      clearError,
+    }),
+    [state, remoteStream, startSession, endSession, setMuted, interrupt, resolveToolCall, syncInterfaceContext, clearError],
   );
 
   return <VoiceContext.Provider value={value}>{children}</VoiceContext.Provider>;

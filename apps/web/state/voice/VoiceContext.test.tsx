@@ -204,4 +204,78 @@ describe('VoiceContext', () => {
     expect(getApi().state.error?.kind).toBe('unavailable');
     expect(getApi().state.error?.retryable).toBe(true);
   });
+
+  describe('Dynamic Screen Orchestration (DOMAIN-005)', () => {
+    it('queues a tool call the provider requested, without ending the response as an empty spoken turn silently going unnoticed', async () => {
+      const getApi = await signedInAndConnected();
+      const callbacks = lastCallbacks();
+
+      act(() => callbacks.onDataChannelMessage({
+        type: 'response.done',
+        response: {
+          id: 'resp-1',
+          status: 'completed',
+          output: [{ type: 'function_call', call_id: 'call-1', name: 'navigate_to_route', arguments: '{"route":"journey"}' }],
+        },
+      }));
+
+      expect(getApi().state.pendingToolCalls).toEqual([
+        { callId: 'call-1', name: 'navigate_to_route', arguments: '{"route":"journey"}' },
+      ]);
+      expect(getApi().state.turnState).toBe('listening');
+    });
+
+    it('resolveToolCall reports the result back to the provider and clears it from the pending queue', async () => {
+      const getApi = await signedInAndConnected();
+      const callbacks = lastCallbacks();
+
+      act(() => callbacks.onDataChannelMessage({
+        type: 'response.done',
+        response: {
+          id: 'resp-1',
+          status: 'completed',
+          output: [{ type: 'function_call', call_id: 'call-1', name: 'navigate_to_route', arguments: '{"route":"journey"}' }],
+        },
+      }));
+
+      act(() => getApi().resolveToolCall('call-1', { ok: true }));
+
+      expect(MockedClient.prototype.sendEvent).toHaveBeenCalledWith({
+        type: 'conversation.item.create',
+        item: { type: 'function_call_output', call_id: 'call-1', output: JSON.stringify({ ok: true }) },
+      });
+      expect(MockedClient.prototype.sendEvent).toHaveBeenCalledWith({ type: 'response.create' });
+      expect(getApi().state.pendingToolCalls).toEqual([]);
+    });
+
+    it('syncInterfaceContext sends the current registry summary as an additive system message, never overwriting base instructions', async () => {
+      const getApi = await signedInAndConnected();
+
+      act(() => getApi().syncInterfaceContext('Currently visible: Home.NextMission'));
+
+      expect(MockedClient.prototype.sendEvent).toHaveBeenCalledWith({
+        type: 'conversation.item.create',
+        item: { type: 'message', role: 'system', content: [{ type: 'input_text', text: 'Currently visible: Home.NextMission' }] },
+      });
+    });
+
+    it('handles several simultaneous tool calls from one response', async () => {
+      const getApi = await signedInAndConnected();
+      const callbacks = lastCallbacks();
+
+      act(() => callbacks.onDataChannelMessage({
+        type: 'response.done',
+        response: {
+          id: 'resp-1',
+          status: 'completed',
+          output: [
+            { type: 'function_call', call_id: 'call-a', name: 'focus_interface_target', arguments: '{"targetId":"Home.NextMission"}' },
+            { type: 'function_call', call_id: 'call-b', name: 'navigate_to_route', arguments: '{"route":"home"}' },
+          ],
+        },
+      }));
+
+      expect(getApi().state.pendingToolCalls).toHaveLength(2);
+    });
+  });
 });
