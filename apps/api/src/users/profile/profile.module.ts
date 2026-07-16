@@ -9,6 +9,9 @@ import { PROFILE_REPOSITORY } from './repositories/profile.repository.interface'
   imports: [AuthGuardsModule],
   controllers: [ProfileController],
   providers: [ProfileService, { provide: PROFILE_REPOSITORY, useClass: PrismaProfileRepository }],
-  exports: [ProfileService],
+  // Pods (WO-030) matching needs graceful "no profile yet" reads (repository
+  // returns null; ProfileService.findByUserId throws NotFoundException),
+  // so the repository token is exported alongside the service.
+  exports: [ProfileService, PROFILE_REPOSITORY],
 })
 export class ProfileModule {}

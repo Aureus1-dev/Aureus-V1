@@ -6,6 +6,7 @@ export interface CreateConversationInput {
   type: ConversationType;
   relationshipId?: string;
   organizationId?: string;
+  podId?: string;
   participantIds: string[];
 }
 
@@ -23,6 +24,8 @@ export interface IConversationRepository {
   findByRelationshipId(relationshipId: string): Promise<Conversation | null>;
   /** Idempotent get-or-create lookup for ORGANIZATION conversations between exactly two representatives. */
   findOrganizationConversationBetween(organizationId: string, userIdA: string, userIdB: string): Promise<Conversation | null>;
+  /** Idempotent get-or-create lookup for POD conversations — one thread per Pod (WO-030). */
+  findByPodId(podId: string): Promise<Conversation | null>;
   findForUser(userId: string, page: number, limit: number): Promise<PaginatedConversations>;
   isParticipant(conversationId: string, userId: string): Promise<boolean>;
   touchLastMessageAt(conversationId: string, at: Date): Promise<void>;

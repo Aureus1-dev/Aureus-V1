@@ -84,6 +84,11 @@ import { StewardMetricsService } from './metrics/steward-metrics.service';
     StewardshipRelationshipsService,
     STEWARDSHIP_RELATIONSHIP_REPOSITORY,
     StewardCapacityService,
+    // Pods (WO-030) reuses the StewardshipEscalation table directly for Pod
+    // escalations (Founder Decision #4) — exported so PodsModule can inject
+    // the repository and apply its own Pod-membership-aware authorization,
+    // without Stewardship needing to know about Pod roles.
+    STEWARDSHIP_ESCALATION_REPOSITORY,
   ],
 })
 export class StewardshipModule {}

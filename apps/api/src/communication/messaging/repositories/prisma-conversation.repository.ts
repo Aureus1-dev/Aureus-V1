@@ -13,7 +13,7 @@ export class PrismaConversationRepository implements IConversationRepository {
 
   async create(data: CreateConversationInput): Promise<Conversation> {
     const conversation = await this.prisma.db.conversation.create({
-      data: { type: data.type, relationshipId: data.relationshipId, organizationId: data.organizationId },
+      data: { type: data.type, relationshipId: data.relationshipId, organizationId: data.organizationId, podId: data.podId },
     });
     await this.prisma.db.conversationParticipant.createMany({
       data: data.participantIds.map((userId) => ({ conversationId: conversation.id, userId })),
@@ -27,6 +27,10 @@ export class PrismaConversationRepository implements IConversationRepository {
 
   async findByRelationshipId(relationshipId: string): Promise<Conversation | null> {
     return this.prisma.db.conversation.findUnique({ where: { relationshipId } });
+  }
+
+  async findByPodId(podId: string): Promise<Conversation | null> {
+    return this.prisma.db.conversation.findUnique({ where: { podId } });
   }
 
   async findOrganizationConversationBetween(organizationId: string, userIdA: string, userIdB: string): Promise<Conversation | null> {

@@ -11,6 +11,7 @@ import { OpportunitiesService } from '../../opportunities/opportunities.service'
 import { ResourcesService } from '../../resources/resources.service';
 import { GoalsService } from '../../goals/goals.service';
 import { CoursesService } from '../../academy/courses/courses.service';
+import { PodMatchingService } from '../../pods/matching/pod-matching.service';
 import { AiRequestsService } from '../requests/ai-requests.service';
 import { NotificationsService } from '../../communication/notifications/notifications.service';
 import type { AuthenticatedUser } from '../../auth/strategies/jwt.strategy';
@@ -33,6 +34,7 @@ const mockOpportunitiesService = { findAll: jest.fn() } as unknown as jest.Mocke
 const mockResourcesService = { findAll: jest.fn() } as unknown as jest.Mocked<ResourcesService>;
 const mockGoalsService = { findAll: jest.fn() } as unknown as jest.Mocked<GoalsService>;
 const mockCoursesService = { findAll: jest.fn() } as unknown as jest.Mocked<CoursesService>;
+const mockPodMatching = { rankCandidates: jest.fn() } as unknown as jest.Mocked<PodMatchingService>;
 const mockAiRequests = { runCompletion: jest.fn() } as unknown as jest.Mocked<AiRequestsService>;
 const mockNotificationsService = { notify: jest.fn() } as unknown as NotificationsService;
 
@@ -48,6 +50,7 @@ describe('RecommendationsService', () => {
         { provide: ResourcesService, useValue: mockResourcesService },
         { provide: GoalsService, useValue: mockGoalsService },
         { provide: CoursesService, useValue: mockCoursesService },
+        { provide: PodMatchingService, useValue: mockPodMatching },
         { provide: AiRequestsService, useValue: mockAiRequests },
         { provide: NotificationsService, useValue: mockNotificationsService },
       ],
@@ -104,6 +107,24 @@ describe('RecommendationsService', () => {
       await service.generate({ category: RecommendationCategory.OPPORTUNITY }, USER);
 
       expect(mockRepo.create).not.toHaveBeenCalled();
+    });
+
+    it('POD category sources candidates from the deterministic PodMatchingService, never decides Pod membership itself', async () => {
+      mockPodMatching.rankCandidates.mockResolvedValue([
+        { pod: { id: 'pod-001', name: 'Riverside Home Pod', shortDescription: 'A local community' }, score: 9 } as never,
+      ]);
+      mockAiRequests.runCompletion.mockResolvedValue({
+        content: JSON.stringify([{ id: 'pod-001', rationale: 'Close to your area and a great fit.' }]),
+        requestId: 'req-003',
+      });
+      mockRepo.findExistingPending.mockResolvedValue(null);
+      mockRepo.create.mockResolvedValue(makeRecommendation({ opportunityId: null, podId: 'pod-001' } as never));
+
+      const result = await service.generate({ category: RecommendationCategory.POD }, USER);
+
+      expect(mockPodMatching.rankCandidates).toHaveBeenCalled();
+      expect(mockRepo.create).toHaveBeenCalledWith(expect.objectContaining({ podId: 'pod-001' }));
+      expect(result).toHaveLength(1);
     });
 
     it('returns an empty array without calling the AI when there are no candidates', async () => {
