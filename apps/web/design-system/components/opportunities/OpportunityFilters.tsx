@@ -4,15 +4,36 @@ import { useState, type FormEvent } from 'react';
 import { Button } from '../Button/Button';
 import styles from './OpportunityFilters.module.css';
 
+export type OpportunitySortOption = 'newest' | 'confidence' | 'deadline' | 'freshness';
+
 export interface OpportunityFiltersValue {
   q?: string;
   category?: string;
   deadlineFilter?: 'afterNow' | 'within7days' | 'within30days';
+  sort?: OpportunitySortOption;
 }
 
 export interface OpportunityFiltersProps {
   value: OpportunityFiltersValue;
   onChange: (value: OpportunityFiltersValue) => void;
+}
+
+const SORT_OPTIONS: { value: OpportunitySortOption; label: string }[] = [
+  { value: 'newest', label: 'Newest' },
+  { value: 'confidence', label: 'Best match' },
+  { value: 'deadline', label: 'Closing soon' },
+  { value: 'freshness', label: 'Most current' },
+];
+
+/**
+ * Maps the member-facing sort choice to the backend's `sortBy`/`sortOrder`
+ * pair. "Closing soon" is the one case that means ascending (soonest
+ * deadline first) — every other option means "most" first.
+ */
+export function sortOptionToParams(sort: OpportunitySortOption | undefined): { sortBy?: 'newest' | 'deadline' | 'confidence' | 'freshness'; sortOrder?: 'asc' | 'desc' } {
+  if (!sort || sort === 'newest') return {};
+  if (sort === 'deadline') return { sortBy: 'deadline', sortOrder: 'asc' };
+  return { sortBy: sort, sortOrder: 'desc' };
 }
 
 const CATEGORY_OPTIONS: { value: string; label: string }[] = [
@@ -87,6 +108,20 @@ export function OpportunityFilters({ value, onChange }: OpportunityFiltersProps)
           <option value="within7days">Within 7 days</option>
           <option value="within30days">Within 30 days</option>
           <option value="afterNow">Upcoming</option>
+        </select>
+      </label>
+      <label className={styles.field}>
+        <span className={styles.label}>Sort by</span>
+        <select
+          className={styles.input}
+          value={value.sort ?? 'newest'}
+          onChange={(event) => onChange({ ...value, sort: event.target.value as OpportunitySortOption })}
+        >
+          {SORT_OPTIONS.map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.label}
+            </option>
+          ))}
         </select>
       </label>
       <Button type="submit" variant="secondary">

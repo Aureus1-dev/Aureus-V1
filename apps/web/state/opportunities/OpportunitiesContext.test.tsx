@@ -106,4 +106,57 @@ describe('OpportunitiesContext', () => {
     expect(mockedSaved.removeSavedOpportunity).toHaveBeenCalledWith('token-123', 'member-1', 'opp-1');
     expect(getApi().isSaved('opp-1')).toBe(false);
   });
+
+  it('updates tracking status, favorite, and notes on a saved opportunity', async () => {
+    const updated = { ...savedRecord, trackingStatus: 'APPLYING' as const, isFavorite: true, notes: 'Applied via referral' };
+    mockedSaved.updateSavedOpportunity.mockResolvedValue(updated);
+
+    const getApi = renderHarness();
+    act(() => getApi().setToken('token-123'));
+    await act(async () => {
+      await getApi().updateSaved('opp-1', { trackingStatus: 'APPLYING', isFavorite: true, notes: 'Applied via referral' });
+    });
+
+    expect(mockedSaved.updateSavedOpportunity).toHaveBeenCalledWith('token-123', 'member-1', 'opp-1', {
+      trackingStatus: 'APPLYING',
+      isFavorite: true,
+      notes: 'Applied via referral',
+    });
+    expect(getApi().state.savedByOpportunityId['opp-1']).toEqual(updated);
+  });
+
+  it('loads the next page and appends results without discarding what is already shown', async () => {
+    const opportunity2 = { ...opportunity, id: 'opp-2', title: 'Second Grant' };
+    mockedOpportunities.listOpportunities
+      .mockResolvedValueOnce({ data: [opportunity], total: 2, page: 1, limit: 1, totalPages: 2 })
+      .mockResolvedValueOnce({ data: [opportunity2], total: 2, page: 2, limit: 1, totalPages: 2 });
+
+    const getApi = renderHarness();
+    act(() => getApi().setToken('token-123'));
+    await act(async () => {
+      await getApi().search({ q: 'grant' });
+    });
+    await act(async () => {
+      await getApi().loadMore();
+    });
+
+    expect(mockedOpportunities.listOpportunities).toHaveBeenLastCalledWith('token-123', { q: 'grant', page: 2 });
+    expect(getApi().state.results).toEqual([opportunity, opportunity2]);
+    expect(getApi().state.meta).toEqual({ page: 2, limit: 1, total: 2, totalPages: 2 });
+  });
+
+  it('does not request another page once every page has been loaded', async () => {
+    mockedOpportunities.listOpportunities.mockResolvedValue({ data: [opportunity], total: 1, page: 1, limit: 20, totalPages: 1 });
+
+    const getApi = renderHarness();
+    act(() => getApi().setToken('token-123'));
+    await act(async () => {
+      await getApi().search({});
+    });
+    await act(async () => {
+      await getApi().loadMore();
+    });
+
+    expect(mockedOpportunities.listOpportunities).toHaveBeenCalledTimes(1);
+  });
 });
