@@ -1,0 +1,17 @@
+export { HomeDashboard } from './HomeDashboard';
+export { Greeting, type GreetingProps } from './Greeting';
+export { QuickActions } from './QuickActions';
+export { JourneySection } from './JourneySection';
+export { NextStepCard, type NextStepCardProps } from './NextStepCard';
+export { ProgressOverviewCard, type ProgressOverviewCardProps } from './ProgressOverviewCard';
+export { ActiveGoalsList, type ActiveGoalsListProps } from './ActiveGoalsList';
+export { OpportunityHighlights } from './OpportunityHighlights';
+export { ConversationShortcut } from './ConversationShortcut';
+export { NotificationsSection } from './NotificationsSection';
+export { NotificationsPreview, type NotificationsPreviewProps } from './NotificationsPreview';
+export { RecentActivity, type RecentActivityProps } from './RecentActivity';
+export { computeNextStep, type NextStep } from './compute-next-step';
+export { computeProgressOverview, type ProgressOverview } from './compute-progress-overview';
+export { pickMostRelevantGoal } from './pick-most-relevant-goal';
+export { useHomeJourneyDetail, type HomeJourneyDetail } from './useHomeJourneyDetail';
+export { useGreetingName } from './useGreetingName';

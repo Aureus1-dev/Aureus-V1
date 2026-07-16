@@ -1,5 +1,5 @@
-import { PlaceholderSurface } from '../../../design-system/layout';
+import { HomeDashboard } from '../../../design-system/components/home';
 
 export default function HomePage() {
-  return <PlaceholderSurface title="Home" />;
+  return <HomeDashboard />;
 }

@@ -1,28 +1,47 @@
 'use client';
 
 import { useEffect } from 'react';
-import { useJourney } from '../../../state';
+import { useRouter } from 'next/navigation';
+import { useJourney, useSession } from '../../../state';
 import { LoadingState } from '../LoadingState/LoadingState';
 import { FirstRunWelcome } from './FirstRunWelcome';
-import { ReturningWelcome } from './ReturningWelcome';
 import styles from './WelcomeFlow.module.css';
 
+export interface WelcomeFlowProps {
+  /** From `?newMission=true` — the escape hatch a returning member's "Start a new mission" action uses to reach the guided flow again without being redirected to Home first. */
+  forceNewMission?: boolean;
+}
+
 /**
- * Welcome — the front door of Aureus (Founder Decision: Welcome
- * composes the rest of the Core Member Journey Domain). Branches
- * between a first-run guided flow and a calm returning-member summary,
- * since a member should never be forced through onboarding twice
- * (AFX-005 §3).
+ * Welcome — the front door of Aureus, for first-run members only
+ * (DOMAIN-003 Founder Decision 1). A returning member (one who already
+ * has goals) is redirected to Home instead of shown a second summary
+ * screen here, since a member should never be forced through onboarding
+ * twice (AFX-005 §3) and "every return begins where the previous
+ * journey paused" (FPB-003 §10) — that resumption point is Home, not
+ * Welcome.
  */
-export function WelcomeFlow() {
+export function WelcomeFlow({ forceNewMission = false }: WelcomeFlowProps) {
+  const router = useRouter();
+  const { session } = useSession();
   const journey = useJourney();
 
   useEffect(() => {
-    void journey.loadGoals();
+    if (session.isAuthenticated) {
+      void journey.loadGoals();
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [session.isAuthenticated]);
 
-  if (journey.state.isLoadingGoals) {
+  const isReturningMember = journey.state.goals.length > 0;
+
+  useEffect(() => {
+    if (!journey.state.isLoadingGoals && isReturningMember && !forceNewMission) {
+      router.replace('/home');
+    }
+  }, [journey.state.isLoadingGoals, isReturningMember, forceNewMission, router]);
+
+  if (journey.state.isLoadingGoals || (isReturningMember && !forceNewMission)) {
     return (
       <div className={styles.loading}>
         <LoadingState label="Preparing your welcome" />
@@ -30,9 +49,5 @@ export function WelcomeFlow() {
     );
   }
 
-  if (journey.state.goals.length > 0) {
-    return <ReturningWelcome goals={journey.state.goals} />;
-  }
-
-  return <FirstRunWelcome />;
+  return <FirstRunWelcome skipHospitality={forceNewMission} />;
 }

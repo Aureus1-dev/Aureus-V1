@@ -10,7 +10,9 @@ import {
   listSavedOpportunities,
   removeSavedOpportunity,
   saveOpportunity,
+  updateSavedOpportunity,
   type SavedOpportunityDto,
+  type TrackingStatus,
 } from '../../lib/api/saved-opportunities';
 import { ApiError, NetworkError } from '../../lib/api/errors';
 import { useSession } from '../session/SessionContext';
@@ -35,6 +37,7 @@ interface State {
   results: OpportunityDto[];
   meta: ResultsMeta | null;
   isSearching: boolean;
+  isLoadingMore: boolean;
   savedByOpportunityId: Record<string, SavedOpportunityDto>;
   isLoadingSaved: boolean;
   error: OpportunityError | null;
@@ -43,6 +46,8 @@ interface State {
 type Action =
   | { type: 'search/start'; query: ListOpportunitiesParams }
   | { type: 'search/success'; results: OpportunityDto[]; meta: ResultsMeta }
+  | { type: 'more/start' }
+  | { type: 'more/success'; results: OpportunityDto[]; meta: ResultsMeta }
   | { type: 'saved/loading' }
   | { type: 'saved/loaded'; saved: SavedOpportunityDto[] }
   | { type: 'saved/upserted'; saved: SavedOpportunityDto }
@@ -55,6 +60,7 @@ const initialState: State = {
   results: [],
   meta: null,
   isSearching: false,
+  isLoadingMore: false,
   savedByOpportunityId: {},
   isLoadingSaved: false,
   error: null,
@@ -66,6 +72,10 @@ function reducer(state: State, action: Action): State {
       return { ...state, isSearching: true, query: action.query, error: null };
     case 'search/success':
       return { ...state, isSearching: false, results: action.results, meta: action.meta };
+    case 'more/start':
+      return { ...state, isLoadingMore: true };
+    case 'more/success':
+      return { ...state, isLoadingMore: false, results: [...state.results, ...action.results], meta: action.meta };
     case 'saved/loading':
       return { ...state, isLoadingSaved: true };
     case 'saved/loaded': {
@@ -84,7 +94,7 @@ function reducer(state: State, action: Action): State {
       return { ...state, savedByOpportunityId };
     }
     case 'error':
-      return { ...state, isSearching: false, isLoadingSaved: false, error: action.error };
+      return { ...state, isSearching: false, isLoadingMore: false, isLoadingSaved: false, error: action.error };
     case 'error/clear':
       return { ...state, error: null };
     default:
@@ -104,11 +114,19 @@ function classifyError(error: unknown): OpportunityError {
   return { kind: 'unknown', message: 'Something unexpected happened.', retryable: true };
 }
 
+interface UpdateSavedInput {
+  isFavorite?: boolean;
+  trackingStatus?: TrackingStatus;
+  notes?: string;
+}
+
 interface OpportunitiesContextValue {
   state: State;
   search: (params: ListOpportunitiesParams) => Promise<void>;
+  loadMore: () => Promise<void>;
   loadSaved: () => Promise<void>;
   toggleSave: (opportunityId: string) => Promise<void>;
+  updateSaved: (opportunityId: string, update: UpdateSavedInput) => Promise<void>;
   isSaved: (opportunityId: string) => boolean;
   clearError: () => void;
 }
@@ -136,6 +154,23 @@ export function OpportunitiesProvider({ children }: { children: React.ReactNode 
     },
     [session.accessToken],
   );
+
+  const loadMore = useCallback(async () => {
+    if (!session.accessToken || !state.meta || state.isLoadingMore) return;
+    if (state.meta.page >= state.meta.totalPages) return;
+    dispatch({ type: 'more/start' });
+    try {
+      const nextPage = state.meta.page + 1;
+      const result = await listOpportunities(session.accessToken, { ...state.query, page: nextPage });
+      dispatch({
+        type: 'more/success',
+        results: result.data,
+        meta: { page: result.page, limit: result.limit, total: result.total, totalPages: result.totalPages },
+      });
+    } catch (error) {
+      dispatch({ type: 'error', error: classifyError(error) });
+    }
+  }, [session.accessToken, state.meta, state.query, state.isLoadingMore]);
 
   const loadSaved = useCallback(async () => {
     if (!session.accessToken || !session.memberId) return;
@@ -167,6 +202,19 @@ export function OpportunitiesProvider({ children }: { children: React.ReactNode 
     [session.accessToken, session.memberId, state.savedByOpportunityId],
   );
 
+  const updateSaved = useCallback(
+    async (opportunityId: string, update: UpdateSavedInput) => {
+      if (!session.accessToken || !session.memberId) return;
+      try {
+        const saved = await updateSavedOpportunity(session.accessToken, session.memberId, opportunityId, update);
+        dispatch({ type: 'saved/upserted', saved });
+      } catch (error) {
+        dispatch({ type: 'error', error: classifyError(error) });
+      }
+    },
+    [session.accessToken, session.memberId],
+  );
+
   const isSaved = useCallback(
     (opportunityId: string) => !!state.savedByOpportunityId[opportunityId],
     [state.savedByOpportunityId],
@@ -175,8 +223,8 @@ export function OpportunitiesProvider({ children }: { children: React.ReactNode 
   const clearError = useCallback(() => dispatch({ type: 'error/clear' }), []);
 
   const value = useMemo(
-    () => ({ state, search, loadSaved, toggleSave, isSaved, clearError }),
-    [state, search, loadSaved, toggleSave, isSaved, clearError],
+    () => ({ state, search, loadMore, loadSaved, toggleSave, updateSaved, isSaved, clearError }),
+    [state, search, loadMore, loadSaved, toggleSave, updateSaved, isSaved, clearError],
   );
 
   return <OpportunitiesContext.Provider value={value}>{children}</OpportunitiesContext.Provider>;

@@ -2,9 +2,8 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { useJourney, useOpportunities, useRecommendations, useSession } from '../../../state';
-import { getOpportunity } from '../../../lib/api/opportunities';
-import type { RecommendationSubject } from '../recommendations';
+import { useJourney, useOpportunities, useRecommendations } from '../../../state';
+import { useRecommendationSubjects } from '../recommendations';
 import { HospitalityStep } from './steps/HospitalityStep';
 import { ImmediateNeedStep } from './steps/ImmediateNeedStep';
 import { FirstMissionStep } from './steps/FirstMissionStep';
@@ -29,13 +28,12 @@ export interface FirstRunWelcomeProps {
  */
 export function FirstRunWelcome({ skipHospitality = false }: FirstRunWelcomeProps) {
   const router = useRouter();
-  const { session } = useSession();
   const journey = useJourney();
   const opportunities = useOpportunities();
   const recommendations = useRecommendations();
 
   const [step, setStep] = useState<Step>(skipHospitality ? 'immediate-need' : 'hospitality');
-  const [subjectsById, setSubjectsById] = useState<Record<string, RecommendationSubject>>({});
+  const subjectsById = useRecommendationSubjects(recommendations.state.recommendations);
   const generatedRef = useRef(false);
 
   const createdGoal =
@@ -57,27 +55,6 @@ export function FirstRunWelcome({ skipHospitality = false }: FirstRunWelcomeProp
     void recommendations.generate('OPPORTUNITY');
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [step]);
-
-  useEffect(() => {
-    if (!session.accessToken) return;
-    const unresolved = recommendations.state.recommendations.filter(
-      (r) => r.opportunityId && !subjectsById[r.id],
-    );
-    if (unresolved.length === 0) return;
-    let cancelled = false;
-    void Promise.all(
-      unresolved.map(async (r) => {
-        const opportunity = await getOpportunity(session.accessToken!, r.opportunityId!);
-        return [r.id, { title: opportunity.title, description: opportunity.shortDescription }] as const;
-      }),
-    ).then((entries) => {
-      if (cancelled) return;
-      setSubjectsById((previous) => ({ ...previous, ...Object.fromEntries(entries) }));
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [recommendations.state.recommendations, session.accessToken, subjectsById]);
 
   const nextStepTitle = (() => {
     if (!createdGoal) return null;
