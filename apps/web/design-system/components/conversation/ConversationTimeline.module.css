@@ -1,0 +1,9 @@
+.timeline {
+  display: flex;
+  flex-direction: column;
+  list-style: none;
+  margin: 0;
+  padding: var(--space-4) 0;
+  min-height: 0;
+  overflow-y: auto;
+}

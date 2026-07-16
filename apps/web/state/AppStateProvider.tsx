@@ -3,17 +3,20 @@
 import { SessionProvider } from './session/SessionContext';
 import { InterfaceProvider } from './interface/InterfaceContext';
 import { PreferencesProvider } from './preferences/PreferencesContext';
+import { ConversationProvider } from './conversation/ConversationContext';
 
 /**
- * Composes the Phase One state foundation. Conversation State (FPB-010
- * §3) is intentionally excluded until the Conversation Engine is
- * integrated in a later work order (FPB-015 Phase Two).
+ * Composes the full state foundation (FPB-010 §3). ConversationProvider
+ * is nested inside SessionProvider because it needs the member's access
+ * token to call the AI Conversations service (FPB-009).
  */
 export function AppStateProvider({ children }: { children: React.ReactNode }) {
   return (
     <SessionProvider>
       <InterfaceProvider>
-        <PreferencesProvider>{children}</PreferencesProvider>
+        <PreferencesProvider>
+          <ConversationProvider>{children}</ConversationProvider>
+        </PreferencesProvider>
       </InterfaceProvider>
     </SessionProvider>
   );
