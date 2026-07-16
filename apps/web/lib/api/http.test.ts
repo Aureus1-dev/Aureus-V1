@@ -1,4 +1,4 @@
-import { apiRequest } from './http';
+import { apiRequest, configureAuthBridge } from './http';
 import { ApiError, NetworkError } from './errors';
 
 describe('apiRequest', () => {
@@ -6,6 +6,7 @@ describe('apiRequest', () => {
 
   afterEach(() => {
     global.fetch = originalFetch;
+    configureAuthBridge(null);
     jest.resetAllMocks();
   });
 
@@ -48,5 +49,52 @@ describe('apiRequest', () => {
     global.fetch = jest.fn().mockRejectedValue(new TypeError('Failed to fetch')) as unknown as typeof fetch;
 
     await expect(apiRequest('/ai/conversations')).rejects.toBeInstanceOf(NetworkError);
+  });
+
+  it('refreshes and retries once on a 401 when a bridge is configured', async () => {
+    global.fetch = jest
+      .fn()
+      .mockResolvedValueOnce({ ok: false, status: 401, statusText: 'Unauthorized', json: async () => ({ message: 'Unauthorized' }) })
+      .mockResolvedValueOnce({ ok: true, status: 200, json: async () => ({ id: '1' }) }) as unknown as typeof fetch;
+
+    const refreshAndRetry = jest.fn().mockResolvedValue('fresh-access-token');
+    configureAuthBridge({ refreshAndRetry });
+
+    const result = await apiRequest<{ id: string }>('/ai/conversations', { accessToken: 'stale-token' });
+
+    expect(result).toEqual({ id: '1' });
+    expect(refreshAndRetry).toHaveBeenCalledTimes(1);
+    const [, secondInit] = (global.fetch as jest.Mock).mock.calls[1];
+    expect(secondInit.headers.Authorization).toBe('Bearer fresh-access-token');
+  });
+
+  it('surfaces the original 401 when the refresh bridge cannot obtain a new token', async () => {
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: false,
+      status: 401,
+      statusText: 'Unauthorized',
+      json: async () => ({ message: 'Unauthorized' }),
+    }) as unknown as typeof fetch;
+
+    const refreshAndRetry = jest.fn().mockResolvedValue(null);
+    configureAuthBridge({ refreshAndRetry });
+
+    await expect(apiRequest('/ai/conversations')).rejects.toMatchObject({ status: 401 });
+    expect(global.fetch).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not attempt a refresh when retryOn401 is false', async () => {
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: false,
+      status: 401,
+      statusText: 'Unauthorized',
+      json: async () => ({ message: 'Invalid email or password' }),
+    }) as unknown as typeof fetch;
+
+    const refreshAndRetry = jest.fn();
+    configureAuthBridge({ refreshAndRetry });
+
+    await expect(apiRequest('/auth/login', { retryOn401: false })).rejects.toMatchObject({ status: 401 });
+    expect(refreshAndRetry).not.toHaveBeenCalled();
   });
 });

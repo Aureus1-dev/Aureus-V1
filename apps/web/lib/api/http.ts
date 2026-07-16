@@ -6,23 +6,61 @@ export interface RequestOptions {
   body?: unknown;
   accessToken?: string | null;
   signal?: AbortSignal;
+  /**
+   * Whether a 401 should trigger one silent token refresh + retry before
+   * surfacing the error. Defaults to true so every existing domain client
+   * (e.g. `lib/api/conversations.ts`) gets this behavior automatically,
+   * without any change to that module. The auth endpoints themselves
+   * (`lib/api/auth.ts`) pass `false` to avoid refreshing in response to
+   * their own failures.
+   */
+  retryOn401?: boolean;
+}
+
+interface AuthBridge {
+  refreshAndRetry: () => Promise<string | null>;
+}
+
+let authBridge: AuthBridge | null = null;
+
+/**
+ * Registered once by the Session module on startup (FPB-009 — the
+ * frontend consumes capabilities; this is transport plumbing, not
+ * authentication business logic). No other module calls this.
+ */
+export function configureAuthBridge(bridge: AuthBridge | null): void {
+  authBridge = bridge;
 }
 
 /**
  * Authenticated fetch wrapper for the documented backend contract
  * (FPB-009 §1: "The frontend shall consume capabilities. The backend
- * shall provide capabilities."). No business logic — only transport and
- * typed error translation.
+ * shall provide capabilities."). No business logic — only transport,
+ * typed error translation, and (when enabled) a single transparent
+ * refresh-and-retry on an expired access token.
  */
 export async function apiRequest<T>(path: string, options: RequestOptions = {}): Promise<T> {
+  const response = await performRequest(path, options);
+
+  if (response.status === 401 && options.retryOn401 !== false && authBridge) {
+    const newAccessToken = await authBridge.refreshAndRetry();
+    if (newAccessToken) {
+      const retried = await performRequest(path, { ...options, accessToken: newAccessToken });
+      return parseResponse<T>(retried);
+    }
+  }
+
+  return parseResponse<T>(response);
+}
+
+async function performRequest(path: string, options: RequestOptions): Promise<Response> {
   const headers: Record<string, string> = { 'Content-Type': 'application/json' };
   if (options.accessToken) {
     headers.Authorization = `Bearer ${options.accessToken}`;
   }
 
-  let response: Response;
   try {
-    response = await fetch(`${API_BASE_URL}${path}`, {
+    return await fetch(`${API_BASE_URL}${path}`, {
       method: options.method ?? 'GET',
       headers,
       body: options.body !== undefined ? JSON.stringify(options.body) : undefined,
@@ -31,7 +69,9 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
   } catch {
     throw new NetworkError();
   }
+}
 
+async function parseResponse<T>(response: Response): Promise<T> {
   if (!response.ok) {
     const message = await extractErrorMessage(response);
     throw new ApiError(response.status, message);
