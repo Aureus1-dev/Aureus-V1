@@ -1,10 +1,11 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useConversation, useSession } from '../../../state';
 import { EmptyState } from '../EmptyState/EmptyState';
 import { ErrorState } from '../ErrorState/ErrorState';
 import { Button } from '../Button/Button';
+import { VoiceSurface } from '../voice';
 import { ConversationHistory } from './ConversationHistory';
 import { ConversationTimeline } from './ConversationTimeline';
 import { MessageComposer } from './MessageComposer';
@@ -29,6 +30,7 @@ export function ConversationSurface() {
     sendMessage,
     clearError,
   } = useConversation();
+  const [mode, setMode] = useState<'text' | 'voice'>('text');
 
   useEffect(() => {
     if (session.isAuthenticated) {
@@ -57,39 +59,64 @@ export function ConversationSurface() {
         onStartNew={startNewConversation}
       />
 
-      {timeline.length === 0 && !state.pendingResponse ? (
-        <EmptyState
-          title="Share what's on your mind"
-          description="Your steward is listening. There's no wrong way to begin."
-        />
+      <div className={styles.modeToggle}>
+        <Button
+          type="button"
+          variant={mode === 'text' ? 'primary' : 'secondary'}
+          onClick={() => setMode('text')}
+          aria-pressed={mode === 'text'}
+        >
+          Type
+        </Button>
+        <Button
+          type="button"
+          variant={mode === 'voice' ? 'primary' : 'secondary'}
+          onClick={() => setMode('voice')}
+          aria-pressed={mode === 'voice'}
+        >
+          Talk
+        </Button>
+      </div>
+
+      {mode === 'voice' ? (
+        <VoiceSurface conversationId={state.activeConversationId ?? undefined} onClose={() => setMode('text')} />
       ) : (
-        <ConversationTimeline messages={timeline} pendingResponse={state.pendingResponse} />
+        <>
+          {timeline.length === 0 && !state.pendingResponse ? (
+            <EmptyState
+              title="Share what's on your mind"
+              description="Your steward is listening. There's no wrong way to begin."
+            />
+          ) : (
+            <ConversationTimeline messages={timeline} pendingResponse={state.pendingResponse} />
+          )}
+
+          {errorCopy ? (
+            <ErrorState
+              title={errorCopy.title}
+              description={errorCopy.description}
+              action={
+                state.error?.retryable && state.draft.trim().length > 0 ? (
+                  <Button variant="secondary" onClick={() => void sendMessage()}>
+                    Try again
+                  </Button>
+                ) : (
+                  <Button variant="secondary" onClick={clearError}>
+                    Dismiss
+                  </Button>
+                )
+              }
+            />
+          ) : null}
+
+          <MessageComposer
+            value={state.draft}
+            onChange={setDraft}
+            onSubmit={() => void sendMessage()}
+            disabled={state.pendingResponse}
+          />
+        </>
       )}
-
-      {errorCopy ? (
-        <ErrorState
-          title={errorCopy.title}
-          description={errorCopy.description}
-          action={
-            state.error?.retryable && state.draft.trim().length > 0 ? (
-              <Button variant="secondary" onClick={() => void sendMessage()}>
-                Try again
-              </Button>
-            ) : (
-              <Button variant="secondary" onClick={clearError}>
-                Dismiss
-              </Button>
-            )
-          }
-        />
-      ) : null}
-
-      <MessageComposer
-        value={state.draft}
-        onChange={setDraft}
-        onSubmit={() => void sendMessage()}
-        disabled={state.pendingResponse}
-      />
     </div>
   );
 }

@@ -93,6 +93,30 @@ describe('ConversationContext', () => {
     expect(getApi().timeline.map((m) => m.content)).toEqual(['Hi', 'Hello there.']);
   });
 
+  it('refreshMessages always refetches, unlike selectConversation which trusts its cache (text ↔ voice continuity)', async () => {
+    mockedApi.listMessages
+      .mockResolvedValueOnce([{ id: 'm1', conversationId: 'conv-9', role: 'USER', content: 'Hi', createdAt: '2026-01-01T00:00:00Z' }])
+      .mockResolvedValueOnce([
+        { id: 'm1', conversationId: 'conv-9', role: 'USER', content: 'Hi', createdAt: '2026-01-01T00:00:00Z' },
+        { id: 'm2', conversationId: 'conv-9', role: 'ASSISTANT', content: 'Spoken by voice.', createdAt: '2026-01-01T00:00:01Z' },
+      ]);
+
+    const getApi = renderHarness();
+    act(() => getApi().setToken('token-123'));
+    await act(async () => {
+      await getApi().selectConversation('conv-9');
+    });
+    expect(getApi().timeline).toHaveLength(1);
+
+    // A second selectConversation would be a no-op (cached); refreshMessages is not.
+    await act(async () => {
+      await getApi().refreshMessages('conv-9');
+    });
+
+    expect(mockedApi.listMessages).toHaveBeenCalledTimes(2);
+    expect(getApi().timeline.map((m) => m.content)).toEqual(['Hi', 'Spoken by voice.']);
+  });
+
   it('loads paginated conversation history', async () => {
     mockedApi.listConversations.mockResolvedValue({
       data: [{ id: 'conv-1', userId: 'member-1', title: 'First', createdAt: 'x', updatedAt: 'x' }],

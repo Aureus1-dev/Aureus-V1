@@ -182,6 +182,7 @@ interface ConversationContextValue {
   timeline: MessageDto[];
   loadConversations: () => Promise<void>;
   selectConversation: (id: string) => Promise<void>;
+  refreshMessages: (id: string) => Promise<void>;
   startNewConversation: () => void;
   setDraft: (value: string) => void;
   sendMessage: () => Promise<void>;
@@ -234,6 +235,30 @@ export function ConversationProvider({ children }: { children: React.ReactNode }
   const startNewConversation = useCallback(() => {
     dispatch({ type: 'conversation/select', id: null });
   }, []);
+
+  /**
+   * Unlike `selectConversation`, always refetches regardless of cache —
+   * used after a voice session ends so the text surface reflects
+   * voice-sourced messages synced directly to the backend, which this
+   * context's own cache has no way to know about on its own (text ↔ voice
+   * continuity, DOMAIN-003).
+   */
+  const refreshMessages = useCallback(
+    async (id: string) => {
+      if (!session.accessToken) {
+        return;
+      }
+      dispatch({ type: 'messages/loading' });
+      try {
+        const messages = await listMessages(session.accessToken, id);
+        dispatch({ type: 'messages/loaded', conversationId: id, messages });
+      } catch (error) {
+        dispatch({ type: 'send/failure', error: classifyError(error), restoreDraft: state.draft });
+      }
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [session.accessToken],
+  );
 
   const setDraft = useCallback((value: string) => {
     dispatch({ type: 'draft/set', value });
@@ -290,12 +315,13 @@ export function ConversationProvider({ children }: { children: React.ReactNode }
       timeline,
       loadConversations,
       selectConversation,
+      refreshMessages,
       startNewConversation,
       setDraft,
       sendMessage,
       clearError,
     }),
-    [state, timeline, loadConversations, selectConversation, startNewConversation, setDraft, sendMessage, clearError],
+    [state, timeline, loadConversations, selectConversation, refreshMessages, startNewConversation, setDraft, sendMessage, clearError],
   );
 
   return <ConversationContext.Provider value={value}>{children}</ConversationContext.Provider>;
