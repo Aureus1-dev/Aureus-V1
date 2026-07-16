@@ -27,3 +27,11 @@ export {
   type RecommendationError,
   type RecommendationErrorKind,
 } from './recommendations/RecommendationsContext';
+export {
+  VoiceProvider,
+  useVoice,
+  type VoiceTurnState,
+  type VoiceError,
+  type VoiceErrorKind,
+  type VoiceTranscriptEntry,
+} from './voice/VoiceContext';

@@ -45,7 +45,12 @@ const makeVoiceSession = (o: Partial<AiVoiceSession> = {}): AiVoiceSession => ({
   turnDetectionMode: VOICE_TIMING_POLICY.mode,
   turnDetectionConfig: VOICE_TIMING_POLICY.config,
   providerSessionRef: 'sess_ref_001',
-  startedAt: NOW,
+  // Relative to the real clock, not the fixed NOW used for other fields —
+  // the service's duration-limit check compares startedAt against a real
+  // Date.now() at test-run time (voice-session.service.ts), so a fixed
+  // past timestamp here would eventually "expire" and fail as real time
+  // passes, independent of anything the test is actually asserting.
+  startedAt: new Date(),
   endedAt: null,
   endReason: null,
   createdAt: NOW,
