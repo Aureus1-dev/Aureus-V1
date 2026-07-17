@@ -58,3 +58,9 @@ export {
   type AcademyErrorKind,
   type GrowthSummary,
 } from './academy/AcademyContext';
+export {
+  ConnectedExperiencesProvider,
+  useConnectedExperiences,
+  type ConnectedExperiencesError,
+  type ConnectedExperiencesErrorKind,
+} from './connected-experiences/ConnectedExperiencesContext';

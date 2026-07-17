@@ -118,6 +118,9 @@ model User {
   podEventRsvps           PodEventRsvp[]
   podRequests             PodRequest[]
   podInvitationsReceived  PodInvitation[]           @relation("PodInvitationInvitee")
+  connectedAccounts       ConnectedAccount[]
+  documents               Document[]
+  stewardActivityLogs     StewardActivityLog[]
 }
 
 // ===========================================================================
@@ -1595,6 +1598,7 @@ enum AiCapability {
   KNOWLEDGE_SEARCH
   POD_INSIGHT
   VOICE_CONVERSATION
+  DOCUMENT_SUMMARY
 }
 
 enum AiRequestStatus {
@@ -2144,3 +2148,142 @@ model PodInvitation {
 // size/stability, service-project completion, meeting cadence adherence)
 // are computed on read, at the Pod level, from the operational models
 // above — never persisted per-member, never a stored score or ranking.
+
+// ===========================================================================
+// Connected Experiences (PA-018, FPB-009)  —  DOMAIN-008. "Feel like memory,
+// not surveillance." Every ConnectedAccount is opt-in and revocable; the
+// backend never fabricates a successful third-party connection — a provider
+// with no live credentials configured is honestly reported as COMING_SOON
+// and no row is created for it (Founder Decision 1). Documents are fully
+// real in V1 (no third party required); AI summarization operates only on
+// member-supplied extractedText, never invented from a filename alone
+// (Founder Decision 2). StewardActivityLog is the append-only audit trail
+// behind the future Trust Center (Founder Decision 5) — every connection,
+// revocation, upload, summarization, and deletion is recorded with the
+// acting party (member, AI Steward, or system).
+// ===========================================================================
+
+enum ConnectedProviderType {
+  GMAIL
+  GOOGLE_CALENDAR
+  OUTLOOK_MAIL
+  OUTLOOK_CALENDAR
+  BANKING
+  PAYROLL
+  INVESTMENT_ACCOUNTS
+  GOVERNMENT_BENEFITS
+  TAX_RECORDS
+}
+
+enum ConnectedAccountStatus {
+  CONNECTED
+  REVOKED
+  ERROR
+}
+
+enum DocumentCategory {
+  IDENTIFICATION
+  LEASE
+  FINANCIAL
+  EMPLOYMENT
+  EDUCATION
+  MEDICAL
+  LEGAL
+  OTHER
+}
+
+enum StewardActivityEventType {
+  CONNECTION_REQUESTED
+  CONNECTION_ESTABLISHED
+  CONNECTION_REVOKED
+  DOCUMENT_UPLOADED
+  DOCUMENT_SUMMARIZED
+  DOCUMENT_DELETED
+}
+
+enum StewardActivityActor {
+  MEMBER
+  AI_STEWARD
+  SYSTEM
+}
+
+// A member may hold at most one account per provider type at a time
+// (@@unique below) — reconnecting after a revoke updates the existing row
+// rather than creating a duplicate.
+model ConnectedAccount {
+  id     String @id @default(uuid()) @db.Uuid
+  userId String @db.Uuid
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  providerType       ConnectedProviderType
+  status             ConnectedAccountStatus @default(CONNECTED)
+  grantedScopes      String[]
+  externalAccountRef String?
+
+  connectedAt DateTime  @default(now())
+  revokedAt   DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  activity StewardActivityLog[]
+
+  @@unique([userId, providerType])
+  @@index([userId])
+}
+
+// storageRef is an opaque pointer (ADR-014 Decision 5 pattern, reused from
+// MediaAsset) — this domain does not invent a new cloud storage mechanism.
+// extractedText is supplied by the member/frontend, not read from
+// storageRef's bytes by the backend; aiSummary is only ever generated from
+// real extractedText, never fabricated from title/filename alone.
+model Document {
+  id             String  @id @default(uuid()) @db.Uuid
+  sequenceNumber Int     @unique @default(autoincrement())
+  documentRef    String? @unique // AUR-DOC-000001, set after insert
+
+  userId String @db.Uuid
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  title            String
+  originalFilename String
+  mimeType         String
+  sizeBytes        Int
+  storageRef       String
+  category         DocumentCategory @default(OTHER)
+
+  extractedText        String?
+  aiSummary            String?
+  aiSummaryGeneratedAt DateTime?
+
+  uploadedAt DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+  deletedAt  DateTime?
+
+  activity StewardActivityLog[]
+
+  @@index([userId])
+  @@index([category])
+}
+
+// Append-only audit trail. Never updated or deleted once written — the
+// foundation for the future Trust Center (Founder Decision 5).
+model StewardActivityLog {
+  id     String @id @default(uuid()) @db.Uuid
+  userId String @db.Uuid
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  eventType   StewardActivityEventType
+  actor       StewardActivityActor
+  description String
+
+  connectedAccountId String?           @db.Uuid
+  connectedAccount   ConnectedAccount? @relation(fields: [connectedAccountId], references: [id], onDelete: SetNull)
+  documentId         String?           @db.Uuid
+  document           Document?         @relation(fields: [documentId], references: [id], onDelete: SetNull)
+
+  occurredAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([occurredAt])
+}

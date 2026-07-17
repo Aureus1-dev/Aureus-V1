@@ -87,5 +87,6 @@ import { AI_TURN_EVENT_REPOSITORY } from './voice/repositories/ai-turn-event.rep
     { provide: AI_VOICE_SESSION_REPOSITORY, useClass: PrismaAiVoiceSessionRepository },
     { provide: AI_TURN_EVENT_REPOSITORY, useClass: PrismaAiTurnEventRepository },
   ],
+  exports: [AiRequestsService],
 })
 export class AiModule {}

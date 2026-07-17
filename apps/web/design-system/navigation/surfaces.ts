@@ -28,7 +28,7 @@ export const primarySurfaces: SurfaceDefinition[] = [
   { id: 'resources', label: 'Resources', href: '/resources' },
   { id: 'profile', label: 'Profile', href: '/profile' },
   { id: 'settings', label: 'Settings', href: '/settings' },
-  { id: 'permissions', label: 'Permissions & Connected Accounts', href: '/permissions' },
+  { id: 'permissions', label: 'Connected Experiences', href: '/permissions' },
   { id: 'search', label: 'Search', href: '/search' },
   { id: 'help', label: 'Help & Support', href: '/help' },
 ];
