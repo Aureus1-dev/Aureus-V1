@@ -1,12 +1,21 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { AiProvider } from '@prisma/client';
-import { AiCompletionInput, AiCompletionOutput, IAiProvider } from './ai-provider.interface';
+import { AiCompletionInput, AiCompletionOutput, AiToolDefinition, IAiProvider } from './ai-provider.interface';
 
 interface OpenAiChatResponse {
   model: string;
-  choices: { message: { content: string } }[];
+  choices: {
+    message: {
+      content: string | null;
+      tool_calls?: { id: string; function: { name: string; arguments: string } }[];
+    };
+  }[];
   usage: { prompt_tokens: number; completion_tokens: number };
+}
+
+function toOpenAiTool(def: AiToolDefinition) {
+  return { type: 'function' as const, function: { name: def.name, description: def.description, parameters: def.parameters } };
 }
 
 /**
@@ -38,6 +47,7 @@ export class OpenAiProvider implements IAiProvider {
         messages: input.messages.map((m) => ({ role: m.role, content: m.content })),
         max_tokens: input.maxTokens ?? 500,
         temperature: input.temperature ?? 0.3,
+        ...(input.tools?.length ? { tools: input.tools.map(toOpenAiTool), tool_choice: 'auto' } : {}),
       }),
     });
 
@@ -48,8 +58,10 @@ export class OpenAiProvider implements IAiProvider {
     }
 
     const data = (await res.json()) as OpenAiChatResponse;
+    const message = data.choices[0]?.message;
     return {
-      content: data.choices[0]?.message?.content ?? '',
+      content: message?.content ?? '',
+      toolCalls: message?.tool_calls?.map((tc) => ({ id: tc.id, name: tc.function.name, arguments: tc.function.arguments })),
       provider: this.provider,
       model: data.model ?? model,
       promptTokens: data.usage?.prompt_tokens ?? 0,

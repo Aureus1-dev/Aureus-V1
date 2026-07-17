@@ -2,6 +2,8 @@ import { ForbiddenException, Inject, Injectable, Logger, NotFoundException } fro
 import { AiCapability, AiMessageRole } from '@prisma/client';
 import { AuthenticatedUser } from '../../auth/strategies/jwt.strategy';
 import { PLATFORM_ASSISTANT_SYSTEM_PROMPT } from '../prompts/system-prompts.util';
+import { INTERFACE_TOOL_SPECS } from '../common/interface-tools';
+import type { AiCompletionMessage } from '../providers/ai-provider.interface';
 import { AiRequestsService } from '../requests/ai-requests.service';
 import { CreateConversationDto } from './dto/create-conversation.dto';
 import { AskQuestionDto } from './dto/ask-question.dto';
@@ -57,21 +59,39 @@ export class ConversationsService {
     return messages.map(MessageResponseDto.fromEntity);
   }
 
-  /** AI Question Answering — the conversation-memory-grounded capability (PA-006). */
+  /**
+   * AI Question Answering — the conversation-memory-grounded capability
+   * (PA-006), extended by DOMAIN-007 Founder Decision 1 with the same
+   * fixed, backend-owned interface toolset the voice modality already
+   * uses: a member who types "show me my opportunities" receives the same
+   * safe interface guidance as a member who says it aloud. `toolCalls` on
+   * the response is ephemeral (this response only) — the frontend executes
+   * them exactly as `VoiceOrchestrator` does for voice; nothing here
+   * assumes or requires a follow-up round trip.
+   */
   async ask(id: string, dto: AskQuestionDto, caller: AuthenticatedUser): Promise<MessageResponseDto> {
     await this.getOwnedOrThrow(id, caller);
 
     await this.messageRepo.create({ conversationId: id, role: AiMessageRole.USER, content: dto.content });
     const history = await this.messageRepo.findRecentByConversation(id, RECENT_MESSAGE_HISTORY_LIMIT);
 
-    const { content } = await this.aiRequests.runCompletion({
+    const systemMessages: AiCompletionMessage[] = [{ role: 'system', content: PLATFORM_ASSISTANT_SYSTEM_PROMPT }];
+    if (dto.interfaceContext) {
+      systemMessages.push({
+        role: 'system',
+        content: `Currently visible on the member's screen: ${dto.interfaceContext}`,
+      });
+    }
+
+    const { content, toolCalls } = await this.aiRequests.runCompletion({
       userId: caller.id,
       capability: AiCapability.QUESTION_ANSWERING,
       conversationId: id,
       messages: [
-        { role: 'system', content: PLATFORM_ASSISTANT_SYSTEM_PROMPT },
+        ...systemMessages,
         ...history.map((m) => ({ role: m.role.toLowerCase() as 'user' | 'assistant', content: m.content })),
       ],
+      tools: [...INTERFACE_TOOL_SPECS],
     });
 
     const assistantMessage = await this.messageRepo.create({
@@ -79,7 +99,9 @@ export class ConversationsService {
     });
     await this.repo.touch(id);
 
-    return MessageResponseDto.fromEntity(assistantMessage);
+    const responseDto = MessageResponseDto.fromEntity(assistantMessage);
+    responseDto.toolCalls = toolCalls;
+    return responseDto;
   }
 
   private async getOwnedOrThrow(id: string, caller: AuthenticatedUser) {

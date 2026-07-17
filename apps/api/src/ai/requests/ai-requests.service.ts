@@ -3,7 +3,7 @@ import { AiCapability, AiRequestStatus } from '@prisma/client';
 import { AuthenticatedUser } from '../../auth/strategies/jwt.strategy';
 import { hasRole } from '../../auth/utils/has-role.util';
 import { PLATFORM_ADMIN_ROLES } from '../common/ai-roles.util';
-import { AI_PROVIDER, AiCompletionMessage, IAiProvider } from '../providers/ai-provider.interface';
+import { AI_PROVIDER, AiCompletionMessage, AiToolCallRequest, AiToolDefinition, IAiProvider } from '../providers/ai-provider.interface';
 import { computeCostUsd } from './ai-pricing.util';
 import { AiRequestResponseDto } from './dto/ai-request-response.dto';
 import { ListAiRequestsQueryDto } from './dto/list-ai-requests-query.dto';
@@ -17,11 +17,13 @@ export interface RunCompletionParams {
   messages: AiCompletionMessage[];
   maxTokens?: number;
   temperature?: number;
+  tools?: AiToolDefinition[];
 }
 
 export interface CompletionResult {
   content: string;
   requestId: string;
+  toolCalls?: AiToolCallRequest[];
 }
 
 /**
@@ -50,6 +52,7 @@ export class AiRequestsService {
         messages: params.messages,
         maxTokens: params.maxTokens,
         temperature: params.temperature,
+        tools: params.tools,
       });
       const latencyMs = Date.now() - startedAt;
 
@@ -66,7 +69,7 @@ export class AiRequestsService {
         status: AiRequestStatus.SUCCESS,
       });
 
-      return { content: output.content, requestId: request.id };
+      return { content: output.content, requestId: request.id, toolCalls: output.toolCalls };
     } catch (err) {
       const latencyMs = Date.now() - startedAt;
       const errorMessage = err instanceof Error ? err.message : 'Unknown error';

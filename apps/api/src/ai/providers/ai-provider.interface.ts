@@ -9,14 +9,38 @@ export interface AiCompletionMessage {
   content: string;
 }
 
+/**
+ * A tool definition offered to the model, in a provider-neutral shape.
+ * `interface-tools.ts` is the only production source of these — every
+ * concrete provider translates this shape into its own wire format
+ * (OpenAI's nested `function` wrapper, Anthropic's flat `input_schema`)
+ * internally, so callers never need to know which provider is active
+ * (DOMAIN-007 Founder Decision 1).
+ */
+export interface AiToolDefinition {
+  name: string;
+  description: string;
+  parameters: Record<string, unknown>;
+}
+
+/** A tool call the model requested in its response, normalized across providers. `arguments` is always a JSON string, even for providers (Anthropic) whose native format is already a parsed object. */
+export interface AiToolCallRequest {
+  id: string;
+  name: string;
+  arguments: string;
+}
+
 export interface AiCompletionInput {
   messages: AiCompletionMessage[];
   maxTokens?: number;
   temperature?: number;
+  tools?: AiToolDefinition[];
 }
 
 export interface AiCompletionOutput {
   content: string;
+  /** Present only when the model requested one or more tool calls in this response. */
+  toolCalls?: AiToolCallRequest[];
   provider: AiProviderEnum;
   model: string;
   promptTokens: number;

@@ -66,7 +66,7 @@ describe('ConversationContext', () => {
     });
 
     expect(mockedApi.createConversation).toHaveBeenCalledWith('token-123');
-    expect(mockedApi.sendMessage).toHaveBeenCalledWith('token-123', 'conv-1', 'Hello, I need help.');
+    expect(mockedApi.sendMessage).toHaveBeenCalledWith('token-123', 'conv-1', 'Hello, I need help.', undefined);
 
     const timeline = getApi().timeline;
     expect(timeline).toHaveLength(2);
@@ -246,5 +246,64 @@ describe('ConversationContext', () => {
     });
 
     expect(mockedApi.createConversation).not.toHaveBeenCalled();
+  });
+
+  describe('Dynamic Screen Orchestration for text (DOMAIN-007)', () => {
+    it('passes interfaceContext through to sendMessage when provided', async () => {
+      mockedApi.createConversation.mockResolvedValue({
+        id: 'conv-1', userId: 'member-1', title: null, createdAt: 'x', updatedAt: 'x',
+      });
+      mockedApi.sendMessage.mockResolvedValue({
+        id: 'msg-1', conversationId: 'conv-1', role: 'ASSISTANT', content: 'Here you go.', createdAt: 'x',
+      });
+
+      const getApi = renderHarness();
+      act(() => getApi().setToken('token-123'));
+      act(() => getApi().setDraft('Show me my opportunities'));
+      await act(async () => {
+        await getApi().sendMessage('Home.NextMission');
+      });
+
+      expect(mockedApi.sendMessage).toHaveBeenCalledWith('token-123', 'conv-1', 'Show me my opportunities', 'Home.NextMission');
+    });
+
+    it('surfaces tool calls the steward requested as pendingToolCalls', async () => {
+      mockedApi.createConversation.mockResolvedValue({
+        id: 'conv-1', userId: 'member-1', title: null, createdAt: 'x', updatedAt: 'x',
+      });
+      mockedApi.sendMessage.mockResolvedValue({
+        id: 'msg-1', conversationId: 'conv-1', role: 'ASSISTANT', content: 'Taking you there now.', createdAt: 'x',
+        toolCalls: [{ id: 'call-1', name: 'navigate_to_route', arguments: '{"route":"journey"}' }],
+      });
+
+      const getApi = renderHarness();
+      act(() => getApi().setToken('token-123'));
+      act(() => getApi().setDraft('Show me my journey'));
+      await act(async () => {
+        await getApi().sendMessage();
+      });
+
+      expect(getApi().state.pendingToolCalls).toEqual([
+        { callId: 'call-1', name: 'navigate_to_route', arguments: '{"route":"journey"}' },
+      ]);
+    });
+
+    it('clears pendingToolCalls on a response with no tool calls', async () => {
+      mockedApi.createConversation.mockResolvedValue({
+        id: 'conv-1', userId: 'member-1', title: null, createdAt: 'x', updatedAt: 'x',
+      });
+      mockedApi.sendMessage.mockResolvedValue({
+        id: 'msg-1', conversationId: 'conv-1', role: 'ASSISTANT', content: 'A Journey tracks progress.', createdAt: 'x',
+      });
+
+      const getApi = renderHarness();
+      act(() => getApi().setToken('token-123'));
+      act(() => getApi().setDraft('What is a Journey?'));
+      await act(async () => {
+        await getApi().sendMessage();
+      });
+
+      expect(getApi().state.pendingToolCalls).toEqual([]);
+    });
   });
 });

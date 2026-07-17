@@ -9,6 +9,9 @@ import {
   type ConversationDto,
   type MessageDto,
 } from '../../lib/api/conversations';
+import type { PendingToolCall } from '../voice/VoiceContext';
+
+export type { PendingToolCall };
 import { ApiError, NetworkError } from '../../lib/api/errors';
 import { useSession } from '../session/SessionContext';
 
@@ -44,6 +47,8 @@ interface State {
   pendingMessages: MessageDto[];
   pendingResponse: boolean;
   draft: string;
+  /** Interface actions the steward requested in its most recent reply — replaced (not accumulated) on every response, cleared once none remain. */
+  pendingToolCalls: PendingToolCall[];
   error: ConversationError | null;
 }
 
@@ -74,6 +79,7 @@ const initialState: State = {
   pendingMessages: [],
   pendingResponse: false,
   draft: '',
+  pendingToolCalls: [],
   error: null,
 };
 
@@ -131,6 +137,8 @@ function reducer(state: State, action: Action): State {
           ...state.messagesByConversation,
           [action.conversationId]: resolvedMessages,
         },
+        pendingToolCalls:
+          action.assistantMessage.toolCalls?.map((tc) => ({ callId: tc.id, name: tc.name, arguments: tc.arguments })) ?? [],
       };
     }
     case 'send/failure':
@@ -185,7 +193,7 @@ interface ConversationContextValue {
   refreshMessages: (id: string) => Promise<void>;
   startNewConversation: () => void;
   setDraft: (value: string) => void;
-  sendMessage: () => Promise<void>;
+  sendMessage: (interfaceContext?: string, explicitContent?: string) => Promise<void>;
   clearError: () => void;
 }
 
@@ -264,8 +272,13 @@ export function ConversationProvider({ children }: { children: React.ReactNode }
     dispatch({ type: 'draft/set', value });
   }, []);
 
-  const sendMessage = useCallback(async () => {
-    const content = state.draft.trim();
+  const sendMessage = useCallback(async (interfaceContext?: string, explicitContent?: string) => {
+    // `explicitContent` lets a caller that already has the text in hand
+    // (the Global Action Palette's "Ask your Steward" entry) send it in
+    // the same handler as setting the draft, without racing the draft
+    // state update — `state.draft` here reflects the last completed
+    // render, not a `setDraft` call earlier in this same synchronous tick.
+    const content = (explicitContent ?? state.draft).trim();
     if (!content || state.pendingResponse) {
       return;
     }
@@ -290,7 +303,7 @@ export function ConversationProvider({ children }: { children: React.ReactNode }
         conversation = await createConversation(session.accessToken);
         conversationId = conversation.id;
       }
-      const assistantMessage = await sendMessageRequest(session.accessToken, conversationId, content);
+      const assistantMessage = await sendMessageRequest(session.accessToken, conversationId, content, interfaceContext);
       dispatch({ type: 'send/success', conversationId, conversation, assistantMessage });
     } catch (error) {
       dispatch({ type: 'send/failure', error: classifyError(error), restoreDraft: content });
