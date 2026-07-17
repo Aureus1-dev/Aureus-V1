@@ -58,6 +58,7 @@ async function bootstrap(): Promise<void> {
     .addTag('academy',        'Academy endpoints (courses, learning paths, enrollments, certifications, Steward Content Studio media)')
     .addTag('pods',           'Pods endpoints (community, membership, events, meeting schedule, service projects, requests, invitations, metrics, escalations, messaging)')
     .addTag('ai',              'AI Intelligence Engine endpoints (conversations, explanations, guidance, recommendations, request history)')
+    .addTag('connected-experiences', 'Connected Experiences endpoints (connected accounts, documents, Steward activity audit trail)')
     .addTag('administration', 'Administration & Operations endpoints (role management)')
     .addTag('health',         'Liveness and readiness endpoints')
     .addBearerAuth({ type: 'http', scheme: 'bearer', bearerFormat: 'JWT' })

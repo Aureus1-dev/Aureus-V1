@@ -96,6 +96,22 @@ Member's goals:
 ${goalLines}`;
 }
 
+/**
+ * Document summarization (DOMAIN-008 Founder Decision 2) — operates only on
+ * member-supplied extractedText, never on a filename or title alone, so the
+ * AI Steward never fabricates a summary of content it has not actually seen.
+ */
+export function buildDocumentSummaryPrompt(document: {
+  title: string; category: string; extractedText: string;
+}): string {
+  return `Summarize the following document for a member in plain, encouraging language. Identify what kind of document it is, the most important facts (dates, amounts, parties, deadlines) if present, and one practical note if something looks like it may need the member's attention. Keep it under 150 words. Do not invent information that is not present in the text below.
+
+Document title: ${document.title}
+Category: ${document.category}
+Document text:
+${document.extractedText}`;
+}
+
 export function buildKnowledgeSearchPrompt(query: string, articles: { title: string; summary: string }[]): string {
   const articleLines = articles.length
     ? articles.map((a, i) => `${i + 1}. ${a.title} — ${a.summary}`).join('\n')

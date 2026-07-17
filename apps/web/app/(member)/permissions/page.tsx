@@ -1,5 +1,5 @@
-import { PlaceholderSurface } from '../../../design-system/layout';
+import { ConnectedExperiencesHome } from '../../../design-system/components/connected-experiences';
 
 export default function PermissionsPage() {
-  return <PlaceholderSurface title="Permissions & Connected Accounts" />;
+  return <ConnectedExperiencesHome initialTab="accounts" />;
 }
