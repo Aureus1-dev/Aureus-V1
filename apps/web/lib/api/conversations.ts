@@ -15,12 +15,20 @@ export interface ConversationDto {
 
 export type MessageRole = 'USER' | 'ASSISTANT' | 'SYSTEM';
 
+/** A steward-requested interface action (DOMAIN-007 Founder Decision 1) — present only on the live response that produced it, never persisted or replayed from history. */
+export interface ToolCallDto {
+  id: string;
+  name: string;
+  arguments: string;
+}
+
 export interface MessageDto {
   id: string;
   conversationId: string;
   role: MessageRole;
   content: string;
   createdAt: string;
+  toolCalls?: ToolCallDto[];
 }
 
 export interface PaginatedConversationsDto {
@@ -70,10 +78,11 @@ export function sendMessage(
   accessToken: string,
   conversationId: string,
   content: string,
+  interfaceContext?: string,
 ): Promise<MessageDto> {
   return apiRequest<MessageDto>(`/ai/conversations/${conversationId}/messages`, {
     method: 'POST',
     accessToken,
-    body: { content },
+    body: interfaceContext ? { content, interfaceContext } : { content },
   });
 }

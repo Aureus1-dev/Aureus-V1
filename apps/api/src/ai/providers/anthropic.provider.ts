@@ -1,12 +1,16 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { AiProvider } from '@prisma/client';
-import { AiCompletionInput, AiCompletionOutput, IAiProvider } from './ai-provider.interface';
+import { AiCompletionInput, AiCompletionOutput, AiToolDefinition, IAiProvider } from './ai-provider.interface';
 
 interface AnthropicMessagesResponse {
   model: string;
-  content: { type: string; text?: string }[];
+  content: { type: string; text?: string; id?: string; name?: string; input?: Record<string, unknown> }[];
   usage: { input_tokens: number; output_tokens: number };
+}
+
+function toAnthropicTool(def: AiToolDefinition) {
+  return { name: def.name, description: def.description, input_schema: def.parameters };
 }
 
 /**
@@ -47,6 +51,7 @@ export class AnthropicProvider implements IAiProvider {
         messages: conversation,
         max_tokens: input.maxTokens ?? 500,
         temperature: input.temperature ?? 0.3,
+        ...(input.tools?.length ? { tools: input.tools.map(toAnthropicTool) } : {}),
       }),
     });
 
@@ -58,9 +63,13 @@ export class AnthropicProvider implements IAiProvider {
 
     const data = (await res.json()) as AnthropicMessagesResponse;
     const content = data.content.filter((block) => block.type === 'text').map((block) => block.text ?? '').join('');
+    const toolCalls = data.content
+      .filter((block) => block.type === 'tool_use')
+      .map((block) => ({ id: block.id ?? '', name: block.name ?? '', arguments: JSON.stringify(block.input ?? {}) }));
 
     return {
       content,
+      toolCalls: toolCalls.length ? toolCalls : undefined,
       provider: this.provider,
       model: data.model ?? model,
       promptTokens: data.usage?.input_tokens ?? 0,

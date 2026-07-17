@@ -94,5 +94,70 @@ describe('ConversationsService', () => {
       mockConversationRepo.findById.mockResolvedValue(makeConversation());
       await expect(service.ask('conv-001', { content: 'Hi' }, OTHER_USER)).rejects.toThrow(ForbiddenException);
     });
+
+    describe('Dynamic Screen Orchestration for text (DOMAIN-007)', () => {
+      it('always offers the fixed interface toolset, even when no tool call results', async () => {
+        mockConversationRepo.findById.mockResolvedValue(makeConversation());
+        mockMessageRepo.create
+          .mockResolvedValueOnce(makeMessage({ role: AiMessageRole.USER, content: 'What is a Journey?' }))
+          .mockResolvedValueOnce(makeMessage({ id: 'msg-002', role: AiMessageRole.ASSISTANT, content: 'A Journey tracks progress.' }));
+        mockMessageRepo.findRecentByConversation.mockResolvedValue([
+          makeMessage({ role: AiMessageRole.USER, content: 'What is a Journey?' }),
+        ]);
+        mockAiRequests.runCompletion.mockResolvedValue({ content: 'A Journey tracks progress.', requestId: 'req-001' });
+
+        const result = await service.ask('conv-001', { content: 'What is a Journey?' }, USER);
+
+        const callArgs = mockAiRequests.runCompletion.mock.calls[0][0];
+        expect(callArgs.tools).toEqual(
+          expect.arrayContaining([expect.objectContaining({ name: 'navigate_to_route' }), expect.objectContaining({ name: 'open_panel' })]),
+        );
+        expect(result.toolCalls).toBeUndefined();
+      });
+
+      it('injects interfaceContext as an additive system message, never overwriting the base prompt', async () => {
+        mockConversationRepo.findById.mockResolvedValue(makeConversation());
+        mockMessageRepo.create
+          .mockResolvedValueOnce(makeMessage({ role: AiMessageRole.USER, content: 'Show me my opportunities' }))
+          .mockResolvedValueOnce(makeMessage({ id: 'msg-002', role: AiMessageRole.ASSISTANT, content: 'Here you go.' }));
+        mockMessageRepo.findRecentByConversation.mockResolvedValue([
+          makeMessage({ role: AiMessageRole.USER, content: 'Show me my opportunities' }),
+        ]);
+        mockAiRequests.runCompletion.mockResolvedValue({ content: 'Here you go.', requestId: 'req-001' });
+
+        await service.ask(
+          'conv-001',
+          { content: 'Show me my opportunities', interfaceContext: 'Home.NextMission' },
+          USER,
+        );
+
+        const callArgs = mockAiRequests.runCompletion.mock.calls[0][0];
+        expect(callArgs.messages[0].role).toBe('system');
+        expect(callArgs.messages[1]).toEqual({ role: 'system', content: "Currently visible on the member's screen: Home.NextMission" });
+        expect(callArgs.messages[2].role).toBe('user');
+      });
+
+      it('surfaces tool calls the steward requested on the response, without persisting them to the message', async () => {
+        mockConversationRepo.findById.mockResolvedValue(makeConversation());
+        mockMessageRepo.create
+          .mockResolvedValueOnce(makeMessage({ role: AiMessageRole.USER, content: 'Show me my journey' }))
+          .mockResolvedValueOnce(makeMessage({ id: 'msg-002', role: AiMessageRole.ASSISTANT, content: 'Taking you there now.' }));
+        mockMessageRepo.findRecentByConversation.mockResolvedValue([
+          makeMessage({ role: AiMessageRole.USER, content: 'Show me my journey' }),
+        ]);
+        mockAiRequests.runCompletion.mockResolvedValue({
+          content: 'Taking you there now.',
+          requestId: 'req-001',
+          toolCalls: [{ id: 'call-1', name: 'navigate_to_route', arguments: '{"route":"journey"}' }],
+        });
+
+        const result = await service.ask('conv-001', { content: 'Show me my journey' }, USER);
+
+        expect(result.toolCalls).toEqual([{ id: 'call-1', name: 'navigate_to_route', arguments: '{"route":"journey"}' }]);
+        expect(mockMessageRepo.create).toHaveBeenLastCalledWith({
+          conversationId: 'conv-001', role: AiMessageRole.ASSISTANT, content: 'Taking you there now.',
+        });
+      });
+    });
   });
 });

@@ -3,6 +3,7 @@ import { useEffect } from 'react';
 import { SessionProvider, useSession } from '../../../state/session/SessionContext';
 import { VoiceProvider, useVoice } from '../../../state/voice/VoiceContext';
 import { HighlightRegistryProvider, useRegisterHighlightTarget } from '../../../state/highlight/HighlightRegistryContext';
+import { InterfaceProvider, useInterfaceState } from '../../../state/interface/InterfaceContext';
 import { VoiceOrchestrator } from './VoiceOrchestrator';
 import * as voiceApi from '../../../lib/api/voice';
 import { VoiceWebRtcClient, type VoiceWebRtcClientCallbacks } from '../../../lib/voice/webrtc-client';
@@ -42,19 +43,27 @@ function VoiceHarness({ onReady }: { onReady: (startSession: () => Promise<void>
   return null;
 }
 
+function OpenPanelIds() {
+  const { interfaceState } = useInterfaceState();
+  return <div data-testid="open-panels">{interfaceState.openPanelIds.join(',')}</div>;
+}
+
 async function renderConnectedOrchestrator() {
   let start!: () => Promise<void>;
   render(
     <SessionProvider>
-      <HighlightRegistryProvider>
-        <VoiceProvider>
-          <SignedInAs>
-            <TargetButton id="Home.NextMission" label="Your next mission" />
-            <VoiceOrchestrator />
-            <VoiceHarness onReady={(s) => (start = s)} />
-          </SignedInAs>
-        </VoiceProvider>
-      </HighlightRegistryProvider>
+      <InterfaceProvider>
+        <HighlightRegistryProvider>
+          <VoiceProvider>
+            <SignedInAs>
+              <TargetButton id="Home.NextMission" label="Your next mission" />
+              <OpenPanelIds />
+              <VoiceOrchestrator />
+              <VoiceHarness onReady={(s) => (start = s)} />
+            </SignedInAs>
+          </VoiceProvider>
+        </HighlightRegistryProvider>
+      </InterfaceProvider>
     </SessionProvider>,
   );
   await act(async () => start());
@@ -167,6 +176,28 @@ describe('VoiceOrchestrator', () => {
       type: 'conversation.item.create',
       item: { type: 'function_call_output', call_id: 'call-1', output: expect.stringContaining('Could not parse') },
     });
+  });
+
+  it('opens an approved panel for open_panel and reports success', async () => {
+    await renderConnectedOrchestrator();
+
+    requestToolCall('open_panel', { panelId: 'steward-workspace' });
+
+    expect(screen.getByTestId('open-panels')).toHaveTextContent('steward-workspace');
+    expect(MockedClient.prototype.sendEvent).toHaveBeenCalledWith({
+      type: 'conversation.item.create',
+      item: { type: 'function_call_output', call_id: 'call-1', output: JSON.stringify({ ok: true }) },
+    });
+  });
+
+  it('closes a panel for close_panel', async () => {
+    await renderConnectedOrchestrator();
+
+    requestToolCall('open_panel', { panelId: 'steward-workspace' });
+    expect(screen.getByTestId('open-panels')).toHaveTextContent('steward-workspace');
+
+    requestToolCall('close_panel', { panelId: 'steward-workspace' }, 'call-2');
+    expect(screen.getByTestId('open-panels')).toHaveTextContent('');
   });
 
   it('never executes the same tool call twice', async () => {
