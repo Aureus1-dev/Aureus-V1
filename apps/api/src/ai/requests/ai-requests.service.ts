@@ -1,12 +1,13 @@
 import { ForbiddenException, Inject, Injectable, Logger, NotFoundException, ServiceUnavailableException } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
 import { AiCapability, AiRequestStatus } from '@prisma/client';
 import { AuthenticatedUser } from '../../auth/strategies/jwt.strategy';
 import { hasRole } from '../../auth/utils/has-role.util';
 import { PLATFORM_ADMIN_ROLES } from '../common/ai-roles.util';
 import { AI_PROVIDER, AiCompletionMessage, AiToolCallRequest, AiToolDefinition, IAiProvider } from '../providers/ai-provider.interface';
 import { computeCostUsd } from './ai-pricing.util';
+import { AiOperationalConfigService } from './ai-operational-config.service';
 import { AiRequestResponseDto } from './dto/ai-request-response.dto';
+import { AiSpendSummaryResponseDto } from './dto/ai-spend-summary-response.dto';
 import { ListAiRequestsQueryDto } from './dto/list-ai-requests-query.dto';
 import { PaginatedAiRequestsResponseDto } from './dto/paginated-ai-requests-response.dto';
 import { AI_REQUEST_REPOSITORY, IAiRequestRepository } from './repositories/ai-request.repository.interface';
@@ -28,8 +29,6 @@ export interface CompletionResult {
 }
 
 const SPEND_WINDOW_MS = 24 * 60 * 60 * 1000;
-const DEFAULT_GLOBAL_DAILY_BUDGET_USD = 50;
-const DEFAULT_USER_DAILY_BUDGET_USD = 2;
 
 /**
  * Unifies "AI request history," "cost tracking," and "audit logging" into
@@ -47,7 +46,7 @@ export class AiRequestsService {
   constructor(
     @Inject(AI_PROVIDER) private readonly provider: IAiProvider,
     @Inject(AI_REQUEST_REPOSITORY) private readonly repo: IAiRequestRepository,
-    private readonly config: ConfigService,
+    private readonly operationalConfig: AiOperationalConfigService,
   ) {}
 
   async runCompletion(params: RunCompletionParams): Promise<CompletionResult> {
@@ -101,38 +100,37 @@ export class AiRequestsService {
   }
 
   /**
-   * AI spend limits, quotas, and emergency budget controls (PR-002).
-   * Checked before every provider call so an over-budget request is refused
-   * up front — no provider call is made and no additional cost is incurred.
-   * All three controls are env-configured (ConfigService) rather than
-   * Prisma-column config, matching JWT_ACCESS_EXPIRY/JWT_REFRESH_EXPIRY_DAYS:
-   * ops-tunable values with no per-installation reason to live in the DB.
+   * AI spend limits, quotas, and emergency budget controls (PR-002, made
+   * live-editable in PR-003). Checked before every provider call so an
+   * over-budget request is refused up front — no provider call is made and
+   * no additional cost is incurred. Reads the DB-backed
+   * `AiOperationalConfig` singleton (env-var-seeded on first read, then
+   * DB-authoritative — see `AiOperationalConfigService`) rather than
+   * `ConfigService` directly, so a Founder-facing toggle takes effect on
+   * the very next request, no restart required.
    */
   private async enforceSpendCeilings(userId: string): Promise<void> {
-    if (this.config.get<string>('AI_EMERGENCY_STOP', 'false') === 'true') {
+    const opConfig = await this.operationalConfig.getEffective();
+
+    if (opConfig.emergencyStop) {
       throw new ServiceUnavailableException(
         'AI features are temporarily disabled by an emergency budget control. Please try again later.',
       );
     }
 
     const since = new Date(Date.now() - SPEND_WINDOW_MS);
-    const globalBudget = this.config.get<number>(
-      'AI_GLOBAL_DAILY_BUDGET_USD',
-      DEFAULT_GLOBAL_DAILY_BUDGET_USD,
-    );
-    const userBudget = this.config.get<number>('AI_USER_DAILY_BUDGET_USD', DEFAULT_USER_DAILY_BUDGET_USD);
 
     const globalSpend = await this.repo.sumCostSince(since);
-    if (globalSpend >= globalBudget) {
-      this.logger.warn(`Platform-wide AI daily budget reached: $${globalSpend.toFixed(4)} >= $${globalBudget}`);
+    if (globalSpend >= opConfig.globalDailyBudgetUsd) {
+      this.logger.warn(`Platform-wide AI daily budget reached: $${globalSpend.toFixed(4)} >= $${opConfig.globalDailyBudgetUsd}`);
       throw new ServiceUnavailableException(
         'The platform-wide AI budget for today has been reached. Please try again tomorrow.',
       );
     }
 
     const userSpend = await this.repo.sumCostSince(since, userId);
-    if (userSpend >= userBudget) {
-      this.logger.warn(`User AI daily quota reached for ${userId}: $${userSpend.toFixed(4)} >= $${userBudget}`);
+    if (userSpend >= opConfig.userDailyBudgetUsd) {
+      this.logger.warn(`User AI daily quota reached for ${userId}: $${userSpend.toFixed(4)} >= $${opConfig.userDailyBudgetUsd}`);
       throw new ForbiddenException('You have reached your daily AI usage quota. Please try again tomorrow.');
     }
   }
@@ -159,5 +157,39 @@ export class AiRequestsService {
     }
 
     return AiRequestResponseDto.fromEntity(request);
+  }
+
+  /** Platform-wide AI request audit log (PR-003 Founder Operating System — no per-caller scope). */
+  async findAllAdmin(query: ListAiRequestsQueryDto, caller: AuthenticatedUser): Promise<PaginatedAiRequestsResponseDto> {
+    if (!hasRole(caller, PLATFORM_ADMIN_ROLES)) {
+      throw new ForbiddenException('Only a Platform or System Administrator may view the platform-wide AI request log');
+    }
+
+    const page = query.page ?? 1;
+    const limit = query.limit ?? 20;
+    const result = await this.repo.findAll({
+      page, limit, userId: query.userId, capability: query.capability, status: query.status,
+    });
+
+    return {
+      data: result.data.map(AiRequestResponseDto.fromEntity),
+      total: result.total, page: result.page, limit: result.limit,
+      totalPages: Math.ceil(result.total / result.limit),
+    };
+  }
+
+  /** Platform-wide spend summary over the current rolling-24h ceiling window (PR-003 Founder dashboard tile). */
+  async getSpendSummary(caller: AuthenticatedUser): Promise<AiSpendSummaryResponseDto> {
+    if (!hasRole(caller, PLATFORM_ADMIN_ROLES)) {
+      throw new ForbiddenException('Only a Platform or System Administrator may view the platform-wide AI spend summary');
+    }
+
+    const since = new Date(Date.now() - SPEND_WINDOW_MS);
+    const [summary, opConfig] = await Promise.all([
+      this.repo.summarySince(since),
+      this.operationalConfig.getEffective(),
+    ]);
+
+    return AiSpendSummaryResponseDto.fromSummary(summary, opConfig.globalDailyBudgetUsd, opConfig.emergencyStop);
   }
 }

@@ -20,6 +20,6 @@ import { SAVED_OPPORTUNITY_REPOSITORY } from './saved/repositories/saved-opportu
     SavedOpportunitiesService,
     { provide: SAVED_OPPORTUNITY_REPOSITORY, useClass: PrismaSavedOpportunityRepository },
   ],
-  exports: [OpportunitiesService, SavedOpportunitiesService, OpportunityScoringService],
+  exports: [OpportunitiesService, SavedOpportunitiesService, OpportunityScoringService, OPPORTUNITY_REPOSITORY],
 })
 export class OpportunitiesModule {}

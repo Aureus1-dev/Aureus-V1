@@ -1,12 +1,12 @@
 import { Test } from '@nestjs/testing';
-import { ConfigService } from '@nestjs/config';
 import { ForbiddenException, NotFoundException, ServiceUnavailableException } from '@nestjs/common';
 import { AiCapability, AiProvider, AiRequestStatus, UserRole } from '@prisma/client';
 import { AiRequestsService } from './ai-requests.service';
+import { AiOperationalConfigService } from './ai-operational-config.service';
 import { AI_REQUEST_REPOSITORY, IAiRequestRepository } from './repositories/ai-request.repository.interface';
 import { AI_PROVIDER, IAiProvider } from '../providers/ai-provider.interface';
 import type { AuthenticatedUser } from '../../auth/strategies/jwt.strategy';
-import type { AiRequest } from '@prisma/client';
+import type { AiOperationalConfig, AiRequest } from '@prisma/client';
 
 const NOW = new Date('2026-01-01T00:00:00.000Z');
 const USER: AuthenticatedUser = { id: 'user-001', email: 'user@example.com', roles: [UserRole.MEMBER] };
@@ -20,16 +20,21 @@ const makeRequest = (o: Partial<AiRequest> = {}): AiRequest => ({
   status: AiRequestStatus.SUCCESS, errorMessage: null, createdAt: NOW, ...o,
 });
 
+const makeConfig = (o: Partial<AiOperationalConfig> = {}): AiOperationalConfig => ({
+  id: 'singleton', emergencyStop: false, globalDailyBudgetUsd: 50, userDailyBudgetUsd: 2,
+  updatedById: null, updatedAt: NOW, ...o,
+});
+
 const mockRepo: jest.Mocked<IAiRequestRepository> = {
-  create: jest.fn(), findById: jest.fn(), findAll: jest.fn(), sumCostSince: jest.fn(),
+  create: jest.fn(), findById: jest.fn(), findAll: jest.fn(), sumCostSince: jest.fn(), summarySince: jest.fn(),
 };
 const mockProvider: jest.Mocked<IAiProvider> = {
   provider: AiProvider.STUB,
   complete: jest.fn(),
 };
-const mockConfig = {
-  get: jest.fn((_key: string, fallback?: unknown) => fallback),
-} as unknown as jest.Mocked<ConfigService>;
+const mockOperationalConfig = {
+  getEffective: jest.fn(),
+} as unknown as jest.Mocked<AiOperationalConfigService>;
 
 describe('AiRequestsService', () => {
   let service: AiRequestsService;
@@ -40,12 +45,12 @@ describe('AiRequestsService', () => {
         AiRequestsService,
         { provide: AI_REQUEST_REPOSITORY, useValue: mockRepo },
         { provide: AI_PROVIDER, useValue: mockProvider },
-        { provide: ConfigService, useValue: mockConfig },
+        { provide: AiOperationalConfigService, useValue: mockOperationalConfig },
       ],
     }).compile();
     service = m.get(AiRequestsService);
     jest.clearAllMocks();
-    (mockConfig.get as jest.Mock).mockImplementation((_key: string, fallback?: unknown) => fallback);
+    mockOperationalConfig.getEffective.mockResolvedValue(makeConfig());
     mockRepo.sumCostSince.mockResolvedValue(0);
   });
 
@@ -82,12 +87,10 @@ describe('AiRequestsService', () => {
       }));
     });
 
-    // ── AI spend limits, quotas, emergency budget controls (PR-002) ──────
+    // ── AI spend limits, quotas, emergency budget controls (PR-002, live-editable in PR-003) ──
 
-    it('blocks the call without hitting the provider when AI_EMERGENCY_STOP is set', async () => {
-      (mockConfig.get as jest.Mock).mockImplementation((key: string, fallback?: unknown) =>
-        key === 'AI_EMERGENCY_STOP' ? 'true' : fallback,
-      );
+    it('blocks the call without hitting the provider when the emergency stop is set', async () => {
+      mockOperationalConfig.getEffective.mockResolvedValue(makeConfig({ emergencyStop: true }));
 
       await expect(service.runCompletion({
         userId: USER.id, capability: AiCapability.QUESTION_ANSWERING,
@@ -99,9 +102,7 @@ describe('AiRequestsService', () => {
     });
 
     it('blocks the call once the platform-wide daily budget is reached', async () => {
-      (mockConfig.get as jest.Mock).mockImplementation((key: string, fallback?: unknown) =>
-        key === 'AI_GLOBAL_DAILY_BUDGET_USD' ? 10 : fallback,
-      );
+      mockOperationalConfig.getEffective.mockResolvedValue(makeConfig({ globalDailyBudgetUsd: 10 }));
       mockRepo.sumCostSince.mockResolvedValueOnce(10);
 
       await expect(service.runCompletion({
@@ -113,9 +114,7 @@ describe('AiRequestsService', () => {
     });
 
     it('blocks the call with ForbiddenException once the per-user daily quota is reached', async () => {
-      (mockConfig.get as jest.Mock).mockImplementation((key: string, fallback?: unknown) =>
-        key === 'AI_USER_DAILY_BUDGET_USD' ? 1 : fallback,
-      );
+      mockOperationalConfig.getEffective.mockResolvedValue(makeConfig({ userDailyBudgetUsd: 1 }));
       mockRepo.sumCostSince.mockResolvedValueOnce(0).mockResolvedValueOnce(1);
 
       await expect(service.runCompletion({
@@ -167,6 +166,49 @@ describe('AiRequestsService', () => {
       mockRepo.findAll.mockResolvedValue({ data: [], total: 0, page: 1, limit: 20 });
       await service.findMine({ page: 1, limit: 20 }, USER);
       expect(mockRepo.findAll).toHaveBeenCalledWith(expect.objectContaining({ userId: USER.id }));
+    });
+  });
+
+  describe('findAllAdmin', () => {
+    it('forbids a non-admin caller', async () => {
+      await expect(service.findAllAdmin({ page: 1, limit: 20 }, USER)).rejects.toThrow(ForbiddenException);
+      expect(mockRepo.findAll).not.toHaveBeenCalled();
+    });
+
+    it('lists platform-wide, unscoped by default, for an Administrator', async () => {
+      mockRepo.findAll.mockResolvedValue({ data: [makeRequest()], total: 1, page: 1, limit: 20 });
+      const result = await service.findAllAdmin({ page: 1, limit: 20 }, ADMIN);
+
+      expect(mockRepo.findAll).toHaveBeenCalledWith(
+        expect.objectContaining({ page: 1, limit: 20, userId: undefined }),
+      );
+      expect(result.total).toBe(1);
+    });
+
+    it('passes through an explicit userId filter for an Administrator', async () => {
+      mockRepo.findAll.mockResolvedValue({ data: [], total: 0, page: 1, limit: 20 });
+      await service.findAllAdmin({ page: 1, limit: 20, userId: OTHER_USER.id }, ADMIN);
+      expect(mockRepo.findAll).toHaveBeenCalledWith(expect.objectContaining({ userId: OTHER_USER.id }));
+    });
+  });
+
+  describe('getSpendSummary', () => {
+    it('forbids a non-admin caller', async () => {
+      await expect(service.getSpendSummary(USER)).rejects.toThrow(ForbiddenException);
+      expect(mockRepo.summarySince).not.toHaveBeenCalled();
+    });
+
+    it('returns the platform-wide spend summary with the current budget ceiling for an Administrator', async () => {
+      mockRepo.summarySince.mockResolvedValue({ totalCostUsd: 3.5, requestCount: 10, failedCount: 1 });
+      mockOperationalConfig.getEffective.mockResolvedValue(makeConfig({ globalDailyBudgetUsd: 50 }));
+
+      const result = await service.getSpendSummary(ADMIN);
+
+      expect(result.totalCostUsd).toBe(3.5);
+      expect(result.requestCount).toBe(10);
+      expect(result.failedCount).toBe(1);
+      expect(result.globalDailyBudgetUsd).toBe(50);
+      expect(result.emergencyStop).toBe(false);
     });
   });
 });

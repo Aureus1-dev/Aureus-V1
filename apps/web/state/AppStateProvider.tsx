@@ -17,6 +17,10 @@ import { TasksProvider } from './tasks/TasksContext';
 import { PodsProvider } from './pods/PodsContext';
 import { ResourcesProvider } from './resources/ResourcesContext';
 import { MessagesProvider } from './messages/MessagesContext';
+import { FounderProvider } from './founder/FounderContext';
+import { ReviewQueueProvider } from './review-queue/ReviewQueueContext';
+import { StewardshipOversightProvider } from './stewardship-oversight/StewardshipOversightContext';
+import { AnnouncementsProvider } from './announcements/AnnouncementsContext';
 
 /**
  * Composes the full state foundation (FPB-010 §3). Every domain provider
@@ -50,7 +54,15 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
                               <TasksProvider>
                                 <PodsProvider>
                                   <ResourcesProvider>
-                                    <MessagesProvider>{children}</MessagesProvider>
+                                    <MessagesProvider>
+                                      <FounderProvider>
+                                        <ReviewQueueProvider>
+                                          <StewardshipOversightProvider>
+                                            <AnnouncementsProvider>{children}</AnnouncementsProvider>
+                                          </StewardshipOversightProvider>
+                                        </ReviewQueueProvider>
+                                      </FounderProvider>
+                                    </MessagesProvider>
                                   </ResourcesProvider>
                                 </PodsProvider>
                               </TasksProvider>

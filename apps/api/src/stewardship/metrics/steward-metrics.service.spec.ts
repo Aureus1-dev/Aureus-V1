@@ -31,7 +31,8 @@ const mockTaskRepo: jest.Mocked<IStewardshipTaskRepository> = {
   create: jest.fn(), findById: jest.fn(), findByRelationship: jest.fn(), update: jest.fn(), countByStewardAndStatus: jest.fn(),
 };
 const mockEscalationRepo: jest.Mocked<IStewardshipEscalationRepository> = {
-  create: jest.fn(), findById: jest.fn(), findByRelationship: jest.fn(), update: jest.fn(), countByStewardAndStatus: jest.fn(),
+  create: jest.fn(), findById: jest.fn(), findByRelationship: jest.fn(), findByPod: jest.fn(),
+  update: jest.fn(), countByStewardAndStatus: jest.fn(), countByStatus: jest.fn(),
 };
 const mockGoalRepo: jest.Mocked<IGoalRepository> = {
   create: jest.fn(), findById: jest.fn(), findAll: jest.fn(), update: jest.fn(), softDelete: jest.fn(),

@@ -100,33 +100,34 @@ model User {
   failedLoginAttempts Int       @default(0)
   lockedUntil         DateTime?
 
-  profile                 Profile?
-  goals                   Goal[]
-  refreshTokens           RefreshToken[]
-  passwordResetTokens     PasswordResetToken[]
-  emailVerificationTokens EmailVerificationToken[]
-  organizationMemberships OrganizationMember[]
-  stewardCapacity         StewardCapacity?
-  stewardshipAsMember     StewardshipRelationship[] @relation("StewardshipRelationshipMember")
-  stewardshipAsSteward    StewardshipRelationship[] @relation("StewardshipRelationshipSteward")
-  notifications           Notification[]
-  notificationPreferences NotificationPreference[]
-  announcementsAsSteward  Announcement[]            @relation("AnnouncementSteward")
-  conversationMemberships ConversationParticipant[]
-  sentMessages            Message[]
-  enrollments             Enrollment[]
-  certifications          Certification[]
-  aiConversations         AiConversation[]
-  aiRequests              AiRequest[]
-  aiRecommendations       AiRecommendation[]
-  aiVoiceSessions         AiVoiceSession[]
-  podMemberships          PodMembership[]
-  podEventRsvps           PodEventRsvp[]
-  podRequests             PodRequest[]
-  podInvitationsReceived  PodInvitation[]           @relation("PodInvitationInvitee")
-  connectedAccounts       ConnectedAccount[]
-  documents               Document[]
-  stewardActivityLogs     StewardActivityLog[]
+  profile                    Profile?
+  goals                      Goal[]
+  refreshTokens              RefreshToken[]
+  passwordResetTokens        PasswordResetToken[]
+  emailVerificationTokens    EmailVerificationToken[]
+  organizationMemberships    OrganizationMember[]
+  stewardCapacity            StewardCapacity?
+  stewardshipAsMember        StewardshipRelationship[] @relation("StewardshipRelationshipMember")
+  stewardshipAsSteward       StewardshipRelationship[] @relation("StewardshipRelationshipSteward")
+  notifications              Notification[]
+  notificationPreferences    NotificationPreference[]
+  announcementsAsSteward     Announcement[]            @relation("AnnouncementSteward")
+  conversationMemberships    ConversationParticipant[]
+  sentMessages               Message[]
+  enrollments                Enrollment[]
+  certifications             Certification[]
+  aiConversations            AiConversation[]
+  aiRequests                 AiRequest[]
+  aiRecommendations          AiRecommendation[]
+  aiVoiceSessions            AiVoiceSession[]
+  podMemberships             PodMembership[]
+  podEventRsvps              PodEventRsvp[]
+  podRequests                PodRequest[]
+  podInvitationsReceived     PodInvitation[]           @relation("PodInvitationInvitee")
+  connectedAccounts          ConnectedAccount[]
+  documents                  Document[]
+  stewardActivityLogs        StewardActivityLog[]
+  aiOperationalConfigUpdates AiOperationalConfig[]
 }
 
 // ===========================================================================
@@ -1780,6 +1781,27 @@ model AiRequest {
   @@index([userId])
   @@index([capability])
   @@index([createdAt])
+}
+
+// AiOperationalConfig  —  Live, Founder-editable AI spend controls (PR-003).
+// A single-row table (id is always "singleton", enforced at the repository
+// layer rather than a DB constraint — Postgres has no native "exactly one
+// row" constraint short of a check against a generated column) rather than
+// a KV settings table, since there are exactly three related knobs and no
+// foreseeable need for a generic config store. Replaces the env-var-only
+// controls from PR-002: those required a process restart to change; this
+// lets a Platform/System Administrator toggle emergency stop or adjust
+// budget ceilings from the Founder Operating System without one. Env vars
+// (AI_EMERGENCY_STOP, AI_*_BUDGET_USD) remain the seed-time defaults for a
+// fresh installation, read once when this table is empty.
+model AiOperationalConfig {
+  id                   String   @id @default("singleton")
+  emergencyStop        Boolean  @default(false)
+  globalDailyBudgetUsd Float    @default(50)
+  userDailyBudgetUsd   Float    @default(2)
+  updatedById          String?  @db.Uuid
+  updatedBy            User?    @relation(fields: [updatedById], references: [id], onDelete: SetNull)
+  updatedAt            DateTime @updatedAt
 }
 
 // AiRecommendation  —  A suggestion the AI Engine produced. Real, nullable,

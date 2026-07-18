@@ -15,6 +15,10 @@ import { AiRequestsController } from './requests/ai-requests.controller';
 import { AiRequestsService } from './requests/ai-requests.service';
 import { PrismaAiRequestRepository } from './requests/repositories/prisma-ai-request.repository';
 import { AI_REQUEST_REPOSITORY } from './requests/repositories/ai-request.repository.interface';
+import { AiOperationalConfigController } from './requests/ai-operational-config.controller';
+import { AiOperationalConfigService } from './requests/ai-operational-config.service';
+import { PrismaAiOperationalConfigRepository } from './requests/repositories/prisma-ai-operational-config.repository';
+import { AI_OPERATIONAL_CONFIG_REPOSITORY } from './requests/repositories/ai-operational-config.repository.interface';
 
 import { ConversationsController } from './conversations/conversations.controller';
 import { ConversationsService } from './conversations/conversations.service';
@@ -67,6 +71,7 @@ import { AI_TURN_EVENT_REPOSITORY } from './voice/repositories/ai-turn-event.rep
   ],
   controllers: [
     AiRequestsController,
+    AiOperationalConfigController,
     ConversationsController,
     InsightsController,
     RecommendationsController,
@@ -76,6 +81,8 @@ import { AI_TURN_EVENT_REPOSITORY } from './voice/repositories/ai-turn-event.rep
   providers: [
     AiRequestsService,
     { provide: AI_REQUEST_REPOSITORY, useClass: PrismaAiRequestRepository },
+    AiOperationalConfigService,
+    { provide: AI_OPERATIONAL_CONFIG_REPOSITORY, useClass: PrismaAiOperationalConfigRepository },
     ConversationsService,
     { provide: AI_CONVERSATION_REPOSITORY, useClass: PrismaAiConversationRepository },
     { provide: AI_MESSAGE_REPOSITORY, useClass: PrismaAiMessageRepository },
