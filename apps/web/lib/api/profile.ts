@@ -3,9 +3,7 @@ import { ApiError } from './errors';
 
 /**
  * DTO mirrors `apps/api/src/users/profile/dto/profile-response.dto.ts`
- * exactly (FPB-009 §8). Home only ever reads its own profile for the
- * greeting — this client does not implement create/update/delete,
- * since editing Profile remains out of this Domain's scope.
+ * exactly (FPB-009 §8).
  */
 export interface ProfileDto {
   id: string;
@@ -28,6 +26,23 @@ export interface ProfileDto {
   deletedAt: string | null;
 }
 
+/** Mirrors `apps/api/src/users/profile/dto/update-profile.dto.ts` — every field optional and member-owned (WO-030 Founder Decisions #7-#9). */
+export interface UpdateProfileInput {
+  displayName?: string;
+  bio?: string;
+  avatarUrl?: string;
+  city?: string;
+  region?: string;
+  stateProvince?: string;
+  country?: string;
+  localAreaDescription?: string;
+  profession?: string;
+  seasonOfLife?: string;
+  availabilityNotes?: string;
+  preferredLanguage?: string;
+  faithPreference?: string;
+}
+
 /**
  * Returns `null` rather than throwing when the member has no Profile
  * record yet (backend 404) — a missing profile is an expected, common
@@ -42,4 +57,12 @@ export async function getMyProfile(accessToken: string, userId: string): Promise
     }
     throw error;
   }
+}
+
+export function createMyProfile(accessToken: string, userId: string, input: UpdateProfileInput): Promise<ProfileDto> {
+  return apiRequest<ProfileDto>(`/users/${userId}/profile`, { method: 'POST', accessToken, body: input });
+}
+
+export function updateMyProfile(accessToken: string, userId: string, input: UpdateProfileInput): Promise<ProfileDto> {
+  return apiRequest<ProfileDto>(`/users/${userId}/profile`, { method: 'PATCH', accessToken, body: input });
 }

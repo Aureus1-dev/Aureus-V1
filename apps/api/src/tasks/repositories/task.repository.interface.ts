@@ -21,6 +21,8 @@ export interface TaskPaginationParams {
   page: number;
   limit: number;
   milestoneId?: string;
+  /** Scopes to tasks owned (transitively via Milestone → Journey → Goal) by this user — the "list my tasks across every milestone" case (PR-002). */
+  userId?: string;
   status?: TaskStatus;
   priority?: TaskPriority;
 }

@@ -23,12 +23,13 @@ interface State {
   notifications: NotificationDto[];
   isLoading: boolean;
   unreadCount: number | null;
+  total: number | null;
   error: NotificationsError | null;
 }
 
 type Action =
   | { type: 'list/loading' }
-  | { type: 'list/loaded'; notifications: NotificationDto[] }
+  | { type: 'list/loaded'; notifications: NotificationDto[]; total: number }
   | { type: 'unread-count/loaded'; count: number }
   | { type: 'notification/updated'; notification: NotificationDto }
   | { type: 'all-read'; readAt: string }
@@ -39,6 +40,7 @@ const initialState: State = {
   notifications: [],
   isLoading: false,
   unreadCount: null,
+  total: null,
   error: null,
 };
 
@@ -47,7 +49,7 @@ function reducer(state: State, action: Action): State {
     case 'list/loading':
       return { ...state, isLoading: true };
     case 'list/loaded':
-      return { ...state, isLoading: false, notifications: action.notifications };
+      return { ...state, isLoading: false, notifications: action.notifications, total: action.total };
     case 'unread-count/loaded':
       return { ...state, unreadCount: action.count };
     case 'notification/updated':
@@ -108,7 +110,7 @@ export function NotificationsProvider({ children }: { children: React.ReactNode 
       dispatch({ type: 'list/loading' });
       try {
         const result = await listNotifications(session.accessToken, params);
-        dispatch({ type: 'list/loaded', notifications: result.data });
+        dispatch({ type: 'list/loaded', notifications: result.data, total: result.total });
       } catch (error) {
         dispatch({ type: 'error', error: classifyError(error) });
       }

@@ -1,5 +1,5 @@
-import { PlaceholderSurface } from '../../../design-system/layout';
+import { ResourcesPage as ResourcesSurface } from '../../../design-system/components/resources';
 
 export default function ResourcesPage() {
-  return <PlaceholderSurface title="Resources" />;
+  return <ResourcesSurface />;
 }

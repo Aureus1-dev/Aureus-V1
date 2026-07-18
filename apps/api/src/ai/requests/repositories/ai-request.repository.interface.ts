@@ -34,4 +34,10 @@ export interface IAiRequestRepository {
   create(data: CreateAiRequestInput): Promise<AiRequest>;
   findById(id: string): Promise<AiRequest | null>;
   findAll(params: AiRequestQueryParams): Promise<PaginatedAiRequests>;
+
+  /**
+   * Sum of costUsd across successful requests created at or after `since`,
+   * optionally scoped to one user. Backs the AI spend ceilings (PR-002).
+   */
+  sumCostSince(since: Date, userId?: string): Promise<number>;
 }

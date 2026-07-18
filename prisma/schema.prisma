@@ -94,6 +94,12 @@ model User {
   updatedAt     DateTime   @updatedAt
   deletedAt     DateTime?
 
+  // Brute-force protection (PR-002). Reset to 0 on any successful login;
+  // incremented on each failed password check; lockedUntil is set once the
+  // threshold is reached and cleared automatically once it elapses.
+  failedLoginAttempts Int       @default(0)
+  lockedUntil         DateTime?
+
   profile                 Profile?
   goals                   Goal[]
   refreshTokens           RefreshToken[]

@@ -1,0 +1,94 @@
+# Production-shaped local/staging stack (PR-002). Brings up Postgres, the
+# API, and the web app together. Not intended as the production deployment
+# mechanism itself (see docs/operations/production-runbook.md §3-4 for the
+# target orchestrator), but a faithful local approximation of it: the same
+# images, the same env-driven configuration, real inter-service networking.
+#
+# Usage:
+#   cp .env.example .env   # fill in real secrets before first run
+#   docker compose up --build
+#   docker compose exec api npx prisma migrate deploy
+#   docker compose exec api npx prisma db seed   # first-admin bootstrap
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-aureus}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-aureus}
+      POSTGRES_DB: ${POSTGRES_DB:-aureus}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    ports:
+      - '5432:5432'
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U ${POSTGRES_USER:-aureus}']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      DATABASE_URL: postgresql://${POSTGRES_USER:-aureus}:${POSTGRES_PASSWORD:-aureus}@postgres:5432/${POSTGRES_DB:-aureus}?schema=public
+      JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET}
+      JWT_ACCESS_EXPIRY: ${JWT_ACCESS_EXPIRY:-15m}
+      JWT_REFRESH_EXPIRY_DAYS: ${JWT_REFRESH_EXPIRY_DAYS:-30}
+      CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:3001}
+      FRONTEND_URL: ${FRONTEND_URL:-http://localhost:3001}
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-}
+      SMTP_SECURE: ${SMTP_SECURE:-}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      SMTP_FROM_EMAIL: ${SMTP_FROM_EMAIL:-no-reply@aureus.app}
+      AI_PROVIDER: ${AI_PROVIDER:-stub}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      OPENAI_MODEL: ${OPENAI_MODEL:-}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      ANTHROPIC_MODEL: ${ANTHROPIC_MODEL:-}
+      AI_EMERGENCY_STOP: ${AI_EMERGENCY_STOP:-false}
+      AI_GLOBAL_DAILY_BUDGET_USD: ${AI_GLOBAL_DAILY_BUDGET_USD:-50}
+      AI_USER_DAILY_BUDGET_USD: ${AI_USER_DAILY_BUDGET_USD:-2}
+      VOICE_MODEL: ${VOICE_MODEL:-}
+      VOICE_NAME: ${VOICE_NAME:-}
+      BOOTSTRAP_ADMIN_EMAIL: ${BOOTSTRAP_ADMIN_EMAIL:-}
+      BOOTSTRAP_ADMIN_PASSWORD: ${BOOTSTRAP_ADMIN_PASSWORD:-}
+    ports:
+      - '3000:3000'
+    healthcheck:
+      test: ['CMD', 'node', '-e', "require('http').get('http://localhost:3000/health',r=>process.exit(r.statusCode===200?0:1)).on('error',()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      start_period: 15s
+      retries: 3
+
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+      args:
+        # NEXT_PUBLIC_* vars are inlined into the client bundle at build
+        # time, not read at container start — must be a build arg, not a
+        # runtime environment: entry.
+        NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL:-http://localhost:3000}
+    restart: unless-stopped
+    depends_on:
+      - api
+    environment:
+      NODE_ENV: production
+      PORT: 3001
+    ports:
+      - '3001:3001'
+
+volumes:
+  postgres-data:

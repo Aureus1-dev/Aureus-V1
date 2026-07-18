@@ -1,5 +1,5 @@
-import { PlaceholderSurface } from '../../../design-system/layout';
+import { TasksPage as TasksSurface } from '../../../design-system/components/tasks';
 
 export default function TasksPage() {
-  return <PlaceholderSurface title="Tasks" />;
+  return <TasksSurface />;
 }

@@ -12,6 +12,11 @@ import { NotificationsProvider } from './notifications/NotificationsContext';
 import { HighlightRegistryProvider } from './highlight/HighlightRegistryContext';
 import { AcademyProvider } from './academy/AcademyContext';
 import { ConnectedExperiencesProvider } from './connected-experiences/ConnectedExperiencesContext';
+import { ProfileProvider } from './profile/ProfileContext';
+import { TasksProvider } from './tasks/TasksContext';
+import { PodsProvider } from './pods/PodsContext';
+import { ResourcesProvider } from './resources/ResourcesContext';
+import { MessagesProvider } from './messages/MessagesContext';
 
 /**
  * Composes the full state foundation (FPB-010 §3). Every domain provider
@@ -40,7 +45,17 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
                     <RecommendationsProvider>
                       <NotificationsProvider>
                         <AcademyProvider>
-                          <ConnectedExperiencesProvider>{children}</ConnectedExperiencesProvider>
+                          <ConnectedExperiencesProvider>
+                            <ProfileProvider>
+                              <TasksProvider>
+                                <PodsProvider>
+                                  <ResourcesProvider>
+                                    <MessagesProvider>{children}</MessagesProvider>
+                                  </ResourcesProvider>
+                                </PodsProvider>
+                              </TasksProvider>
+                            </ProfileProvider>
+                          </ConnectedExperiencesProvider>
                         </AcademyProvider>
                       </NotificationsProvider>
                     </RecommendationsProvider>
