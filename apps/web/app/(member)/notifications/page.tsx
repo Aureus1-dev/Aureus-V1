@@ -1,5 +1,5 @@
-import { PlaceholderSurface } from '../../../design-system/layout';
+import { NotificationsPage as NotificationsSurface } from '../../../design-system/components/notifications';
 
 export default function NotificationsPage() {
-  return <PlaceholderSurface title="Notifications" />;
+  return <NotificationsSurface />;
 }

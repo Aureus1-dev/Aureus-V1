@@ -21,6 +21,8 @@ export interface UpdateUserInput {
   status?: UserStatus;
   passwordHash?: string;
   roles?: UserRole[];
+  failedLoginAttempts?: number;
+  lockedUntil?: Date | null;
 }
 
 export interface PaginationParams {

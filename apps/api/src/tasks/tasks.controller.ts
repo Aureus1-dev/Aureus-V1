@@ -27,10 +27,10 @@ export class TasksController {
   }
 
   @Get()
-  @ApiOperation({ summary: 'List tasks (milestoneId required unless an administrator)' })
+  @ApiOperation({ summary: "List tasks — a specific milestone, or (without milestoneId) the caller's own tasks across every milestone" })
   @ApiResponse({ status: 200, type: PaginatedTasksResponseDto })
   @ApiResponse({ status: 401, description: 'Unauthenticated' })
-  @ApiResponse({ status: 403, description: 'You must specify a milestoneId you own to list tasks' })
+  @ApiResponse({ status: 403, description: 'You do not have permission to access this milestone' })
   findAll(
     @Query() q: ListTasksQueryDto,
     @CurrentUser() caller: AuthenticatedUser,

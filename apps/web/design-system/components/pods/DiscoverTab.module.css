@@ -1,0 +1,60 @@
+.tab {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.searchForm {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--space-3);
+}
+
+.searchForm > :first-child {
+  flex: 1;
+}
+
+.results {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.propose {
+  border-top: 1px solid var(--color-border);
+  padding-top: var(--space-4);
+}
+
+.proposeForm {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  max-width: 32rem;
+}
+
+.textareaField {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.label {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+}
+
+.textarea {
+  font: inherit;
+  padding: var(--space-2);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  color: var(--color-text-primary);
+  resize: vertical;
+}
+
+.actions {
+  display: flex;
+  gap: var(--space-3);
+}

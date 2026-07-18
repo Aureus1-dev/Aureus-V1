@@ -1,0 +1,79 @@
+.thread {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.back {
+  align-self: flex-start;
+  padding: var(--space-2) 0;
+  border: none;
+  background: transparent;
+  color: var(--color-action-primary);
+  font-family: var(--font-family-base);
+  font-size: var(--font-size-sm);
+  cursor: pointer;
+}
+
+.messages {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.mine,
+.theirs {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  max-width: 32rem;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-md);
+}
+
+.mine {
+  align-self: flex-end;
+  background: var(--color-action-primary);
+  color: var(--color-surface-primary);
+}
+
+.theirs {
+  align-self: flex-start;
+  background: var(--color-surface-secondary);
+  color: var(--color-text-primary);
+}
+
+.body {
+  margin: 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.time {
+  font-size: var(--font-size-xs);
+  opacity: 0.75;
+}
+
+.composer {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--space-2);
+}
+
+.composerField {
+  flex: 1;
+}
+
+.textarea {
+  width: 100%;
+  font: inherit;
+  padding: var(--space-2);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  color: var(--color-text-primary);
+  resize: vertical;
+}

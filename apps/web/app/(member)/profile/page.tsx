@@ -1,5 +1,5 @@
-import { PlaceholderSurface } from '../../../design-system/layout';
+import { ProfilePage as ProfileSurface } from '../../../design-system/components/profile';
 
 export default function ProfilePage() {
-  return <PlaceholderSurface title="Profile" />;
+  return <ProfileSurface />;
 }

@@ -43,6 +43,15 @@ export function listTasks(accessToken: string, milestoneId: string): Promise<Pag
   return apiRequest<PaginatedTasksDto>(`/tasks?milestoneId=${milestoneId}&limit=100`, { accessToken });
 }
 
+/**
+ * The caller's own tasks across every milestone (PR-002) — omitting
+ * `milestoneId` self-scopes on the backend (`TasksService.findAll`)
+ * rather than requiring a specific milestone.
+ */
+export function listMyTasks(accessToken: string, limit = 50): Promise<PaginatedTasksDto> {
+  return apiRequest<PaginatedTasksDto>(`/tasks?limit=${limit}`, { accessToken });
+}
+
 export function updateTask(accessToken: string, id: string, status: TaskStatus): Promise<TaskDto> {
   return apiRequest<TaskDto>(`/tasks/${id}`, { method: 'PATCH', accessToken, body: { status } });
 }

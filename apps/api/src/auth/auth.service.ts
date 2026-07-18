@@ -7,7 +7,7 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
-import { UserRole, UserStatus } from '@prisma/client';
+import { User, UserRole, UserStatus } from '@prisma/client';
 import * as bcrypt from 'bcryptjs';
 import { UserResponseDto } from '../users/dto/user-response.dto';
 import {
@@ -29,6 +29,10 @@ import { IEmailService, EMAIL_SERVICE } from '../email/email.service.interface';
 const BCRYPT_SALT_ROUNDS = 12;
 const PASSWORD_RESET_TTL_MINUTES = 30;
 const EMAIL_VERIFICATION_TTL_HOURS = 48;
+
+// Brute-force protection (PR-002).
+const LOGIN_LOCKOUT_THRESHOLD = 5;
+const LOGIN_LOCKOUT_DURATION_MINUTES = 15;
 
 @Injectable()
 export class AuthService {
@@ -76,14 +80,38 @@ export class AuthService {
       throw new UnauthorizedException('This account is not active');
     }
 
+    if (user.lockedUntil && user.lockedUntil > new Date()) {
+      throw new UnauthorizedException('Too many failed sign-in attempts. Please try again later.');
+    }
+
     const valid = await bcrypt.compare(dto.password, user.passwordHash);
     if (!valid) {
+      await this.registerFailedLoginAttempt(user);
       throw new UnauthorizedException('Invalid email or password');
+    }
+
+    if (user.failedLoginAttempts > 0 || user.lockedUntil) {
+      await this.users.update(user.id, { failedLoginAttempts: 0, lockedUntil: null });
     }
 
     const tokens = await this.issueTokenPair(user.id, user.email, user.roles);
     this.logger.log(`User logged in: ${user.id}`);
     return { user: UserResponseDto.fromEntity(user), tokens };
+  }
+
+  /** Brute-force protection (PR-002) — locks the account for LOGIN_LOCKOUT_DURATION_MINUTES once LOGIN_LOCKOUT_THRESHOLD consecutive failures are reached, then resets the counter. */
+  private async registerFailedLoginAttempt(user: User): Promise<void> {
+    const attempts = user.failedLoginAttempts + 1;
+    const shouldLock = attempts >= LOGIN_LOCKOUT_THRESHOLD;
+
+    await this.users.update(user.id, {
+      failedLoginAttempts: shouldLock ? 0 : attempts,
+      lockedUntil: shouldLock ? new Date(Date.now() + LOGIN_LOCKOUT_DURATION_MINUTES * 60_000) : null,
+    });
+
+    if (shouldLock) {
+      this.logger.warn(`Account locked after ${attempts} failed login attempts: ${user.id}`);
+    }
   }
 
   // ── Refresh / Logout ─────────────────────────────────────────────────────

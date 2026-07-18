@@ -21,11 +21,12 @@ export class PrismaTaskRepository implements ITaskRepository {
     return this.prisma.db.task.findFirst({ where: { id, deletedAt: null } });
   }
 
-  async findAll({ page, limit, milestoneId, status, priority }: TaskPaginationParams): Promise<PaginatedTasks> {
+  async findAll({ page, limit, milestoneId, userId, status, priority }: TaskPaginationParams): Promise<PaginatedTasks> {
     const skip = (page - 1) * limit;
     const where = {
       deletedAt: null,
       ...(milestoneId !== undefined && { milestoneId }),
+      ...(userId !== undefined && { milestone: { journey: { goal: { userId } } } }),
       ...(status !== undefined && { status }),
       ...(priority !== undefined && { priority }),
     };

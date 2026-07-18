@@ -19,6 +19,8 @@ const makeUser = (o: Partial<User> = {}): User => ({
   passwordHash: null,
   roles: [UserRole.MEMBER],
   status: UserStatus.ACTIVE,
+  failedLoginAttempts: 0,
+  lockedUntil: null,
   createdAt: NOW,
   updatedAt: NOW,
   deletedAt: null,
@@ -158,6 +160,74 @@ describe('AuthService', () => {
       await expect(
         service.login({ email: 'alice@example.com', password: 'Str0ngPassw0rd' }),
       ).rejects.toThrow(UnauthorizedException);
+    });
+
+    // ── brute-force protection (PR-002) ──────────────────────────────────
+
+    it('increments failedLoginAttempts on a wrong password without locking below the threshold', async () => {
+      const passwordHash = await bcrypt.hash('Str0ngPassw0rd', 4);
+      mockUserRepo.findByEmail.mockResolvedValue(
+        makeUser({ passwordHash, failedLoginAttempts: 2 }),
+      );
+      mockUserRepo.update.mockResolvedValue(makeUser({ passwordHash, failedLoginAttempts: 3 }));
+
+      await expect(
+        service.login({ email: 'alice@example.com', password: 'WrongPassword1' }),
+      ).rejects.toThrow(UnauthorizedException);
+
+      expect(mockUserRepo.update).toHaveBeenCalledWith('u-001', {
+        failedLoginAttempts: 3,
+        lockedUntil: null,
+      });
+    });
+
+    it('locks the account once the failure threshold is reached', async () => {
+      const passwordHash = await bcrypt.hash('Str0ngPassw0rd', 4);
+      mockUserRepo.findByEmail.mockResolvedValue(
+        makeUser({ passwordHash, failedLoginAttempts: 4 }),
+      );
+      mockUserRepo.update.mockResolvedValue(makeUser({ passwordHash }));
+
+      await expect(
+        service.login({ email: 'alice@example.com', password: 'WrongPassword1' }),
+      ).rejects.toThrow(UnauthorizedException);
+
+      expect(mockUserRepo.update).toHaveBeenCalledWith(
+        'u-001',
+        expect.objectContaining({ failedLoginAttempts: 0, lockedUntil: expect.any(Date) }),
+      );
+    });
+
+    it('rejects a correct password while the account is still locked', async () => {
+      const passwordHash = await bcrypt.hash('Str0ngPassw0rd', 4);
+      mockUserRepo.findByEmail.mockResolvedValue(
+        makeUser({ passwordHash, lockedUntil: new Date(Date.now() + 60_000) }),
+      );
+
+      await expect(
+        service.login({ email: 'alice@example.com', password: 'Str0ngPassw0rd' }),
+      ).rejects.toThrow(UnauthorizedException);
+      expect(mockUserRepo.update).not.toHaveBeenCalled();
+    });
+
+    it('allows login once a past lock has expired and resets the counters', async () => {
+      const passwordHash = await bcrypt.hash('Str0ngPassw0rd', 4);
+      mockUserRepo.findByEmail.mockResolvedValue(
+        makeUser({
+          passwordHash,
+          failedLoginAttempts: 5,
+          lockedUntil: new Date(Date.now() - 60_000),
+        }),
+      );
+      mockUserRepo.update.mockResolvedValue(makeUser({ passwordHash }));
+
+      const result = await service.login({ email: 'alice@example.com', password: 'Str0ngPassw0rd' });
+
+      expect(result.tokens.accessToken).toBe('signed.jwt.token');
+      expect(mockUserRepo.update).toHaveBeenCalledWith('u-001', {
+        failedLoginAttempts: 0,
+        lockedUntil: null,
+      });
     });
   });
 

@@ -1,5 +1,5 @@
-import { PlaceholderSurface } from '../../../design-system/layout';
+import { MessagesPage as MessagesSurface } from '../../../design-system/components/messages';
 
 export default function MessagesPage() {
-  return <PlaceholderSurface title="Messages" />;
+  return <MessagesSurface />;
 }

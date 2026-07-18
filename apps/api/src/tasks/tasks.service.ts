@@ -26,17 +26,19 @@ export class TasksService {
 
   async findAll(query: ListTasksQueryDto, caller: AuthenticatedUser): Promise<PaginatedTasksResponseDto> {
     const isAdmin = hasRole(caller, ADMIN_ROLES);
-    if (!query.milestoneId && !isAdmin) {
-      throw new ForbiddenException('You must specify a milestoneId you own to list tasks');
-    }
     if (query.milestoneId) {
       await this.assertOwnsMilestone(query.milestoneId, caller);
     }
 
+    // No milestoneId: a member sees their own tasks across every milestone
+    // (PR-002 — the standing Tasks surface); an Administrator sees every
+    // task platform-wide, matching the existing Administrator-can-manage
+    // access pattern used throughout findById/update/remove below.
     const page = query.page ?? 1;
     const limit = query.limit ?? 20;
     const result = await this.repo.findAll({
       page, limit, milestoneId: query.milestoneId,
+      userId: !query.milestoneId && !isAdmin ? caller.id : undefined,
       status: query.status, priority: query.priority,
     });
     return {

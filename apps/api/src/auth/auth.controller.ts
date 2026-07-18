@@ -8,6 +8,7 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
+import { Throttle } from '@nestjs/throttler';
 import { AuthService } from './auth.service';
 import { UsersService } from '../users/users.service';
 import { RegisterDto } from './dto/register.dto';
@@ -23,6 +24,9 @@ import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { CurrentUser } from './decorators/current-user.decorator';
 import { AuthenticatedUser } from './strategies/jwt.strategy';
 
+// Brute-force protection (PR-002): tight per-IP limit on credential/token endpoints.
+const AUTH_THROTTLE = { default: { limit: 5, ttl: 60_000 } };
+
 @ApiTags('auth')
 @Controller('auth')
 export class AuthController {
@@ -32,6 +36,7 @@ export class AuthController {
   ) {}
 
   @Post('register')
+  @Throttle(AUTH_THROTTLE)
   @ApiOperation({ summary: 'Register a new member account' })
   @ApiResponse({ status: 201, type: AuthResponseDto })
   @ApiResponse({ status: 409, description: 'Email already registered' })
@@ -41,6 +46,7 @@ export class AuthController {
 
   @Post('login')
   @HttpCode(HttpStatus.OK)
+  @Throttle(AUTH_THROTTLE)
   @ApiOperation({ summary: 'Authenticate with email and password' })
   @ApiResponse({ status: 200, type: AuthResponseDto })
   @ApiResponse({ status: 401, description: 'Invalid credentials' })
@@ -67,6 +73,7 @@ export class AuthController {
 
   @Post('forgot-password')
   @HttpCode(HttpStatus.NO_CONTENT)
+  @Throttle(AUTH_THROTTLE)
   @ApiOperation({
     summary: 'Request a password reset token (always returns 204, regardless of whether the email exists)',
   })
@@ -77,6 +84,7 @@ export class AuthController {
 
   @Post('reset-password')
   @HttpCode(HttpStatus.NO_CONTENT)
+  @Throttle(AUTH_THROTTLE)
   @ApiOperation({ summary: 'Complete a password reset using a valid reset token' })
   @ApiResponse({ status: 204 })
   @ApiResponse({ status: 401, description: 'Invalid or expired token' })
@@ -86,6 +94,7 @@ export class AuthController {
 
   @Post('verify-email')
   @HttpCode(HttpStatus.NO_CONTENT)
+  @Throttle(AUTH_THROTTLE)
   @ApiOperation({ summary: 'Confirm an account email address' })
   @ApiResponse({ status: 204 })
   @ApiResponse({ status: 401, description: 'Invalid or expired token' })

@@ -1,4 +1,5 @@
 import { ForbiddenException, Inject, Injectable, Logger, NotFoundException, ServiceUnavailableException } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { AiCapability, AiRequestStatus } from '@prisma/client';
 import { AuthenticatedUser } from '../../auth/strategies/jwt.strategy';
 import { hasRole } from '../../auth/utils/has-role.util';
@@ -26,6 +27,10 @@ export interface CompletionResult {
   toolCalls?: AiToolCallRequest[];
 }
 
+const SPEND_WINDOW_MS = 24 * 60 * 60 * 1000;
+const DEFAULT_GLOBAL_DAILY_BUDGET_USD = 50;
+const DEFAULT_USER_DAILY_BUDGET_USD = 2;
+
 /**
  * Unifies "AI request history," "cost tracking," and "audit logging" into
  * one code path (ADR-015 Decision 3, mirroring ADR-014 Decision 7's single
@@ -42,9 +47,11 @@ export class AiRequestsService {
   constructor(
     @Inject(AI_PROVIDER) private readonly provider: IAiProvider,
     @Inject(AI_REQUEST_REPOSITORY) private readonly repo: IAiRequestRepository,
+    private readonly config: ConfigService,
   ) {}
 
   async runCompletion(params: RunCompletionParams): Promise<CompletionResult> {
+    await this.enforceSpendCeilings(params.userId);
     const startedAt = Date.now();
 
     try {
@@ -90,6 +97,43 @@ export class AiRequestsService {
 
       this.logger.error(`AI completion failed for capability ${params.capability}: ${errorMessage}`);
       throw new ServiceUnavailableException('The AI service is temporarily unavailable. Please try again shortly.');
+    }
+  }
+
+  /**
+   * AI spend limits, quotas, and emergency budget controls (PR-002).
+   * Checked before every provider call so an over-budget request is refused
+   * up front — no provider call is made and no additional cost is incurred.
+   * All three controls are env-configured (ConfigService) rather than
+   * Prisma-column config, matching JWT_ACCESS_EXPIRY/JWT_REFRESH_EXPIRY_DAYS:
+   * ops-tunable values with no per-installation reason to live in the DB.
+   */
+  private async enforceSpendCeilings(userId: string): Promise<void> {
+    if (this.config.get<string>('AI_EMERGENCY_STOP', 'false') === 'true') {
+      throw new ServiceUnavailableException(
+        'AI features are temporarily disabled by an emergency budget control. Please try again later.',
+      );
+    }
+
+    const since = new Date(Date.now() - SPEND_WINDOW_MS);
+    const globalBudget = this.config.get<number>(
+      'AI_GLOBAL_DAILY_BUDGET_USD',
+      DEFAULT_GLOBAL_DAILY_BUDGET_USD,
+    );
+    const userBudget = this.config.get<number>('AI_USER_DAILY_BUDGET_USD', DEFAULT_USER_DAILY_BUDGET_USD);
+
+    const globalSpend = await this.repo.sumCostSince(since);
+    if (globalSpend >= globalBudget) {
+      this.logger.warn(`Platform-wide AI daily budget reached: $${globalSpend.toFixed(4)} >= $${globalBudget}`);
+      throw new ServiceUnavailableException(
+        'The platform-wide AI budget for today has been reached. Please try again tomorrow.',
+      );
+    }
+
+    const userSpend = await this.repo.sumCostSince(since, userId);
+    if (userSpend >= userBudget) {
+      this.logger.warn(`User AI daily quota reached for ${userId}: $${userSpend.toFixed(4)} >= $${userBudget}`);
+      throw new ForbiddenException('You have reached your daily AI usage quota. Please try again tomorrow.');
     }
   }
 

@@ -37,6 +37,16 @@ describe('PrismaTaskRepository', () => {
     );
   });
 
+  it('findAll filters by userId via the milestone → journey → goal relation (PR-002)', async () => {
+    d.findMany.mockResolvedValue([]); d.count.mockResolvedValue(0);
+    await repo.findAll({ page: 1, limit: 10, userId: 'u-001' });
+    expect(d.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ milestone: { journey: { goal: { userId: 'u-001' } } } }),
+      }),
+    );
+  });
+
   it('findAll orders by position then createdAt', async () => {
     d.findMany.mockResolvedValue([]); d.count.mockResolvedValue(0);
     await repo.findAll({ page: 1, limit: 5 });

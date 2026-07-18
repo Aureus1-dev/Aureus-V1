@@ -3,9 +3,10 @@ const tseslint = require('typescript-eslint');
 const globals = require('globals');
 
 module.exports = tseslint.config(
-  // Ignore compiled output and test coverage
+  // Ignore compiled output, test coverage, and the standalone seed script
+  // (lives outside src/, validated separately — see src/scripts/bootstrap-admin.ts + its spec)
   {
-    ignores: ['dist/**', 'coverage/**'],
+    ignores: ['dist/**', 'coverage/**', 'prisma/**'],
   },
 
   // TypeScript source files

@@ -1,4 +1,5 @@
 import { Test } from '@nestjs/testing';
+import { ConfigService } from '@nestjs/config';
 import { ForbiddenException, NotFoundException, ServiceUnavailableException } from '@nestjs/common';
 import { AiCapability, AiProvider, AiRequestStatus, UserRole } from '@prisma/client';
 import { AiRequestsService } from './ai-requests.service';
@@ -20,12 +21,15 @@ const makeRequest = (o: Partial<AiRequest> = {}): AiRequest => ({
 });
 
 const mockRepo: jest.Mocked<IAiRequestRepository> = {
-  create: jest.fn(), findById: jest.fn(), findAll: jest.fn(),
+  create: jest.fn(), findById: jest.fn(), findAll: jest.fn(), sumCostSince: jest.fn(),
 };
 const mockProvider: jest.Mocked<IAiProvider> = {
   provider: AiProvider.STUB,
   complete: jest.fn(),
 };
+const mockConfig = {
+  get: jest.fn((_key: string, fallback?: unknown) => fallback),
+} as unknown as jest.Mocked<ConfigService>;
 
 describe('AiRequestsService', () => {
   let service: AiRequestsService;
@@ -36,10 +40,13 @@ describe('AiRequestsService', () => {
         AiRequestsService,
         { provide: AI_REQUEST_REPOSITORY, useValue: mockRepo },
         { provide: AI_PROVIDER, useValue: mockProvider },
+        { provide: ConfigService, useValue: mockConfig },
       ],
     }).compile();
     service = m.get(AiRequestsService);
     jest.clearAllMocks();
+    (mockConfig.get as jest.Mock).mockImplementation((_key: string, fallback?: unknown) => fallback);
+    mockRepo.sumCostSince.mockResolvedValue(0);
   });
 
   describe('runCompletion', () => {
@@ -73,6 +80,63 @@ describe('AiRequestsService', () => {
       expect(mockRepo.create).toHaveBeenCalledWith(expect.objectContaining({
         status: AiRequestStatus.FAILED, errorMessage: 'upstream timeout',
       }));
+    });
+
+    // ── AI spend limits, quotas, emergency budget controls (PR-002) ──────
+
+    it('blocks the call without hitting the provider when AI_EMERGENCY_STOP is set', async () => {
+      (mockConfig.get as jest.Mock).mockImplementation((key: string, fallback?: unknown) =>
+        key === 'AI_EMERGENCY_STOP' ? 'true' : fallback,
+      );
+
+      await expect(service.runCompletion({
+        userId: USER.id, capability: AiCapability.QUESTION_ANSWERING,
+        messages: [{ role: 'user', content: 'Hi' }],
+      })).rejects.toThrow(ServiceUnavailableException);
+
+      expect(mockProvider.complete).not.toHaveBeenCalled();
+      expect(mockRepo.create).not.toHaveBeenCalled();
+    });
+
+    it('blocks the call once the platform-wide daily budget is reached', async () => {
+      (mockConfig.get as jest.Mock).mockImplementation((key: string, fallback?: unknown) =>
+        key === 'AI_GLOBAL_DAILY_BUDGET_USD' ? 10 : fallback,
+      );
+      mockRepo.sumCostSince.mockResolvedValueOnce(10);
+
+      await expect(service.runCompletion({
+        userId: USER.id, capability: AiCapability.QUESTION_ANSWERING,
+        messages: [{ role: 'user', content: 'Hi' }],
+      })).rejects.toThrow(ServiceUnavailableException);
+
+      expect(mockProvider.complete).not.toHaveBeenCalled();
+    });
+
+    it('blocks the call with ForbiddenException once the per-user daily quota is reached', async () => {
+      (mockConfig.get as jest.Mock).mockImplementation((key: string, fallback?: unknown) =>
+        key === 'AI_USER_DAILY_BUDGET_USD' ? 1 : fallback,
+      );
+      mockRepo.sumCostSince.mockResolvedValueOnce(0).mockResolvedValueOnce(1);
+
+      await expect(service.runCompletion({
+        userId: USER.id, capability: AiCapability.QUESTION_ANSWERING,
+        messages: [{ role: 'user', content: 'Hi' }],
+      })).rejects.toThrow(ForbiddenException);
+
+      expect(mockProvider.complete).not.toHaveBeenCalled();
+    });
+
+    it('allows the call when spend is below every ceiling', async () => {
+      mockProvider.complete.mockResolvedValue({
+        content: 'Hello!', provider: AiProvider.STUB, model: 'stub', promptTokens: 10, completionTokens: 5,
+      });
+      mockRepo.create.mockResolvedValue(makeRequest());
+      mockRepo.sumCostSince.mockResolvedValue(0.01);
+
+      await expect(service.runCompletion({
+        userId: USER.id, capability: AiCapability.QUESTION_ANSWERING,
+        messages: [{ role: 'user', content: 'Hi' }],
+      })).resolves.toBeDefined();
     });
   });
 

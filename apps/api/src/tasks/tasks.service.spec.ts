@@ -74,14 +74,21 @@ describe('TasksService', () => {
   });
 
   describe('findAll', () => {
-    it('forbids non-admins from listing without a milestoneId', async () => {
-      await expect(service.findAll({}, OWNER)).rejects.toThrow(ForbiddenException);
-      expect(mockRepo.findAll).not.toHaveBeenCalled();
+    it('scopes a non-admin to their own tasks across every milestone when no milestoneId is given (PR-002)', async () => {
+      mockRepo.findAll.mockResolvedValue({ data: [makeTask()], total: 1, page: 1, limit: 20 });
+      const r = await service.findAll({}, OWNER);
+
+      expect(mockRepo.findAll).toHaveBeenCalledWith(
+        expect.objectContaining({ userId: OWNER.id, milestoneId: undefined }),
+      );
+      expect(r.data).toHaveLength(1);
     });
 
-    it('allows an administrator to list without a milestoneId', async () => {
+    it('allows an administrator to list every task platform-wide without a milestoneId', async () => {
       mockRepo.findAll.mockResolvedValue({ data: [], total: 0, page: 1, limit: 20 });
       const r = await service.findAll({}, ADMIN);
+
+      expect(mockRepo.findAll).toHaveBeenCalledWith(expect.objectContaining({ userId: undefined }));
       expect(r.totalPages).toBe(0);
     });
 

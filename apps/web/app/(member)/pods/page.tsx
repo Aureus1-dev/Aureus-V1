@@ -1,5 +1,5 @@
-import { PlaceholderSurface } from '../../../design-system/layout';
+import { PodsPage as PodsSurface } from '../../../design-system/components/pods';
 
 export default function PodsPage() {
-  return <PlaceholderSurface title="Pods" />;
+  return <PodsSurface />;
 }
