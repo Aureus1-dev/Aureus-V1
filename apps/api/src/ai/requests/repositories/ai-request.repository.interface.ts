@@ -38,6 +38,10 @@ export interface AiSpendSummary {
   failedCount: number;
 }
 
+export interface AiCapabilitySpendSummary extends AiSpendSummary {
+  capability: AiCapability;
+}
+
 export interface IAiRequestRepository {
   create(data: CreateAiRequestInput): Promise<AiRequest>;
   findById(id: string): Promise<AiRequest | null>;
@@ -56,4 +60,12 @@ export interface IAiRequestRepository {
    * the spend-ceiling hot path only ever needs the one number.
    */
   summarySince(since: Date, userId?: string): Promise<AiSpendSummary>;
+
+  /**
+   * Cost, request count, and failure count since `since`, grouped by
+   * capability — backs the AI Orchestrator's Founder-visible spend-by-
+   * capability view (PR-004). An additive sibling of `summarySince`, not a
+   * replacement: the existing platform-wide-total contract is unchanged.
+   */
+  groupedByCapabilitySince(since: Date): Promise<AiCapabilitySpendSummary[]>;
 }

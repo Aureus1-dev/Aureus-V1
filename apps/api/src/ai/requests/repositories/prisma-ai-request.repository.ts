@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { AiRequest, AiRequestStatus } from '@prisma/client';
 import { PrismaService } from '../../../prisma/prisma.service';
 import {
+  AiCapabilitySpendSummary,
   AiRequestQueryParams,
   AiSpendSummary,
   CreateAiRequestInput,
@@ -49,5 +50,21 @@ export class PrismaAiRequestRepository implements IAiRequestRepository {
       this.prisma.db.aiRequest.count({ where: { ...where, status: AiRequestStatus.FAILED } }),
     ]);
     return { totalCostUsd: agg._sum.costUsd ?? 0, requestCount: agg._count._all, failedCount };
+  }
+
+  async groupedByCapabilitySince(since: Date): Promise<AiCapabilitySpendSummary[]> {
+    const where = { createdAt: { gte: since } };
+    const [agg, failed] = await Promise.all([
+      this.prisma.db.aiRequest.groupBy({ by: ['capability'], where, _sum: { costUsd: true }, _count: { _all: true } }),
+      this.prisma.db.aiRequest.groupBy({ by: ['capability'], where: { ...where, status: AiRequestStatus.FAILED }, _count: { _all: true } }),
+    ]);
+
+    const failedByCapability = new Map(failed.map((f) => [f.capability, f._count._all]));
+    return agg.map((a) => ({
+      capability: a.capability,
+      totalCostUsd: a._sum.costUsd ?? 0,
+      requestCount: a._count._all,
+      failedCount: failedByCapability.get(a.capability) ?? 0,
+    }));
   }
 }

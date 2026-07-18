@@ -1,5 +1,6 @@
 import { apiRequest } from './http';
 import type { UserRole, UserStatus } from './users';
+import type { AiCapability } from './ai-requests';
 
 /**
  * DTO shapes mirror
@@ -34,6 +35,24 @@ export interface AiSpendSummaryDto {
   emergencyStop: boolean;
 }
 
+/** PR-004 Intelligence Layer — AI spend over the same rolling-24h window, grouped by capability. */
+export interface AiCapabilitySpendDto {
+  capability: AiCapability;
+  totalCostUsd: number;
+  requestCount: number;
+  failedCount: number;
+}
+
+export type AiOrchestrationGoal =
+  | 'NEXT_BEST_ACTION' | 'OPPORTUNITY_SUGGESTION' | 'RESOURCE_SUGGESTION'
+  | 'JOURNEY_GUIDANCE' | 'STEWARD_ESCALATION' | 'EDUCATIONAL_RECOMMENDATION';
+
+/** PR-004 Intelligence Layer — AI Orchestrator runs over the same rolling-24h window, grouped by goal. */
+export interface OrchestrationGoalCountDto {
+  goal: AiOrchestrationGoal;
+  count: number;
+}
+
 export interface AdministrationMetricsDto {
   totalUsers: number;
   usersByRole: RoleCountDto[];
@@ -41,6 +60,9 @@ export interface AdministrationMetricsDto {
   pendingVerification: PendingVerificationCountsDto;
   openEscalations: number;
   aiSpend: AiSpendSummaryDto;
+  aiSpendByCapability: AiCapabilitySpendDto[];
+  orchestrationRunsToday: number;
+  orchestrationRunsByGoal: OrchestrationGoalCountDto[];
   databaseHealthy: boolean;
   generatedAt: string;
 }

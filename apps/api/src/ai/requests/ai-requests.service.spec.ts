@@ -27,6 +27,7 @@ const makeConfig = (o: Partial<AiOperationalConfig> = {}): AiOperationalConfig =
 
 const mockRepo: jest.Mocked<IAiRequestRepository> = {
   create: jest.fn(), findById: jest.fn(), findAll: jest.fn(), sumCostSince: jest.fn(), summarySince: jest.fn(),
+  groupedByCapabilitySince: jest.fn(),
 };
 const mockProvider: jest.Mocked<IAiProvider> = {
   provider: AiProvider.STUB,
@@ -209,6 +210,27 @@ describe('AiRequestsService', () => {
       expect(result.failedCount).toBe(1);
       expect(result.globalDailyBudgetUsd).toBe(50);
       expect(result.emergencyStop).toBe(false);
+    });
+  });
+
+  describe('getSpendByCapability', () => {
+    it('forbids a non-admin caller', async () => {
+      await expect(service.getSpendByCapability(USER)).rejects.toThrow(ForbiddenException);
+      expect(mockRepo.groupedByCapabilitySince).not.toHaveBeenCalled();
+    });
+
+    it('returns the platform-wide spend grouped by capability for an Administrator', async () => {
+      mockRepo.groupedByCapabilitySince.mockResolvedValue([
+        { capability: AiCapability.RECOMMENDATION, totalCostUsd: 1.5, requestCount: 4, failedCount: 0 },
+        { capability: AiCapability.QUESTION_ANSWERING, totalCostUsd: 0.5, requestCount: 2, failedCount: 1 },
+      ]);
+
+      const result = await service.getSpendByCapability(ADMIN);
+
+      expect(result).toEqual([
+        { capability: AiCapability.RECOMMENDATION, totalCostUsd: 1.5, requestCount: 4, failedCount: 0 },
+        { capability: AiCapability.QUESTION_ANSWERING, totalCostUsd: 0.5, requestCount: 2, failedCount: 1 },
+      ]);
     });
   });
 });

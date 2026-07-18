@@ -20,7 +20,7 @@ const REQUESTS_PAGE_SIZE = 20;
  * domain module already exposes.
  */
 export function AiOperationalControlsPanel() {
-  const { state, loadAiConfig, saveAiConfig, loadAiSpendSummary, loadAiRequests } = useFounder();
+  const { state, loadAiConfig, saveAiConfig, loadAiSpendSummary, loadAiRequests, loadMetrics } = useFounder();
   const [emergencyStop, setEmergencyStop] = useState(false);
   const [globalDailyBudgetUsd, setGlobalDailyBudgetUsd] = useState('');
   const [userDailyBudgetUsd, setUserDailyBudgetUsd] = useState('');
@@ -29,8 +29,9 @@ export function AiOperationalControlsPanel() {
   useEffect(() => {
     void loadAiConfig();
     void loadAiSpendSummary();
+    void loadMetrics();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [loadAiConfig, loadAiSpendSummary]);
+  }, [loadAiConfig, loadAiSpendSummary, loadMetrics]);
 
   useEffect(() => {
     void loadAiRequests({ page, limit: REQUESTS_PAGE_SIZE });
@@ -130,6 +131,63 @@ export function AiOperationalControlsPanel() {
             {state.aiSpend.requestCount} requests, {state.aiSpend.failedCount} failed
           </p>
           {state.aiSpend.emergencyStop ? <p className={styles.badgeCritical}>Emergency stop active</p> : null}
+        </Card>
+      ) : null}
+
+      {state.metrics && state.metrics.aiSpendByCapability.length > 0 ? (
+        <Card className={styles.spendCard}>
+          <h2 className={styles.sectionTitle}>Spend by capability (rolling 24h)</h2>
+          <div className={styles.tableScroll}>
+            <table className={styles.table}>
+              <thead>
+                <tr>
+                  <th scope="col">Capability</th>
+                  <th scope="col">Cost</th>
+                  <th scope="col">Requests</th>
+                  <th scope="col">Failed</th>
+                </tr>
+              </thead>
+              <tbody>
+                {state.metrics.aiSpendByCapability.map((row) => (
+                  <tr key={row.capability}>
+                    <td>{row.capability}</td>
+                    <td>${row.totalCostUsd.toFixed(4)}</td>
+                    <td>{row.requestCount}</td>
+                    <td>{row.failedCount}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </Card>
+      ) : null}
+
+      {state.metrics ? (
+        <Card className={styles.spendCard}>
+          <h2 className={styles.sectionTitle}>Orchestration activity (rolling 24h)</h2>
+          <p className={styles.spendAmount}>{state.metrics.orchestrationRunsToday} runs</p>
+          {state.metrics.orchestrationRunsByGoal.length > 0 ? (
+            <div className={styles.tableScroll}>
+              <table className={styles.table}>
+                <thead>
+                  <tr>
+                    <th scope="col">Goal</th>
+                    <th scope="col">Runs</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {state.metrics.orchestrationRunsByGoal.map((row) => (
+                    <tr key={row.goal}>
+                      <td>{row.goal}</td>
+                      <td>{row.count}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <p className={styles.tileHint}>No orchestration runs yet.</p>
+          )}
         </Card>
       ) : null}
 

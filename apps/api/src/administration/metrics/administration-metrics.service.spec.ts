@@ -1,8 +1,9 @@
 import { Test } from '@nestjs/testing';
 import { ForbiddenException } from '@nestjs/common';
-import { StewardshipEscalationStatus, UserRole, UserStatus, VerificationStatus } from '@prisma/client';
+import { AiCapability, AiOrchestrationGoal, StewardshipEscalationStatus, UserRole, UserStatus, VerificationStatus } from '@prisma/client';
 import { AdministrationMetricsService } from './administration-metrics.service';
 import { AiRequestsService } from '../../ai/requests/ai-requests.service';
+import { AiOrchestratorService } from '../../ai/orchestrator/ai-orchestrator.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import { USER_REPOSITORY, IUserRepository } from '../../users/repositories/user.repository.interface';
 import { RESOURCE_REPOSITORY, IResourceRepository } from '../../resources/repositories/resource.repository.interface';
@@ -45,7 +46,11 @@ const mockEscalationRepo: jest.Mocked<IStewardshipEscalationRepository> = {
 };
 const mockAiRequestsService = {
   getSpendSummary: jest.fn(),
+  getSpendByCapability: jest.fn(),
 } as unknown as jest.Mocked<AiRequestsService>;
+const mockAiOrchestratorService = {
+  getRoutingSummary: jest.fn(),
+} as unknown as jest.Mocked<AiOrchestratorService>;
 const mockPrisma = {
   db: { $queryRaw: jest.fn() },
 } as unknown as jest.Mocked<PrismaService>;
@@ -65,6 +70,7 @@ describe('AdministrationMetricsService', () => {
         { provide: COURSE_REPOSITORY, useValue: mockCourseRepo },
         { provide: STEWARDSHIP_ESCALATION_REPOSITORY, useValue: mockEscalationRepo },
         { provide: AiRequestsService, useValue: mockAiRequestsService },
+        { provide: AiOrchestratorService, useValue: mockAiOrchestratorService },
         { provide: PrismaService, useValue: mockPrisma },
       ],
     }).compile();
@@ -81,6 +87,8 @@ describe('AdministrationMetricsService', () => {
     mockAiRequestsService.getSpendSummary.mockResolvedValue({
       totalCostUsd: 0, requestCount: 0, failedCount: 0, globalDailyBudgetUsd: 50, emergencyStop: false,
     } as never);
+    mockAiRequestsService.getSpendByCapability.mockResolvedValue([]);
+    mockAiOrchestratorService.getRoutingSummary.mockResolvedValue({ runsInWindow: 0, runsByGoal: [] });
     (mockPrisma.db.$queryRaw as jest.Mock).mockResolvedValue([{ '?column?': 1 }]);
   });
 
@@ -104,6 +112,12 @@ describe('AdministrationMetricsService', () => {
     mockAiRequestsService.getSpendSummary.mockResolvedValue({
       totalCostUsd: 12.5, requestCount: 40, failedCount: 2, globalDailyBudgetUsd: 50, emergencyStop: false,
     } as never);
+    mockAiRequestsService.getSpendByCapability.mockResolvedValue([
+      { capability: AiCapability.RECOMMENDATION, totalCostUsd: 12.5, requestCount: 40, failedCount: 2 },
+    ]);
+    mockAiOrchestratorService.getRoutingSummary.mockResolvedValue({
+      runsInWindow: 6, runsByGoal: [{ goal: AiOrchestrationGoal.NEXT_BEST_ACTION, count: 6 }],
+    });
 
     const result = await service.getMetrics(ADMIN);
 
@@ -118,6 +132,11 @@ describe('AdministrationMetricsService', () => {
       StewardshipEscalationStatus.OPEN, StewardshipEscalationStatus.IN_PROGRESS,
     ]);
     expect(result.aiSpend.totalCostUsd).toBe(12.5);
+    expect(result.aiSpendByCapability).toEqual([
+      { capability: AiCapability.RECOMMENDATION, totalCostUsd: 12.5, requestCount: 40, failedCount: 2 },
+    ]);
+    expect(result.orchestrationRunsToday).toBe(6);
+    expect(result.orchestrationRunsByGoal).toEqual([{ goal: AiOrchestrationGoal.NEXT_BEST_ACTION, count: 6 }]);
     expect(result.databaseHealthy).toBe(true);
 
     expect(mockResourceRepo.findAll).toHaveBeenCalledWith(

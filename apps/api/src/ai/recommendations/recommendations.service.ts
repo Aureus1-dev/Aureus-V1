@@ -1,5 +1,5 @@
 import { ConflictException, ForbiddenException, Injectable, Logger, NotFoundException, Inject } from '@nestjs/common';
-import { AiCapability, AiRecommendationStatus, NotificationCategory, PodType } from '@prisma/client';
+import { AiCapability, AiRecommendationStatus, NotificationCategory, PodType, StewardshipRelationshipStatus } from '@prisma/client';
 import { AuthenticatedUser } from '../../auth/strategies/jwt.strategy';
 import { OpportunitiesService } from '../../opportunities/opportunities.service';
 import { ResourcesService } from '../../resources/resources.service';
@@ -7,6 +7,7 @@ import { GoalsService } from '../../goals/goals.service';
 import { CoursesService } from '../../academy/courses/courses.service';
 import { PodMatchingService } from '../../pods/matching/pod-matching.service';
 import { NotificationsService } from '../../communication/notifications/notifications.service';
+import { StewardshipRelationshipsService } from '../../stewardship/relationships/stewardship-relationships.service';
 import { buildRecommendationRationalePrompt } from '../prompts/system-prompts.util';
 import { AiRequestsService } from '../requests/ai-requests.service';
 import { RecommendationCategory, RequestRecommendationsDto } from './dto/request-recommendations.dto';
@@ -40,6 +41,7 @@ export class RecommendationsService {
     private readonly podMatching: PodMatchingService,
     private readonly aiRequests: AiRequestsService,
     private readonly notificationsService: NotificationsService,
+    private readonly stewardshipRelationshipsService: StewardshipRelationshipsService,
   ) {}
 
   /**
@@ -53,7 +55,7 @@ export class RecommendationsService {
    */
   async generate(dto: RequestRecommendationsDto, caller: AuthenticatedUser): Promise<RecommendationResponseDto[]> {
     const goals = await this.goalsService.findAll({ page: 1, limit: 20 }, caller);
-    const candidates = await this.fetchCandidates(dto.category, caller.id);
+    const candidates = await this.fetchCandidates(dto.category, caller);
 
     if (candidates.length === 0) {
       return [];
@@ -134,7 +136,7 @@ export class RecommendationsService {
 
   // ── Helpers ───────────────────────────────────────────────────────────
 
-  private async fetchCandidates(category: RecommendationCategory, callerId: string): Promise<Candidate[]> {
+  private async fetchCandidates(category: RecommendationCategory, caller: AuthenticatedUser): Promise<Candidate[]> {
     if (category === RecommendationCategory.OPPORTUNITY) {
       const result = await this.opportunitiesService.findAll({ page: 1, limit: CANDIDATE_POOL_SIZE });
       return result.data.map((o) => ({ id: o.id, title: o.title, description: o.shortDescription }));
@@ -149,22 +151,41 @@ export class RecommendationsService {
       // belongs where, only writes a human rationale for a shortlist the
       // scorer already produced (ADR-015 Decision 6, extended to Pods).
       const [home, interest] = await Promise.all([
-        this.podMatching.rankCandidates(callerId, PodType.HOME, CANDIDATE_POOL_SIZE),
-        this.podMatching.rankCandidates(callerId, PodType.INTEREST, CANDIDATE_POOL_SIZE),
+        this.podMatching.rankCandidates(caller.id, PodType.HOME, CANDIDATE_POOL_SIZE),
+        this.podMatching.rankCandidates(caller.id, PodType.INTEREST, CANDIDATE_POOL_SIZE),
       ]);
       return [...home, ...interest]
         .sort((a, b) => b.score - a.score)
         .slice(0, CANDIDATE_POOL_SIZE)
         .map((c) => ({ id: c.pod.id, title: c.pod.name, description: c.pod.shortDescription }));
     }
+    if (category === RecommendationCategory.STEWARD_ESCALATION) {
+      // Human stewardship always overrides AI: this never files an
+      // escalation itself (StewardshipEscalationsService.create is
+      // steward/admin-only) — it only surfaces a member-facing suggestion
+      // to reach out, built from the member's own active relationship,
+      // which the member may accept or dismiss like any other recommendation.
+      const result = await this.stewardshipRelationshipsService.findAll(
+        { page: 1, limit: 1, memberId: caller.id, status: StewardshipRelationshipStatus.ACTIVE },
+        caller,
+      );
+      const relationship = result.data[0];
+      if (!relationship) return [];
+      return [{
+        id: relationship.id,
+        title: 'Connect with your Steward',
+        description: 'You have an active Stewardship relationship. Reaching out could help if you could use guidance or support right now.',
+      }];
+    }
     const result = await this.coursesService.findAll({ page: 1, limit: CANDIDATE_POOL_SIZE });
     return result.data.map((c) => ({ id: c.id, title: c.title, description: c.shortDescription }));
   }
 
-  private targetFieldsFor(category: RecommendationCategory, id: string): { opportunityId?: string; resourceId?: string; courseId?: string; podId?: string } {
+  private targetFieldsFor(category: RecommendationCategory, id: string): { opportunityId?: string; resourceId?: string; courseId?: string; podId?: string; relationshipId?: string } {
     if (category === RecommendationCategory.OPPORTUNITY) return { opportunityId: id };
     if (category === RecommendationCategory.RESOURCE) return { resourceId: id };
     if (category === RecommendationCategory.POD) return { podId: id };
+    if (category === RecommendationCategory.STEWARD_ESCALATION) return { relationshipId: id };
     return { courseId: id };
   }
 

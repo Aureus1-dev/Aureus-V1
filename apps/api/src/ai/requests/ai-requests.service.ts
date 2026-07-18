@@ -8,6 +8,7 @@ import { computeCostUsd } from './ai-pricing.util';
 import { AiOperationalConfigService } from './ai-operational-config.service';
 import { AiRequestResponseDto } from './dto/ai-request-response.dto';
 import { AiSpendSummaryResponseDto } from './dto/ai-spend-summary-response.dto';
+import { AiCapabilitySpendResponseDto } from './dto/ai-capability-spend-response.dto';
 import { ListAiRequestsQueryDto } from './dto/list-ai-requests-query.dto';
 import { PaginatedAiRequestsResponseDto } from './dto/paginated-ai-requests-response.dto';
 import { AI_REQUEST_REPOSITORY, IAiRequestRepository } from './repositories/ai-request.repository.interface';
@@ -191,5 +192,16 @@ export class AiRequestsService {
     ]);
 
     return AiSpendSummaryResponseDto.fromSummary(summary, opConfig.globalDailyBudgetUsd, opConfig.emergencyStop);
+  }
+
+  /** Platform-wide AI spend over the current rolling-24h window, grouped by capability (PR-004 Founder visibility). */
+  async getSpendByCapability(caller: AuthenticatedUser): Promise<AiCapabilitySpendResponseDto[]> {
+    if (!hasRole(caller, PLATFORM_ADMIN_ROLES)) {
+      throw new ForbiddenException('Only a Platform or System Administrator may view AI spend by capability');
+    }
+
+    const since = new Date(Date.now() - SPEND_WINDOW_MS);
+    const summary = await this.repo.groupedByCapabilitySince(since);
+    return summary.map(AiCapabilitySpendResponseDto.fromSummary);
   }
 }

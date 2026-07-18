@@ -6,6 +6,7 @@ export enum RecommendationCategory {
   RESOURCE = 'RESOURCE',
   COURSE = 'COURSE',
   POD = 'POD',
+  STEWARD_ESCALATION = 'STEWARD_ESCALATION',
 }
 
 export class RequestRecommendationsDto {

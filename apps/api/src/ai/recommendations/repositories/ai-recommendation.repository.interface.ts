@@ -8,6 +8,7 @@ export interface CreateAiRecommendationInput {
   resourceId?: string;
   courseId?: string;
   podId?: string;
+  relationshipId?: string;
   rationale: string;
   aiRequestId?: string;
 }
@@ -35,6 +36,6 @@ export interface IAiRecommendationRepository {
   create(data: CreateAiRecommendationInput): Promise<AiRecommendation>;
   findById(id: string): Promise<AiRecommendation | null>;
   findAll(params: AiRecommendationQueryParams): Promise<PaginatedAiRecommendations>;
-  findExistingPending(userId: string, target: { opportunityId?: string; resourceId?: string; courseId?: string; podId?: string }): Promise<AiRecommendation | null>;
+  findExistingPending(userId: string, target: { opportunityId?: string; resourceId?: string; courseId?: string; podId?: string; relationshipId?: string }): Promise<AiRecommendation | null>;
   update(id: string, data: UpdateAiRecommendationInput): Promise<AiRecommendation>;
 }
