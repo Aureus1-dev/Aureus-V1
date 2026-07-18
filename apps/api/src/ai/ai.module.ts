@@ -9,6 +9,7 @@ import { MilestonesModule } from '../milestones/milestones.module';
 import { AcademyModule } from '../academy/academy.module';
 import { KnowledgeModule } from '../knowledge/knowledge.module';
 import { PodsModule } from '../pods/pods.module';
+import { StewardshipModule } from '../stewardship/stewardship.module';
 import { AiProviderModule } from './providers/ai-provider.module';
 
 import { AiRequestsController } from './requests/ai-requests.controller';
@@ -37,6 +38,13 @@ import { AI_RECOMMENDATION_REPOSITORY } from './recommendations/repositories/ai-
 
 import { PodInsightsController } from './pod-insights/pod-insights.controller';
 import { PodInsightsService } from './pod-insights/pod-insights.service';
+
+import { InstitutionalMemoryService } from './memory/institutional-memory.service';
+
+import { AiOrchestratorController } from './orchestrator/ai-orchestrator.controller';
+import { AiOrchestratorService } from './orchestrator/ai-orchestrator.service';
+import { PrismaAiOrchestrationRunRepository } from './orchestrator/repositories/prisma-ai-orchestration-run.repository';
+import { AI_ORCHESTRATION_RUN_REPOSITORY } from './orchestrator/repositories/ai-orchestration-run.repository.interface';
 
 import { VoiceProviderModule } from './voice/providers/voice-provider.module';
 import { VoiceController } from './voice/voice.controller';
@@ -68,6 +76,7 @@ import { AI_TURN_EVENT_REPOSITORY } from './voice/repositories/ai-turn-event.rep
     AcademyModule,
     KnowledgeModule,
     PodsModule,
+    StewardshipModule,
   ],
   controllers: [
     AiRequestsController,
@@ -77,6 +86,7 @@ import { AI_TURN_EVENT_REPOSITORY } from './voice/repositories/ai-turn-event.rep
     RecommendationsController,
     PodInsightsController,
     VoiceController,
+    AiOrchestratorController,
   ],
   providers: [
     AiRequestsService,
@@ -93,7 +103,10 @@ import { AI_TURN_EVENT_REPOSITORY } from './voice/repositories/ai-turn-event.rep
     VoiceSessionService,
     { provide: AI_VOICE_SESSION_REPOSITORY, useClass: PrismaAiVoiceSessionRepository },
     { provide: AI_TURN_EVENT_REPOSITORY, useClass: PrismaAiTurnEventRepository },
+    InstitutionalMemoryService,
+    AiOrchestratorService,
+    { provide: AI_ORCHESTRATION_RUN_REPOSITORY, useClass: PrismaAiOrchestrationRunRepository },
   ],
-  exports: [AiRequestsService],
+  exports: [AiRequestsService, AiOrchestratorService],
 })
 export class AiModule {}

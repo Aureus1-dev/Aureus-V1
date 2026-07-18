@@ -128,6 +128,7 @@ model User {
   documents                  Document[]
   stewardActivityLogs        StewardActivityLog[]
   aiOperationalConfigUpdates AiOperationalConfig[]
+  aiOrchestrationRuns        AiOrchestrationRun[]
 }
 
 // ===========================================================================
@@ -778,11 +779,12 @@ model StewardshipRelationship {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  notes           StewardshipNote[]
-  tasks           StewardshipTask[]
-  recommendations StewardshipRecommendation[]
-  escalations     StewardshipEscalation[]
-  conversation    Conversation?
+  notes             StewardshipNote[]
+  tasks             StewardshipTask[]
+  recommendations   StewardshipRecommendation[]
+  escalations       StewardshipEscalation[]
+  conversation      Conversation?
+  aiRecommendations AiRecommendation[]
 
   @@index([memberId])
   @@index([stewardId])
@@ -1606,6 +1608,8 @@ enum AiCapability {
   POD_INSIGHT
   VOICE_CONVERSATION
   DOCUMENT_SUMMARY
+  NEXT_BEST_ACTION
+  STEWARD_ESCALATION
 }
 
 enum AiRequestStatus {
@@ -1815,14 +1819,20 @@ model AiRecommendation {
   userId String @db.Uuid
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  opportunityId String?      @db.Uuid
-  opportunity   Opportunity? @relation(fields: [opportunityId], references: [id], onDelete: Cascade)
-  resourceId    String?      @db.Uuid
-  resource      Resource?    @relation(fields: [resourceId], references: [id], onDelete: Cascade)
-  courseId      String?      @db.Uuid
-  course        Course?      @relation(fields: [courseId], references: [id], onDelete: Cascade)
-  podId         String?      @db.Uuid
-  pod           Pod?         @relation(fields: [podId], references: [id], onDelete: Cascade)
+  opportunityId  String?                  @db.Uuid
+  opportunity    Opportunity?             @relation(fields: [opportunityId], references: [id], onDelete: Cascade)
+  resourceId     String?                  @db.Uuid
+  resource       Resource?                @relation(fields: [resourceId], references: [id], onDelete: Cascade)
+  courseId       String?                  @db.Uuid
+  course         Course?                  @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  podId          String?                  @db.Uuid
+  pod            Pod?                     @relation(fields: [podId], references: [id], onDelete: Cascade)
+  // STEWARD_ESCALATION target (PR-004) — a suggestion that the member
+  // consider reaching out to their steward, never an AI-filed escalation
+  // itself (StewardshipEscalation creation stays steward/admin-only;
+  // human stewardship always overrides AI).
+  relationshipId String?                  @db.Uuid
+  relationship   StewardshipRelationship? @relation(fields: [relationshipId], references: [id], onDelete: Cascade)
 
   rationale String
   status    AiRecommendationStatus @default(PENDING)
@@ -1837,8 +1847,54 @@ model AiRecommendation {
   @@index([status])
   @@index([opportunityId])
   @@index([resourceId])
+  @@index([relationshipId])
   @@index([courseId])
   @@index([podId])
+}
+
+enum AiOrchestrationGoal {
+  NEXT_BEST_ACTION
+  OPPORTUNITY_SUGGESTION
+  RESOURCE_SUGGESTION
+  JOURNEY_GUIDANCE
+  STEWARD_ESCALATION
+  EDUCATIONAL_RECOMMENDATION
+}
+
+enum AiOrchestrationStatus {
+  SUCCESS
+  PARTIAL
+  FAILED
+  NO_ACTION
+}
+
+// ===========================================================================
+// AiOrchestrationRun  —  PR-004 Intelligence Layer. A parent tracing record
+// for one orchestrator call: which goal was requested, which of the AI
+// Engine's existing capabilities the orchestrator decided to invoke to
+// serve it (a documented, deterministic decision — never a free-form agent
+// loop), and the human-readable outcome. Each invoked capability still
+// writes its own AiRequest row exactly as it always has (unify the
+// audit/cost/spend-ceiling path, ADR-015 Decision 3) — this table never
+// duplicates that ledger, only correlates and explains it.
+// ===========================================================================
+
+model AiOrchestrationRun {
+  id     String @id @default(uuid()) @db.Uuid
+  userId String @db.Uuid
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  goal                AiOrchestrationGoal
+  capabilitiesInvoked AiCapability[]
+  outcome             String
+  status              AiOrchestrationStatus
+  latencyMs           Int
+
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([goal])
+  @@index([createdAt])
 }
 
 // ===========================================================================

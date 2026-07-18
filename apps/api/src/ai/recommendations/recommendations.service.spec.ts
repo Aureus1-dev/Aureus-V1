@@ -1,6 +1,6 @@
 import { Test } from '@nestjs/testing';
 import { ConflictException, ForbiddenException, NotFoundException } from '@nestjs/common';
-import { AiCapability, AiRecommendationStatus, NotificationCategory, UserRole } from '@prisma/client';
+import { AiCapability, AiRecommendationStatus, NotificationCategory, StewardshipRelationshipStatus, UserRole } from '@prisma/client';
 import { RecommendationsService } from './recommendations.service';
 import { RecommendationCategory } from './dto/request-recommendations.dto';
 import {
@@ -14,6 +14,7 @@ import { CoursesService } from '../../academy/courses/courses.service';
 import { PodMatchingService } from '../../pods/matching/pod-matching.service';
 import { AiRequestsService } from '../requests/ai-requests.service';
 import { NotificationsService } from '../../communication/notifications/notifications.service';
+import { StewardshipRelationshipsService } from '../../stewardship/relationships/stewardship-relationships.service';
 import type { AuthenticatedUser } from '../../auth/strategies/jwt.strategy';
 import type { AiRecommendation } from '@prisma/client';
 
@@ -37,6 +38,7 @@ const mockCoursesService = { findAll: jest.fn() } as unknown as jest.Mocked<Cour
 const mockPodMatching = { rankCandidates: jest.fn() } as unknown as jest.Mocked<PodMatchingService>;
 const mockAiRequests = { runCompletion: jest.fn() } as unknown as jest.Mocked<AiRequestsService>;
 const mockNotificationsService = { notify: jest.fn() } as unknown as NotificationsService;
+const mockStewardshipRelationshipsService = { findAll: jest.fn() } as unknown as jest.Mocked<StewardshipRelationshipsService>;
 
 describe('RecommendationsService', () => {
   let service: RecommendationsService;
@@ -53,6 +55,7 @@ describe('RecommendationsService', () => {
         { provide: PodMatchingService, useValue: mockPodMatching },
         { provide: AiRequestsService, useValue: mockAiRequests },
         { provide: NotificationsService, useValue: mockNotificationsService },
+        { provide: StewardshipRelationshipsService, useValue: mockStewardshipRelationshipsService },
       ],
     }).compile();
     service = m.get(RecommendationsService);
@@ -132,6 +135,42 @@ describe('RecommendationsService', () => {
       const result = await service.generate({ category: RecommendationCategory.OPPORTUNITY }, USER);
       expect(result).toEqual([]);
       expect(mockAiRequests.runCompletion).not.toHaveBeenCalled();
+    });
+
+    describe('STEWARD_ESCALATION category', () => {
+      it('sources its one candidate from the caller\'s own active StewardshipRelationship — never files an escalation itself', async () => {
+        mockStewardshipRelationshipsService.findAll.mockResolvedValue({
+          data: [{ id: 'rel-001', stewardId: 'steward-001', status: StewardshipRelationshipStatus.ACTIVE }],
+          total: 1, page: 1, limit: 1, totalPages: 1,
+        } as never);
+        mockAiRequests.runCompletion.mockResolvedValue({
+          content: JSON.stringify([{ id: 'rel-001', rationale: 'You might benefit from reaching out this week.' }]),
+          requestId: 'req-005',
+        });
+        mockRepo.findExistingPending.mockResolvedValue(null);
+        mockRepo.create.mockResolvedValue(makeRecommendation({ opportunityId: null, relationshipId: 'rel-001' } as never));
+
+        const result = await service.generate({ category: RecommendationCategory.STEWARD_ESCALATION }, USER);
+
+        expect(mockStewardshipRelationshipsService.findAll).toHaveBeenCalledWith(
+          expect.objectContaining({ memberId: USER.id, status: StewardshipRelationshipStatus.ACTIVE }),
+          USER,
+        );
+        expect(mockAiRequests.runCompletion).toHaveBeenCalledWith(expect.objectContaining({ capability: AiCapability.RECOMMENDATION }));
+        expect(mockRepo.create).toHaveBeenCalledWith(expect.objectContaining({ userId: USER.id, relationshipId: 'rel-001' }));
+        expect(result).toHaveLength(1);
+      });
+
+      it('returns an empty array without calling the AI when the caller has no active StewardshipRelationship', async () => {
+        mockStewardshipRelationshipsService.findAll.mockResolvedValue({
+          data: [], total: 0, page: 1, limit: 1, totalPages: 0,
+        } as never);
+
+        const result = await service.generate({ category: RecommendationCategory.STEWARD_ESCALATION }, USER);
+
+        expect(result).toEqual([]);
+        expect(mockAiRequests.runCompletion).not.toHaveBeenCalled();
+      });
     });
   });
 

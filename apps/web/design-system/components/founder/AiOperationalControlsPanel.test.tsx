@@ -7,8 +7,10 @@ import { AiOperationalControlsPanel } from './AiOperationalControlsPanel';
 
 import * as aiOperationalConfigApi from '../../../lib/api/ai-operational-config';
 import * as aiRequestsApi from '../../../lib/api/ai-requests';
+import * as founderMetricsApi from '../../../lib/api/founder-metrics';
 import type { AiOperationalConfigDto } from '../../../lib/api/ai-operational-config';
 import type { AiRequestDto } from '../../../lib/api/ai-requests';
+import type { AdministrationMetricsDto } from '../../../lib/api/founder-metrics';
 
 jest.mock('../../../lib/api/founder-metrics');
 jest.mock('../../../lib/api/ai-operational-config');
@@ -17,6 +19,7 @@ jest.mock('../../../lib/api/users');
 
 const mockedAiConfigApi = aiOperationalConfigApi as jest.Mocked<typeof aiOperationalConfigApi>;
 const mockedAiRequestsApi = aiRequestsApi as jest.Mocked<typeof aiRequestsApi>;
+const mockedMetricsApi = founderMetricsApi as jest.Mocked<typeof founderMetricsApi>;
 
 const NOW = '2026-01-01T00:00:00Z';
 
@@ -52,6 +55,22 @@ function renderPanel() {
   );
 }
 
+function makeMetrics(o: Partial<AdministrationMetricsDto> = {}): AdministrationMetricsDto {
+  return {
+    totalUsers: 1,
+    usersByRole: [], usersByStatus: [],
+    pendingVerification: { resources: 0, organizations: 0, opportunities: 0, knowledgeArticles: 0, courses: 0, total: 0 },
+    openEscalations: 0,
+    aiSpend: { totalCostUsd: 3.5, requestCount: 10, failedCount: 1, globalDailyBudgetUsd: 50, emergencyStop: false },
+    aiSpendByCapability: [{ capability: 'RECOMMENDATION', totalCostUsd: 3.5, requestCount: 10, failedCount: 1 }],
+    orchestrationRunsToday: 4,
+    orchestrationRunsByGoal: [{ goal: 'NEXT_BEST_ACTION', count: 4 }],
+    databaseHealthy: true,
+    generatedAt: NOW,
+    ...o,
+  };
+}
+
 function mockDefaults() {
   mockedAiConfigApi.getAiOperationalConfig.mockResolvedValue(makeAiConfig());
   mockedAiRequestsApi.getAiSpendSummary.mockResolvedValue({
@@ -60,6 +79,7 @@ function mockDefaults() {
   mockedAiRequestsApi.listAllAiRequests.mockResolvedValue({
     data: [makeRequest()], total: 1, page: 1, limit: 20, totalPages: 1,
   });
+  mockedMetricsApi.getFounderMetrics.mockResolvedValue(makeMetrics());
 }
 
 describe('AiOperationalControlsPanel', () => {
@@ -75,6 +95,17 @@ describe('AiOperationalControlsPanel', () => {
     expect(screen.getByDisplayValue('2')).toBeInTheDocument();
     expect(screen.getByText('$3.50 / $50.00')).toBeInTheDocument();
     expect(screen.getByText('QUESTION_ANSWERING')).toBeInTheDocument();
+  });
+
+  it('shows the AI spend-by-capability breakdown and orchestration routing activity once loaded', async () => {
+    mockDefaults();
+    renderPanel();
+
+    expect(await screen.findByText('Spend by capability (rolling 24h)')).toBeInTheDocument();
+    expect(screen.getByText('$3.5000')).toBeInTheDocument();
+    expect(screen.getByText('Orchestration activity (rolling 24h)')).toBeInTheDocument();
+    expect(screen.getByText('4 runs')).toBeInTheDocument();
+    expect(screen.getByText('NEXT_BEST_ACTION')).toBeInTheDocument();
   });
 
   it('saves an updated budget ceiling', async () => {

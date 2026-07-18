@@ -1,6 +1,8 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { UserRole, UserStatus } from '@prisma/client';
 import { AiSpendSummaryResponseDto } from '../../../ai/requests/dto/ai-spend-summary-response.dto';
+import { AiCapabilitySpendResponseDto } from '../../../ai/requests/dto/ai-capability-spend-response.dto';
+import { OrchestrationGoalCountDto } from '../../../ai/orchestrator/dto/orchestration-routing-summary-response.dto';
 
 export class RoleCountDto {
   @ApiProperty({ enum: UserRole }) role: UserRole;
@@ -35,6 +37,12 @@ export class AdministrationMetricsResponseDto {
   @ApiProperty({ description: 'Stewardship escalations with status OPEN or IN_PROGRESS, platform-wide' })
   openEscalations: number;
   @ApiProperty({ type: AiSpendSummaryResponseDto }) aiSpend: AiSpendSummaryResponseDto;
+  @ApiProperty({ type: [AiCapabilitySpendResponseDto], description: 'PR-004 — AI spend over the same rolling-24h window, grouped by capability' })
+  aiSpendByCapability: AiCapabilitySpendResponseDto[];
+  @ApiProperty({ description: 'PR-004 — AI Orchestrator runs over the current rolling-24h window' })
+  orchestrationRunsToday: number;
+  @ApiProperty({ type: [OrchestrationGoalCountDto], description: 'PR-004 — AI Orchestrator runs over the same window, grouped by goal' })
+  orchestrationRunsByGoal: OrchestrationGoalCountDto[];
   @ApiProperty({ description: 'Whether the database was reachable at the moment this report was generated' })
   databaseHealthy: boolean;
   @ApiProperty() generatedAt: Date;

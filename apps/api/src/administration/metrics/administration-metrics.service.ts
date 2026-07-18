@@ -4,6 +4,7 @@ import { AuthenticatedUser } from '../../auth/strategies/jwt.strategy';
 import { hasRole } from '../../auth/utils/has-role.util';
 import { PrismaService } from '../../prisma/prisma.service';
 import { AiRequestsService } from '../../ai/requests/ai-requests.service';
+import { AiOrchestratorService } from '../../ai/orchestrator/ai-orchestrator.service';
 import { USER_REPOSITORY, IUserRepository } from '../../users/repositories/user.repository.interface';
 import { RESOURCE_REPOSITORY, IResourceRepository } from '../../resources/repositories/resource.repository.interface';
 import { ORGANIZATION_REPOSITORY, IOrganizationRepository } from '../../organizations/repositories/organization.repository.interface';
@@ -37,6 +38,7 @@ export class AdministrationMetricsService {
     @Inject(COURSE_REPOSITORY) private readonly courseRepo: ICourseRepository,
     @Inject(STEWARDSHIP_ESCALATION_REPOSITORY) private readonly escalationRepo: IStewardshipEscalationRepository,
     private readonly aiRequestsService: AiRequestsService,
+    private readonly aiOrchestratorService: AiOrchestratorService,
     private readonly prisma: PrismaService,
   ) {}
 
@@ -56,6 +58,8 @@ export class AdministrationMetricsService {
       pendingCourses,
       openEscalations,
       aiSpend,
+      aiSpendByCapability,
+      orchestrationRoutingSummary,
       databaseHealthy,
     ] = await Promise.all([
       this.userRepo.findAll({ page: 1, limit: 1 }).then((r) => r.total),
@@ -78,6 +82,8 @@ export class AdministrationMetricsService {
       this.courseRepo.findAll({ page: 1, limit: 1, verificationStatus: VerificationStatus.PENDING_REVIEW }).then((r) => r.total),
       this.escalationRepo.countByStatus(OPEN_ESCALATION_STATUSES),
       this.aiRequestsService.getSpendSummary(caller),
+      this.aiRequestsService.getSpendByCapability(caller),
+      this.aiOrchestratorService.getRoutingSummary(caller),
       this.isDatabaseHealthy(),
     ]);
 
@@ -95,6 +101,9 @@ export class AdministrationMetricsService {
       },
       openEscalations,
       aiSpend,
+      aiSpendByCapability,
+      orchestrationRunsToday: orchestrationRoutingSummary.runsInWindow,
+      orchestrationRunsByGoal: orchestrationRoutingSummary.runsByGoal,
       databaseHealthy,
       generatedAt: new Date(),
     };
