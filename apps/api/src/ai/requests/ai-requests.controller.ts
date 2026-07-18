@@ -6,6 +6,7 @@ import { AuthenticatedUser } from '../../auth/strategies/jwt.strategy';
 import { AiRequestsService } from './ai-requests.service';
 import { ListAiRequestsQueryDto } from './dto/list-ai-requests-query.dto';
 import { AiRequestResponseDto } from './dto/ai-request-response.dto';
+import { AiSpendSummaryResponseDto } from './dto/ai-spend-summary-response.dto';
 import { PaginatedAiRequestsResponseDto } from './dto/paginated-ai-requests-response.dto';
 
 @ApiTags('ai')
@@ -23,6 +24,23 @@ export class AiRequestsController {
     @CurrentUser() caller: AuthenticatedUser,
   ): Promise<PaginatedAiRequestsResponseDto> {
     return this.service.findMine(query, caller);
+  }
+
+  @Get('summary')
+  @ApiOperation({ summary: 'Platform-wide AI spend summary over the current rolling-24h ceiling window (Platform / System Administrator)' })
+  @ApiResponse({ status: 200, type: AiSpendSummaryResponseDto })
+  getSummary(@CurrentUser() caller: AuthenticatedUser): Promise<AiSpendSummaryResponseDto> {
+    return this.service.getSpendSummary(caller);
+  }
+
+  @Get()
+  @ApiOperation({ summary: 'List every AI request platform-wide (Platform / System Administrator)' })
+  @ApiResponse({ status: 200, type: PaginatedAiRequestsResponseDto })
+  findAllAdmin(
+    @Query() query: ListAiRequestsQueryDto,
+    @CurrentUser() caller: AuthenticatedUser,
+  ): Promise<PaginatedAiRequestsResponseDto> {
+    return this.service.findAllAdmin(query, caller);
   }
 
   @Get(':id')

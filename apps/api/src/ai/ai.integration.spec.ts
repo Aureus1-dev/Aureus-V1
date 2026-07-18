@@ -4,6 +4,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { PrismaAiConversationRepository } from './conversations/repositories/prisma-ai-conversation.repository';
 import { PrismaAiMessageRepository } from './conversations/repositories/prisma-ai-message.repository';
 import { PrismaAiRequestRepository } from './requests/repositories/prisma-ai-request.repository';
+import { PrismaAiOperationalConfigRepository } from './requests/repositories/prisma-ai-operational-config.repository';
 import { PrismaAiRecommendationRepository } from './recommendations/repositories/prisma-ai-recommendation.repository';
 import { PrismaCourseRepository } from '../academy/courses/repositories/prisma-course.repository';
 
@@ -22,6 +23,7 @@ describe('AI Intelligence Engine — Prisma integration', () => {
   let conversationRepo: PrismaAiConversationRepository;
   let messageRepo: PrismaAiMessageRepository;
   let requestRepo: PrismaAiRequestRepository;
+  let operationalConfigRepo: PrismaAiOperationalConfigRepository;
   let recommendationRepo: PrismaAiRecommendationRepository;
   let courseRepo: PrismaCourseRepository;
 
@@ -36,6 +38,7 @@ describe('AI Intelligence Engine — Prisma integration', () => {
     conversationRepo = new PrismaAiConversationRepository(prisma);
     messageRepo = new PrismaAiMessageRepository(prisma);
     requestRepo = new PrismaAiRequestRepository(prisma);
+    operationalConfigRepo = new PrismaAiOperationalConfigRepository(prisma);
     recommendationRepo = new PrismaAiRecommendationRepository(prisma);
     courseRepo = new PrismaCourseRepository(prisma);
 
@@ -47,6 +50,10 @@ describe('AI Intelligence Engine — Prisma integration', () => {
     await prisma.db.course.deleteMany({ where: { id: { in: courseIds } } });
     await prisma.db.user.deleteMany({ where: { email: { contains: emailMarker } } });
     await prisma.onModuleDestroy();
+  });
+
+  afterEach(async () => {
+    await prisma.db.aiOperationalConfig.deleteMany({ where: { id: 'singleton' } });
   });
 
   it('creates an AiConversation with a real FK to User and appends ordered messages', async () => {
@@ -73,6 +80,47 @@ describe('AI Intelligence Engine — Prisma integration', () => {
 
     const found = await requestRepo.findById(request.id);
     expect(found?.id).toBe(request.id);
+  });
+
+  it('summarizes cost, request count, and failure count since a cutoff (PR-003 spend summary)', async () => {
+    await requestRepo.create({
+      userId, capability: AiCapability.QUESTION_ANSWERING, provider: AiProvider.STUB, model: 'stub',
+      promptTokens: 10, completionTokens: 5, costUsd: 1.5, latencyMs: 15, status: AiRequestStatus.SUCCESS,
+    });
+    await requestRepo.create({
+      userId, capability: AiCapability.QUESTION_ANSWERING, provider: AiProvider.STUB, model: 'stub',
+      promptTokens: 10, completionTokens: 0, costUsd: 0, latencyMs: 15, status: AiRequestStatus.FAILED,
+    });
+
+    const since = new Date(Date.now() - 60_000);
+    const summary = await requestRepo.summarySince(since, userId);
+
+    expect(summary.requestCount).toBeGreaterThanOrEqual(2);
+    expect(summary.failedCount).toBeGreaterThanOrEqual(1);
+    expect(summary.totalCostUsd).toBeGreaterThanOrEqual(1.5);
+  });
+
+  it('gets-or-creates the AiOperationalConfig singleton, seeded from defaults on first read (PR-003)', async () => {
+    const created = await operationalConfigRepo.getOrCreate({
+      emergencyStop: false, globalDailyBudgetUsd: 50, userDailyBudgetUsd: 2,
+    });
+    expect(created.id).toBe('singleton');
+    expect(created.globalDailyBudgetUsd).toBe(50);
+
+    const readAgain = await operationalConfigRepo.getOrCreate({
+      emergencyStop: true, globalDailyBudgetUsd: 999, userDailyBudgetUsd: 999,
+    });
+    expect(readAgain.globalDailyBudgetUsd).toBe(50);
+  });
+
+  it('updates the AiOperationalConfig singleton in place, recording who changed it (PR-003)', async () => {
+    await operationalConfigRepo.getOrCreate({ emergencyStop: false, globalDailyBudgetUsd: 50, userDailyBudgetUsd: 2 });
+
+    const updated = await operationalConfigRepo.update({ emergencyStop: true, updatedById: userId });
+
+    expect(updated.emergencyStop).toBe(true);
+    expect(updated.globalDailyBudgetUsd).toBe(50);
+    expect(updated.updatedById).toBe(userId);
   });
 
   it('persists an AiRecommendation with a real, nullable, single-populated target FK', async () => {

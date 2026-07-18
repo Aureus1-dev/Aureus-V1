@@ -1,8 +1,9 @@
 import { Injectable } from '@nestjs/common';
-import { AiRequest } from '@prisma/client';
+import { AiRequest, AiRequestStatus } from '@prisma/client';
 import { PrismaService } from '../../../prisma/prisma.service';
 import {
   AiRequestQueryParams,
+  AiSpendSummary,
   CreateAiRequestInput,
   IAiRequestRepository,
   PaginatedAiRequests,
@@ -21,9 +22,9 @@ export class PrismaAiRequestRepository implements IAiRequestRepository {
   }
 
   async findAll(params: AiRequestQueryParams): Promise<PaginatedAiRequests> {
-    const { page, limit, userId, capability } = params;
+    const { page, limit, userId, capability, status } = params;
     const skip = (page - 1) * limit;
-    const where = { userId, ...(capability && { capability }) };
+    const where = { ...(userId && { userId }), ...(capability && { capability }), ...(status && { status }) };
 
     const [data, total] = await Promise.all([
       this.prisma.db.aiRequest.findMany({ where, skip, take: limit, orderBy: { createdAt: 'desc' } }),
@@ -39,5 +40,14 @@ export class PrismaAiRequestRepository implements IAiRequestRepository {
       _sum: { costUsd: true },
     });
     return result._sum.costUsd ?? 0;
+  }
+
+  async summarySince(since: Date, userId?: string): Promise<AiSpendSummary> {
+    const where = { createdAt: { gte: since }, ...(userId && { userId }) };
+    const [agg, failedCount] = await Promise.all([
+      this.prisma.db.aiRequest.aggregate({ where, _sum: { costUsd: true }, _count: { _all: true } }),
+      this.prisma.db.aiRequest.count({ where: { ...where, status: AiRequestStatus.FAILED } }),
+    ]);
+    return { totalCostUsd: agg._sum.costUsd ?? 0, requestCount: agg._count._all, failedCount };
   }
 }

@@ -29,4 +29,7 @@ export interface IStewardshipEscalationRepository {
   findByPod(podId: string): Promise<StewardshipEscalation[]>;
   update(id: string, data: UpdateEscalationInput): Promise<StewardshipEscalation>;
   countByStewardAndStatus(stewardId: string, statuses: StewardshipEscalationStatus[]): Promise<number>;
+
+  /** Platform-wide count, no steward scope — backs the Founder Operating System dashboard (PR-003). */
+  countByStatus(statuses: StewardshipEscalationStatus[]): Promise<number>;
 }

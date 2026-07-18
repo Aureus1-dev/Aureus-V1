@@ -1,7 +1,7 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { IsEnum, IsInt, IsOptional, Max, Min } from 'class-validator';
+import { IsEnum, IsInt, IsOptional, IsUUID, Max, Min } from 'class-validator';
 import { Type } from 'class-transformer';
-import { AiCapability } from '@prisma/client';
+import { AiCapability, AiRequestStatus } from '@prisma/client';
 
 export class ListAiRequestsQueryDto {
   @ApiPropertyOptional({ default: 1 })
@@ -15,4 +15,12 @@ export class ListAiRequestsQueryDto {
   @ApiPropertyOptional({ enum: AiCapability })
   @IsOptional() @IsEnum(AiCapability)
   capability?: AiCapability;
+
+  @ApiPropertyOptional({ enum: AiRequestStatus, description: 'Admin platform-wide listing only' })
+  @IsOptional() @IsEnum(AiRequestStatus)
+  status?: AiRequestStatus;
+
+  @ApiPropertyOptional({ description: 'Admin platform-wide listing only — filter to one member' })
+  @IsOptional() @IsUUID()
+  userId?: string;
 }

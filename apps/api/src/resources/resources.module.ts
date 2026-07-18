@@ -20,6 +20,6 @@ import { SAVED_RESOURCE_REPOSITORY } from './saved/repositories/saved-resource.r
     SavedResourcesService,
     { provide: SAVED_RESOURCE_REPOSITORY, useClass: PrismaSavedResourceRepository },
   ],
-  exports: [ResourcesService, SavedResourcesService, ResourceScoringService],
+  exports: [ResourcesService, SavedResourcesService, ResourceScoringService, RESOURCE_REPOSITORY],
 })
 export class ResourcesModule {}

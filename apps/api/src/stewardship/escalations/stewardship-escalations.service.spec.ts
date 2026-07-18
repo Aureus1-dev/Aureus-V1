@@ -35,7 +35,8 @@ const makeEscalation = (o: Partial<StewardshipEscalation> = {}): StewardshipEsca
 });
 
 const mockRepo: jest.Mocked<IStewardshipEscalationRepository> = {
-  create: jest.fn(), findById: jest.fn(), findByRelationship: jest.fn(), update: jest.fn(), countByStewardAndStatus: jest.fn(),
+  create: jest.fn(), findById: jest.fn(), findByRelationship: jest.fn(), findByPod: jest.fn(),
+  update: jest.fn(), countByStewardAndStatus: jest.fn(), countByStatus: jest.fn(),
 };
 const mockRelationshipRepo: jest.Mocked<IStewardshipRelationshipRepository> = {
   create: jest.fn(), findById: jest.fn(), findAll: jest.fn(), countActiveByStewardId: jest.fn(), update: jest.fn(),

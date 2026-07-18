@@ -42,4 +42,8 @@ export class PrismaStewardshipEscalationRepository implements IStewardshipEscala
       where: { status: { in: statuses }, relationship: { stewardId } },
     });
   }
+
+  async countByStatus(statuses: StewardshipEscalationStatus[]): Promise<number> {
+    return this.prisma.db.stewardshipEscalation.count({ where: { status: { in: statuses } } });
+  }
 }

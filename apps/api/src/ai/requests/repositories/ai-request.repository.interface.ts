@@ -19,8 +19,10 @@ export interface CreateAiRequestInput {
 export interface AiRequestQueryParams {
   page: number;
   limit: number;
-  userId: string;
+  /** Omitted for the platform-wide admin listing (PR-003) — scoped for every other caller. */
+  userId?: string;
   capability?: AiCapability;
+  status?: AiRequestStatus;
 }
 
 export interface PaginatedAiRequests {
@@ -28,6 +30,12 @@ export interface PaginatedAiRequests {
   total: number;
   page: number;
   limit: number;
+}
+
+export interface AiSpendSummary {
+  totalCostUsd: number;
+  requestCount: number;
+  failedCount: number;
 }
 
 export interface IAiRequestRepository {
@@ -40,4 +48,12 @@ export interface IAiRequestRepository {
    * optionally scoped to one user. Backs the AI spend ceilings (PR-002).
    */
   sumCostSince(since: Date, userId?: string): Promise<number>;
+
+  /**
+   * Cost, request count, and failure count since `since`, optionally scoped
+   * to one user — backs the Founder Operating System's AI spend summary
+   * tile (PR-003). A richer sibling of `sumCostSince`, not a replacement:
+   * the spend-ceiling hot path only ever needs the one number.
+   */
+  summarySince(since: Date, userId?: string): Promise<AiSpendSummary>;
 }
