@@ -1,4 +1,4 @@
-AI-002 — AI Authority Levels
+docs/canon/ai/AI-002-AI-Authority-Levels.md
 
 Purpose
 
