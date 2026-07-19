@@ -1,4 +1,4 @@
-AI-001 — AI Stewardship Philosophy
+docs/canon/ai/AI-001-AI-Stewardship-Philosophy.md
 
 Purpose
 
