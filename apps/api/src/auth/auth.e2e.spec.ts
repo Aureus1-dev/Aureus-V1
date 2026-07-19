@@ -230,6 +230,9 @@ describe('Auth — Email Delivery E2E', () => {
 
   // ── MFA enrollment + challenge-response login (PD-001) ────────────────
 
+  // 8 sequential real HTTP round-trips, several involving bcrypt hashing
+  // against a real database — comfortably exceeds Jest's 5s default under
+  // CI's slower runner, hence the explicit timeout below.
   it('enrolls TOTP MFA, then requires a code to complete the next login', async () => {
     const email = `mfa-${emailMarker}@example.test`;
 
@@ -282,5 +285,5 @@ describe('Auth — Email Delivery E2E', () => {
       .post('/auth/login')
       .send({ email, password: 'Str0ng!Passw0rd' })
       .expect(200);
-  });
+  }, 15_000);
 });
