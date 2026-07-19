@@ -67,6 +67,13 @@ describe('StewardshipNotesService', () => {
       mockRelationshipRepo.findById.mockResolvedValue(null);
       await expect(service.create('x', { content: 'hi' }, STEWARD)).rejects.toThrow(NotFoundException);
     });
+
+    it('strips markup from note content before persisting (PD-001)', async () => {
+      mockRelationshipRepo.findById.mockResolvedValue(makeRelationship());
+      mockRepo.create.mockResolvedValue(makeNote());
+      await service.create('rel-001', { content: '<img src=x onerror=alert(1)>hi' }, STEWARD);
+      expect(mockRepo.create).toHaveBeenCalledWith(expect.objectContaining({ content: 'hi' }));
+    });
   });
 
   describe('findByRelationship', () => {

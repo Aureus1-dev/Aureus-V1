@@ -2,6 +2,7 @@ import { ForbiddenException, Inject, Injectable, NotFoundException } from '@nest
 import { StewardshipNoteVisibility } from '@prisma/client';
 import { AuthenticatedUser } from '../../auth/strategies/jwt.strategy';
 import { hasRole } from '../../auth/utils/has-role.util';
+import { sanitizePlainText } from '../../common/utils/sanitize-text';
 import { PLATFORM_ADMIN_ROLES } from '../common/stewardship-roles.util';
 import { CreateNoteDto } from './dto/create-note.dto';
 import { UpdateNoteDto } from './dto/update-note.dto';
@@ -26,7 +27,7 @@ export class StewardshipNotesService {
     const note = await this.repo.create({
       relationshipId,
       authorId: caller.id,
-      content: dto.content,
+      content: sanitizePlainText(dto.content),
       visibility: dto.visibility,
     });
     return NoteResponseDto.fromEntity(note);
@@ -58,7 +59,10 @@ export class StewardshipNotesService {
     const relationship = await this.getRelationshipOrThrow(note.relationshipId);
     this.assertIsStewardOrAdmin(relationship.stewardId, caller);
 
-    const updated = await this.repo.update(id, dto);
+    const updated = await this.repo.update(id, {
+      ...dto,
+      content: dto.content !== undefined ? sanitizePlainText(dto.content) : undefined,
+    });
     return NoteResponseDto.fromEntity(updated);
   }
 

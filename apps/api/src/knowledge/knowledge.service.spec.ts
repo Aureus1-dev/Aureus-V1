@@ -71,6 +71,25 @@ describe('KnowledgeService', () => {
       );
       expect(result.articleRef).toBe('AUR-KB-000001');
     });
+
+    it('strips markup from title, summary, and content before persisting (PD-001)', async () => {
+      const raw = makeArticle({ articleRef: null });
+      mockRepo.create.mockResolvedValue(raw);
+      mockRepo.setRef.mockResolvedValue({ ...raw, articleRef: 'AUR-KB-000001' });
+
+      await service.create({
+        title: '<b>How</b> to Request a Steward',
+        summary: '<script>alert(1)</script>A quick guide',
+        content: 'Full content <i>here</i>, quite long.',
+        category: KnowledgeCategory.GUIDE,
+      }, AUTHOR);
+
+      expect(mockRepo.create).toHaveBeenCalledWith(expect.objectContaining({
+        title: 'How to Request a Steward',
+        summary: 'A quick guide',
+        content: 'Full content here, quite long.',
+      }));
+    });
   });
 
   describe('findAll', () => {

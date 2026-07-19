@@ -9,6 +9,7 @@ import {
 import { KnowledgeArticleStatus, NotificationCategory, UserRole, VerificationStatus } from '@prisma/client';
 import type { KnowledgeArticle } from '@prisma/client';
 import { AuthenticatedUser } from '../auth/strategies/jwt.strategy';
+import { sanitizePlainText } from '../common/utils/sanitize-text';
 import { CreateArticleDto } from './dto/create-article.dto';
 import { UpdateArticleDto } from './dto/update-article.dto';
 import { ListArticlesQueryDto } from './dto/list-articles-query.dto';
@@ -48,6 +49,9 @@ export class KnowledgeService {
   async create(dto: CreateArticleDto, caller: AuthenticatedUser): Promise<ArticleResponseDto> {
     const article = await this.repo.create({
       ...dto,
+      title: sanitizePlainText(dto.title),
+      summary: sanitizePlainText(dto.summary),
+      content: sanitizePlainText(dto.content),
       authorId: caller.id,
       lastUpdatedById: caller.id,
     });
@@ -124,6 +128,9 @@ export class KnowledgeService {
 
     const updated = await this.repo.update(id, {
       ...dto,
+      title: dto.title !== undefined ? sanitizePlainText(dto.title) : undefined,
+      summary: dto.summary !== undefined ? sanitizePlainText(dto.summary) : undefined,
+      content: dto.content !== undefined ? sanitizePlainText(dto.content) : undefined,
       version: this.isSubstantiveEdit(dto) ? existing.version + 1 : existing.version,
       lastUpdatedById: caller.id,
     });

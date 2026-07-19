@@ -17,7 +17,10 @@ import { RefreshTokenDto } from './dto/refresh-token.dto';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
 import { VerifyEmailDto } from './dto/verify-email.dto';
+import { ResendVerificationDto } from './dto/resend-verification.dto';
+import { VerifyMfaLoginDto } from './dto/verify-mfa-login.dto';
 import { AuthResponseDto } from './dto/auth-response.dto';
+import { MfaChallengeResponseDto } from './dto/mfa-challenge-response.dto';
 import { TokenPairDto } from './dto/token-pair.dto';
 import { UserResponseDto } from '../users/dto/user-response.dto';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
@@ -47,11 +50,22 @@ export class AuthController {
   @Post('login')
   @HttpCode(HttpStatus.OK)
   @Throttle(AUTH_THROTTLE)
-  @ApiOperation({ summary: 'Authenticate with email and password' })
+  @ApiOperation({ summary: 'Authenticate with email and password — returns an MfaChallengeResponseDto instead if MFA is enabled' })
   @ApiResponse({ status: 200, type: AuthResponseDto })
   @ApiResponse({ status: 401, description: 'Invalid credentials' })
-  login(@Body() dto: LoginDto): Promise<AuthResponseDto> {
+  @ApiResponse({ status: 403, description: 'Email address not yet verified' })
+  login(@Body() dto: LoginDto): Promise<AuthResponseDto | MfaChallengeResponseDto> {
     return this.authService.login(dto);
+  }
+
+  @Post('mfa/verify-login')
+  @HttpCode(HttpStatus.OK)
+  @Throttle(AUTH_THROTTLE)
+  @ApiOperation({ summary: 'Complete a login that returned an MFA challenge, with a TOTP or recovery code' })
+  @ApiResponse({ status: 200, type: AuthResponseDto })
+  @ApiResponse({ status: 401, description: 'Invalid or expired challenge, or invalid code' })
+  verifyMfaLogin(@Body() dto: VerifyMfaLoginDto): Promise<AuthResponseDto> {
+    return this.authService.completeMfaLogin(dto.mfaToken, dto.code);
   }
 
   @Post('refresh')
@@ -69,6 +83,17 @@ export class AuthController {
   @ApiResponse({ status: 204 })
   async logout(@Body() dto: RefreshTokenDto): Promise<void> {
     await this.authService.logout(dto.refreshToken);
+  }
+
+  @Post('logout-everywhere')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @Throttle(AUTH_THROTTLE)
+  @ApiOperation({ summary: 'Revoke every refresh token for the caller, ending every other session' })
+  @ApiResponse({ status: 204 })
+  async logoutEverywhere(@CurrentUser() caller: AuthenticatedUser): Promise<void> {
+    await this.authService.logoutEverywhere(caller.id);
   }
 
   @Post('forgot-password')
@@ -100,6 +125,17 @@ export class AuthController {
   @ApiResponse({ status: 401, description: 'Invalid or expired token' })
   async verifyEmail(@Body() dto: VerifyEmailDto): Promise<void> {
     await this.authService.verifyEmail(dto);
+  }
+
+  @Post('resend-verification')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @Throttle(AUTH_THROTTLE)
+  @ApiOperation({
+    summary: 'Re-send the email-verification link (always returns 204, regardless of whether the email exists or is already verified)',
+  })
+  @ApiResponse({ status: 204 })
+  async resendVerification(@Body() dto: ResendVerificationDto): Promise<void> {
+    await this.authService.resendVerificationEmail(dto);
   }
 
   @Get('me')

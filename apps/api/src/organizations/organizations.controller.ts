@@ -7,10 +7,12 @@ import {
 } from '@nestjs/swagger';
 import { UserRole } from '@prisma/client';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { OptionalJwtAuthGuard } from '../auth/guards/optional-jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { AuthenticatedUser } from '../auth/strategies/jwt.strategy';
+import { assertContentVisible } from '../common/utils/content-visibility.util';
 import { OrganizationsService } from './organizations.service';
 import { CreateOrganizationDto } from './dto/create-organization.dto';
 import { UpdateOrganizationDto } from './dto/update-organization.dto';
@@ -57,19 +59,25 @@ export class OrganizationsController {
   }
 
   @Get('by-ref/:ref')
+  @UseGuards(OptionalJwtAuthGuard)
   @ApiOperation({ summary: 'Get organization by stable reference (e.g. AUR-ORG-000001)' })
   @ApiParam({ name: 'ref', example: 'AUR-ORG-000001' })
   @ApiResponse({ status: 200, type: OrganizationResponseDto })
-  findByRef(@Param('ref') ref: string): Promise<OrganizationResponseDto> {
-    return this.service.findByRef(ref);
+  async findByRef(@Param('ref') ref: string, @CurrentUser() caller?: AuthenticatedUser): Promise<OrganizationResponseDto> {
+    const org = await this.service.findByRef(ref);
+    assertContentVisible(org.verificationStatus, caller, MODERATOR_ROLES, `Organization '${ref}' not found`);
+    return org;
   }
 
   @Get(':id')
+  @UseGuards(OptionalJwtAuthGuard)
   @ApiOperation({ summary: 'Get organization by UUID' })
   @ApiParam({ name: 'id', description: 'Organization UUID' })
   @ApiResponse({ status: 200, type: OrganizationResponseDto })
-  findOne(@Param('id') id: string): Promise<OrganizationResponseDto> {
-    return this.service.findById(id);
+  async findOne(@Param('id') id: string, @CurrentUser() caller?: AuthenticatedUser): Promise<OrganizationResponseDto> {
+    const org = await this.service.findById(id);
+    assertContentVisible(org.verificationStatus, caller, MODERATOR_ROLES, `Organization '${id}' not found`);
+    return org;
   }
 
   @Patch(':id')

@@ -1,5 +1,6 @@
 import { Body, Controller, Param, Post, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiParam, ApiResponse, ApiTags } from '@nestjs/swagger';
+import { Throttle } from '@nestjs/throttler';
 import { UserRole } from '@prisma/client';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
@@ -12,6 +13,9 @@ import { RoleActionDto } from './dto/role-action.dto';
 
 const ADMIN_ROLES = [UserRole.PLATFORM_ADMINISTRATOR, UserRole.SYSTEM_ADMINISTRATOR];
 
+// Privilege-escalation-adjacent — tighter than the global 100/min default (PD-001).
+const ROLE_ACTION_THROTTLE = { default: { limit: 20, ttl: 60_000 } };
+
 @ApiTags('administration')
 @Controller('users/:id/roles')
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -21,6 +25,7 @@ export class UserRolesController {
   constructor(private readonly service: UserRolesService) {}
 
   @Post('grant')
+  @Throttle(ROLE_ACTION_THROTTLE)
   @ApiOperation({ summary: 'Grant a role to a user (Platform / System Administrator)' })
   @ApiParam({ name: 'id', description: 'Target user UUID' })
   @ApiResponse({ status: 201, type: UserResponseDto })
@@ -37,6 +42,7 @@ export class UserRolesController {
   }
 
   @Post('revoke')
+  @Throttle(ROLE_ACTION_THROTTLE)
   @ApiOperation({ summary: 'Revoke a role from a user (Platform / System Administrator)' })
   @ApiParam({ name: 'id', description: 'Target user UUID' })
   @ApiResponse({ status: 201, type: UserResponseDto })

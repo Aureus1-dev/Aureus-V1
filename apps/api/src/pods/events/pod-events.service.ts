@@ -51,7 +51,10 @@ export class PodEventsService {
     return EventResponseDto.fromEntity(event);
   }
 
-  async findForPod(podId: string, page: number, limit: number): Promise<{ data: EventResponseDto[]; total: number; page: number; limit: number; totalPages: number }> {
+  async findForPod(
+    podId: string, page: number, limit: number, caller: AuthenticatedUser,
+  ): Promise<{ data: EventResponseDto[]; total: number; page: number; limit: number; totalPages: number }> {
+    await this.auth.assertActiveMemberOrAdmin(podId, caller);
     const result = await this.repo.findForPod({ page, limit, podId });
     return {
       data: result.data.map(EventResponseDto.fromEntity),
@@ -60,8 +63,9 @@ export class PodEventsService {
     };
   }
 
-  async findById(id: string): Promise<EventResponseDto> {
+  async findById(id: string, caller: AuthenticatedUser): Promise<EventResponseDto> {
     const event = await this.getOrThrow(id);
+    await this.auth.assertActiveMemberOrAdmin(event.podId, caller);
     return EventResponseDto.fromEntity(event);
   }
 

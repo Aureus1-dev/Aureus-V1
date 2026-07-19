@@ -150,6 +150,15 @@ describe('ConversationsService', () => {
       await expect(service.sendMessage('convo-001', { body: 'Hello' }, OTHER)).rejects.toThrow(ForbiddenException);
     });
 
+    it('strips markup from the message body before persisting it (PD-001)', async () => {
+      mockRepo.findById.mockResolvedValue(makeConversation());
+      mockRepo.isParticipant.mockResolvedValue(true);
+      mockMessageRepo.create.mockResolvedValue(makeMessage());
+
+      await service.sendMessage('convo-001', { body: '<script>alert(1)</script>Hi there' }, MEMBER);
+      expect(mockMessageRepo.create).toHaveBeenCalledWith(expect.objectContaining({ body: 'Hi there' }));
+    });
+
     it('forbids a non-participant from reading messages', async () => {
       mockRepo.findById.mockResolvedValue(makeConversation());
       mockRepo.isParticipant.mockResolvedValue(false);

@@ -114,7 +114,7 @@ export class UsersController {
     @CurrentUser() caller: AuthenticatedUser,
   ): Promise<UserResponseDto> {
     this.assertSelfOrPrivileged(caller, id);
-    return this.usersService.update(id, updateUserDto);
+    return this.usersService.update(id, updateUserDto, caller);
   }
 
   // ---------------------------------------------------------------------------

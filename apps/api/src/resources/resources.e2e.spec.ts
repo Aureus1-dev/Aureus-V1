@@ -127,11 +127,22 @@ describe('Resources — E2E', () => {
       expect(res.body.data.find((r: { id: string }) => r.id === resourceId)).toBeUndefined();
     });
 
-    it('allows direct lookup by id and by ref regardless of verification status', async () => {
-      const byId = await request(app.getHttpServer()).get(`/resources/${resourceId}`).expect(200);
+    it('blocks unauthenticated direct lookup of a DRAFT resource by id and by ref (PD-001)', async () => {
+      await request(app.getHttpServer()).get(`/resources/${resourceId}`).expect(404);
+      await request(app.getHttpServer()).get(`/resources/by-ref/${resourceRef}`).expect(404);
+    });
+
+    it('allows a Steward/Admin direct lookup of a DRAFT resource by id and by ref (PD-001)', async () => {
+      const byId = await request(app.getHttpServer())
+        .get(`/resources/${resourceId}`)
+        .set('Authorization', `Bearer ${stewardToken}`)
+        .expect(200);
       expect(byId.body.id).toBe(resourceId);
 
-      const byRef = await request(app.getHttpServer()).get(`/resources/by-ref/${resourceRef}`).expect(200);
+      const byRef = await request(app.getHttpServer())
+        .get(`/resources/by-ref/${resourceRef}`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .expect(200);
       expect(byRef.body.id).toBe(resourceId);
     });
 

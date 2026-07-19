@@ -3,6 +3,7 @@ import { AnnouncementScope, AnnouncementStatus, NotificationCategory, Organizati
 import type { Announcement } from '@prisma/client';
 import { AuthenticatedUser } from '../../auth/strategies/jwt.strategy';
 import { hasRole } from '../../auth/utils/has-role.util';
+import { sanitizePlainText } from '../../common/utils/sanitize-text';
 import { PLATFORM_ADMIN_ROLES } from '../common/communication-roles.util';
 import { CreateAnnouncementDto } from './dto/create-announcement.dto';
 import { UpdateAnnouncementDto } from './dto/update-announcement.dto';
@@ -39,8 +40,8 @@ export class AnnouncementsService {
     await this.assertCanAuthor(dto.scope, dto, caller);
 
     const created = await this.repo.create({
-      title: dto.title,
-      body: dto.body,
+      title: sanitizePlainText(dto.title),
+      body: sanitizePlainText(dto.body),
       scope: dto.scope,
       organizationId: dto.scope === AnnouncementScope.ORGANIZATION ? dto.organizationId : undefined,
       targetRole: dto.scope === AnnouncementScope.ROLE ? dto.targetRole : undefined,
@@ -90,8 +91,8 @@ export class AnnouncementsService {
     await this.assertCanAuthor(announcement.scope, announcement, caller);
 
     const updated = await this.repo.update(id, {
-      title: dto.title,
-      body: dto.body,
+      title: dto.title !== undefined ? sanitizePlainText(dto.title) : undefined,
+      body: dto.body !== undefined ? sanitizePlainText(dto.body) : undefined,
       scheduledFor: dto.scheduledFor ? new Date(dto.scheduledFor) : undefined,
       expiresAt: dto.expiresAt ? new Date(dto.expiresAt) : undefined,
       isCritical: dto.isCritical,

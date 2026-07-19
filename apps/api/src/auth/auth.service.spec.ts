@@ -1,10 +1,11 @@
 import { Test } from '@nestjs/testing';
-import { ConflictException, UnauthorizedException } from '@nestjs/common';
+import { ConflictException, ForbiddenException, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { UserRole, UserStatus } from '@prisma/client';
 import * as bcrypt from 'bcryptjs';
 import { AuthService } from './auth.service';
+import { MfaService } from './mfa/mfa.service';
 import { IUserRepository, USER_REPOSITORY } from '../users/repositories/user.repository.interface';
 import { IAuthRepository, AUTH_REPOSITORY } from './repositories/auth.repository.interface';
 import { IEmailService, EMAIL_SERVICE } from '../email/email.service.interface';
@@ -12,15 +13,21 @@ import type { User, RefreshToken, PasswordResetToken, EmailVerificationToken } f
 
 const NOW = new Date('2026-01-01T00:00:00.000Z');
 
+// emailVerified defaults true: most tests exercise a normal, already-verified
+// login/session flow; the unverified-login-block behavior is exercised by
+// its own explicit test with emailVerified: false.
 const makeUser = (o: Partial<User> = {}): User => ({
   id: 'u-001',
   email: 'alice@example.com',
-  emailVerified: false,
+  emailVerified: true,
   passwordHash: null,
   roles: [UserRole.MEMBER],
   status: UserStatus.ACTIVE,
   failedLoginAttempts: 0,
   lockedUntil: null,
+  mfaEnabled: false,
+  mfaSecret: null,
+  mfaRecoveryCodes: [],
   createdAt: NOW,
   updatedAt: NOW,
   deletedAt: null,
@@ -54,7 +61,12 @@ const mockEmailService: jest.Mocked<IEmailService> = {
   sendPasswordReset: jest.fn(),
 };
 
-const mockJwt = { signAsync: jest.fn().mockResolvedValue('signed.jwt.token') } as unknown as JwtService;
+const mockJwt = {
+  signAsync: jest.fn().mockResolvedValue('signed.jwt.token'),
+  verifyAsync: jest.fn(),
+} as unknown as jest.Mocked<JwtService>;
+
+const mockMfaService = { verifyLoginCode: jest.fn() } as unknown as jest.Mocked<MfaService>;
 
 const mockConfig = {
   get: jest.fn((key: string, fallback?: unknown) => {
@@ -78,6 +90,7 @@ describe('AuthService', () => {
         { provide: EMAIL_SERVICE, useValue: mockEmailService },
         { provide: JwtService, useValue: mockJwt },
         { provide: ConfigService, useValue: mockConfig },
+        { provide: MfaService, useValue: mockMfaService },
       ],
     }).compile();
 
@@ -228,6 +241,101 @@ describe('AuthService', () => {
         failedLoginAttempts: 0,
         lockedUntil: null,
       });
+    });
+
+    // ── email verification enforcement (PD-001) ──────────────────────────
+
+    it('rejects login with ForbiddenException when the email is not verified', async () => {
+      const passwordHash = await bcrypt.hash('Str0ngPassw0rd', 4);
+      mockUserRepo.findByEmail.mockResolvedValue(makeUser({ passwordHash, emailVerified: false }));
+
+      await expect(
+        service.login({ email: 'alice@example.com', password: 'Str0ngPassw0rd' }),
+      ).rejects.toThrow(ForbiddenException);
+    });
+
+    // ── MFA challenge (PD-001) ────────────────────────────────────────────
+
+    it('returns an MFA challenge instead of tokens when the account has MFA enabled', async () => {
+      const passwordHash = await bcrypt.hash('Str0ngPassw0rd', 4);
+      mockUserRepo.findByEmail.mockResolvedValue(makeUser({ passwordHash, mfaEnabled: true }));
+
+      const result = await service.login({ email: 'alice@example.com', password: 'Str0ngPassw0rd' });
+
+      expect(result).toEqual({ mfaRequired: true, mfaToken: 'signed.jwt.token' });
+    });
+  });
+
+  // ── completeMfaLogin ──────────────────────────────────────────────────
+
+  describe('completeMfaLogin', () => {
+    it('issues real tokens for a valid challenge token and correct code', async () => {
+      (mockJwt.verifyAsync as jest.Mock).mockResolvedValue({ sub: 'u-001', type: 'mfa_challenge' });
+      mockUserRepo.findById.mockResolvedValue(makeUser({ mfaEnabled: true }));
+      mockMfaService.verifyLoginCode.mockResolvedValue(true);
+
+      const result = await service.completeMfaLogin('challenge-token', '123456');
+
+      expect(result.tokens.accessToken).toBe('signed.jwt.token');
+      expect(mockMfaService.verifyLoginCode).toHaveBeenCalledWith('u-001', '123456');
+    });
+
+    it('rejects an invalid or expired challenge token', async () => {
+      (mockJwt.verifyAsync as jest.Mock).mockRejectedValue(new Error('expired'));
+
+      await expect(service.completeMfaLogin('bogus', '123456')).rejects.toThrow(UnauthorizedException);
+    });
+
+    it('rejects a token that is not an mfa_challenge type', async () => {
+      (mockJwt.verifyAsync as jest.Mock).mockResolvedValue({ sub: 'u-001', type: 'access' });
+
+      await expect(service.completeMfaLogin('not-a-challenge', '123456')).rejects.toThrow(UnauthorizedException);
+    });
+
+    it('rejects an incorrect code', async () => {
+      (mockJwt.verifyAsync as jest.Mock).mockResolvedValue({ sub: 'u-001', type: 'mfa_challenge' });
+      mockUserRepo.findById.mockResolvedValue(makeUser({ mfaEnabled: true }));
+      mockMfaService.verifyLoginCode.mockResolvedValue(false);
+
+      await expect(service.completeMfaLogin('challenge-token', '000000')).rejects.toThrow(UnauthorizedException);
+    });
+  });
+
+  // ── logoutEverywhere ──────────────────────────────────────────────────
+
+  describe('logoutEverywhere', () => {
+    it('revokes every refresh token for the caller', async () => {
+      await service.logoutEverywhere('u-001');
+      expect(mockAuthRepo.revokeAllRefreshTokensForUser).toHaveBeenCalledWith('u-001');
+    });
+  });
+
+  // ── resendVerificationEmail ───────────────────────────────────────────
+
+  describe('resendVerificationEmail', () => {
+    it('issues a new verification token when the account exists and is unverified', async () => {
+      mockUserRepo.findByEmail.mockResolvedValue(makeUser({ emailVerified: false }));
+
+      await service.resendVerificationEmail({ email: 'alice@example.com' });
+
+      expect(mockAuthRepo.createEmailVerificationToken).toHaveBeenCalled();
+      expect(mockEmailService.sendEmailVerification).toHaveBeenCalledWith('alice@example.com', expect.any(String));
+    });
+
+    it('does nothing for an already-verified account (no enumeration signal)', async () => {
+      mockUserRepo.findByEmail.mockResolvedValue(makeUser({ emailVerified: true }));
+
+      await service.resendVerificationEmail({ email: 'alice@example.com' });
+
+      expect(mockAuthRepo.createEmailVerificationToken).not.toHaveBeenCalled();
+    });
+
+    it('does nothing for an unregistered email (no enumeration signal)', async () => {
+      mockUserRepo.findByEmail.mockResolvedValue(null);
+
+      await service.resendVerificationEmail({ email: 'ghost@example.com' });
+
+      expect(mockAuthRepo.createEmailVerificationToken).not.toHaveBeenCalled();
     });
   });
 

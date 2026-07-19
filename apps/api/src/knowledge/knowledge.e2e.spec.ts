@@ -116,8 +116,12 @@ describe('Knowledge System — E2E', () => {
       expect(res.body.data.some((a: { id: string }) => a.id === articleId)).toBe(false);
     });
 
-    it('is directly fetchable by id despite being unverified', async () => {
-      await request(app.getHttpServer()).get(`/knowledge/articles/${articleId}`).expect(200);
+    it('blocks unauthenticated direct lookup while unverified, but allows a Steward/Admin (PD-001)', async () => {
+      await request(app.getHttpServer()).get(`/knowledge/articles/${articleId}`).expect(404);
+      await request(app.getHttpServer())
+        .get(`/knowledge/articles/${articleId}`)
+        .set('Authorization', `Bearer ${authorToken}`)
+        .expect(200);
     });
 
     it('rejects a non-author, non-privileged caller from updating it', async () => {

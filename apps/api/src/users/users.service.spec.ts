@@ -1,5 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { ConflictException, NotFoundException } from '@nestjs/common';
+import { ConflictException, ForbiddenException, NotFoundException } from '@nestjs/common';
 import { UserRole, UserStatus } from '@prisma/client';
 import { UsersService } from './users.service';
 import {
@@ -8,12 +8,15 @@ import {
 } from './repositories/user.repository.interface';
 import { UserResponseDto } from './dto/user-response.dto';
 import type { User } from '@prisma/client';
+import type { AuthenticatedUser } from '../auth/strategies/jwt.strategy';
 
 // ---------------------------------------------------------------------------
 // Fixtures
 // ---------------------------------------------------------------------------
 
 const NOW = new Date('2026-01-01T00:00:00.000Z');
+const SELF: AuthenticatedUser = { id: 'uuid-001', email: 'alice@example.com', roles: [UserRole.MEMBER] };
+const ADMIN: AuthenticatedUser = { id: 'admin-001', email: 'admin@example.com', roles: [UserRole.PLATFORM_ADMINISTRATOR] };
 
 const makeUser = (overrides: Partial<User> = {}): User => ({
   id: 'uuid-001',
@@ -186,7 +189,7 @@ describe('UsersService', () => {
       mockRepo.findById.mockResolvedValue(makeUser());
       mockRepo.update.mockResolvedValue(updated);
 
-      const result = await service.update('uuid-001', { email: 'updated@example.com' });
+      const result = await service.update('uuid-001', { email: 'updated@example.com' }, SELF);
 
       expect(mockRepo.update).toHaveBeenCalledWith('uuid-001', expect.objectContaining({
         email: 'updated@example.com',
@@ -197,10 +200,38 @@ describe('UsersService', () => {
     it('should throw NotFoundException when user does not exist', async () => {
       mockRepo.findById.mockResolvedValue(null);
 
-      await expect(service.update('unknown', { email: 'x@x.com' })).rejects.toThrow(
+      await expect(service.update('unknown', { email: 'x@x.com' }, SELF)).rejects.toThrow(
         NotFoundException,
       );
       expect(mockRepo.update).not.toHaveBeenCalled();
+    });
+
+    // ── privileged-field guard (PD-001 — self could previously self-verify/un-suspend) ──
+
+    it('rejects a self (non-admin) caller trying to set emailVerified', async () => {
+      mockRepo.findById.mockResolvedValue(makeUser());
+
+      await expect(service.update('uuid-001', { emailVerified: true }, SELF)).rejects.toThrow(ForbiddenException);
+      expect(mockRepo.update).not.toHaveBeenCalled();
+    });
+
+    it('rejects a self (non-admin) caller trying to set status', async () => {
+      mockRepo.findById.mockResolvedValue(makeUser());
+
+      await expect(service.update('uuid-001', { status: UserStatus.ACTIVE }, SELF)).rejects.toThrow(ForbiddenException);
+      expect(mockRepo.update).not.toHaveBeenCalled();
+    });
+
+    it('allows an Administrator to set emailVerified and status', async () => {
+      mockRepo.findById.mockResolvedValue(makeUser());
+      mockRepo.update.mockResolvedValue(makeUser({ emailVerified: true, status: UserStatus.SUSPENDED }));
+
+      const result = await service.update('uuid-001', { emailVerified: true, status: UserStatus.SUSPENDED }, ADMIN);
+
+      expect(mockRepo.update).toHaveBeenCalledWith('uuid-001', expect.objectContaining({
+        emailVerified: true, status: UserStatus.SUSPENDED,
+      }));
+      expect(result.emailVerified).toBe(true);
     });
   });
 

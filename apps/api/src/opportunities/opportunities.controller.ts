@@ -7,8 +7,12 @@ import {
 } from '@nestjs/swagger';
 import { UserRole } from '@prisma/client';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { OptionalJwtAuthGuard } from '../auth/guards/optional-jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import { AuthenticatedUser } from '../auth/strategies/jwt.strategy';
+import { assertContentVisible } from '../common/utils/content-visibility.util';
 import { OpportunitiesService } from './opportunities.service';
 import { CreateOpportunityDto } from './dto/create-opportunity.dto';
 import { UpdateOpportunityDto } from './dto/update-opportunity.dto';
@@ -17,6 +21,8 @@ import { RejectOpportunityDto } from './dto/reject-opportunity.dto';
 import { VerifyOpportunityDto } from './dto/verify-opportunity.dto';
 import { OpportunityResponseDto } from './dto/opportunity-response.dto';
 import { PaginatedOpportunitiesResponseDto } from './dto/paginated-opportunities-response.dto';
+
+const MODERATOR_ROLES = [UserRole.STEWARD, UserRole.PLATFORM_ADMINISTRATOR];
 
 @ApiTags('opportunities')
 @Controller('opportunities')
@@ -50,19 +56,25 @@ export class OpportunitiesController {
   }
 
   @Get('by-ref/:ref')
+  @UseGuards(OptionalJwtAuthGuard)
   @ApiOperation({ summary: 'Get opportunity by stable reference (e.g. AUR-OPP-000001)' })
   @ApiParam({ name: 'ref', example: 'AUR-OPP-000001' })
   @ApiResponse({ status: 200, type: OpportunityResponseDto })
-  findByRef(@Param('ref') ref: string): Promise<OpportunityResponseDto> {
-    return this.service.findByRef(ref);
+  async findByRef(@Param('ref') ref: string, @CurrentUser() caller?: AuthenticatedUser): Promise<OpportunityResponseDto> {
+    const opp = await this.service.findByRef(ref);
+    assertContentVisible(opp.verificationStatus, caller, MODERATOR_ROLES, `Opportunity '${ref}' not found`);
+    return opp;
   }
 
   @Get(':id')
+  @UseGuards(OptionalJwtAuthGuard)
   @ApiOperation({ summary: 'Get opportunity by UUID' })
   @ApiParam({ name: 'id', description: 'Opportunity UUID' })
   @ApiResponse({ status: 200, type: OpportunityResponseDto })
-  findOne(@Param('id') id: string): Promise<OpportunityResponseDto> {
-    return this.service.findById(id);
+  async findOne(@Param('id') id: string, @CurrentUser() caller?: AuthenticatedUser): Promise<OpportunityResponseDto> {
+    const opp = await this.service.findById(id);
+    assertContentVisible(opp.verificationStatus, caller, MODERATOR_ROLES, `Opportunity '${id}' not found`);
+    return opp;
   }
 
   @Patch(':id')

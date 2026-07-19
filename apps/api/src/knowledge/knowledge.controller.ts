@@ -7,10 +7,12 @@ import {
 } from '@nestjs/swagger';
 import { UserRole } from '@prisma/client';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { OptionalJwtAuthGuard } from '../auth/guards/optional-jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { AuthenticatedUser } from '../auth/strategies/jwt.strategy';
+import { assertContentVisible } from '../common/utils/content-visibility.util';
 import { KnowledgeService } from './knowledge.service';
 import { CreateArticleDto } from './dto/create-article.dto';
 import { UpdateArticleDto } from './dto/update-article.dto';
@@ -59,19 +61,25 @@ export class KnowledgeController {
   }
 
   @Get('by-ref/:ref')
+  @UseGuards(OptionalJwtAuthGuard)
   @ApiOperation({ summary: 'Get an article by stable reference (e.g. AUR-KB-000001)' })
   @ApiParam({ name: 'ref', example: 'AUR-KB-000001' })
   @ApiResponse({ status: 200, type: ArticleResponseDto })
-  findByRef(@Param('ref') ref: string): Promise<ArticleResponseDto> {
-    return this.service.findByRef(ref);
+  async findByRef(@Param('ref') ref: string, @CurrentUser() caller?: AuthenticatedUser): Promise<ArticleResponseDto> {
+    const article = await this.service.findByRef(ref);
+    assertContentVisible(article.verificationStatus, caller, MODERATOR_ROLES, `Knowledge article '${ref}' not found`);
+    return article;
   }
 
   @Get(':id')
+  @UseGuards(OptionalJwtAuthGuard)
   @ApiOperation({ summary: 'Get an article by UUID' })
   @ApiParam({ name: 'id', description: 'Article UUID' })
   @ApiResponse({ status: 200, type: ArticleResponseDto })
-  findOne(@Param('id') id: string): Promise<ArticleResponseDto> {
-    return this.service.findById(id);
+  async findOne(@Param('id') id: string, @CurrentUser() caller?: AuthenticatedUser): Promise<ArticleResponseDto> {
+    const article = await this.service.findById(id);
+    assertContentVisible(article.verificationStatus, caller, MODERATOR_ROLES, `Knowledge article '${id}' not found`);
+    return article;
   }
 
   @Get(':id/revisions')

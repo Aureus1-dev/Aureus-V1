@@ -34,18 +34,21 @@ export class PodEventsController {
   }
 
   @Get('pods/:podId/events')
-  @ApiOperation({ summary: 'List this Pod\'s events' })
+  @ApiOperation({ summary: "List this Pod's events (this Pod's active members or an Administrator)" })
   @ApiParam({ name: 'podId', description: 'Pod UUID' })
-  findForPod(@Param('podId') podId: string, @Query('page') page = 1, @Query('limit') limit = 20) {
-    return this.service.findForPod(podId, Number(page), Number(limit));
+  findForPod(
+    @Param('podId') podId: string, @Query('page') page = 1, @Query('limit') limit = 20,
+    @CurrentUser() caller: AuthenticatedUser,
+  ) {
+    return this.service.findForPod(podId, Number(page), Number(limit), caller);
   }
 
   @Get('pods/events/:id')
-  @ApiOperation({ summary: 'Get a Pod event by UUID' })
+  @ApiOperation({ summary: "Get a Pod event by UUID (this Pod's active members or an Administrator)" })
   @ApiParam({ name: 'id', description: 'PodEvent UUID' })
   @ApiResponse({ status: 200, type: EventResponseDto })
-  findOne(@Param('id') id: string): Promise<EventResponseDto> {
-    return this.service.findById(id);
+  findOne(@Param('id') id: string, @CurrentUser() caller: AuthenticatedUser): Promise<EventResponseDto> {
+    return this.service.findById(id, caller);
   }
 
   @Patch('pods/events/:id')

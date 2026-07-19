@@ -51,4 +51,18 @@ describe('PodMeetingScheduleService — informational only, never auto-generates
     expect(result.location).toBe('Community Center');
     expect(result.durationMinutes).toBe(90);
   });
+
+  // ── findForPod authorization (PD-001 — this endpoint had no guard at all) ──
+
+  it('rejects a non-member reading the schedule', async () => {
+    mockMembershipRepo.isActiveMember.mockResolvedValue(false);
+    await expect(service.findForPod('pod-001', MEMBER)).rejects.toThrow(ForbiddenException);
+  });
+
+  it('allows an active member to read the schedule', async () => {
+    mockMembershipRepo.isActiveMember.mockResolvedValue(true);
+    mockRepo.findByPod.mockResolvedValue(makeSchedule());
+    const result = await service.findForPod('pod-001', MEMBER);
+    expect(result?.location).toBe('Community Center');
+  });
 });
