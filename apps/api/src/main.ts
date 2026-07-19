@@ -1,4 +1,5 @@
 import 'reflect-metadata';
+import * as Sentry from '@sentry/node';
 import { NestFactory } from '@nestjs/core';
 import { ConsoleLogger, Logger, ValidationPipe } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
@@ -6,6 +7,12 @@ import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import helmet from 'helmet';
 import { AppModule } from './app.module';
 import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
+import { initSentry } from './common/monitoring/sentry';
+
+// Before anything else so Sentry.captureException (main.ts, all-exceptions
+// filter) works from the very first line — including a fatal bootstrap
+// failure below, not just request-time errors.
+initSentry();
 
 async function bootstrap(): Promise<void> {
   const logger = new Logger('Bootstrap');
@@ -96,7 +103,11 @@ async function bootstrap(): Promise<void> {
 
 bootstrap().catch((err: Error) => {
   // Fatal startup error — log and exit with non-zero code so the
-  // container orchestrator knows the pod failed to start.
+  // container orchestrator knows the pod failed to start. Sentry.close()
+  // flushes the captured event before exiting (and resolves immediately,
+  // a no-op, when SENTRY_DSN is unset) — without it, process.exit() below
+  // could race the event off the wire before it's ever sent.
   console.error('Fatal bootstrap error:', err.message);
-  process.exit(1);
+  Sentry.captureException(err);
+  Sentry.close(2000).finally(() => process.exit(1));
 });

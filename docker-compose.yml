@@ -98,6 +98,7 @@ services:
       VOICE_NAME: ${VOICE_NAME:-}
       BOOTSTRAP_ADMIN_EMAIL: ${BOOTSTRAP_ADMIN_EMAIL:-}
       BOOTSTRAP_ADMIN_PASSWORD: ${BOOTSTRAP_ADMIN_PASSWORD:-}
+      SENTRY_DSN: ${SENTRY_DSN:-}
     ports:
       - '3000:3000'
     healthcheck:

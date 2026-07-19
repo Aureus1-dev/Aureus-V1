@@ -125,6 +125,16 @@ Notes on the images:
 
 `@nestjs/throttler`'s default storage is an in-memory `Map` — correct for exactly one API replica, silently wrong the moment there's more than one (each replica counts hits independently, so the *effective* limit becomes `configured limit × replica count`). Setting `REDIS_URL` switches to `RedisThrottlerStorageService` (`apps/api/src/common/throttler/redis-throttler-storage.service.ts`), which shares hit counts across every replica via a single atomic Lua script per request. `docker-compose.yml` already wires this to its own `redis` service; a production deployment behind a real load balancer with more than one API instance should point `REDIS_URL` at a shared Redis instance the same way. Leaving it unset in production is not an error (a one-time boot warning is logged, not a failure) — only wrong once you actually scale past one replica.
 
+### Railway configuration (Production Stability)
+
+`railway.json` (repo root) makes the API service's build and deploy explicit rather than relying on Railway's own auto-detection to guess correctly in a pnpm monorepo with two Dockerfiles:
+
+- `build.dockerfilePath` points at `apps/api/Dockerfile` explicitly — auto-detection has no reliable way to know which of `apps/api/Dockerfile` / `apps/web/Dockerfile` a given Railway service should build.
+- `deploy.healthcheckPath` is `/health/ready` (not `/health/live`) — Railway uses this to decide when a new deployment is healthy enough to receive traffic, so it should confirm the database is reachable, not just that the process started.
+- `deploy.restartPolicyType: ON_FAILURE` restarts a crashed container automatically; `restartPolicyMaxRetries: 5` caps it short of an infinite crash loop.
+
+A web service on Railway (or any other host) would need its own equivalent config pointing at `apps/web/Dockerfile` — not added here, since only the API has been deployed to Railway to date.
+
 ### Container hardening (PD-002)
 
 `docker-compose.yml`'s `api`, `web`, and `redis` services all run with: a **read-only root filesystem** (only `/tmp` is writable, via `tmpfs` — neither app writes application data to disk at runtime; Document storage is metadata-only today, see PD-012 for real file handling), **every Linux capability dropped** (`cap_drop: [ALL]` — this process never needs raw sockets, `chown`, etc.), and **`no-new-privileges`** (blocks setuid/setgid privilege escalation even if a dependency tried it). Both Dockerfiles already ran as a non-root user before this. The one hardening item *not* done is pruning devDependencies from the runtime image (see above) — named and deferred, not overlooked.
@@ -133,7 +143,7 @@ Notes on the images:
 
 ## 4. Deploy procedure
 
-There is no CD pipeline yet — this is a manual procedure until one is built (requires a named hosting target and credentials that don't exist in this repository yet; deliberately out of PD-002's reach, see the PD-002 readiness report §7).
+There is no CD pipeline yet — this is a manual procedure until one is built. Railway is the current hosting target for the API (see `railway.json` and the "Railway configuration" note above), and can build directly from this repository's Dockerfile; the steps below still apply for anyone deploying by hand or to another host.
 
 1. **CI must be green** on the commit being deployed — including the `docker` job (PD-002), which build-verifies both images and boots the API image against a real Postgres before anything downstream should trust them.
 2. **Build the images** from that commit (CI or a deploy host with Docker):
