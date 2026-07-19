@@ -153,11 +153,22 @@ describe('Organizations (Business Portal) — E2E', () => {
       expect(res.body.data.find((o: { id: string }) => o.id === orgId)).toBeUndefined();
     });
 
-    it('allows direct lookup by id and by ref regardless of verification status', async () => {
-      const byId = await request(app.getHttpServer()).get(`/organizations/${orgId}`).expect(200);
+    it('blocks unauthenticated direct lookup of a DRAFT organization by id and by ref (PD-001)', async () => {
+      await request(app.getHttpServer()).get(`/organizations/${orgId}`).expect(404);
+      await request(app.getHttpServer()).get(`/organizations/by-ref/${orgRef}`).expect(404);
+    });
+
+    it('allows a Steward/Admin direct lookup of a DRAFT organization by id and by ref (PD-001)', async () => {
+      const byId = await request(app.getHttpServer())
+        .get(`/organizations/${orgId}`)
+        .set('Authorization', `Bearer ${stewardToken}`)
+        .expect(200);
       expect(byId.body.id).toBe(orgId);
 
-      const byRef = await request(app.getHttpServer()).get(`/organizations/by-ref/${orgRef}`).expect(200);
+      const byRef = await request(app.getHttpServer())
+        .get(`/organizations/by-ref/${orgRef}`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .expect(200);
       expect(byRef.body.id).toBe(orgId);
     });
 

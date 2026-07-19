@@ -1,6 +1,7 @@
 import { randomUUID } from 'crypto';
-import { INestApplication, ValidationPipe } from '@nestjs/common';
+import { CanActivate, INestApplication, ValidationPipe } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
+import { ThrottlerGuard } from '@nestjs/throttler';
 import request from 'supertest';
 import { generate } from 'otplib';
 import { AppModule } from '../app.module';
@@ -20,6 +21,12 @@ import { EMAIL_SERVICE, IEmailService } from '../email/email.service.interface';
  * reset-password logic wired to a captured "would have been sent" email,
  * without requiring a real SMTP server in CI.
  *
+ * ThrottlerGuard is also overridden with a no-op: AUTH_THROTTLE (5 req/60s)
+ * is tested at the unit level, not here — this file's real-timer request
+ * volume (register/login/verify across many `it` blocks sharing one IP)
+ * legitimately exceeds it, and this suite exists to verify business logic,
+ * not rate-limit enforcement.
+ *
  * Requires DATABASE_URL and JWT_ACCESS_SECRET (see test/jest.setup.js).
  */
 describe('Auth — Email Delivery E2E', () => {
@@ -32,12 +39,16 @@ describe('Auth — Email Delivery E2E', () => {
     sendPasswordReset: jest.fn(),
   };
 
+  const noopGuard: CanActivate = { canActivate: () => true };
+
   beforeAll(async () => {
     const moduleRef: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
     })
       .overrideProvider(EMAIL_SERVICE)
       .useValue(mockEmailService)
+      .overrideGuard(ThrottlerGuard)
+      .useValue(noopGuard)
       .compile();
 
     app = moduleRef.createNestApplication();
