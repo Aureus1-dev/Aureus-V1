@@ -1,7 +1,8 @@
 import { randomUUID } from 'crypto';
-import { CanActivate, INestApplication, ValidationPipe } from '@nestjs/common';
-import { APP_GUARD } from '@nestjs/core';
+import { INestApplication, ValidationPipe } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
+import { ThrottlerStorage } from '@nestjs/throttler';
+import type { ThrottlerStorageRecord } from '@nestjs/throttler';
 import request from 'supertest';
 import { generate } from 'otplib';
 import { AppModule } from '../app.module';
@@ -21,14 +22,17 @@ import { EMAIL_SERVICE, IEmailService } from '../email/email.service.interface';
  * reset-password logic wired to a captured "would have been sent" email,
  * without requiring a real SMTP server in CI.
  *
- * The globally-applied ThrottlerGuard (bound via APP_GUARD in app.module.ts)
- * is also overridden with a no-op: AUTH_THROTTLE (5 req/60s) is tested at
- * the unit level, not here — this file's real-timer request volume
- * (register/login/verify across many `it` blocks sharing one IP)
+ * The ThrottlerStorage backend is also overridden with a fake that reports
+ * every request as fresh (never blocked): AUTH_THROTTLE (5 req/60s) is
+ * tested at the unit level, not here — this file's real-timer request
+ * volume (register/login/verify across many `it` blocks sharing one IP)
  * legitimately exceeds it, and this suite exists to verify business logic,
- * not rate-limit enforcement. overrideGuard() only intercepts guards bound
- * via @UseGuards() decorator metadata, not APP_GUARD-registered ones — the
- * provider itself must be overridden instead.
+ * not rate-limit enforcement. ThrottlerGuard itself is bound globally via
+ * APP_GUARD (app.module.ts), and NestJS's override mechanisms for
+ * globally-applied enhancers (overrideGuard, overrideProvider(APP_GUARD))
+ * don't reliably reach a guard registered that way — overriding the
+ * storage backend it reads from is the one override that's guaranteed to
+ * apply, since ThrottlerStorage is an ordinary injected provider.
  *
  * Requires DATABASE_URL and JWT_ACCESS_SECRET (see test/jest.setup.js).
  */
@@ -42,7 +46,14 @@ describe('Auth — Email Delivery E2E', () => {
     sendPasswordReset: jest.fn(),
   };
 
-  const noopGuard: CanActivate = { canActivate: () => true };
+  const unthrottledStorage: ThrottlerStorage = {
+    increment: async (): Promise<ThrottlerStorageRecord> => ({
+      totalHits: 1,
+      timeToExpire: 0,
+      isBlocked: false,
+      timeToBlockExpire: 0,
+    }),
+  };
 
   beforeAll(async () => {
     const moduleRef: TestingModule = await Test.createTestingModule({
@@ -50,8 +61,8 @@ describe('Auth — Email Delivery E2E', () => {
     })
       .overrideProvider(EMAIL_SERVICE)
       .useValue(mockEmailService)
-      .overrideProvider(APP_GUARD)
-      .useValue(noopGuard)
+      .overrideProvider(ThrottlerStorage)
+      .useValue(unthrottledStorage)
       .compile();
 
     app = moduleRef.createNestApplication();
