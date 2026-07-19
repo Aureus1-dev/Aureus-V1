@@ -3,6 +3,7 @@ import { ConversationType, StewardshipRelationshipStatus } from '@prisma/client'
 import type { Conversation } from '@prisma/client';
 import { AuthenticatedUser } from '../../auth/strategies/jwt.strategy';
 import { hasRole } from '../../auth/utils/has-role.util';
+import { sanitizePlainText } from '../../common/utils/sanitize-text';
 import { PLATFORM_ADMIN_ROLES } from '../common/communication-roles.util';
 import { SendMessageDto } from './dto/send-message.dto';
 import { ListMessagesQueryDto } from './dto/list-messages-query.dto';
@@ -112,7 +113,7 @@ export class ConversationsService {
 
   async sendMessage(conversationId: string, dto: SendMessageDto, caller: AuthenticatedUser): Promise<MessageResponseDto> {
     await this.assertParticipant(conversationId, caller);
-    const created = await this.messageRepo.create({ conversationId, senderId: caller.id, body: dto.body });
+    const created = await this.messageRepo.create({ conversationId, senderId: caller.id, body: sanitizePlainText(dto.body) });
     await this.repo.touchLastMessageAt(conversationId, created.createdAt);
     return MessageResponseDto.fromEntity(created);
   }

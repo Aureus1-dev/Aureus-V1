@@ -99,6 +99,15 @@ describe('AnnouncementsService', () => {
         .rejects.toThrow(ForbiddenException);
     });
 
+    it('strips markup from title and body before persisting (PD-001)', async () => {
+      mockRepo.create.mockResolvedValue(makeAnnouncement());
+      await service.create(
+        { title: '<b>Big</b> News', body: '<script>alert(1)</script>Read this', scope: AnnouncementScope.PLATFORM },
+        ADMIN,
+      );
+      expect(mockRepo.create).toHaveBeenCalledWith(expect.objectContaining({ title: 'Big News', body: 'Read this' }));
+    });
+
     it('forbids a non-administrator from authoring a ROLE announcement', async () => {
       await expect(service.create({ title: 't', body: 'b', scope: AnnouncementScope.ROLE, targetRole: UserRole.MEMBER }, STEWARD))
         .rejects.toThrow(ForbiddenException);

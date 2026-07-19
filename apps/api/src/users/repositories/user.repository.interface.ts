@@ -23,6 +23,9 @@ export interface UpdateUserInput {
   roles?: UserRole[];
   failedLoginAttempts?: number;
   lockedUntil?: Date | null;
+  mfaEnabled?: boolean;
+  mfaSecret?: string | null;
+  mfaRecoveryCodes?: string[];
 }
 
 export interface PaginationParams {

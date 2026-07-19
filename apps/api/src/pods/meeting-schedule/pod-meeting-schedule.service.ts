@@ -24,7 +24,8 @@ export class PodMeetingScheduleService {
     return ScheduleResponseDto.fromEntity(schedule);
   }
 
-  async findForPod(podId: string): Promise<ScheduleResponseDto | null> {
+  async findForPod(podId: string, caller: AuthenticatedUser): Promise<ScheduleResponseDto | null> {
+    await this.auth.assertActiveMemberOrAdmin(podId, caller);
     const schedule = await this.repo.findByPod(podId);
     return schedule ? ScheduleResponseDto.fromEntity(schedule) : null;
   }

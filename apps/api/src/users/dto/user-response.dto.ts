@@ -12,6 +12,9 @@ export class UserResponseDto {
   @ApiProperty({ example: false })
   emailVerified: boolean;
 
+  @ApiProperty({ example: false, description: 'Whether TOTP multi-factor authentication is enabled for this account' })
+  mfaEnabled: boolean;
+
   @ApiProperty({ enum: UserRole, isArray: true, example: [UserRole.MEMBER] })
   roles: UserRole[];
 
@@ -32,6 +35,7 @@ export class UserResponseDto {
     dto.id = user.id;
     dto.email = user.email;
     dto.emailVerified = user.emailVerified;
+    dto.mfaEnabled = user.mfaEnabled;
     dto.roles = user.roles;
     dto.status = user.status;
     dto.createdAt = user.createdAt;

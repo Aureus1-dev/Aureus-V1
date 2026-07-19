@@ -60,6 +60,33 @@ describe('PodEventsService', () => {
     });
   });
 
+  describe('findForPod / findById — membership-gated (PD-001, previously unauthenticated)', () => {
+    it('rejects a non-member listing a Pod\'s events', async () => {
+      mockMembershipRepo.isActiveMember.mockResolvedValue(false);
+      await expect(service.findForPod('pod-001', 1, 20, MEMBER)).rejects.toThrow(ForbiddenException);
+    });
+
+    it('allows an active member to list a Pod\'s events', async () => {
+      mockMembershipRepo.isActiveMember.mockResolvedValue(true);
+      mockEventRepo.findForPod.mockResolvedValue({ data: [makeEvent()], total: 1, page: 1, limit: 20 });
+      const result = await service.findForPod('pod-001', 1, 20, MEMBER);
+      expect(result.data).toHaveLength(1);
+    });
+
+    it('rejects a non-member reading a single event by id', async () => {
+      mockEventRepo.findById.mockResolvedValue(makeEvent());
+      mockMembershipRepo.isActiveMember.mockResolvedValue(false);
+      await expect(service.findById('event-001', MEMBER)).rejects.toThrow(ForbiddenException);
+    });
+
+    it('allows an active member to read a single event by id', async () => {
+      mockEventRepo.findById.mockResolvedValue(makeEvent());
+      mockMembershipRepo.isActiveMember.mockResolvedValue(true);
+      const result = await service.findById('event-001', MEMBER);
+      expect(result.id).toBe('event-001');
+    });
+  });
+
   describe('rsvp / findUpcomingRsvps — visible to fellow members (Founder Decision #5)', () => {
     it('allows any active Pod member to RSVP', async () => {
       mockEventRepo.findById.mockResolvedValue(makeEvent());

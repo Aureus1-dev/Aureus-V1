@@ -43,14 +43,23 @@ Required (app fails to boot without these — see `apps/api/src/app.module.ts` J
 | `DATABASE_URL` | `postgresql://user:pass@host:port/db?schema=public` |
 | `JWT_ACCESS_SECRET` | Minimum 32 characters — Joi rejects a shorter value at boot |
 
+**Required once `NODE_ENV=production` (PD-001)** — these are optional in development/test, but the app now refuses to boot without them once `NODE_ENV=production`, so a misconfigured production deploy fails loudly at startup instead of silently degrading:
+
+| Variable | Dev/test behavior if unset | Production requirement |
+|---|---|---|
+| `CORS_ORIGIN` | Defaults to `*` | Must be an explicit origin (not `*`) — `*` disables credentialed CORS |
+| `SMTP_HOST` | Falls back to nodemailer's local jsonTransport capture — no real email sent | Required — without it, password reset / email verification would silently no-op |
+| `OPENAI_API_KEY` | N/A unless `AI_PROVIDER=openai` | Required whenever `AI_PROVIDER=openai` (either environment) |
+| `ANTHROPIC_API_KEY` | N/A unless `AI_PROVIDER=anthropic` | Required whenever `AI_PROVIDER=anthropic` (either environment) |
+
 Recommended in production (defaulted, but the defaults are dev-shaped):
 
 | Variable | Default | Why to set it in production |
 |---|---|---|
-| `CORS_ORIGIN` | `*` | Set to your actual frontend origin(s); `*` disables credentialed CORS |
-| `NODE_ENV` | `development` | Set to `production` |
-| `SMTP_HOST`/`SMTP_PORT`/`SMTP_USER`/`SMTP_PASSWORD` | unset → local jsonTransport capture, no real email sent | Required for password reset / email verification to actually deliver |
-| `AI_PROVIDER` | `stub` → deterministic canned responses, no real AI | Set to `openai` or `anthropic` with the matching API key for a real AI Steward |
+| `NODE_ENV` | `development` | Set to `production` — also gates the requirements above and disables Swagger (see `ENABLE_API_DOCS` below) |
+| `SMTP_PORT`/`SMTP_USER`/`SMTP_PASSWORD` | Paired with `SMTP_HOST` above | Set alongside `SMTP_HOST` for your real provider |
+| `AI_PROVIDER` | `stub` → deterministic canned responses, no real AI | Set to `openai` or `anthropic` with the matching API key (required above) for a real AI Steward |
+| `ENABLE_API_DOCS` | `false` in production (on by default outside it) | Set to `true` only if this deployment wants `/api/docs` public — otherwise stays closed to avoid handing out a free endpoint/DTO schema dump |
 | `AI_EMERGENCY_STOP` | `false` | Set to `true` to immediately halt all AI features platform-wide — a kill switch, no restart required (PR-002) |
 | `AI_GLOBAL_DAILY_BUDGET_USD` | `50` | Platform-wide AI spend ceiling, rolling 24h window; further requests are refused with 503 once reached (PR-002) |
 | `AI_USER_DAILY_BUDGET_USD` | `2` | Per-member AI spend ceiling, rolling 24h window; further requests are refused with 403 once reached (PR-002) |
@@ -60,6 +69,12 @@ Optional, one-time only (see §1):
 | Variable | Purpose |
 |---|---|
 | `BOOTSTRAP_ADMIN_EMAIL` / `BOOTSTRAP_ADMIN_PASSWORD` | First-administrator creation via `npx prisma db seed` |
+
+### Account security (PD-001)
+
+- **Multi-factor authentication (TOTP):** a member enrolls via `POST /auth/mfa/enroll` → `POST /auth/mfa/enable` (any authenticator app that speaks TOTP — Google Authenticator, 1Password, etc.). Once enabled, `POST /auth/login` returns `{ mfaRequired: true, mfaToken }` instead of tokens; the client completes with `POST /auth/mfa/verify-login`. 8 single-use recovery codes are issued once at enable-time (bcrypt-hashed at rest, shown to the user exactly once) for the lost-device case. There is no operator-side MFA reset endpoint yet — a locked-out member currently requires direct database access to clear `mfaEnabled`/`mfaSecret`/`mfaRecoveryCodes`, the same class of action as the account-lockout procedure in §6.
+- **Logout everywhere:** `POST /auth/logout-everywhere` revokes every refresh token for the calling account — useful to advise a member to run after a suspected credential compromise, on top of a password reset.
+- **Email verification is now enforced at login** (previously advisory only): an unverified account receives 403 on `POST /auth/login` until `POST /auth/verify-email` completes; `POST /auth/resend-verification` re-sends the token and — like `forgot-password` — always returns 204 regardless of whether the address exists or is already verified, so it cannot be used to enumerate accounts.
 
 ---
 

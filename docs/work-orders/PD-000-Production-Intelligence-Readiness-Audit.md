@@ -25,7 +25,11 @@ Domains are numbered in **recommended implementation order** — PD-001 is the s
 
 ---
 
-## PD-001 — Email & Notification Delivery Production Configuration
+## PD-001 — Production Foundation (expanded scope; COMPLETE)
+
+**Status: Complete.** Per Founder instruction after this audit was delivered, PD-001 was expanded from its original narrow scope below (email delivery only) into the complete **Production Foundation** domain — absorbing what this audit had originally split out as PD-004 (Account Security & Auth Hardening) plus the application-level rate-limiting and config-cleanup slices of PD-005, into one domain and one PR. See `docs/work-orders/PD-001-Production-Foundation.md` for the full readiness report: production environment config + secrets hygiene, security headers, MFA/email-verification-enforcement/logout-everywhere, a 4th authorization gap found and fixed during this domain's own work (public read access to DRAFT/PENDING_REVIEW/REJECTED marketplace content across 6 domains), rate-limit tightening, stored-content sanitization, dependency vulnerability remediation (0 known vulnerabilities), and production-config cleanup. Redis-backed distributed rate limiting, OAuth/SSO, CAPTCHA, CSP tuning, and live Docker-daemon verification remain explicitly deferred (see that report §7) — each requires infrastructure or product decisions out of this domain's reach, not oversight.
+
+**Original scope (for historical record, now folded into the above):**
 
 **Objective:** Password reset, email verification, and all transactional email actually deliver in a real deployment instead of silently no-oping.
 
@@ -85,7 +89,9 @@ Domains are numbered in **recommended implementation order** — PD-001 is the s
 
 ---
 
-## PD-004 — Account Security & Auth Hardening
+## PD-004 — Account Security & Auth Hardening (absorbed into PD-001; COMPLETE)
+
+**Status: Absorbed.** Per Founder instruction, this domain's scope was folded into the expanded PD-001 (Production Foundation) rather than run separately — MFA, email-verification enforcement, logout-everywhere, and the JWT `type`-discriminator fix all shipped there. See `docs/work-orders/PD-001-Production-Foundation.md`. OAuth/SSO and CAPTCHA remain deferred (product decisions, not engineering defaults). Original scope below retained for historical record.
 
 **Objective:** Authentication meets baseline expectations for a platform holding real financial/personal member data (per its own Resource Directory / Business Portal / Connected Experiences scope).
 
@@ -349,10 +355,10 @@ Domains are numbered in **recommended implementation order** — PD-001 is the s
 
 | # | Domain | Risk | IL Impact | Effort | Depends On |
 |---|---|---|---|---|---|
-| PD-001 | Email & Notification Delivery Production Configuration | 🔴 Critical | None | Small (1-2d) | — |
+| PD-001 | **Production Foundation** (expanded scope — email delivery, security headers, auth hardening/MFA, authorization verification, rate limiting, input sanitization, dependency remediation, config cleanup) | ✅ **Complete** | None | Delivered | — |
 | PD-002 | Observability, Monitoring & Incident Response Foundation | 🔴 Critical | Indirect | Medium (3-4d) | — |
 | PD-003 | Legal, Privacy & Consent Foundation | 🔴 Critical | Indirect | Med-Large (4-6d + legal) | — |
-| PD-004 | Account Security & Auth Hardening | 🟠 High | None | Large (6-9d) | PD-001 |
+| PD-004 | ~~Account Security & Auth Hardening~~ (absorbed into PD-001) | ✅ **Complete** (as part of PD-001) | None | Delivered | — |
 | PD-005 | Production Infrastructure Verification, CI/CD & Scaling | 🔴 Critical | Indirect | Large (7-10d) | PD-002 |
 | PD-006 | Backup, Disaster Recovery & Data Durability | 🔴 Critical | Indirect | Medium (3-4d) | PD-005 |
 | PD-007 | AI Safety: Content Moderation & Prompt-Injection Defense | 🔴 Critical (IL) | **Direct** | Medium (3-5d) | — |
@@ -366,9 +372,9 @@ Domains are numbered in **recommended implementation order** — PD-001 is the s
 | PD-015 | Member-Facing Next Best Action Surface | 🟢 Low | **Direct** | Medium (4-5d) | PD-007, PD-011 |
 | PD-016 | Governance Documentation Consolidation | 🟢 Low (ops) / 🟠 High (governance) | None | Not estimable | Founder decision |
 
-**Total estimated engineering effort, PD-001 through PD-015 (excluding non-estimable legal drafting and PD-016):** approximately **62-84 engineer-days**, sequenced with real dependencies — not all parallelizable, but PD-001/002/003/007/008/009 have no dependencies on each other and could run concurrently with separate work streams if more than one engineer/session is available.
+**Total estimated engineering effort, PD-002 through PD-015 remaining (excluding delivered PD-001/PD-004, non-estimable legal drafting, and PD-016):** approximately **55-77 engineer-days** remaining, sequenced with real dependencies — not all parallelizable, but PD-002/003/007/008/009 have no dependencies on each other and could run concurrently with separate work streams if more than one engineer/session is available.
 
-**Critical-path minimum before any real-user production launch:** PD-001 → PD-002 → PD-003 → PD-005 → PD-006, plus PD-007 if AI features remain enabled for real users at launch. PD-004, PD-008, PD-009 through PD-015 materially improve safety/quality/completeness but do not block a first launch to a limited/trusted user set the way the critical-path five (six, with AI safety) do.
+**Critical-path minimum before any real-user production launch:** ~~PD-001~~ (done) → PD-002 → PD-003 → PD-005 → PD-006, plus PD-007 if AI features remain enabled for real users at launch. PD-008, PD-009 through PD-015 materially improve safety/quality/completeness but do not block a first launch to a limited/trusted user set the way the critical-path items do.
 
 ---
 
@@ -379,4 +385,4 @@ Domains are numbered in **recommended implementation order** — PD-001 is the s
 
 ---
 
-**This audit implements no code. Awaiting authorization before PD-001 begins.**
+**PD-001 (expanded Production Foundation, absorbing PD-004) is complete — see `docs/work-orders/PD-001-Production-Foundation.md`. Awaiting authorization before PD-002 begins.**

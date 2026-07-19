@@ -11,6 +11,7 @@ import { Roles } from '../../auth/decorators/roles.decorator';
 import { CurrentUser } from '../../auth/decorators/current-user.decorator';
 import { AuthenticatedUser } from '../../auth/strategies/jwt.strategy';
 import { ACADEMY_STAFF_ROLES } from '../common/academy-roles.util';
+import { assertContentVisible } from '../../common/utils/content-visibility.util';
 import { CoursesService } from './courses.service';
 import { CreateCourseDto } from './dto/create-course.dto';
 import { UpdateCourseDto } from './dto/update-course.dto';
@@ -53,16 +54,20 @@ export class CoursesController {
   @ApiOperation({ summary: 'Get a course by stable reference (e.g. AUR-CRS-000001)' })
   @ApiParam({ name: 'ref', example: 'AUR-CRS-000001' })
   @ApiResponse({ status: 200, type: CourseResponseDto })
-  findByRef(@Param('ref') ref: string): Promise<CourseResponseDto> {
-    return this.service.findByRef(ref);
+  async findByRef(@Param('ref') ref: string, @CurrentUser() caller?: AuthenticatedUser): Promise<CourseResponseDto> {
+    const course = await this.service.findByRef(ref);
+    assertContentVisible(course.verificationStatus, caller, ACADEMY_STAFF_ROLES, `Course '${ref}' not found`);
+    return course;
   }
 
   @Get(':id')
   @ApiOperation({ summary: 'Get a course by UUID' })
   @ApiParam({ name: 'id', description: 'Course UUID' })
   @ApiResponse({ status: 200, type: CourseResponseDto })
-  findOne(@Param('id') id: string): Promise<CourseResponseDto> {
-    return this.service.findById(id);
+  async findOne(@Param('id') id: string, @CurrentUser() caller?: AuthenticatedUser): Promise<CourseResponseDto> {
+    const course = await this.service.findById(id);
+    assertContentVisible(course.verificationStatus, caller, ACADEMY_STAFF_ROLES, `Course '${id}' not found`);
+    return course;
   }
 
   @Get(':id/revisions')

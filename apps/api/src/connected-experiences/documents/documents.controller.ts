@@ -3,6 +3,7 @@ import {
   Param, Patch, Post, Query, UseGuards,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiParam, ApiResponse, ApiTags } from '@nestjs/swagger';
+import { Throttle } from '@nestjs/throttler';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { CurrentUser } from '../../auth/decorators/current-user.decorator';
 import { AuthenticatedUser } from '../../auth/strategies/jwt.strategy';
@@ -13,6 +14,10 @@ import { ListDocumentsQueryDto } from './dto/list-documents-query.dto';
 import { DocumentResponseDto } from './dto/document-response.dto';
 import { PaginatedDocumentsResponseDto } from './dto/paginated-documents-response.dto';
 
+// Storage- and AI-cost-relevant operations — tighter than the global 100/min default (PD-001).
+const DOCUMENT_UPLOAD_THROTTLE = { default: { limit: 20, ttl: 60_000 } };
+const DOCUMENT_SUMMARIZE_THROTTLE = { default: { limit: 10, ttl: 60_000 } };
+
 @ApiTags('connected-experiences')
 @ApiBearerAuth()
 @UseGuards(JwtAuthGuard)
@@ -21,6 +26,7 @@ export class DocumentsController {
   constructor(private readonly service: DocumentsService) {}
 
   @Post()
+  @Throttle(DOCUMENT_UPLOAD_THROTTLE)
   @ApiOperation({ summary: 'Upload a document (self only)' })
   @ApiResponse({ status: 201, type: DocumentResponseDto })
   upload(
@@ -64,6 +70,7 @@ export class DocumentsController {
   }
 
   @Post(':id/summarize')
+  @Throttle(DOCUMENT_SUMMARIZE_THROTTLE)
   @ApiOperation({ summary: "Generate an AI summary from the document's extracted text (owner only)" })
   @ApiParam({ name: 'id', description: 'Document UUID' })
   @ApiResponse({ status: 201, type: DocumentResponseDto })

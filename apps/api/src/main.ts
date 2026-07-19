@@ -44,28 +44,36 @@ async function bootstrap(): Promise<void> {
   );
 
   // ── Swagger / OpenAPI ─────────────────────────────────────────────────────
-  const swaggerConfig = new DocumentBuilder()
-    .setTitle('Aureus API')
-    .setDescription('Aureus V1 Platform — REST API')
-    .setVersion('1.0')
-    .addTag('auth',           'Authentication and identity endpoints')
-    .addTag('users',          'User management endpoints')
-    .addTag('resources',      'Resource Directory endpoints')
-    .addTag('organizations',  'Business Portal endpoints (organization profiles and membership)')
-    .addTag('stewardship',    'Stewardship System endpoints (relationships, notes, tasks, recommendations, escalations, metrics)')
-    .addTag('communication',  'Communication System endpoints (notifications, preferences, announcements, messaging)')
-    .addTag('knowledge',      'Knowledge System endpoints (verified articles, categorization, revision history)')
-    .addTag('academy',        'Academy endpoints (courses, learning paths, enrollments, certifications, Steward Content Studio media)')
-    .addTag('pods',           'Pods endpoints (community, membership, events, meeting schedule, service projects, requests, invitations, metrics, escalations, messaging)')
-    .addTag('ai',              'AI Intelligence Engine endpoints (conversations, explanations, guidance, recommendations, request history)')
-    .addTag('connected-experiences', 'Connected Experiences endpoints (connected accounts, documents, Steward activity audit trail)')
-    .addTag('administration', 'Administration & Operations endpoints (role management)')
-    .addTag('health',         'Liveness and readiness endpoints')
-    .addBearerAuth({ type: 'http', scheme: 'bearer', bearerFormat: 'JWT' })
-    .build();
+  // Off by default in production (PD-001) — a full schema dump of every
+  // endpoint/DTO is reconnaissance value an attacker shouldn't get for free.
+  // ENABLE_API_DOCS=true opts back in for a deployment that wants it public.
+  const nodeEnv = config.get<string>('NODE_ENV', 'development');
+  const swaggerEnabled = nodeEnv !== 'production' || config.get<boolean>('ENABLE_API_DOCS', false);
 
-  const document = SwaggerModule.createDocument(app, swaggerConfig);
-  SwaggerModule.setup('api/docs', app, document);
+  if (swaggerEnabled) {
+    const swaggerConfig = new DocumentBuilder()
+      .setTitle('Aureus API')
+      .setDescription('Aureus V1 Platform — REST API')
+      .setVersion('1.0')
+      .addTag('auth',           'Authentication and identity endpoints')
+      .addTag('users',          'User management endpoints')
+      .addTag('resources',      'Resource Directory endpoints')
+      .addTag('organizations',  'Business Portal endpoints (organization profiles and membership)')
+      .addTag('stewardship',    'Stewardship System endpoints (relationships, notes, tasks, recommendations, escalations, metrics)')
+      .addTag('communication',  'Communication System endpoints (notifications, preferences, announcements, messaging)')
+      .addTag('knowledge',      'Knowledge System endpoints (verified articles, categorization, revision history)')
+      .addTag('academy',        'Academy endpoints (courses, learning paths, enrollments, certifications, Steward Content Studio media)')
+      .addTag('pods',           'Pods endpoints (community, membership, events, meeting schedule, service projects, requests, invitations, metrics, escalations, messaging)')
+      .addTag('ai',              'AI Intelligence Engine endpoints (conversations, explanations, guidance, recommendations, request history)')
+      .addTag('connected-experiences', 'Connected Experiences endpoints (connected accounts, documents, Steward activity audit trail)')
+      .addTag('administration', 'Administration & Operations endpoints (role management)')
+      .addTag('health',         'Liveness and readiness endpoints')
+      .addBearerAuth({ type: 'http', scheme: 'bearer', bearerFormat: 'JWT' })
+      .build();
+
+    const document = SwaggerModule.createDocument(app, swaggerConfig);
+    SwaggerModule.setup('api/docs', app, document);
+  }
 
   // ── Graceful shutdown ─────────────────────────────────────────────────────
   // Listens for SIGTERM/SIGINT and cleanly closes DB connections via
@@ -76,7 +84,9 @@ async function bootstrap(): Promise<void> {
   const port = config.get<number>('PORT', 3000);
   await app.listen(port);
   logger.log(`API listening on http://localhost:${port}`);
-  logger.log(`Swagger docs:  http://localhost:${port}/api/docs`);
+  if (swaggerEnabled) {
+    logger.log(`Swagger docs:  http://localhost:${port}/api/docs`);
+  }
   logger.log(`Health check:  http://localhost:${port}/health`);
 }
 

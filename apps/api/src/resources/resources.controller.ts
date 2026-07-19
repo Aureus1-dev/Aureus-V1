@@ -11,6 +11,7 @@ import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { AuthenticatedUser } from '../auth/strategies/jwt.strategy';
+import { assertContentVisible } from '../common/utils/content-visibility.util';
 import { ResourcesService } from './resources.service';
 import { CreateResourceDto } from './dto/create-resource.dto';
 import { UpdateResourceDto } from './dto/update-resource.dto';
@@ -60,16 +61,20 @@ export class ResourcesController {
   @ApiOperation({ summary: 'Get resource by stable reference (e.g. AUR-RES-000001)' })
   @ApiParam({ name: 'ref', example: 'AUR-RES-000001' })
   @ApiResponse({ status: 200, type: ResourceResponseDto })
-  findByRef(@Param('ref') ref: string): Promise<ResourceResponseDto> {
-    return this.service.findByRef(ref);
+  async findByRef(@Param('ref') ref: string, @CurrentUser() caller?: AuthenticatedUser): Promise<ResourceResponseDto> {
+    const resource = await this.service.findByRef(ref);
+    assertContentVisible(resource.verificationStatus, caller, MODERATOR_ROLES, `Resource '${ref}' not found`);
+    return resource;
   }
 
   @Get(':id')
   @ApiOperation({ summary: 'Get resource by UUID' })
   @ApiParam({ name: 'id', description: 'Resource UUID' })
   @ApiResponse({ status: 200, type: ResourceResponseDto })
-  findOne(@Param('id') id: string): Promise<ResourceResponseDto> {
-    return this.service.findById(id);
+  async findOne(@Param('id') id: string, @CurrentUser() caller?: AuthenticatedUser): Promise<ResourceResponseDto> {
+    const resource = await this.service.findById(id);
+    assertContentVisible(resource.verificationStatus, caller, MODERATOR_ROLES, `Resource '${id}' not found`);
+    return resource;
   }
 
   @Patch(':id')

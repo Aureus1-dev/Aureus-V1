@@ -8,13 +8,13 @@ import { UpsertScheduleDto } from './dto/upsert-schedule.dto';
 import { ScheduleResponseDto } from './dto/schedule-response.dto';
 
 @ApiTags('pods')
+@ApiBearerAuth()
+@UseGuards(JwtAuthGuard)
 @Controller('pods/:podId/meeting-schedule')
 export class PodMeetingScheduleController {
   constructor(private readonly service: PodMeetingScheduleService) {}
 
   @Put()
-  @UseGuards(JwtAuthGuard)
-  @ApiBearerAuth()
   @ApiOperation({ summary: 'Set this Pod\'s recurring meeting pattern — informational only, never auto-generates events (this Pod\'s Steward or Admin)' })
   @ApiParam({ name: 'podId', description: 'Pod UUID' })
   @ApiResponse({ status: 200, type: ScheduleResponseDto })
@@ -25,10 +25,12 @@ export class PodMeetingScheduleController {
   }
 
   @Get()
-  @ApiOperation({ summary: 'Get this Pod\'s recurring meeting pattern' })
+  @ApiOperation({ summary: "Get this Pod's recurring meeting pattern (this Pod's active members or an Administrator)" })
   @ApiParam({ name: 'podId', description: 'Pod UUID' })
   @ApiResponse({ status: 200, type: ScheduleResponseDto })
-  findForPod(@Param('podId') podId: string): Promise<ScheduleResponseDto | null> {
-    return this.service.findForPod(podId);
+  findForPod(
+    @Param('podId') podId: string, @CurrentUser() caller: AuthenticatedUser,
+  ): Promise<ScheduleResponseDto | null> {
+    return this.service.findForPod(podId, caller);
   }
 }

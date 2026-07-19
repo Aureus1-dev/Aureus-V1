@@ -1,5 +1,6 @@
 import {
   ConflictException,
+  ForbiddenException,
   Inject,
   Injectable,
   Logger,
@@ -21,14 +22,18 @@ import { TokenPairDto } from './dto/token-pair.dto';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
 import { VerifyEmailDto } from './dto/verify-email.dto';
+import { ResendVerificationDto } from './dto/resend-verification.dto';
+import { MfaChallengeResponseDto } from './dto/mfa-challenge-response.dto';
 import { IAuthRepository, AUTH_REPOSITORY } from './repositories/auth.repository.interface';
 import { generateOpaqueToken, hashOpaqueToken } from './token.util';
 import { JwtPayload } from './strategies/jwt.strategy';
 import { IEmailService, EMAIL_SERVICE } from '../email/email.service.interface';
+import { MfaService } from './mfa/mfa.service';
 
 const BCRYPT_SALT_ROUNDS = 12;
 const PASSWORD_RESET_TTL_MINUTES = 30;
 const EMAIL_VERIFICATION_TTL_HOURS = 48;
+const MFA_CHALLENGE_TTL = '5m';
 
 // Brute-force protection (PR-002).
 const LOGIN_LOCKOUT_THRESHOLD = 5;
@@ -44,6 +49,7 @@ export class AuthService {
     @Inject(EMAIL_SERVICE) private readonly emailService: IEmailService,
     private readonly jwt: JwtService,
     private readonly config: ConfigService,
+    private readonly mfaService: MfaService,
   ) {}
 
   // ── Registration ──────────────────────────────────────────────────────
@@ -70,7 +76,7 @@ export class AuthService {
 
   // ── Login ─────────────────────────────────────────────────────────────
 
-  async login(dto: LoginDto): Promise<AuthResponseDto> {
+  async login(dto: LoginDto): Promise<AuthResponseDto | MfaChallengeResponseDto> {
     const user = await this.users.findByEmail(dto.email);
     if (!user || !user.passwordHash) {
       throw new UnauthorizedException('Invalid email or password');
@@ -94,9 +100,76 @@ export class AuthService {
       await this.users.update(user.id, { failedLoginAttempts: 0, lockedUntil: null });
     }
 
+    // A correct password proves identity, but does not yet prove control of
+    // the registered inbox — this must come after the password check (not
+    // before) so an unverified/unauthenticated caller never learns whether a
+    // guessed password was actually correct.
+    if (!user.emailVerified) {
+      throw new ForbiddenException('Please verify your email address before logging in.');
+    }
+
+    if (user.mfaEnabled) {
+      return this.issueMfaChallenge(user.id);
+    }
+
     const tokens = await this.issueTokenPair(user.id, user.email, user.roles);
     this.logger.log(`User logged in: ${user.id}`);
     return { user: UserResponseDto.fromEntity(user), tokens };
+  }
+
+  /** Completes a login that was interrupted by an MFA challenge (a live TOTP code, or a single-use recovery code). */
+  async completeMfaLogin(mfaToken: string, code: string): Promise<AuthResponseDto> {
+    let payload: JwtPayload;
+    try {
+      payload = await this.jwt.verifyAsync<JwtPayload>(mfaToken);
+    } catch {
+      throw new UnauthorizedException('Invalid or expired MFA challenge');
+    }
+    if (payload.type !== 'mfa_challenge') {
+      throw new UnauthorizedException('Invalid or expired MFA challenge');
+    }
+
+    const user = await this.users.findById(payload.sub);
+    if (!user || !user.mfaEnabled) {
+      throw new UnauthorizedException('Invalid or expired MFA challenge');
+    }
+
+    const valid = await this.mfaService.verifyLoginCode(user.id, code);
+    if (!valid) {
+      throw new UnauthorizedException('Invalid authentication code');
+    }
+
+    const tokens = await this.issueTokenPair(user.id, user.email, user.roles);
+    this.logger.log(`User completed MFA login: ${user.id}`);
+    return { user: UserResponseDto.fromEntity(user), tokens };
+  }
+
+  private async issueMfaChallenge(userId: string): Promise<MfaChallengeResponseDto> {
+    const payload: JwtPayload = { sub: userId, email: '', roles: [], type: 'mfa_challenge' };
+    const mfaToken = await this.jwt.signAsync(payload, { expiresIn: MFA_CHALLENGE_TTL });
+    return { mfaRequired: true, mfaToken };
+  }
+
+  /** Self-service "log out everywhere" — revokes every refresh token for the caller, ending every other session. */
+  async logoutEverywhere(userId: string): Promise<void> {
+    await this.authRepo.revokeAllRefreshTokensForUser(userId);
+    this.logger.log(`All sessions revoked for ${userId}`);
+  }
+
+  /**
+   * Re-sends the email-verification link — the necessary companion to
+   * enforcing emailVerified at login (above): without this, a member whose
+   * original 48-hour verification link expired (or was never received)
+   * would have no way to ever complete verification and log in again.
+   * Mirrors forgotPassword's non-enumerating shape: always resolves,
+   * regardless of whether the email is registered or already verified.
+   */
+  async resendVerificationEmail(dto: ResendVerificationDto): Promise<void> {
+    const user = await this.users.findByEmail(dto.email);
+    if (!user || user.emailVerified) {
+      return;
+    }
+    await this.issueEmailVerificationToken(user.id, user.email);
   }
 
   /** Brute-force protection (PR-002) — locks the account for LOGIN_LOCKOUT_DURATION_MINUTES once LOGIN_LOCKOUT_THRESHOLD consecutive failures are reached, then resets the counter. */

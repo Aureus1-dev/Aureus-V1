@@ -11,6 +11,7 @@ import { Roles } from '../../auth/decorators/roles.decorator';
 import { CurrentUser } from '../../auth/decorators/current-user.decorator';
 import { AuthenticatedUser } from '../../auth/strategies/jwt.strategy';
 import { ACADEMY_STAFF_ROLES } from '../common/academy-roles.util';
+import { assertContentVisible } from '../../common/utils/content-visibility.util';
 import { LearningPathsService } from './learning-paths.service';
 import { CreateLearningPathDto } from './dto/create-learning-path.dto';
 import { UpdateLearningPathDto } from './dto/update-learning-path.dto';
@@ -52,16 +53,20 @@ export class LearningPathsController {
   @ApiOperation({ summary: 'Get a learning path by stable reference (e.g. AUR-LP-000001)' })
   @ApiParam({ name: 'ref', example: 'AUR-LP-000001' })
   @ApiResponse({ status: 200, type: LearningPathResponseDto })
-  findByRef(@Param('ref') ref: string): Promise<LearningPathResponseDto> {
-    return this.service.findByRef(ref);
+  async findByRef(@Param('ref') ref: string, @CurrentUser() caller?: AuthenticatedUser): Promise<LearningPathResponseDto> {
+    const path = await this.service.findByRef(ref);
+    assertContentVisible(path.verificationStatus, caller, ACADEMY_STAFF_ROLES, `Learning path '${ref}' not found`);
+    return path;
   }
 
   @Get(':id')
   @ApiOperation({ summary: 'Get a learning path by UUID' })
   @ApiParam({ name: 'id', description: 'Learning path UUID' })
   @ApiResponse({ status: 200, type: LearningPathResponseDto })
-  findOne(@Param('id') id: string): Promise<LearningPathResponseDto> {
-    return this.service.findById(id);
+  async findOne(@Param('id') id: string, @CurrentUser() caller?: AuthenticatedUser): Promise<LearningPathResponseDto> {
+    const path = await this.service.findById(id);
+    assertContentVisible(path.verificationStatus, caller, ACADEMY_STAFF_ROLES, `Learning path '${id}' not found`);
+    return path;
   }
 
   @Patch(':id')

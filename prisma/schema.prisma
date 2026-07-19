@@ -94,6 +94,16 @@ model User {
   updatedAt     DateTime   @updatedAt
   deletedAt     DateTime?
 
+  // TOTP multi-factor authentication (PD-001 Production Foundation). mfaSecret
+  // holds the base32 TOTP secret once enrollment begins — set before
+  // mfaEnabled flips true, so an in-progress (unconfirmed) enrollment never
+  // enables login enforcement on its own. mfaRecoveryCodes are bcrypt hashes,
+  // never plaintext; each is single-use and removed from the array once
+  // redeemed.
+  mfaEnabled       Boolean  @default(false)
+  mfaSecret        String?
+  mfaRecoveryCodes String[] @default([])
+
   // Brute-force protection (PR-002). Reset to 0 on any successful login;
   // incremented on each failed password check; lockedUntil is set once the
   // threshold is reached and cleared automatically once it elapses.
