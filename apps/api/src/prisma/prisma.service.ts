@@ -14,7 +14,17 @@ export class PrismaService implements OnModuleInit, OnModuleDestroy {
   private readonly client: PrismaClient;
 
   constructor() {
-    this.pool = new Pool({ connectionString: process.env.DATABASE_URL });
+    // Pool size (PD-002): defaults (max 10, min 0) match the `pg` driver's
+    // own defaults, so an operator who never sets these env vars sees
+    // identical behavior to before this option existed. Production hosts
+    // fronted by a managed pooler (RDS Proxy, PgBouncer) should size this
+    // well below the pooler's own connection ceiling — see
+    // docs/operations/production-runbook.md for guidance.
+    this.pool = new Pool({
+      connectionString: process.env.DATABASE_URL,
+      max: Number(process.env.DATABASE_POOL_MAX) || 10,
+      min: Number(process.env.DATABASE_POOL_MIN) || 0,
+    });
     const adapter = new PrismaPg(this.pool);
     this.client = new PrismaClient({ adapter });
   }
