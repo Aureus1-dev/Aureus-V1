@@ -7,6 +7,7 @@ import {
 } from '@nestjs/swagger';
 import { UserRole } from '@prisma/client';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { OptionalJwtAuthGuard } from '../auth/guards/optional-jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
@@ -58,6 +59,7 @@ export class ResourcesController {
   }
 
   @Get('by-ref/:ref')
+  @UseGuards(OptionalJwtAuthGuard)
   @ApiOperation({ summary: 'Get resource by stable reference (e.g. AUR-RES-000001)' })
   @ApiParam({ name: 'ref', example: 'AUR-RES-000001' })
   @ApiResponse({ status: 200, type: ResourceResponseDto })
@@ -68,6 +70,7 @@ export class ResourcesController {
   }
 
   @Get(':id')
+  @UseGuards(OptionalJwtAuthGuard)
   @ApiOperation({ summary: 'Get resource by UUID' })
   @ApiParam({ name: 'id', description: 'Resource UUID' })
   @ApiResponse({ status: 200, type: ResourceResponseDto })

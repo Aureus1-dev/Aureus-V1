@@ -7,6 +7,7 @@ import {
 } from '@nestjs/swagger';
 import { UserRole } from '@prisma/client';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { OptionalJwtAuthGuard } from '../auth/guards/optional-jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
@@ -60,6 +61,7 @@ export class KnowledgeController {
   }
 
   @Get('by-ref/:ref')
+  @UseGuards(OptionalJwtAuthGuard)
   @ApiOperation({ summary: 'Get an article by stable reference (e.g. AUR-KB-000001)' })
   @ApiParam({ name: 'ref', example: 'AUR-KB-000001' })
   @ApiResponse({ status: 200, type: ArticleResponseDto })
@@ -70,6 +72,7 @@ export class KnowledgeController {
   }
 
   @Get(':id')
+  @UseGuards(OptionalJwtAuthGuard)
   @ApiOperation({ summary: 'Get an article by UUID' })
   @ApiParam({ name: 'id', description: 'Article UUID' })
   @ApiResponse({ status: 200, type: ArticleResponseDto })

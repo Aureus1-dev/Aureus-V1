@@ -6,6 +6,7 @@ import {
   ApiBearerAuth, ApiOperation, ApiParam, ApiResponse, ApiTags,
 } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
+import { OptionalJwtAuthGuard } from '../../auth/guards/optional-jwt-auth.guard';
 import { RolesGuard } from '../../auth/guards/roles.guard';
 import { Roles } from '../../auth/decorators/roles.decorator';
 import { CurrentUser } from '../../auth/decorators/current-user.decorator';
@@ -50,6 +51,7 @@ export class LearningPathsController {
   }
 
   @Get('by-ref/:ref')
+  @UseGuards(OptionalJwtAuthGuard)
   @ApiOperation({ summary: 'Get a learning path by stable reference (e.g. AUR-LP-000001)' })
   @ApiParam({ name: 'ref', example: 'AUR-LP-000001' })
   @ApiResponse({ status: 200, type: LearningPathResponseDto })
@@ -60,6 +62,7 @@ export class LearningPathsController {
   }
 
   @Get(':id')
+  @UseGuards(OptionalJwtAuthGuard)
   @ApiOperation({ summary: 'Get a learning path by UUID' })
   @ApiParam({ name: 'id', description: 'Learning path UUID' })
   @ApiResponse({ status: 200, type: LearningPathResponseDto })

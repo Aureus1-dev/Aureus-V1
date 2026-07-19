@@ -7,6 +7,7 @@ import {
 } from '@nestjs/swagger';
 import { UserRole } from '@prisma/client';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { OptionalJwtAuthGuard } from '../auth/guards/optional-jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
@@ -55,6 +56,7 @@ export class OpportunitiesController {
   }
 
   @Get('by-ref/:ref')
+  @UseGuards(OptionalJwtAuthGuard)
   @ApiOperation({ summary: 'Get opportunity by stable reference (e.g. AUR-OPP-000001)' })
   @ApiParam({ name: 'ref', example: 'AUR-OPP-000001' })
   @ApiResponse({ status: 200, type: OpportunityResponseDto })
@@ -65,6 +67,7 @@ export class OpportunitiesController {
   }
 
   @Get(':id')
+  @UseGuards(OptionalJwtAuthGuard)
   @ApiOperation({ summary: 'Get opportunity by UUID' })
   @ApiParam({ name: 'id', description: 'Opportunity UUID' })
   @ApiResponse({ status: 200, type: OpportunityResponseDto })
