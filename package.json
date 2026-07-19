@@ -8,7 +8,11 @@
     "lint": "turbo run lint",
     "check-types": "turbo run check-types",
     "format": "prettier --write .",
-    "format:check": "prettier --check ."
+    "format:check": "prettier --check .",
+    "verify:env": "tsx apps/api/src/scripts/verify-env-cli.ts"
+  },
+  "engines": {
+    "node": ">=22"
   },
   "devDependencies": {
     "@types/node": "^24.0.0",

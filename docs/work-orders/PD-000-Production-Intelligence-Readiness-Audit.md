@@ -49,7 +49,11 @@ Domains are numbered in **recommended implementation order** — PD-001 is the s
 
 ---
 
-## PD-002 — Observability, Monitoring & Incident Response Foundation
+## PD-002 — Observability, Monitoring & Incident Response Foundation (partially absorbed; PARTIAL)
+
+**Status: Partially absorbed.** The Founder scoped a *different* domain under the name "PD-002" — **Production Infrastructure & Deployment** — which absorbed this audit's PD-005 (Production Infrastructure Verification, CI/CD & Horizontal Scaling) plus part of PD-006 (Backup, Disaster Recovery & Data Durability), and, from *this* domain specifically, only the structured-logging and health-check-extension items below. See `docs/work-orders/PD-002-Production-Infrastructure-Deployment.md` for the full readiness report. **Still open from this domain's original scope:** the Sentry-class APM/error-tracking SaaS integration and proactive (non-log) AI-budget-threshold notification — both require an external account/product decision out of that domain's reach, named explicitly in its §7.
+
+**Original scope (for historical record; items 2/3 partially delivered under the Founder's "PD-002," item 1/4 still open):**
 
 **Objective:** A production incident can be detected, diagnosed, and alerted on without reading raw container logs.
 
@@ -111,7 +115,11 @@ Domains are numbered in **recommended implementation order** — PD-001 is the s
 
 ---
 
-## PD-005 — Production Infrastructure Verification, CI/CD & Horizontal Scaling
+## PD-005 — Production Infrastructure Verification, CI/CD & Horizontal Scaling (absorbed into the Founder's "PD-002"; PARTIAL)
+
+**Status: Partially absorbed.** Absorbed into the Founder-scoped "PD-002 — Production Infrastructure & Deployment" (`docs/work-orders/PD-002-Production-Infrastructure-Deployment.md`). Delivered from this domain's original scope: Docker images now build-verified for real in CI (a `docker` job with an actual daemon, unlike this audit's authoring sandbox), Redis-backed `@nestjs/throttler` storage, and Prisma connection-pool settings. **Still open:** a real CD pipeline to a live staging environment, and k6/load testing against real multi-replica infrastructure — both require a hosting-target decision the Founder has not yet made, named explicitly in that domain's §7.
+
+**Original scope (for historical record; items 1/3/4 delivered, items 2/5 still open):**
 
 **Objective:** The Docker images actually build and run, a real deploy pipeline exists, and the app is safe to run on more than one instance.
 
@@ -131,7 +139,11 @@ Domains are numbered in **recommended implementation order** — PD-001 is the s
 
 ---
 
-## PD-006 — Backup, Disaster Recovery & Data Durability
+## PD-006 — Backup, Disaster Recovery & Data Durability (partially absorbed; PARTIAL)
+
+**Status: Partially absorbed.** The backup/restore tooling and rehearsed restore-drill procedure (items 1/3 below) were absorbed into the Founder-scoped "PD-002 — Production Infrastructure & Deployment" (`docs/work-orders/PD-002-Production-Infrastructure-Deployment.md` §7/§17) ahead of its originally-planned position after PD-005, since the tooling itself has no infrastructure dependency — only a *scheduled, provider-managed* snapshot policy does. **Still open:** the recurring/automated schedule independent of manual or deploy-triggered backups, which depends on a hosting-provider decision the Founder has not yet made.
+
+**Original scope (for historical record; items 1/3 delivered, the scheduling half of item 1 still open):**
 
 **Objective:** A real data-loss event (bad migration, accidental deletion, infra failure) has a tested recovery path.
 
@@ -356,25 +368,26 @@ Domains are numbered in **recommended implementation order** — PD-001 is the s
 | # | Domain | Risk | IL Impact | Effort | Depends On |
 |---|---|---|---|---|---|
 | PD-001 | **Production Foundation** (expanded scope — email delivery, security headers, auth hardening/MFA, authorization verification, rate limiting, input sanitization, dependency remediation, config cleanup) | ✅ **Complete** | None | Delivered | — |
-| PD-002 | Observability, Monitoring & Incident Response Foundation | 🔴 Critical | Indirect | Medium (3-4d) | — |
+| PD-002 | **Production Infrastructure & Deployment** (Founder-scoped — absorbs this audit's PD-005 + backup/restore half of PD-006 + logging/health-check slice of this audit's own PD-002) | ✅ **Complete** | Indirect | Delivered | — |
+| — | ↳ *Remainder of this audit's original PD-002 (Observability) — Sentry/APM, proactive AI-budget alerting* | 🔴 Critical | Indirect | Small-Medium (2-3d) | — |
 | PD-003 | Legal, Privacy & Consent Foundation | 🔴 Critical | Indirect | Med-Large (4-6d + legal) | — |
 | PD-004 | ~~Account Security & Auth Hardening~~ (absorbed into PD-001) | ✅ **Complete** (as part of PD-001) | None | Delivered | — |
-| PD-005 | Production Infrastructure Verification, CI/CD & Scaling | 🔴 Critical | Indirect | Large (7-10d) | PD-002 |
-| PD-006 | Backup, Disaster Recovery & Data Durability | 🔴 Critical | Indirect | Medium (3-4d) | PD-005 |
+| — | ↳ *Remainder of this audit's original PD-005 (CD pipeline + staging + k6 load testing)* | 🔴 Critical | Indirect | Medium (5-6d) | Hosting decision |
+| — | ↳ *Remainder of this audit's original PD-006 (scheduled, provider-managed backup policy)* | 🟠 High | Indirect | Small (1-2d) | Hosting decision |
 | PD-007 | AI Safety: Content Moderation & Prompt-Injection Defense | 🔴 Critical (IL) | **Direct** | Medium (3-5d) | — |
 | PD-008 | Content Moderation & Trust/Safety (Platform-Wide) | 🟠 High | None | Medium (3-5d) | — |
 | PD-009 | AI Provider Resilience & Cost Governance Maturity | 🟠 High | **Direct** | Medium (4-6d) | — |
 | PD-010 | AI Data Retention & Conversation Memory Management | 🟡 Medium | **Direct** | Medium (3-5d) | PD-003 |
 | PD-011 | Intelligence Layer Integration Testing & Prompt Evaluation | 🟡 Medium | **Direct** | Med-Large (5-7d) | PD-009 |
-| PD-012 | Document Storage Backend (Real File Handling) | 🟠 High | Indirect | Large (6-8d) | PD-005 |
-| PD-013 | Frontend Quality, Resilience & Test Coverage | 🟡 Medium | None | Medium (4-6d) | PD-002 |
+| PD-012 | Document Storage Backend (Real File Handling) | 🟠 High | Indirect | Large (6-8d) | PD-005 remainder |
+| PD-013 | Frontend Quality, Resilience & Test Coverage | 🟡 Medium | None | Medium (4-6d) | PD-002 remainder |
 | PD-014 | Frontend Domain Completeness | 🟡 Medium | None | Small–Large (varies) | Founder decision (Track A) |
 | PD-015 | Member-Facing Next Best Action Surface | 🟢 Low | **Direct** | Medium (4-5d) | PD-007, PD-011 |
 | PD-016 | Governance Documentation Consolidation | 🟢 Low (ops) / 🟠 High (governance) | None | Not estimable | Founder decision |
 
-**Total estimated engineering effort, PD-002 through PD-015 remaining (excluding delivered PD-001/PD-004, non-estimable legal drafting, and PD-016):** approximately **55-77 engineer-days** remaining, sequenced with real dependencies — not all parallelizable, but PD-002/003/007/008/009 have no dependencies on each other and could run concurrently with separate work streams if more than one engineer/session is available.
+**Total estimated engineering effort remaining (excluding delivered PD-001/PD-002/PD-004, non-estimable legal drafting, and PD-016):** approximately **35-51 engineer-days**, sequenced with real dependencies — the PD-002/PD-005 remainders are both gated on a hosting-provider decision the Founder has not yet made; PD-003/007/008/009 have no dependencies on each other and could run concurrently with separate work streams if more than one engineer/session is available.
 
-**Critical-path minimum before any real-user production launch:** ~~PD-001~~ (done) → PD-002 → PD-003 → PD-005 → PD-006, plus PD-007 if AI features remain enabled for real users at launch. PD-008, PD-009 through PD-015 materially improve safety/quality/completeness but do not block a first launch to a limited/trusted user set the way the critical-path items do.
+**Critical-path minimum before any real-user production launch:** ~~PD-001~~ (done) → ~~PD-002~~ (done) → PD-003 → PD-005 remainder → PD-006 remainder, plus PD-007 if AI features remain enabled for real users at launch. See `docs/work-orders/PD-002-Production-Infrastructure-Deployment.md` §14 for why a **private beta** is judged ready now, ahead of that full critical path. PD-008, PD-009 through PD-015 materially improve safety/quality/completeness but do not block a first launch to a limited/trusted user set the way the critical-path items do.
 
 ---
 
@@ -385,4 +398,4 @@ Domains are numbered in **recommended implementation order** — PD-001 is the s
 
 ---
 
-**PD-001 (expanded Production Foundation, absorbing PD-004) is complete — see `docs/work-orders/PD-001-Production-Foundation.md`. Awaiting authorization before PD-002 begins.**
+**PD-001 (expanded Production Foundation, absorbing PD-004) and PD-002 (Production Infrastructure & Deployment, absorbing this audit's PD-005 and the backup/restore half of PD-006) are both complete — see `docs/work-orders/PD-001-Production-Foundation.md` and `docs/work-orders/PD-002-Production-Infrastructure-Deployment.md`. Awaiting authorization before PD-003 begins.**

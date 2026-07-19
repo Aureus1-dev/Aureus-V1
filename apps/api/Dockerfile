@@ -9,9 +9,14 @@
 # This is a foundational image (PR-002), optimized for correctness over
 # byte-for-byte minimal size: it keeps the full pnpm install (including
 # devDependencies) in the runtime layer rather than pruning to a
-# production-only install. A `turbo prune`-based slimmer build is a
-# documented follow-up (see docs/operations/production-runbook.md §3), not
-# a requirement of this foundation.
+# production-only install — deliberately deferred rather than attempted
+# here (PD-002): a `turbo prune`-based rewrite changes exactly the install
+# step a live Docker daemon would need to verify, and none is available in
+# this sandbox (see docs/operations/production-runbook.md §3). Everything
+# else in PD-002's container-hardening scope (non-root user below,
+# read-only root filesystem, dropped capabilities, no-new-privileges) does
+# not touch this install step and is verifiable from the Dockerfile/compose
+# source alone, so it shipped; this one did not.
 
 FROM node:22-alpine AS base
 RUN corepack enable
@@ -58,7 +63,11 @@ COPY --from=builder --chown=nestjs:nodejs /app/apps/api/node_modules ./apps/api/
 
 USER nestjs
 EXPOSE 3000
+# Liveness (PD-002): no external dependency check, so Docker doesn't
+# restart an otherwise-healthy container over a slow/unreachable
+# database — a load balancer or orchestrator readiness probe should hit
+# /health/ready (DB-inclusive) instead, separately from this HEALTHCHECK.
 HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
-  CMD node -e "require('http').get('http://localhost:'+(process.env.PORT||3000)+'/health',r=>process.exit(r.statusCode===200?0:1)).on('error',()=>process.exit(1))"
+  CMD node -e "require('http').get('http://localhost:'+(process.env.PORT||3000)+'/health/live',r=>process.exit(r.statusCode===200?0:1)).on('error',()=>process.exit(1))"
 
 CMD ["node", "apps/api/dist/main.js"]

@@ -1,13 +1,21 @@
-# Production-shaped local/staging stack (PR-002). Brings up Postgres, the
-# API, and the web app together. Not intended as the production deployment
-# mechanism itself (see docs/operations/production-runbook.md §3-4 for the
-# target orchestrator), but a faithful local approximation of it: the same
-# images, the same env-driven configuration, real inter-service networking.
+# Production-shaped local/staging stack (PR-002, hardened PD-002). Brings
+# up Postgres, Redis, the API, and the web app together. Not intended as
+# the production deployment mechanism itself (see
+# docs/operations/production-runbook.md §3-4 for the target orchestrator),
+# but a faithful local approximation of it: the same images, the same
+# env-driven configuration, real inter-service networking.
+#
+# Container hardening (PD-002): api/web run read-only root filesystems
+# (only /tmp is writable, via tmpfs — neither app writes application data
+# to disk; Documents (Connected Experiences) stores metadata only, not file
+# bytes, see PD-012), drop every Linux capability they don't need, and
+# disable privilege escalation. Already true before this: non-root users
+# baked into both Dockerfiles.
 #
 # Usage:
 #   cp .env.example .env   # fill in real secrets before first run
 #   docker compose up --build
-#   docker compose exec api npx prisma migrate deploy
+#   DATABASE_URL=... ./scripts/db-migrate-deploy.sh   # or: docker compose exec api npx prisma migrate deploy
 #   docker compose exec api npx prisma db seed   # first-admin bootstrap
 
 services:
@@ -27,6 +35,28 @@ services:
       interval: 5s
       timeout: 5s
       retries: 10
+    security_opt:
+      - no-new-privileges:true
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    # No persistence volume: rate-limit counters are short-lived
+    # (60s windows) and safe to lose on restart — not a durability-critical
+    # store, unlike Postgres above.
+    command: ["redis-server", "--save", "", "--appendonly", "no"]
+    ports:
+      - '6379:6379'
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /tmp
 
   api:
     build:
@@ -36,10 +66,15 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      redis:
+        condition: service_healthy
     environment:
       NODE_ENV: production
       PORT: 3000
       DATABASE_URL: postgresql://${POSTGRES_USER:-aureus}:${POSTGRES_PASSWORD:-aureus}@postgres:5432/${POSTGRES_DB:-aureus}?schema=public
+      DATABASE_POOL_MAX: ${DATABASE_POOL_MAX:-10}
+      DATABASE_POOL_MIN: ${DATABASE_POOL_MIN:-0}
+      REDIS_URL: redis://redis:6379
       JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET}
       JWT_ACCESS_EXPIRY: ${JWT_ACCESS_EXPIRY:-15m}
       JWT_REFRESH_EXPIRY_DAYS: ${JWT_REFRESH_EXPIRY_DAYS:-30}
@@ -66,11 +101,28 @@ services:
     ports:
       - '3000:3000'
     healthcheck:
-      test: ['CMD', 'node', '-e', "require('http').get('http://localhost:3000/health',r=>process.exit(r.statusCode===200?0:1)).on('error',()=>process.exit(1))"]
+      # Liveness (PD-002): no external dependency, so a slow/unreachable
+      # database restarting doesn't also restart an otherwise-healthy
+      # container — see /health/ready for the DB-inclusive check a load
+      # balancer or orchestrator readiness probe should use instead.
+      test: ['CMD', 'node', '-e', "require('http').get('http://localhost:3000/health/live',r=>process.exit(r.statusCode===200?0:1)).on('error',()=>process.exit(1))"]
       interval: 30s
       timeout: 5s
       start_period: 15s
       retries: 3
+    # Container hardening (PD-002): read-only root filesystem — neither
+    # this image nor the app writes to disk at runtime (Documents storage
+    # is metadata-only, see PD-012) — with /tmp writable via tmpfs for
+    # whatever transient use Node/npm-installed libraries make of it.
+    # Every Linux capability dropped (this process never needs raw
+    # sockets, chown, etc.), and no-new-privileges blocks setuid escalation.
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
 
   web:
     build:
@@ -89,6 +141,16 @@ services:
       PORT: 3001
     ports:
       - '3001:3001'
+    # Container hardening (PD-002) — see api's comment above; Next.js
+    # standalone output writes only its own cache under .next, which lives
+    # in the image already built at image-build time, not at runtime.
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
 
 volumes:
   postgres-data:

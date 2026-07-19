@@ -1,6 +1,6 @@
 import 'reflect-metadata';
 import { NestFactory } from '@nestjs/core';
-import { Logger, ValidationPipe } from '@nestjs/common';
+import { ConsoleLogger, Logger, ValidationPipe } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import helmet from 'helmet';
@@ -9,13 +9,17 @@ import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
 
 async function bootstrap(): Promise<void> {
   const logger = new Logger('Bootstrap');
+  const isProduction = process.env.NODE_ENV === 'production';
 
   const app = await NestFactory.create(AppModule, {
-    // Environment-aware log levels
-    logger:
-      process.env.NODE_ENV === 'production'
-        ? ['error', 'warn', 'log']
-        : ['error', 'warn', 'log', 'debug'],
+    // Structured JSON logging in production (PD-002) — one parseable
+    // object per line for a container platform's log aggregator, instead
+    // of ANSI-colored text meant for a human terminal.
+    logger: new ConsoleLogger({
+      json: isProduction,
+      colors: !isProduction,
+      logLevels: isProduction ? ['error', 'warn', 'log'] : ['error', 'warn', 'log', 'debug'],
+    }),
   });
 
   const config = app.get(ConfigService);

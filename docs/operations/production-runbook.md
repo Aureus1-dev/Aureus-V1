@@ -63,12 +63,23 @@ Recommended in production (defaulted, but the defaults are dev-shaped):
 | `AI_EMERGENCY_STOP` | `false` | Set to `true` to immediately halt all AI features platform-wide — a kill switch, no restart required (PR-002) |
 | `AI_GLOBAL_DAILY_BUDGET_USD` | `50` | Platform-wide AI spend ceiling, rolling 24h window; further requests are refused with 503 once reached (PR-002) |
 | `AI_USER_DAILY_BUDGET_USD` | `2` | Per-member AI spend ceiling, rolling 24h window; further requests are refused with 403 once reached (PR-002) |
+| `REDIS_URL` | unset → in-memory rate-limit storage | Set once running more than one API replica (PD-002) — see §3 |
+| `DATABASE_POOL_MAX` / `DATABASE_POOL_MIN` | `10` / `0` (the `pg` driver's own defaults) | Size against your Postgres host's `max_connections` (or a pooler in front of it) once running more than one replica (PD-002) |
 
 Optional, one-time only (see §1):
 
 | Variable | Purpose |
 |---|---|
 | `BOOTSTRAP_ADMIN_EMAIL` / `BOOTSTRAP_ADMIN_PASSWORD` | First-administrator creation via `npx prisma db seed` |
+
+### Verifying an environment before deploying (PD-002)
+
+`pnpm verify:env [path-to-env-file]` runs the exact same Joi schema a real boot performs (`apps/api/src/config/env.validation.ts`), standalone — so a candidate `.env`/environment can be checked *before* a deploy, not discovered broken when the container crash-loops:
+
+```
+pnpm verify:env                    # validates the current shell's env vars
+pnpm verify:env .env.production    # loads a file first, then validates it
+```
 
 ### Account security (PD-001)
 
@@ -87,42 +98,57 @@ docker build -f apps/api/Dockerfile -t aureus-api .
 docker build -f apps/web/Dockerfile -t aureus-web .
 ```
 
-Or bring up the full stack (Postgres + API + web) in one step:
+Or bring up the full stack (Postgres + Redis + API + web) in one step:
 
 ```
 cp .env.example .env    # fill in real secrets first
 docker compose up --build
-docker compose exec api npx prisma migrate deploy
+DATABASE_URL=... ./scripts/db-migrate-deploy.sh   # or: docker compose exec api npx prisma migrate deploy
 docker compose exec api npx prisma db seed   # first-admin bootstrap, see §1
 ```
 
 Notes on the images:
 
-- **API** (`apps/api/Dockerfile`): multi-stage Node 22 Alpine build. Installs the full pnpm workspace (needed for the Turborepo build graph — `apps/api` depends on `packages/shared`), runs `prisma generate`, builds with `turbo run build --filter=@aureus-v1/api...`, then copies `node_modules`, `dist`, and `prisma/` into the runtime layer. Listens on `PORT` (default `3000`); `HEALTHCHECK` hits `GET /health`.
+- **API** (`apps/api/Dockerfile`): multi-stage Node 22 Alpine build. Installs the full pnpm workspace (needed for the Turborepo build graph — `apps/api` depends on `packages/shared`), runs `prisma generate`, builds with `turbo run build --filter=@aureus-v1/api...`, then copies `node_modules`, `dist`, and `prisma/` into the runtime layer. Listens on `PORT` (default `3000`); `HEALTHCHECK` hits `GET /health/live` (PD-002 — see below).
 - **Web** (`apps/web/Dockerfile`): uses Next.js `output: "standalone"` (`apps/web/next.config.ts`) so the runtime layer needs only the traced server bundle plus `.next/static` and `public/`, not the full `node_modules` tree. `NEXT_PUBLIC_API_BASE_URL` is inlined into the client bundle at **build** time — pass it as a Docker build arg (`docker compose build.args` or `--build-arg`), not a runtime `-e`. Listens on `PORT` (default `3001`).
-- Both images run as a non-root user and are optimized for **correctness over minimal size** — the API runtime keeps the full pnpm install (including devDependencies, so `npx prisma migrate deploy`/`db seed` work via `docker compose exec`) rather than a pruned production-only install. A `turbo prune`-based slimmer build is a reasonable follow-up, not a requirement of this foundation.
-- **Not yet build-verified against a live Docker daemon in this environment** (no daemon was available when these images were authored). Structurally sound and following the standard pnpm-workspace + Turborepo + Next.js-standalone patterns, but the first real build should happen in CI or staging before it's trusted for a production cutover — see the deploy procedure below, which builds in CI before anything reaches a server.
+- Both images run as a non-root user and are optimized for **correctness over minimal size** — the API runtime keeps the full pnpm install (including devDependencies, so `npx prisma migrate deploy`/`db seed` work via `docker compose exec`) rather than a pruned production-only install. A `turbo prune`-based slimmer build remains a deliberate, named deferral (PD-002): it changes exactly the install step that needs live-daemon verification, still unavailable in the authoring sandbox — see the container hardening note below for what *did* ship instead.
+- **Now build-verified in CI on every push** (PD-002, closing the prior "never build-verified against a live daemon" gap): a `docker` job in `.github/workflows/ci.yml` builds both images, runs `prisma migrate deploy` from the built API image against a real Postgres service container, boots it, and polls `/health/live` then `/health/ready` before the job passes. If this job is green on `main`, the images are known-good — not just structurally plausible.
+
+### Liveness vs. readiness (PD-002)
+
+`GET /health` (unchanged, DB-inclusive) is now joined by two more specific probes, both backed by `@nestjs/terminus`:
+
+- **`GET /health/live`** — is the process up at all? No external dependency checks. This is what the Dockerfile's own `HEALTHCHECK` and `docker-compose.yml`'s `api`/`redis`/`postgres` healthchecks use — a slow/unreachable database shouldn't make an orchestrator kill and restart an otherwise-healthy container.
+- **`GET /health/ready`** — can this instance actually serve traffic? Checks database connectivity. Point a load balancer's or Kubernetes' readiness probe here, not at `/health/live`.
+
+### Rate limiting at scale — Redis (PD-002)
+
+`@nestjs/throttler`'s default storage is an in-memory `Map` — correct for exactly one API replica, silently wrong the moment there's more than one (each replica counts hits independently, so the *effective* limit becomes `configured limit × replica count`). Setting `REDIS_URL` switches to `RedisThrottlerStorageService` (`apps/api/src/common/throttler/redis-throttler-storage.service.ts`), which shares hit counts across every replica via a single atomic Lua script per request. `docker-compose.yml` already wires this to its own `redis` service; a production deployment behind a real load balancer with more than one API instance should point `REDIS_URL` at a shared Redis instance the same way. Leaving it unset in production is not an error (a one-time boot warning is logged, not a failure) — only wrong once you actually scale past one replica.
+
+### Container hardening (PD-002)
+
+`docker-compose.yml`'s `api`, `web`, and `redis` services all run with: a **read-only root filesystem** (only `/tmp` is writable, via `tmpfs` — neither app writes application data to disk at runtime; Document storage is metadata-only today, see PD-012 for real file handling), **every Linux capability dropped** (`cap_drop: [ALL]` — this process never needs raw sockets, `chown`, etc.), and **`no-new-privileges`** (blocks setuid/setgid privilege escalation even if a dependency tried it). Both Dockerfiles already ran as a non-root user before this. The one hardening item *not* done is pruning devDependencies from the runtime image (see above) — named and deferred, not overlooked.
 
 ---
 
 ## 4. Deploy procedure
 
-There is no CD pipeline yet — this is a manual procedure until one is built (a natural next step, not scoped into PR-002).
+There is no CD pipeline yet — this is a manual procedure until one is built (requires a named hosting target and credentials that don't exist in this repository yet; deliberately out of PD-002's reach, see the PD-002 readiness report §7).
 
-1. **CI must be green** on the commit being deployed (backend + frontend test suites, lint, type-check — see the repository's GitHub Actions workflow).
+1. **CI must be green** on the commit being deployed — including the `docker` job (PD-002), which build-verifies both images and boots the API image against a real Postgres before anything downstream should trust them.
 2. **Build the images** from that commit (CI or a deploy host with Docker):
    ```
    docker build -f apps/api/Dockerfile -t aureus-api:<git-sha> .
    docker build -f apps/web/Dockerfile -t aureus-web:<git-sha> \
      --build-arg NEXT_PUBLIC_API_BASE_URL=https://api.yourdomain.example .
    ```
-3. **Run migrations before swapping traffic**, against the production database, from the new image (never from a developer machine with production credentials):
+3. **Back up, then run migrations before swapping traffic**, against the production database, from the new image (never from a developer machine with production credentials):
    ```
-   docker run --rm -e DATABASE_URL="$PRODUCTION_DATABASE_URL" aureus-api:<git-sha> npx prisma migrate deploy
+   DATABASE_URL="$PRODUCTION_DATABASE_URL" ./scripts/db-migrate-deploy.sh
    ```
-   Prisma migrations here are additive-first by convention (see the migration history under `prisma/migrations/`) — a new nullable column or table is safe to apply before the new code is live; a destructive or renaming migration needs a reviewed two-step plan (expand, deploy, contract), not a one-shot `migrate deploy`.
+   This (PD-002) takes a `pg_dump` backup first (see §7), then runs `prisma migrate deploy`, then `prisma migrate status` to confirm every migration actually applied. Prisma migrations here are additive-first by convention (see the migration history under `prisma/migrations/`) — a new nullable column or table is safe to apply before the new code is live; a destructive or renaming migration needs a reviewed two-step plan (expand, deploy, contract), not a one-shot `migrate deploy`.
 4. **Start the new containers** alongside the old ones (blue/green or rolling, depending on the host), pointing at the same database.
-5. **Verify before cutting over traffic**: `GET /health` returns 200 on the new API container; a smoke-test login against the new web container succeeds.
+5. **Verify before cutting over traffic**: `GET /health/ready` returns 200 on the new API container (database connectivity confirmed, not just process-up); a smoke-test login against the new web container succeeds.
 6. **Cut traffic over** (load balancer / DNS / orchestrator-specific step) and **only then** stop the old containers.
 
 ---
@@ -134,14 +160,18 @@ There is no CD pipeline yet — this is a manual procedure until one is built (a
    docker run ... aureus-api:<previous-git-sha>
    docker run ... aureus-web:<previous-git-sha>
    ```
-2. If the migration genuinely was destructive (should not happen under the expand/contract convention above, but if it did): restoring service requires either a forward-fix migration or a database restore from backup — there is no automatic down-migration tooling in this repository. Treat this as an incident (§6), not a routine rollback.
-3. After rolling back, confirm `GET /health` is green on the restored version before considering the rollback complete.
+2. If the migration genuinely was destructive (should not happen under the expand/contract convention above, but if it did): restore the pre-migration backup taken in deploy step 3 (PD-002):
+   ```
+   DATABASE_URL="$PRODUCTION_DATABASE_URL" ./scripts/db-restore.sh ./backups/aureus-<timestamp>.dump
+   ```
+   Treat this as an incident (§6), not a routine rollback — a destructive migration reaching production at all means the expand/contract convention above wasn't followed, and any writes made between the migration and the restore are lost.
+3. After rolling back, confirm `GET /health/ready` is green on the restored version before considering the rollback complete.
 
 ---
 
 ## 6. Incident response
 
-**Current operational signal:** `GET /health`, backed by a Postgres connectivity check via `@nestjs/terminus`. There is no APM/error-tracking integration and no structured audit log beyond `StewardActivityLog` (Connected Experiences domain) and application logs — see PR-001 findings §5. Until real monitoring exists, application logs (`docker logs`/container platform log viewer) are the primary diagnostic source.
+**Current operational signal:** `GET /health` (and the more specific `GET /health/live` / `GET /health/ready`, PD-002), backed by a Postgres connectivity check via `@nestjs/terminus`. Every request is now also logged once at completion — method, path, status, duration, and a request ID echoed back on the response as `X-Request-Id` (`RequestLoggingMiddleware`, PD-002) — and in production, every log line is a single parseable JSON object (`ConsoleLogger`'s `json: true` mode) rather than human-terminal text, so `docker logs`/a container platform's log viewer can be grepped or piped into a log aggregator without a scraping layer in between. There is still no APM/error-tracking SaaS integration (Sentry-class tooling) — that remains a named, Founder-decision-gated deferral (see the PD-002 readiness report §7), since it requires provisioning an external account this sandbox cannot make on anyone's behalf.
 
 **AI budget-related incidents (PR-002):** a spike in AI costs or an unmapped-model pricing gap surfaces as a `WARN`-level log line (`AiPricingUtil`: "No pricing entry for model..." or `AiRequestsService`: "...budget reached"/"...quota reached") before it becomes a bill — grep container logs for these first.
 - To halt AI spend immediately without a deploy: set `AI_EMERGENCY_STOP=true` in the running environment and restart the API container (env var is read at request time via `ConfigService`, so a container restart is sufficient — no rebuild).
@@ -149,4 +179,28 @@ There is no CD pipeline yet — this is a manual procedure until one is built (a
 
 **Account lockout incidents (PR-002):** a member locked out after 5 failed logins waits 15 minutes for `lockedUntil` to clear automatically (see `AuthService.registerFailedLoginAttempt`) — there is no manual unlock endpoint yet. To unlock a specific account sooner, an operator must clear `failedLoginAttempts`/`lockedUntil` directly via `npx prisma studio` or a direct `UPDATE "User" SET "lockedUntil" = NULL, "failedLoginAttempts" = 0 WHERE email = '...'` against the production database — treat this as a privileged, logged, one-off action, not routine tooling.
 
-**Database incidents:** no automated backup/restore procedure is documented yet — this is a gap, not a "nothing to do here." Provision automated backups (the specific mechanism depends on the eventual hosting choice) before this runbook can claim database-incident readiness; until then, treat any data-loss scenario as requiring immediate escalation to whoever provisioned the database.
+**Database incidents:** see §7 (Disaster Recovery, PD-002) — automated ad hoc backup/restore tooling now exists (`scripts/db-backup.sh` / `scripts/db-restore.sh`), closing the prior "no automated backup/restore procedure is documented yet" gap. A *scheduled, provider-managed* snapshot policy (e.g. RDS automated backups) still depends on a hosting decision this sandbox cannot make — see the PD-002 readiness report §7 for that remaining piece.
+
+---
+
+## 7. Disaster recovery (PD-002)
+
+**What this covers:** total loss or corruption of the production database — the scenario where "redeploy the previous image" (§5) isn't enough because the *data* itself is gone or wrong, not just the code.
+
+**Recovery tooling:**
+- `scripts/db-backup.sh` — `pg_dump --format=custom` against `DATABASE_URL`, writes a timestamped, compressed, selectively-restorable dump.
+- `scripts/db-restore.sh` — `pg_restore --clean --if-exists` against `DATABASE_URL`, from a dump produced by the script above. Destructive by design (it's a restore) — requires typing `yes` to confirm, or `CONFIRM=yes` for scripted/drill use.
+- `scripts/db-migrate-deploy.sh` — runs a backup automatically before every migration deploy (see §4), so "the last deploy" is always a recovery point, not just whatever a separate schedule happened to catch.
+
+**Recovery objectives (today, without a provisioned scheduled-backup service):**
+- **RPO (Recovery Point Objective) — since the last deploy or manually-triggered backup.** There is no scheduled/automated backup cadence yet independent of deploys; an operator should run `scripts/db-backup.sh` on a cron (or via the eventual hosting provider's own scheduled-snapshot feature) rather than relying solely on deploy-time backups, especially for a low-deploy-frequency period with real user writes accumulating in between.
+- **RTO (Recovery Time Objective) — dominated by restore time, which scales with database size.** No formal target is set here; the first real restore drill (below) should produce one, timed against real data volume.
+
+**Restore drill procedure** (rehearse this before trusting it in a real incident):
+1. Take a backup of a non-production (or disposable staging) database: `DATABASE_URL="$STAGING_DATABASE_URL" ./scripts/db-backup.sh ./backups`.
+2. Make some verifiable change to that database (e.g. update a known row).
+3. Restore the backup into a *different*, throwaway database: `DATABASE_URL="$SCRATCH_DATABASE_URL" CONFIRM=yes ./scripts/db-restore.sh ./backups/aureus-<timestamp>.dump`.
+4. Confirm the verifiable change from step 2 is gone (i.e. the restore genuinely reverted to the pre-change state) and that the application boots successfully against the restored database (`GET /health/ready` returns 200).
+5. Record how long steps 1 and 3 took — that timing, against real data volume, is the actual RTO, not a guess.
+
+**Explicitly deferred (named, not overlooked):** a provider-managed *scheduled* snapshot policy (the mechanism depends on the eventual hosting choice — RDS automated backups, a managed Postgres provider's own snapshot feature, or a cron running `db-backup.sh` against a specific host) requires that hosting decision to exist first; this PD ships the tooling and the drill procedure that any of those choices would use, not the choice itself.
