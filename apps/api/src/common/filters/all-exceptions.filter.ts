@@ -8,6 +8,7 @@ import {
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { Request, Response } from 'express';
+import * as Sentry from '@sentry/node';
 
 interface ErrorBody {
   statusCode: number;
@@ -31,6 +32,15 @@ export class AllExceptionsFilter implements ExceptionFilter {
       `${request.method} ${request.url} → ${status}`,
       exception instanceof Error ? exception.stack : String(exception),
     );
+
+    // Report 5xx only — 4xx are expected client errors (bad input, missing
+    // auth), not incidents. Sentry.captureException no-ops when SENTRY_DSN
+    // is unset, so this is safe in every environment without one.
+    if (status >= HttpStatus.INTERNAL_SERVER_ERROR) {
+      Sentry.captureException(exception, {
+        extra: { method: request.method, path: request.url },
+      });
+    }
 
     const body: ErrorBody = {
       statusCode: status,

@@ -8,6 +8,9 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
+import * as Sentry from '@sentry/node';
+
+jest.mock('@sentry/node', () => ({ captureException: jest.fn() }));
 
 function makeHost(method = 'GET', url = '/test'): {
   host: ArgumentsHost;
@@ -32,6 +35,7 @@ describe('AllExceptionsFilter', () => {
     filter = new AllExceptionsFilter();
     jest.spyOn(Logger.prototype, 'error').mockImplementation(() => undefined);
     jest.spyOn(Logger.prototype, 'warn').mockImplementation(() => undefined);
+    (Sentry.captureException as jest.Mock).mockClear();
   });
 
   afterEach(() => jest.restoreAllMocks());
@@ -135,6 +139,24 @@ describe('AllExceptionsFilter', () => {
     expect(json).toHaveBeenCalledWith(
       expect.objectContaining({ statusCode: 500 }),
     );
+  });
+
+  // ── Sentry reporting ────────────────────────────────────────────────────
+
+  it('reports 5xx exceptions to Sentry', () => {
+    const { host } = makeHost('GET', '/boom');
+    const err = new Error('something unexpected');
+    filter.catch(err, host);
+    expect(Sentry.captureException).toHaveBeenCalledWith(
+      err,
+      expect.objectContaining({ extra: { method: 'GET', path: '/boom' } }),
+    );
+  });
+
+  it('does not report 4xx exceptions to Sentry', () => {
+    const { host } = makeHost();
+    filter.catch(new NotFoundException('user not found'), host);
+    expect(Sentry.captureException).not.toHaveBeenCalled();
   });
 
   // ── Response shape ──────────────────────────────────────────────────────

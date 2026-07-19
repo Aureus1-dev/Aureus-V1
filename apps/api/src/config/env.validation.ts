@@ -91,4 +91,11 @@ export const envValidationSchema = Joi.object({
   // behavior to before this option existed.
   DATABASE_POOL_MAX: Joi.number().empty('').default(10),
   DATABASE_POOL_MIN: Joi.number().empty('').default(0),
+
+  // Error tracking (Production Stability). Optional in every environment —
+  // absent, AllExceptionsFilter still logs every 5xx to stdout as before,
+  // it just never leaves the process. Not made production-required like
+  // SMTP/CORS above: a production deploy without Sentry configured is a
+  // legitimate (if less observable) choice, not a broken one.
+  SENTRY_DSN: Joi.string().empty('').optional(),
 });
