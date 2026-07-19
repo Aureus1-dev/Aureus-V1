@@ -50,6 +50,14 @@ RUN addgroup --system --gid 1001 nodejs && adduser --system --uid 1001 nestjs
 
 COPY --from=builder --chown=nestjs:nodejs /app/node_modules ./node_modules
 COPY --from=builder --chown=nestjs:nodejs /app/package.json ./package.json
+# prisma/schema.prisma's own `datasource db` block has no `url` — it's
+# supplied entirely by prisma.config.ts's `datasource.url`. Prisma 7's CLI
+# (migrate deploy, etc.) needs that config file present at the cwd it runs
+# from; without it, `npx prisma migrate deploy` fails at runtime with
+# "The datasource.url property is required in your Prisma config file"
+# even though `prisma generate` at build time (above) worked fine, since
+# that step runs from /app in the builder stage where the file exists.
+COPY --from=builder --chown=nestjs:nodejs /app/prisma.config.ts ./prisma.config.ts
 COPY --from=builder --chown=nestjs:nodejs /app/prisma ./prisma
 COPY --from=builder --chown=nestjs:nodejs /app/packages/shared/dist ./packages/shared/dist
 COPY --from=builder --chown=nestjs:nodejs /app/packages/shared/package.json ./packages/shared/package.json
