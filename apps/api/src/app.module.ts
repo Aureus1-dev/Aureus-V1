@@ -1,3 +1,4 @@
+import { join } from 'path';
 import { Logger, MiddlewareConsumer, Module, NestModule } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { APP_GUARD } from '@nestjs/core';
@@ -33,8 +34,22 @@ import { HealthModule } from './health/health.module';
     // Schema lives in ./config/env.validation.ts (PD-002) so the exact same
     // validation an actual boot performs can also run standalone via
     // `src/scripts/verify-env.ts`, ahead of a deploy.
+    //
+    // envFilePath is explicit (config audit fix): without it, dotenv's
+    // default lookup is relative to process.cwd(), which is apps/api when
+    // this app's own dev/start script runs (pnpm/turbo run a workspace
+    // package's script with that package's directory as cwd) — not the
+    // repo root, where the monorepo's single .env actually lives. Left
+    // unset, a correctly-configured root .env is silently never read and
+    // boot fails with "DATABASE_URL is required" even though the file is
+    // right there one directory up. apps/api/.env is checked first (so a
+    // per-package override still wins if anyone ever adds one), root .env
+    // second. Both entries are skipped silently if absent — production
+    // and CI, which set real environment variables directly and have no
+    // .env file at all, are unaffected either way.
     ConfigModule.forRoot({
       isGlobal: true,
+      envFilePath: [join(__dirname, '.env'), join(__dirname, '..', '..', '..', '.env')],
       validationOptions: { abortEarly: false },
       validationSchema: envValidationSchema,
     }),
