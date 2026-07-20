@@ -19,6 +19,14 @@ RUN apk add --no-cache libc6-compat
 FROM base AS deps
 WORKDIR /app
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml turbo.json tsconfig.base.json ./
+# The web app has no direct Prisma dependency, but the root package.json's
+# own `postinstall` (prisma generate) still fires on this `pnpm install` —
+# it's a workspace-root lifecycle script, not something a `--filter` can
+# skip. Without these two, that postinstall fails here with "Could not
+# find Prisma Schema", since this stage's minimal context otherwise never
+# includes prisma.config.ts/prisma/schema.prisma.
+COPY prisma.config.ts ./
+COPY prisma ./prisma
 COPY apps/api/package.json ./apps/api/package.json
 COPY apps/web/package.json ./apps/web/package.json
 COPY packages/shared/package.json ./packages/shared/package.json
