@@ -60,11 +60,14 @@ Recommended in production (defaulted, but the defaults are dev-shaped):
 | `SMTP_PORT`/`SMTP_USER`/`SMTP_PASSWORD` | Paired with `SMTP_HOST` above | Set alongside `SMTP_HOST` for your real provider |
 | `AI_PROVIDER` | `stub` → deterministic canned responses, no real AI | Set to `openai` or `anthropic` with the matching API key (required above) for a real AI Steward |
 | `ENABLE_API_DOCS` | `false` in production (on by default outside it) | Set to `true` only if this deployment wants `/api/docs` public — otherwise stays closed to avoid handing out a free endpoint/DTO schema dump |
+| `FRONTEND_URL` | `http://localhost:3001` | Set to the real deployed frontend origin — used to build password-reset/email-verification links; left at the default, those links point at `localhost` for every recipient |
 | `AI_EMERGENCY_STOP` | `false` | Set to `true` to immediately halt all AI features platform-wide — a kill switch, no restart required (PR-002) |
 | `AI_GLOBAL_DAILY_BUDGET_USD` | `50` | Platform-wide AI spend ceiling, rolling 24h window; further requests are refused with 503 once reached (PR-002) |
 | `AI_USER_DAILY_BUDGET_USD` | `2` | Per-member AI spend ceiling, rolling 24h window; further requests are refused with 403 once reached (PR-002) |
 | `REDIS_URL` | unset → in-memory rate-limit storage | Set once running more than one API replica (PD-002) — see §3 |
 | `DATABASE_POOL_MAX` / `DATABASE_POOL_MIN` | `10` / `0` (the `pg` driver's own defaults) | Size against your Postgres host's `max_connections` (or a pooler in front of it) once running more than one replica (PD-002) |
+| `SENTRY_DSN` | unset → 5xx errors log to stdout only | Set to a real Sentry DSN to also report uncaught 5xx exceptions and fatal bootstrap failures there (Production Stability) |
+| `VOICE_MODEL` / `VOICE_NAME` | `gpt-4o-realtime-preview` / `alloy` | Reuses `OPENAI_API_KEY` above — no separate credential. Override only to pick a different Realtime model/voice preset |
 
 Optional, one-time only (see §1):
 

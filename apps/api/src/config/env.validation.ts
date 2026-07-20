@@ -98,4 +98,21 @@ export const envValidationSchema = Joi.object({
   // SMTP/CORS above: a production deploy without Sentry configured is a
   // legitimate (if less observable) choice, not a broken one.
   SENTRY_DSN: Joi.string().empty('').optional(),
+
+  // AI spend controls (PR-002/PR-003, Production Environment Variable
+  // Audit). These three only ever seed AiOperationalConfig's singleton DB
+  // row on first read — see AiOperationalConfigService for why — so a
+  // missing/malformed value here is not boot-fatal in the way OPENAI_API_KEY
+  // is. Added to this schema anyway so a typo (e.g. AI_GLOBAL_DAILY_BUDGET_USD
+  // set to a non-numeric string) fails loudly at boot instead of silently
+  // falling through to ConfigService's own default.
+  AI_EMERGENCY_STOP:          Joi.boolean().empty('').default(false),
+  AI_GLOBAL_DAILY_BUDGET_USD: Joi.number().empty('').default(50),
+  AI_USER_DAILY_BUDGET_USD:   Joi.number().empty('').default(2),
+
+  // Voice Domain (ADR-016). Reuses OPENAI_API_KEY above — no separate
+  // credential. Optional in every environment: absent, VoiceSessionService
+  // falls back to these same literal defaults itself.
+  VOICE_MODEL: Joi.string().empty('').default('gpt-4o-realtime-preview'),
+  VOICE_NAME:  Joi.string().empty('').default('alloy'),
 });
