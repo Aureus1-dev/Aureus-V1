@@ -2,9 +2,10 @@
 
 **Document ID:** ENG-010
 **Title:** Opportunity Intelligence Pipeline Constitution
-**Status:** Draft for Founder Approval
-**Authority:** Canonical upon Founder Approval, scoped to the Opportunity Intelligence Pipeline
+**Status:** Founder Approved
+**Authority:** Canonical, scoped to the Opportunity Intelligence Pipeline
 **Version:** 1.1
+**Approved:** 2026-07-20
 
 ---
 
