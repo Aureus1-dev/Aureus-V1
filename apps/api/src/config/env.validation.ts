@@ -39,23 +39,32 @@ export const envValidationSchema = Joi.object({
   JWT_REFRESH_EXPIRY_DAYS: Joi.number().default(30),
 
   // ── Email delivery (ADR-009, hardened PD-001) ────────────────────────────
-  // SMTP_HOST is optional in development/test (local dev, CI) — it falls
-  // back to nodemailer's jsonTransport, which captures rather than
-  // delivers. In production it is required: without it, password reset
-  // and email verification would silently no-op instead of failing.
+  // TEMPORARY (v1 launch): SMTP_HOST was required once NODE_ENV=production
+  // (see git history for the .when('NODE_ENV', ...) rule this replaced).
+  // Relaxed to fully optional in every environment so the app can boot and
+  // serve traffic before a production SMTP provider is provisioned — a
+  // sequencing problem (SMTP setup depending on a domain the deploy itself
+  // is meant to prove out first), not a decision that email delivery is
+  // unimportant. Absent, NodemailerEmailService falls back to nodemailer's
+  // jsonTransport (captures instead of delivering) and logs a startup
+  // warning naming exactly which features are affected: email verification,
+  // password reset, and the email channel of Communication System
+  // notifications — see that warning and docs/operations/production-
+  // runbook.md §2 for the full list. None of this touches the security
+  // controls those features sit behind (email-verification-required-at-
+  // login stays enforced; a user with no way to receive the verification
+  // link simply cannot complete it — "unavailable," not "bypassed").
+  // Revert by restoring: `.when('NODE_ENV', { is: 'production', then: Joi.required() })`
+  // once a production SMTP provider is configured.
   // .empty('') treats an explicitly-empty-string value the same as an
-  // absent one — docker-compose.yml's `${SMTP_HOST:-}` substitution
-  // sets literally "" rather than omitting the key when the operator
-  // hasn't provided a real value, so without this an unset SMTP_HOST
-  // would fail with a confusing "not allowed to be empty" instead of
-  // the intended "required in production" message.
+  // absent one — docker-compose.yml's `${SMTP_HOST:-}` substitution sets
+  // literally "" rather than omitting the key when the operator hasn't
+  // provided a real value.
   // .empty('') below on SMTP_PORT/SMTP_SECURE (and OPENAI_MODEL/
   // ANTHROPIC_MODEL further down) for the same docker-compose.yml
-  // `${VAR:-}` empty-string reason as SMTP_HOST above — these are also
-  // passed that way even though they're not production-required, so an
-  // unset host var must still fall through to Joi's own .default(),
-  // not fail validation outright.
-  SMTP_HOST: Joi.string().empty('').when('NODE_ENV', { is: 'production', then: Joi.required() }),
+  // `${VAR:-}` empty-string reason as SMTP_HOST above — an unset value
+  // must fall through to Joi's own .default(), not fail validation outright.
+  SMTP_HOST: Joi.string().empty('').optional(),
   SMTP_PORT:       Joi.number().empty('').default(587),
   SMTP_SECURE:     Joi.boolean().empty('').default(false),
   SMTP_USER:       Joi.string().empty('').optional(),

@@ -10,11 +10,13 @@ import { IEmailService } from './email.service.interface';
  * (works with any SMTP-speaking provider — SES, SendGrid, Postmark, etc.,
  * per ADR-005 §7's "SES/SendGrid" follow-up note — without binding the
  * codebase to a vendor-specific SDK). When it is not configured (local
- * development, CI, this environment), nodemailer's own `jsonTransport` is
- * used instead: the real send path still runs end-to-end, but the message
- * is captured rather than handed to a network socket, and is logged for
- * visibility. This is nodemailer's own supported mechanism for exactly this
- * situation, not a hand-rolled stand-in — see nodemailer's transports docs.
+ * development, CI, this environment, or — temporarily, for the v1 launch —
+ * production before an SMTP provider is provisioned; see env.validation.ts),
+ * nodemailer's own `jsonTransport` is used instead: the real send path still
+ * runs end-to-end, but the message is captured rather than handed to a
+ * network socket, and is logged for visibility. This is nodemailer's own
+ * supported mechanism for exactly this situation, not a hand-rolled
+ * stand-in — see nodemailer's transports docs.
  */
 @Injectable()
 export class NodemailerEmailService implements IEmailService, OnModuleInit {
@@ -43,9 +45,15 @@ export class NodemailerEmailService implements IEmailService, OnModuleInit {
       this.logger.log(`Email transport: SMTP (${host})`);
     } else {
       this.transport = nodemailer.createTransport({ jsonTransport: true });
+      const isProduction = this.config.get<string>('NODE_ENV') === 'production';
       this.logger.warn(
-        'SMTP_HOST is not configured — emails will be captured locally, not delivered. ' +
-          'Set SMTP_HOST/SMTP_PORT/SMTP_USER/SMTP_PASSWORD before deploying to production.',
+        `SMTP_HOST is not configured — emails will be captured locally, not delivered.${
+          isProduction ? ' Running in production without it (temporary v1 relaxation — see env.validation.ts).' : ''
+        } The following features are unavailable until SMTP_HOST/SMTP_PORT/SMTP_USER/SMTP_PASSWORD are set: ` +
+          'email verification links, password-reset links, and the email channel of Communication System ' +
+          'notifications (in-app notifications and every other feature are unaffected). This does not weaken any ' +
+          'security control — accounts still require a verified email to log in; they just have no way to ' +
+          'receive that verification until SMTP is configured.',
       );
     }
   }

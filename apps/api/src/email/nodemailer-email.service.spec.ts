@@ -1,3 +1,4 @@
+import { Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import * as nodemailer from 'nodemailer';
 import { NodemailerEmailService } from './nodemailer-email.service';
@@ -35,6 +36,19 @@ describe('NodemailerEmailService', () => {
       service.onModuleInit();
 
       expect(mockCreateTransport).toHaveBeenCalledWith({ jsonTransport: true });
+    });
+
+    it('warns naming the affected features when SMTP_HOST is absent, in any NODE_ENV', () => {
+      const warnSpy = jest.spyOn(Logger.prototype, 'warn').mockImplementation(() => undefined);
+
+      new NodemailerEmailService(makeConfig({ NODE_ENV: 'production' })).onModuleInit();
+
+      expect(warnSpy).toHaveBeenCalledWith(
+        expect.stringContaining('email verification links, password-reset links'),
+      );
+      expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('does not weaken any'));
+
+      warnSpy.mockRestore();
     });
   });
 

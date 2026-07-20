@@ -48,7 +48,6 @@ Required (app fails to boot without these — see `apps/api/src/app.module.ts` J
 | Variable | Dev/test behavior if unset | Production requirement |
 |---|---|---|
 | `CORS_ORIGIN` | Defaults to `*` | Must be an explicit origin (not `*`) — `*` disables credentialed CORS |
-| `SMTP_HOST` | Falls back to nodemailer's local jsonTransport capture — no real email sent | Required — without it, password reset / email verification would silently no-op |
 | `OPENAI_API_KEY` | N/A unless `AI_PROVIDER=openai` | Required whenever `AI_PROVIDER=openai` (either environment) |
 | `ANTHROPIC_API_KEY` | N/A unless `AI_PROVIDER=anthropic` | Required whenever `AI_PROVIDER=anthropic` (either environment) |
 
@@ -57,7 +56,7 @@ Recommended in production (defaulted, but the defaults are dev-shaped):
 | Variable | Default | Why to set it in production |
 |---|---|---|
 | `NODE_ENV` | `development` | Set to `production` — also gates the requirements above and disables Swagger (see `ENABLE_API_DOCS` below) |
-| `SMTP_PORT`/`SMTP_USER`/`SMTP_PASSWORD` | Paired with `SMTP_HOST` above | Set alongside `SMTP_HOST` for your real provider |
+| `SMTP_HOST`/`SMTP_PORT`/`SMTP_USER`/`SMTP_PASSWORD` | Falls back to nodemailer's local jsonTransport capture — no real email sent | **Not currently required in production** (temporary v1 relaxation — see "Email delivery is optional for v1" below). Set before launch to enable email verification, password reset, and notification emails |
 | `AI_PROVIDER` | `stub` → deterministic canned responses, no real AI | Set to `openai` or `anthropic` with the matching API key (required above) for a real AI Steward |
 | `ENABLE_API_DOCS` | `false` in production (on by default outside it) | Set to `true` only if this deployment wants `/api/docs` public — otherwise stays closed to avoid handing out a free endpoint/DTO schema dump |
 | `FRONTEND_URL` | `http://localhost:3001` | Set to the real deployed frontend origin — used to build password-reset/email-verification links; left at the default, those links point at `localhost` for every recipient |
@@ -74,6 +73,22 @@ Optional, one-time only (see §1):
 | Variable | Purpose |
 |---|---|
 | `BOOTSTRAP_ADMIN_EMAIL` / `BOOTSTRAP_ADMIN_PASSWORD` | First-administrator creation via `npx prisma db seed` |
+
+### Email delivery is optional for v1 (temporary)
+
+`SMTP_HOST` is **not** required in production right now — this is a deliberate, temporary relaxation for the v1 launch (SMTP setup depends on a domain the deploy itself is meant to prove out first), not a decision that email delivery doesn't matter. Leaving it unset in production is fully supported: the app boots normally, `NodemailerEmailService` falls back to nodemailer's `jsonTransport` (captures messages locally instead of delivering them), and logs an explicit startup warning.
+
+**Exactly what stays unavailable without `SMTP_HOST` configured:**
+- **Email verification** — `POST /auth/register` still creates the account and issues a real verification token, but the email carrying its link is never delivered, so the member has no way to complete verification.
+- **Password reset** — `POST /auth/forgot-password` still issues a real reset token, but its email is never delivered — no self-service password recovery until SMTP is configured.
+- **Communication System notification emails** — the email delivery *channel* only; in-app notifications and every other feature are unaffected. `NotificationsService` already tracks each attempt's delivery status and never crashes on a send failure (this predates this change).
+
+**What does *not* change** — no security control is weakened by this relaxation:
+- Login still enforces `emailVerified` (`POST /auth/login` returns 403 for an unverified account) — a member who cannot receive the verification email simply cannot log in until SMTP is configured (or an operator verifies them directly). This is the intended, accepted tradeoff of shipping without SMTP for v1, not a bypass.
+- Password-reset and email-verification tokens are still generated, hashed, TTL'd, and single-use exactly as before — only their delivery is affected.
+- Anti-enumeration behavior (`forgot-password` always returning 204) is unchanged.
+
+**Reverting this relaxation** once a production SMTP provider is ready: restore the `.when('NODE_ENV', { is: 'production', then: Joi.required() })` rule on `SMTP_HOST` in `apps/api/src/config/env.validation.ts` (removed in this change — see git history), then just set `SMTP_HOST`/`SMTP_PORT`/`SMTP_USER`/`SMTP_PASSWORD` in Render.
 
 ### Verifying an environment before deploying (PD-002)
 
