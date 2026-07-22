@@ -8,15 +8,15 @@ Living dashboard for the First Members launch. Source of truth for scope and seq
 
 ## Overall Progress
 
-**10% (5 of 49 work orders complete).**
+**12% (6 of 49 work orders complete).**
 
-All four Pre-Gate Founder decisions (P1–P4) are complete, and Gate A's first work order (A1 — city sheet schema) is done. Progress is calculated as completed work orders ÷ total work orders across Pre-Gate and Gates A–F (5/49), consistent with how this scoreboard has counted progress since the registry was established.
+All four Pre-Gate Founder decisions (P1–P4) are complete, and Gate A's first two work orders (A1 — city sheet schema, A2 — city sheet storage) are done. Progress is calculated as completed work orders ÷ total work orders across Pre-Gate and Gates A–F (6/49), consistent with how this scoreboard has counted progress since the registry was established.
 
 ## Overall Launch Readiness
 
-**Not ready. Gate A is in progress (1/6 work orders done).**
+**Not ready. Gate A is in progress (2/6 work orders done).**
 
-The Pre-Gate blocker is cleared and A1 (the city sheet data schema) is done. Gates B–F remain sequentially gated behind Gate A's completion, per LAUNCH-001's "each blocking the next."
+The Pre-Gate blocker is cleared; the city sheet's data schema (A1) and storage/query layer (A2) are both done. Gates B–F remain sequentially gated behind Gate A's completion, per LAUNCH-001's "each blocking the next."
 
 ## Current Gate
 
@@ -24,17 +24,17 @@ The Pre-Gate blocker is cleared and A1 (the city sheet data schema) is done. Gat
 
 ## Current Work Order
 
-**A3 — Compile candidate referral list.** A1 is done. A3's only dependency, P1, is satisfied, so it is the next highest-priority (Critical) unblocked item; it does not depend on A1. A2 (Build city sheet storage) is also unblocked now that A1 is done and may proceed in parallel with A3.
+**A3 — Compile candidate referral list.** A1 and A2 are done. A3's only dependency, P1, is satisfied, so it is the next highest-priority (Critical) unblocked item; it does not depend on A1/A2. A4 (Human-verify every referral) depends on A3 and is not yet startable.
 
 ## Current Focus
 
-Gate A: the city sheet schema is defined (A1); next is standing up storage (A2) and compiling the candidate referral list for Chester and Delaware County, PA (A3).
+Gate A: schema (A1) and storage (A2) are done; next is compiling the candidate referral list for Chester and Delaware County, PA (A3), which A4's human verification pass depends on.
 
 ## Blocked Items
 
 | Item | Blocked By | Effect |
 |---|---|---|
-| A4 – Human-verify every referral | A2, A3 (not yet done) | Awaiting storage + candidate list |
+| A4 – Human-verify every referral | A3 (not yet done) | Awaiting candidate list |
 | B3 – Connect Clearing to verified city sheet | Gate A (not complete) | Cannot start |
 | B6 – Draft the 10 drill scripts | Gate A (not complete) | Cannot start |
 | C3 – Implement curated Search | Gate A (not complete) | Cannot start |
@@ -44,20 +44,21 @@ Gate A: the city sheet schema is defined (A1); next is standing up storage (A2) 
 | Gate E (all work orders) | Gate C | Not started |
 | Gate F (all work orders) | Gates A–E | Not started |
 
-P1–P4 no longer appear as blockers — all four are Founder Approved / Complete. A1 no longer appears as a blocker — it is Done.
+P1–P4 no longer appear as blockers — all four are Founder Approved / Complete. A1 and A2 no longer appear as blockers — both are Done.
 
 ## Completed This Week
 
 - Founder decided all four Pre-Gate items (P1–P4): launch metro (Chester and Delaware County, PA), invitation path (direct invitations first), steward staffing (Founder + one trusted human steward), and Gate F date ambition (readiness-gated, internal target 2026-08-21).
 - A1 — Defined the Launch City Sheet data schema: `CitySheetEntry` model (plus `CitySheetCategory`, `LaunchAreaScope`, `CitySheetVerificationStatus`, `CitySheetEntryStatus` enums) added to `prisma/schema.prisma`, with migration `20260722140000_add_launch_city_sheet`. Verified via `prisma validate`, a from-scratch `prisma migrate deploy` alongside all 23 prior migrations, `prisma migrate status` (zero drift), `prisma generate`, and a clean `apps/api` type-check. No organizations populated — structure only.
+- A2 — Built the Launch City Sheet storage layer: `apps/api/src/city-sheet/` (repository interface + Prisma implementation, `CitySheetService`, `CitySheetController`, DTOs), wired into `app.module.ts` and the `city-sheet` Swagger tag. Supports create, list/search, get by ID or ref, update, archive, verify, and flag-for-review, all gated to Steward/Platform Administrator (no per-entry owner — LAUNCH-001: "Ownership: stewards + Founder"). `launchScope` and the full UNVERIFIED/VERIFIED/NEEDS_REVIEW lifecycle are enforced in the service and covered by 19 new unit tests. Verified via a from-scratch database: `prisma migrate deploy`, the full `apps/api` unit suite (106/108 suites pass — the 2 remaining failures are pre-existing Voice Domain realtime-session flakiness confirmed present on `HEAD~1`, unrelated to this work order), `tsc --noEmit`, and `eslint`. No organizations populated, no data scraped or imported, no UI built.
 
 ## Next Recommended Task
 
-**Begin A3 — Compile candidate referral list** for Chester and Delaware County, PA (crisis lines, assistance programs, legal aid, food resources), in parallel with **A2 — Build city sheet storage**, which implements the query/storage layer against the new `CitySheetEntry` schema.
+**Begin A3 — Compile candidate referral list** for Chester and Delaware County, PA (crisis lines, assistance programs, legal aid, food resources), using the `POST /city-sheet` endpoint A2 now provides. A4 (human verification) follows once A3 produces candidates.
 
 ## Repository Health
 
-No regression. This update added one new Prisma model, four new enums, and one migration under `prisma/`, plus documentation updates; no existing model, migration, or file was modified. `prisma validate`, a full migration replay, `prisma generate`, and `apps/api`'s `tsc --noEmit` all pass clean.
+No regression. A2 added one new backend domain module (`apps/api/src/city-sheet/`, 13 files) and two Swagger/module-registration edits (`app.module.ts`, `main.ts`); no existing module, service, or migration was modified. `tsc --noEmit`, `eslint`, and the full Jest suite against a live database all pass clean, with the only failures (Voice Domain, 2 suites) confirmed pre-existing and unrelated by re-running them against the same database without this branch's changes.
 
 ---
 
@@ -65,7 +66,7 @@ No regression. This update added one new Prisma model, four new enums, and one m
 
 | Gate | Title | Status | Progress | Owner | Dependencies |
 |---|---|---|---|---|---|
-| A | The city sheet | **In Progress** | 17% (1/6 work orders) | Stewards + Founder | P1 (satisfied) |
+| A | The city sheet | **In Progress** | 33% (2/6 work orders) | Stewards + Founder | P1 (satisfied) |
 | B | The Clearing drill | Not Started | 0% (0/8 work orders) | Stewards + Founder | Gate A, P3 (satisfied) |
 | C | The spine | Not Started | 0% (0/10 work orders) | Engineering | Gate A |
 | D | The Tending Run | Not Started | 0% (0/7 work orders) | Engineering + Stewards | Gate C |

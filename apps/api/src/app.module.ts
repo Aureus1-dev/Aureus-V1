@@ -16,6 +16,7 @@ import { MilestonesModule } from './milestones/milestones.module';
 import { TasksModule } from './tasks/tasks.module';
 import { OpportunitiesModule } from './opportunities/opportunities.module';
 import { ResourcesModule } from './resources/resources.module';
+import { CitySheetModule } from './city-sheet/city-sheet.module';
 import { OrganizationsModule } from './organizations/organizations.module';
 import { StewardshipModule } from './stewardship/stewardship.module';
 import { CommunicationModule } from './communication/communication.module';
@@ -92,6 +93,7 @@ import { HealthModule } from './health/health.module';
     TasksModule,
     OpportunitiesModule,
     ResourcesModule,
+    CitySheetModule,
     OrganizationsModule,
     StewardshipModule,
     CommunicationModule,
