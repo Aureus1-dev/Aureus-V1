@@ -6,14 +6,42 @@
 
 ## Pre-Gate — Founder Decisions Required
 
-LAUNCH-001 closes with four explicit open questions that block downstream work. These are not engineering tasks; they are decisions only the Founder can make, and nearly everything below depends on them.
+LAUNCH-001 closed with four explicit open questions that blocked downstream work. **All four have now been decided by the Founder.** Pre-Gate is complete; Gate A may begin.
 
 | ID | Title | Description | Dependencies | Owner | Priority | Status | Acceptance Criteria |
 |---|---|---|---|---|---|---|---|
-| P1 | Confirm the launch metro | Select the one city/metro area where the first 25 members and the verified city sheet will live. | None | Founder | Critical | **Blocked — awaiting Founder decision** | A named metro area is recorded in this document and in Gate A's scope. |
-| P2 | Confirm invitation path | Decide: partner-sourced invitations, direct Founder invitations, or a mix, for the first cohort. | None | Founder | Critical | **Blocked — awaiting Founder decision** | Invitation path is documented; Gate F's invitation tasks can reference it concretely. |
-| P3 | Confirm steward staffing | Identify and commission the 1–2 human stewards named in LAUNCH-001's "Staffing the Promise" section. | None | Founder | Critical | **Blocked — awaiting Founder decision** | Named steward(s) are in place, under WO-025's capacity rules. |
-| P4 | Confirm Gate F date ambition | Set a target date (or date range) for the Founding Review and first invitation. | None | Founder | High | **Blocked — awaiting Founder decision** | A target date is recorded here and reflected in the Scoreboard. |
+| P1 | Confirm the launch metro | Select the one city/metro area where the first 25 members and the verified city sheet will live. | None | Founder | Critical | **Founder Approved — Complete** | A named metro area is recorded in this document and in Gate A's scope. |
+| P2 | Confirm invitation path | Decide: partner-sourced invitations, direct Founder invitations, or a mix, for the first cohort. | None | Founder | Critical | **Founder Approved — Complete** | Invitation path is documented; Gate F's invitation tasks can reference it concretely. |
+| P3 | Confirm steward staffing | Identify and commission the 1–2 human stewards named in LAUNCH-001's "Staffing the Promise" section. | None | Founder | Critical | **Founder Approved — Complete** | Named steward(s) are in place, under WO-025's capacity rules. |
+| P4 | Confirm Gate F date ambition | Set a target date (or date range) for the Founding Review and first invitation. | None | Founder | High | **Founder Approved — Complete** | A target date is recorded here and reflected in the Scoreboard. |
+
+### Decision Record
+
+**P1 — Launch Metro**
+
+Decision: Chester and Delaware County, Pennsylvania, within the greater Philadelphia region.
+
+Operating interpretation: The verified city sheet and launch operations begin with resources that directly serve Chester and Delaware County. Greater Philadelphia resources may be included only when they genuinely accept and serve members from the launch area. This is not a general Philadelphia or national launch, and Gate A's scope (A3 in particular) must not silently expand beyond it.
+
+**P2 — Invitation Path**
+
+Decision: Direct invitations first.
+
+Operating interpretation: The first members are personally invited and welcomed by Aureus. Launch readiness does not depend on securing an outside institutional partner. Potential partners may assist with referrals later, but no partner relationship is a prerequisite for Member #1 (see F3).
+
+**P3 — Steward Staffing**
+
+Decision: Founder plus one trusted human steward at initial launch.
+
+Operating interpretation: The Founder provides oversight, review, and surge capacity. The trusted human steward participates in the daily Tending Run and member support. A second commissioned steward must be added before actual active-member volume or case complexity would cause the existing team to violate the quality, response, crisis, or capacity promises in LAUNCH-001. Twenty-five members is a ceiling, not a staffing target — staffing scales with demonstrated volume and complexity, not the stated maximum.
+
+**P4 — Gate F Date Ambition**
+
+Decision: Gate F is readiness-gated, with an internal target date rather than a forced launch deadline.
+
+Target: complete Gates A–E and begin the Founding Review within 30 calendar days of the Founder approving these decisions (Founder approval recorded 2026-07-22; internal target date **2026-08-21**).
+
+Operating interpretation: This is an internal ambition, not permission to bypass a gate. Gate F passes only when: the Founder completes the entire member journey truthfully; a person unfamiliar with Aureus completes the journey without being coached through it; no interface or message implies a capability Aureus does not actually possess; all prior gates have passed; and all release-blocking failures are resolved. If the thirty-day target is missed, the reason must be reported and the forecast revised — acceptance criteria are not to be weakened to hit the date.
 
 ---
 
@@ -21,11 +49,13 @@ LAUNCH-001 closes with four explicit open questions that block downstream work. 
 
 *LAUNCH-001: "Every crisis and assistance referral for the launch metro verified by a human within 14 days of launch. Ownership: stewards + Founder."*
 
+**Launch metro (P1):** Chester and Delaware County, Pennsylvania, within the greater Philadelphia region. Greater Philadelphia resources are in-scope only when they genuinely accept and serve members from the launch area — this gate does not expand into a general Philadelphia or national scope.
+
 | ID | Title | Description | Dependencies | Owner | Priority | Status | Acceptance Criteria |
 |---|---|---|---|---|---|---|---|
 | A1 | Define city sheet schema | Design the data structure for the verified referral sheet (crisis lines, assistance programs, legal aid, food resources, categories, hours, eligibility, contact/verification metadata). | None | Engineering | Critical | Not Started | Schema reviewed and can represent every referral category LAUNCH-001 names. |
 | A2 | Build city sheet storage | Implement the storage/query layer the schema needs, accessible to both the steward verification workflow and (later) the Search feature in Gate C. | A1 | Engineering | Critical | Not Started | Sheet entries can be created, verified, queried, and surfaced to the app. |
-| A3 | Compile candidate referral list | Research and compile the initial candidate list of crisis/assistance resources for the confirmed metro. | P1 | Human Stewards | Critical | Blocked (needs P1) | A candidate list exists covering every category LAUNCH-001 names. |
+| A3 | Compile candidate referral list | Research and compile the initial candidate list of crisis/assistance resources for Chester and Delaware County, PA (P1). | P1 | Human Stewards | Critical | Not Started | A candidate list exists covering every category LAUNCH-001 names, scoped to the confirmed launch metro. |
 | A4 | Human-verify every referral | Every candidate entry is confirmed by a human — phone/contact verification of hours, eligibility, and current operation — before it is marked verified. | A2, A3 | Human Stewards | Critical | Blocked (needs A3) | 100% of entries carry a human verification timestamp and verifier name; zero unverified entries reach Gate B. |
 | A5 | QA spot-check | Independent spot-check of a sample of verified entries for accuracy. | A4 | Founder + Human Stewards | High | Not Started | Sample check finds zero inaccuracies; any found are corrected and the whole batch is re-checked. |
 | A6 | Gate A sign-off | Confirm the full city sheet is verified within the 14-day window LAUNCH-001 sets. | A1–A5 | Founder | Critical | Not Started | Founder signs off; Gate B may begin. |
@@ -41,8 +71,8 @@ LAUNCH-001 closes with four explicit open questions that block downstream work. 
 | B1 | Verify crisis-language detection | Confirm the existing conversation domain correctly detects crisis language and triggers the Clearing flow. | None | Engineering | Critical | Not Started | Detection reliably triggers on a documented test set of crisis phrasings. |
 | B2 | Wire Clearing UI to real backend | The Clearing UI ("built" per LAUNCH-001) is connected to real triggers, not a mock. | B1 | Engineering | Critical | Not Started | Clearing UI activates correctly from a live detected crisis conversation. |
 | B3 | Connect Clearing to the verified city sheet | The Clearing surfaces referrals from Gate A's verified sheet, never unverified or live-crawled sources. | A6, B2 | Engineering | Critical | Blocked (needs Gate A) | Every referral shown in a Clearing session traces to a verified city sheet entry. |
-| B4 | Build steward paging | Implement the mechanism that pages a human steward when the Clearing activates. | B2, P3 | Engineering | Critical | Blocked (needs P3) | A test page reaches the on-duty steward within an agreed time bound. |
-| B5 | Publish honest on-call hours | Write and surface the on-call hours copy — an accurate statement of when a person is reachable and what's available outside those hours. | P3 | Engineering + Human Stewards | High | Blocked (needs P3) | Copy matches the steward rotation exactly; no hours are overstated. |
+| B4 | Build steward paging | Implement the mechanism that pages a human steward (Founder or the trusted human steward, per P3) when the Clearing activates. | B2, P3 | Engineering | Critical | Not Started | A test page reaches the on-duty steward within an agreed time bound. |
+| B5 | Publish honest on-call hours | Write and surface the on-call hours copy for the two-person team (Founder + trusted human steward, per P3) — an accurate statement of when a person is reachable and what's available outside those hours. | P3 | Engineering + Human Stewards | High | Not Started | Copy matches the steward rotation exactly; no hours are overstated. |
 | B6 | Draft the 10 drill scripts | Write ten distinct simulated crisis conversation scripts covering the referral categories on the city sheet. | A6 | Human Stewards | High | Blocked (needs Gate A) | Ten scripts exist, each mapped to a real capability or an honest handoff. |
 | B7 | Run the 10 drills | Execute all ten drills end-to-end and log the outcome of each. | B3, B4, B5, B6 | Human Stewards + Founder | Critical | Not Started | All ten logged, pass/fail recorded per drill. |
 | B8 | Fix and re-run failures | Address any drill that didn't reach a real capability or an honest handoff, then re-run until all ten pass. | B7 | Engineering + Human Stewards | Critical | Not Started | 10/10 drills pass. Gate B sign-off. |
@@ -62,7 +92,7 @@ LAUNCH-001 closes with four explicit open questions that block downstream work. 
 | C5 | Implement the Shelf | Single plain "everything we're holding" page — one tap, no atmosphere/decoration beyond what's needed for clarity. | C4 | Engineering | Medium | Not Started | Shelf page accurately reflects all currently-held items for a test member. |
 | C6 | Wire the Seal + Leaving flow | Complete the Seal and Leaving steps, which LAUNCH-001 notes are "copy + state logic, nearly free to build." | C2 | Engineering | Medium | Not Started | A member can complete a session through Leaving with correct state transitions. |
 | C7 | Accessibility audit | Full screen-reader and low-digital-confidence usability audit of the spine (Gate → Question → Bench → Seal → Leaving). | C1–C6 | Engineering | Critical | Not Started | No release-blocking accessibility defects remain, per Decision 23's release-blocking standard. |
-| C8 | Recruit the three test members | Recruit three real testers: one general user, one low-digital-confidence user, one screen-reader user. | P1 | Founder + Human Stewards | High | Blocked (needs P1) | Three named testers scheduled. |
+| C8 | Recruit the three test members | Recruit three real testers from Chester/Delaware County (P1): one general user, one low-digital-confidence user, one screen-reader user. | P1 | Founder + Human Stewards | High | Not Started | Three named testers scheduled. |
 | C9 | Run end-to-end test sessions | Each of the three testers completes a full spine session; issues are logged. | C7, C8 | Engineering + Human Stewards | Critical | Not Started | All three sessions completed; issue log produced. |
 | C10 | Fix and re-test | Resolve issues found in C9 and re-test until the spine holds for all three testers. | C9 | Engineering | Critical | Not Started | All three testers complete the spine with no unresolved release-blocking issues. Gate C sign-off. |
 
@@ -103,11 +133,13 @@ LAUNCH-001 closes with four explicit open questions that block downstream work. 
 
 *LAUNCH-001: "You walk the entire member journey yourself, as a member, start to finish. Then the first invitation goes out — one member. Then five. Then twenty-five. Each expansion gated on the previous cohort's experience holding the canon's tests."*
 
+**Internal target (P4):** Gates A–E complete and the Founding Review begun within 30 calendar days of Founder approval (2026-07-22) — internal target date **2026-08-21**. This is an ambition, not a gate-bypass: F1's dependency ("Gates A–E complete") and every acceptance criterion below still governs. If the target date is missed, the reason must be reported and the forecast revised rather than any acceptance criteria weakened.
+
 | ID | Title | Description | Dependencies | Owner | Priority | Status | Acceptance Criteria |
 |---|---|---|---|---|---|---|---|
 | F1 | Founder full walkthrough | Founder completes the entire member journey, start to finish, as a member. | Gates A–E complete | Founder | Critical | Not Started | Walkthrough completed; issues logged. |
 | F2 | Resolve walkthrough issues | Fix anything found in F1. | F1 | Engineering | Critical | Not Started | All logged issues resolved or explicitly accepted by the Founder. |
-| F3 | Invite member one | Send the first invitation, per the confirmed invitation path (P2). | F2, P2, P4 | Founder | Critical | Blocked (needs P2, P4) | One member onboarded successfully. |
+| F3 | Invite member one | Send the first invitation via direct Founder invitation (P2) — no partner relationship required. | F2, P2, P4 | Founder | Critical | Not Started | One member onboarded successfully. |
 | F4 | Evaluate first-member experience | Assess member one's experience against LAUNCH-001's canon tests before expanding. | F3 | Founder + Human Stewards | Critical | Not Started | Experience holds the canon's tests; Founder approves expansion. |
 | F5 | Invite members two through five | Expand the cohort to five. | F4 | Founder | Critical | Not Started | Four more members onboarded successfully. |
 | F6 | Evaluate five-member cohort | Assess the five-member cohort's experience before expanding further. | F5 | Founder + Human Stewards | Critical | Not Started | Experience holds the canon's tests; Founder approves expansion. |
@@ -118,7 +150,7 @@ LAUNCH-001 closes with four explicit open questions that block downstream work. 
 
 ## Summary counts
 
-- Pre-Gate: 4 work orders (all Founder-decision-blocked)
+- Pre-Gate: 4 work orders (all Founder Approved — Complete)
 - Gate A: 6 work orders
 - Gate B: 8 work orders
 - Gate C: 10 work orders
