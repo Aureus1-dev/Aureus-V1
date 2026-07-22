@@ -2381,3 +2381,115 @@ model StewardActivityLog {
   @@index([userId])
   @@index([occurredAt])
 }
+
+// ===========================================================================
+// Launch City Sheet  —  Work Order A1 (docs/launch/WORKORDERS.md)
+//
+// The verified referral sheet LAUNCH-001 requires before any member arrives:
+// "Every crisis and assistance referral for the launch metro verified by a
+// human within 14 days of launch" (Gate A), feeding the Clearing (Gate B)
+// and curated Search (Gate C) — never live-crawled data. Distinct from the
+// general-purpose Resource directory (PA-014) above: entries here are
+// scoped to one launch metro, carry a mandatory human-verification
+// lifecycle, and hold fields (hours, eligibility, cost, required documents,
+// emergency-service flag) that a crisis handoff or curated search result
+// must be able to show honestly. This work order defines structure only —
+// no entries are populated here (that is A3/A4).
+// ===========================================================================
+
+// LAUNCH-001 names crisis lines, assistance programs, legal aid, and food
+// resources explicitly (Gate A), and the burden-scope boundary names the
+// kinds of help V1 takes on (utilities, mail, benefits applications,
+// job-search support, transportation, hard calls). Every category named in
+// either passage is represented here, per A1's acceptance criterion that
+// the schema "can represent every referral category LAUNCH-001 names."
+enum CitySheetCategory {
+  CRISIS_LINE
+  ASSISTANCE_PROGRAM
+  LEGAL_AID
+  FOOD_RESOURCE
+  HOUSING_UTILITIES
+  EMPLOYMENT_JOB_SEARCH
+  TRANSPORTATION
+  BENEFITS_APPLICATION_SUPPORT
+  MAIL_CORRESPONDENCE_SUPPORT
+  HEALTHCARE
+  OTHER
+}
+
+// Not requested directly by A1's field list, but required to enforce the
+// Founder's P1 decision in the data itself rather than only in prose: the
+// city sheet begins with Chester and Delaware County, and a Greater
+// Philadelphia entry is only in scope when it "genuinely accepts and serves
+// members from the launch area." Recording that judgment per entry (rather
+// than inferring it from an address string) lets Gate A5's QA spot-check
+// and any future audit confirm the boundary was actually applied, not
+// merely stated.
+enum LaunchAreaScope {
+  CORE_LAUNCH_COUNTY
+  GREATER_PHILADELPHIA_SUPPLEMENTAL
+}
+
+// Not requested directly by A1's field list, but required by A1's own
+// acceptance criteria for A4 ("100% of entries carry a human verification
+// timestamp and verifier name; zero unverified entries reach Gate B") and
+// by Gate B/C's dependency on Gate A being fully verified before use. This
+// tracks the candidate -> verified lifecycle explicitly, distinct from the
+// active/inactive status below (which tracks whether an already-verified
+// resource is currently operating).
+enum CitySheetVerificationStatus {
+  UNVERIFIED
+  VERIFIED
+  NEEDS_REVIEW
+}
+
+enum CitySheetEntryStatus {
+  ACTIVE
+  INACTIVE
+}
+
+model CitySheetEntry {
+  id             String  @id @default(uuid()) @db.Uuid
+  sequenceNumber Int     @unique @default(autoincrement())
+  citySheetRef   String? @unique // AUR-CS-000001, set after insert (mirrors Resource's resourceRef convention)
+
+  organizationName String
+  category         CitySheetCategory
+  description      String
+
+  address     String?
+  serviceArea String
+  launchScope LaunchAreaScope @default(CORE_LAUNCH_COUNTY)
+
+  phone   String?
+  website String?
+  hours   String
+
+  eligibilityRequirements String?
+  languagesSupported      String[] @default([])
+  accessibilityNotes      String?
+  cost                    String?
+  requiredDocuments       String[] @default([])
+
+  referralRequired   Boolean @default(false)
+  isEmergencyService Boolean @default(false)
+
+  verificationStatus CitySheetVerificationStatus @default(UNVERIFIED)
+  lastVerifiedAt     DateTime?
+  verifiedById       String?                     @db.Uuid // soft reference to User, no enforced relation (matches Resource.ownerId convention)
+  verificationNotes  String?
+  nextReviewDueAt    DateTime?
+
+  status CitySheetEntryStatus @default(ACTIVE)
+
+  createdById String @db.Uuid
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([category])
+  @@index([launchScope])
+  @@index([verificationStatus])
+  @@index([status])
+  @@index([createdById])
+}
