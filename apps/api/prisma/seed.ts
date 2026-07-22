@@ -3,8 +3,9 @@ import { PrismaPg } from '@prisma/adapter-pg';
 import { Pool } from 'pg';
 import { bootstrapAdmin } from '../src/scripts/bootstrap-admin';
 import { seedCitySheetCandidates } from '../src/scripts/seed-city-sheet-candidates';
+import { seedCitySheetChecklistItems } from '../src/scripts/seed-city-sheet-checklist-items';
 
-/** Thin CLI entrypoint — see `src/scripts/bootstrap-admin.ts` and `src/scripts/seed-city-sheet-candidates.ts` for the tested logic. */
+/** Thin CLI entrypoint — see `src/scripts/bootstrap-admin.ts`, `src/scripts/seed-city-sheet-checklist-items.ts`, and `src/scripts/seed-city-sheet-candidates.ts` for the tested logic. */
 async function main(): Promise<void> {
   const pool = new Pool({ connectionString: process.env.DATABASE_URL });
   const adapter = new PrismaPg(pool);
@@ -12,6 +13,7 @@ async function main(): Promise<void> {
 
   try {
     await runAdminBootstrap(prisma);
+    await runCitySheetChecklistItemSeed(prisma);
     await runCitySheetCandidateSeed(prisma);
   } finally {
     await prisma.$disconnect();
@@ -52,6 +54,20 @@ async function runCitySheetCandidateSeed(prisma: PrismaClient): Promise<void> {
   console.log(
     `City sheet candidates: ${result.created.length} created, ${result.skippedExisting.length} already present. ` +
       'All entries are UNVERIFIED — pending A4 human phone verification.',
+  );
+}
+
+/**
+ * A4-PREP (docs/launch/WORKORDERS.md): loads the default verification
+ * checklist. Also always runs and is idempotent. This is only the starting
+ * configuration — Operations can add, reorder, or retire items afterward
+ * via the checklist-items API (PLATFORM_ADMINISTRATOR only) without an
+ * engineering deploy or touching this seed again.
+ */
+async function runCitySheetChecklistItemSeed(prisma: PrismaClient): Promise<void> {
+  const result = await seedCitySheetChecklistItems(prisma);
+  console.log(
+    `City sheet checklist items: ${result.created.length} created, ${result.skippedExisting.length} already present.`,
   );
 }
 

@@ -16,8 +16,11 @@ import { UpdateCitySheetEntryDto } from './dto/update-city-sheet-entry.dto';
 import { ListCitySheetEntriesQueryDto } from './dto/list-city-sheet-entries-query.dto';
 import { VerifyCitySheetEntryDto } from './dto/verify-city-sheet-entry.dto';
 import { FlagCitySheetEntryForReviewDto } from './dto/flag-city-sheet-entry-for-review.dto';
+import { RejectCitySheetEntryDto } from './dto/reject-city-sheet-entry.dto';
 import { CitySheetEntryResponseDto } from './dto/city-sheet-entry-response.dto';
 import { PaginatedCitySheetEntriesResponseDto } from './dto/paginated-city-sheet-entries-response.dto';
+import { VerificationEventResponseDto } from './dto/verification-event-response.dto';
+import { VerificationGuideResponseDto } from './dto/verification-guide-response.dto';
 
 // City sheet entries have no per-entry owner (LAUNCH-001: "Ownership: stewards +
 // Founder") — unlike the Resource directory, any Steward or Platform
@@ -126,5 +129,38 @@ export class CitySheetController {
     @CurrentUser() caller: AuthenticatedUser,
   ): Promise<CitySheetEntryResponseDto> {
     return this.service.flagForReview(id, dto, caller);
+  }
+
+  @Post(':id/reject')
+  @ApiOperation({ summary: 'Reject UNVERIFIED/NEEDS_REVIEW → REJECTED (Steward / Founder only)' })
+  @ApiParam({ name: 'id', description: 'City sheet entry UUID' })
+  @ApiResponse({ status: 200, type: CitySheetEntryResponseDto })
+  @ApiResponse({ status: 401, description: 'Missing or invalid access token' })
+  @ApiResponse({ status: 403, description: 'Caller does not hold a required role' })
+  @ApiResponse({ status: 409, description: 'Entry is already VERIFIED' })
+  reject(
+    @Param('id') id: string,
+    @Body() dto: RejectCitySheetEntryDto,
+    @CurrentUser() caller: AuthenticatedUser,
+  ): Promise<CitySheetEntryResponseDto> {
+    return this.service.reject(id, dto, caller);
+  }
+
+  // ── A4-PREP: Human Steward Verification Workflow ─────────────────────
+
+  @Get(':id/verification-guide')
+  @ApiOperation({ summary: 'Current facts + applicable checklist + a call script for verifying one entry (Steward / Founder only)' })
+  @ApiParam({ name: 'id', description: 'City sheet entry UUID' })
+  @ApiResponse({ status: 200, type: VerificationGuideResponseDto })
+  getVerificationGuide(@Param('id') id: string): Promise<VerificationGuideResponseDto> {
+    return this.service.getVerificationGuide(id);
+  }
+
+  @Get(':id/verification-history')
+  @ApiOperation({ summary: 'Full, permanent verification history for one entry (Steward / Founder only)' })
+  @ApiParam({ name: 'id', description: 'City sheet entry UUID' })
+  @ApiResponse({ status: 200, type: [VerificationEventResponseDto] })
+  listVerificationEvents(@Param('id') id: string): Promise<VerificationEventResponseDto[]> {
+    return this.service.listVerificationEvents(id);
   }
 }

@@ -72,4 +72,11 @@ export class CreateCitySheetEntryDto {
   @ApiPropertyOptional({ default: false, description: 'True for crisis lines and other emergency services' })
   @IsOptional() @IsBoolean()
   isEmergencyService?: boolean;
+
+  @ApiPropertyOptional({
+    description: 'Where/how this candidate was originally compiled (e.g. a web-research citation). Immutable after creation — never touched by verify/reject/flag-for-review.',
+    example: 'Candidate compiled via web research on 2026-07-22. Source: chesco.org/1640/Emergency.',
+  })
+  @IsOptional() @IsString()
+  sourceNotes?: string;
 }

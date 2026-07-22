@@ -2,6 +2,9 @@ import {
   CitySheetCategory,
   CitySheetEntry,
   CitySheetEntryStatus,
+  CitySheetVerificationConfidence,
+  CitySheetVerificationEvent,
+  CitySheetVerificationEventType,
   CitySheetVerificationStatus,
   LaunchAreaScope,
 } from '@prisma/client';
@@ -25,6 +28,7 @@ export interface CreateCitySheetEntryInput {
   requiredDocuments?: string[];
   referralRequired?: boolean;
   isEmergencyService?: boolean;
+  sourceNotes?: string;
   createdById: string;
 }
 
@@ -45,11 +49,14 @@ export interface UpdateCitySheetEntryInput {
   requiredDocuments?: string[];
   referralRequired?: boolean;
   isEmergencyService?: boolean;
+  sourceNotes?: string | null;
   status?: CitySheetEntryStatus;
   verificationStatus?: CitySheetVerificationStatus;
+  verificationConfidence?: CitySheetVerificationConfidence | null;
   lastVerifiedAt?: Date | null;
   verifiedById?: string | null;
   verificationNotes?: string | null;
+  rejectionReason?: string | null;
   nextReviewDueAt?: Date | null;
 }
 
@@ -70,6 +77,25 @@ export interface PaginatedCitySheetEntries {
   limit: number;
 }
 
+/** A checklist response as recorded on a verification event — a label snapshot (not just an itemId lookup) so history reads correctly even if the checklist item is later edited or retired. */
+export interface ChecklistResponseRecord {
+  itemId: string;
+  label: string;
+  confirmed: boolean;
+  note?: string;
+}
+
+export interface CreateVerificationEventInput {
+  citySheetEntryId: string;
+  eventType: CitySheetVerificationEventType;
+  previousStatus: CitySheetVerificationStatus;
+  newStatus: CitySheetVerificationStatus;
+  confidence?: CitySheetVerificationConfidence;
+  notes?: string;
+  checklistResponses?: ChecklistResponseRecord[];
+  performedById: string;
+}
+
 export interface ICitySheetEntryRepository {
   create(data: CreateCitySheetEntryInput): Promise<CitySheetEntry>;
   setRef(id: string, citySheetRef: string): Promise<CitySheetEntry>;
@@ -77,4 +103,9 @@ export interface ICitySheetEntryRepository {
   findByRef(citySheetRef: string): Promise<CitySheetEntry | null>;
   findAll(params: CitySheetEntryQueryParams): Promise<PaginatedCitySheetEntries>;
   update(id: string, data: UpdateCitySheetEntryInput): Promise<CitySheetEntry>;
+
+  /** Appends a permanent verification-event row. Never updates or deletes an existing event. */
+  appendVerificationEvent(data: CreateVerificationEventInput): Promise<CitySheetVerificationEvent>;
+  /** Full, ordered (oldest first) verification history for one entry. */
+  listVerificationEvents(citySheetEntryId: string): Promise<CitySheetVerificationEvent[]>;
 }

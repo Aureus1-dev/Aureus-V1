@@ -2436,16 +2436,37 @@ enum LaunchAreaScope {
 // by Gate B/C's dependency on Gate A being fully verified before use. This
 // tracks the candidate -> verified lifecycle explicitly, distinct from the
 // active/inactive status below (which tracks whether an already-verified
-// resource is currently operating).
+// resource is currently operating). REJECTED (A4-PREP) is a genuine
+// terminal-failure state — a candidate confirmed wrong, defunct, or out of
+// scope is not merely "unverified" or "needs another look."
 enum CitySheetVerificationStatus {
   UNVERIFIED
   VERIFIED
   NEEDS_REVIEW
+  REJECTED
 }
 
 enum CitySheetEntryStatus {
   ACTIVE
   INACTIVE
+}
+
+// A4-PREP (docs/launch/WORKORDERS.md) — Human Steward Verification Workflow.
+enum CitySheetVerificationEventType {
+  VERIFIED
+  REJECTED
+  FLAGGED_FOR_REVIEW
+}
+
+// Preserves context alongside a verification decision without changing the
+// decision's governance: a HIGH/MEDIUM/LOW confidence value never gates
+// whether verify/reject succeeds, it only records how sure the human
+// steward was, for later prioritization (e.g. re-checking LOW-confidence
+// entries sooner).
+enum CitySheetVerificationConfidence {
+  HIGH
+  MEDIUM
+  LOW
 }
 
 model CitySheetEntry {
@@ -2474,11 +2495,21 @@ model CitySheetEntry {
   referralRequired   Boolean @default(false)
   isEmergencyService Boolean @default(false)
 
-  verificationStatus CitySheetVerificationStatus @default(UNVERIFIED)
-  lastVerifiedAt     DateTime?
-  verifiedById       String?                     @db.Uuid // soft reference to User, no enforced relation (matches Resource.ownerId convention)
-  verificationNotes  String?
-  nextReviewDueAt    DateTime?
+  verificationStatus     CitySheetVerificationStatus      @default(UNVERIFIED)
+  verificationConfidence CitySheetVerificationConfidence?
+  lastVerifiedAt         DateTime?
+  verifiedById           String?                          @db.Uuid // soft reference to User, no enforced relation (matches Resource.ownerId convention)
+  verificationNotes      String? // the steward's own call notes as of the current status — see verificationEvents for full history
+  rejectionReason        String?
+  nextReviewDueAt        DateTime?
+
+  // Where/how this candidate was originally compiled (e.g. A3's web-research
+  // citations). Set once at creation and never touched by verify/reject/
+  // flag-for-review — distinct from verificationNotes (the steward's call
+  // notes), which those actions do overwrite. Keeping provenance separate
+  // means a verification call can never accidentally erase the record of
+  // where a candidate came from.
+  sourceNotes String?
 
   status CitySheetEntryStatus @default(ACTIVE)
 
@@ -2487,9 +2518,66 @@ model CitySheetEntry {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  verificationEvents CitySheetVerificationEvent[]
+
   @@index([category])
   @@index([launchScope])
   @@index([verificationStatus])
   @@index([status])
   @@index([createdById])
+}
+
+// A4-PREP — configuration-driven verification checklist template. A null
+// category applies to every category ("common" item); category-scoped items
+// are combined with the common set when a checklist is generated for an
+// entry. Lives in the database (not hardcoded per category in application
+// code) specifically so Operations can add, reorder, or retire items
+// without an engineering deploy. No hard delete — isActive false retires an
+// item while preserving it for any historical verificationEvents that
+// snapshot its label.
+model CitySheetChecklistItem {
+  id        String             @id @default(uuid()) @db.Uuid
+  category  CitySheetCategory?
+  label     String
+  sortOrder Int                @default(0)
+  isActive  Boolean            @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([category])
+  @@index([isActive])
+  @@index([sortOrder])
+}
+
+// A4-PREP — append-only verification history. verify()/reject()/
+// flagForReview() each insert a new row here rather than overwriting
+// anything, so no verification event is ever lost even though
+// CitySheetEntry's own verificationStatus/verifiedById/lastVerifiedAt/
+// verificationConfidence fields continue to reflect only the current state
+// for convenient querying. This table is the permanent record — nothing
+// in this domain ever updates or deletes a row here once written.
+model CitySheetVerificationEvent {
+  id               String         @id @default(uuid()) @db.Uuid
+  citySheetEntryId String         @db.Uuid
+  citySheetEntry   CitySheetEntry @relation(fields: [citySheetEntryId], references: [id], onDelete: Cascade)
+
+  eventType          CitySheetVerificationEventType
+  previousStatus     CitySheetVerificationStatus
+  newStatus          CitySheetVerificationStatus
+  confidence         CitySheetVerificationConfidence?
+  notes              String?
+  // Snapshot of {itemId, label, confirmed, note}[] at the time of this
+  // event — stored as a label snapshot (not just an itemId lookup) so this
+  // history reads correctly even if the checklist item is later edited or
+  // retired.
+  checklistResponses Json?
+
+  performedById String   @db.Uuid // soft reference to User, no enforced relation (matches CitySheetEntry.verifiedById convention)
+  performedAt   DateTime @default(now())
+
+  @@index([citySheetEntryId])
+  @@index([performedById])
+  @@index([performedAt])
+  @@index([eventType])
 }

@@ -1,6 +1,7 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import {
-  CitySheetCategory, CitySheetEntryStatus, CitySheetVerificationStatus, LaunchAreaScope,
+  CitySheetCategory, CitySheetEntryStatus, CitySheetVerificationConfidence,
+  CitySheetVerificationStatus, LaunchAreaScope,
 } from '@prisma/client';
 import type { CitySheetEntry } from '@prisma/client';
 
@@ -25,10 +26,14 @@ export class CitySheetEntryResponseDto {
   @ApiProperty() referralRequired: boolean;
   @ApiProperty() isEmergencyService: boolean;
   @ApiProperty({ enum: CitySheetVerificationStatus }) verificationStatus: CitySheetVerificationStatus;
+  @ApiPropertyOptional({ enum: CitySheetVerificationConfidence, nullable: true }) verificationConfidence: CitySheetVerificationConfidence | null;
   @ApiPropertyOptional({ nullable: true }) lastVerifiedAt: Date | null;
   @ApiPropertyOptional({ nullable: true }) verifiedById: string | null;
   @ApiPropertyOptional({ nullable: true }) verificationNotes: string | null;
+  @ApiPropertyOptional({ nullable: true }) rejectionReason: string | null;
   @ApiPropertyOptional({ nullable: true }) nextReviewDueAt: Date | null;
+  @ApiPropertyOptional({ nullable: true, description: 'Immutable provenance of this candidate — never touched by verify/reject/flag-for-review' })
+  sourceNotes: string | null;
   @ApiProperty({ enum: CitySheetEntryStatus }) status: CitySheetEntryStatus;
   @ApiProperty() createdById: string;
   @ApiProperty() createdAt: Date;

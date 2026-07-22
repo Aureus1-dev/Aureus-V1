@@ -98,7 +98,7 @@ function toCreateData(candidate: CitySheetCandidateSeed, createdById: string): R
     referralRequired: candidate.referralRequired,
     isEmergencyService: candidate.isEmergencyService,
     verificationStatus: CitySheetVerificationStatus.UNVERIFIED,
-    verificationNotes: candidate.verificationNotes,
+    sourceNotes: candidate.sourceNotes,
     createdById,
   };
 }

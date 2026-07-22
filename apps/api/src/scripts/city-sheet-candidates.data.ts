@@ -5,15 +5,17 @@ import { CitySheetCategory, LaunchAreaScope } from '@prisma/client';
  * the launch metro (Chester and Delaware County, PA — Founder Decision P1).
  *
  * Every fact below traces to a specific web source, cited in that entry's
- * `verificationNotes`. Nothing here is fabricated: where a source did not
- * state a fact (hours, eligibility, a website, an address), the field is
- * left `undefined` rather than guessed, or `verificationNotes` says plainly
- * that it is unconfirmed. These are candidates only — every entry is
- * inserted with verificationStatus UNVERIFIED and must pass a real human
- * phone/contact check (A4) before it may be relied on by the Clearing
- * (Gate B) or curated Search (Gate C). LAUNCH-001's own rule governs: "no
- * pretended authority, no dead ends" — an unverified phone number is exactly
- * the kind of thing that must never reach a member.
+ * `sourceNotes` (immutable provenance — distinct from `verificationNotes`,
+ * which A4-PREP's verify()/reject() write as the steward's own call notes).
+ * Nothing here is fabricated: where a source did not state a fact (hours,
+ * eligibility, a website, an address), the field is left `undefined` rather
+ * than guessed, or `sourceNotes` says plainly that it is unconfirmed. These
+ * are candidates only — every entry is inserted with verificationStatus
+ * UNVERIFIED and must pass a real human phone/contact check (A4) before it
+ * may be relied on by the Clearing (Gate B) or curated Search (Gate C).
+ * LAUNCH-001's own rule governs: "no pretended authority, no dead ends" —
+ * an unverified phone number is exactly the kind of thing that must never
+ * reach a member.
  */
 
 export interface CitySheetCandidateSeed {
@@ -28,7 +30,7 @@ export interface CitySheetCandidateSeed {
   hours: string;
   eligibilityRequirements?: string;
   cost?: string;
-  verificationNotes: string;
+  sourceNotes: string;
   referralRequired: boolean;
   isEmergencyService: boolean;
 }
@@ -47,7 +49,7 @@ export const CITY_SHEET_CANDIDATE_SEEDS: CitySheetCandidateSeed[] = [
       '24/7 per Chester County\'s official crisis guidance (phone line). A related walk-in service, the Valley Creek Crisis Walk-in Center, is separately described as operating 7:00 AM-11:00 PM — not yet confirmed whether this is the same phone number or a distinct location; pending verification.',
     referralRequired: false,
     isEmergencyService: true,
-    verificationNotes:
+    sourceNotes:
       'Candidate compiled via web research on 2026-07-22. Sources: chesco.org/1640/Emergency (Chester County official site); WHYY coverage of the 988 rollout in Chester County. Not yet phone-verified by a human steward — pending A4.',
   },
   {
@@ -66,7 +68,7 @@ export const CITY_SHEET_CANDIDATE_SEEDS: CitySheetCandidateSeed[] = [
     cost: 'Free (per LASP\'s own description of its services as free civil legal aid)',
     referralRequired: false,
     isEmergencyService: false,
-    verificationNotes:
+    sourceNotes:
       'Candidate compiled via web research on 2026-07-22. Sources: lasp.org/services; PA 211 general legal aid listing. Not yet phone-verified — pending A4.',
   },
   {
@@ -83,7 +85,7 @@ export const CITY_SHEET_CANDIDATE_SEEDS: CitySheetCandidateSeed[] = [
       'Main office (donations/inquiries): Monday-Friday, 8:00 a.m.-5:00 p.m. Individual partner food cupboards have their own hours, not yet compiled — pending verification.',
     referralRequired: false,
     isEmergencyService: false,
-    verificationNotes:
+    sourceNotes:
       'Candidate compiled via web research on 2026-07-22. Source: chestercountyfoodbank.org (Contact Us / Find Help pages). Not yet phone-verified — pending A4.',
   },
   {
@@ -99,7 +101,7 @@ export const CITY_SHEET_CANDIDATE_SEEDS: CitySheetCandidateSeed[] = [
       '8:00 a.m.-5:00 p.m. (specific days of the week not stated in the source; typically weekdays for PA County Assistance Offices, but not yet confirmed for this office).',
     referralRequired: false,
     isEmergencyService: false,
-    verificationNotes:
+    sourceNotes:
       'Candidate compiled via web research on 2026-07-22. Source: aggregated search result citing Chester County Assistance Office contact details (chesco.org/1415/Contact-Us and SNAP office directories). Not yet phone-verified — pending A4.',
   },
   {
@@ -113,7 +115,7 @@ export const CITY_SHEET_CANDIDATE_SEEDS: CitySheetCandidateSeed[] = [
     hours: '24/7',
     referralRequired: false,
     isEmergencyService: true,
-    verificationNotes:
+    sourceNotes:
       'Candidate compiled via web research on 2026-07-22. Sources: Delaware County Crisis Connections Team (DCCCT) crisis brochure, hosted via swarthmorepa.org and delcohsa.org, phone number corroborated independently across two separate searches. Not yet phone-verified — pending A4.',
   },
   {
@@ -128,7 +130,7 @@ export const CITY_SHEET_CANDIDATE_SEEDS: CitySheetCandidateSeed[] = [
     hours: 'Not yet confirmed — pending phone verification.',
     referralRequired: false,
     isEmergencyService: false,
-    verificationNotes:
+    sourceNotes:
       'Candidate compiled via web research on 2026-07-22, sourced from a third-party food-pantry directory rather than the organization\'s own site — confidence lower than other candidates in this list. Confirm the organization\'s identity and current operation carefully before relying on it (A4).',
   },
   {
@@ -144,7 +146,7 @@ export const CITY_SHEET_CANDIDATE_SEEDS: CitySheetCandidateSeed[] = [
     hours: 'Not yet confirmed — pending phone verification.',
     referralRequired: false,
     isEmergencyService: false,
-    verificationNotes:
+    sourceNotes:
       'Candidate compiled via web research on 2026-07-22. Source: delcopa.gov/county-assistance-office. Not yet phone-verified — pending A4.',
   },
   {
@@ -160,7 +162,7 @@ export const CITY_SHEET_CANDIDATE_SEEDS: CitySheetCandidateSeed[] = [
     cost: 'Free',
     referralRequired: false,
     isEmergencyService: false,
-    verificationNotes:
+    sourceNotes:
       'Candidate compiled via web research on 2026-07-22. Source: pa211.org. Not yet phone-verified — pending A4.',
   },
 ];

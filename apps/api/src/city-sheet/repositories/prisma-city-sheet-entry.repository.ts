@@ -1,9 +1,10 @@
 import { Injectable } from '@nestjs/common';
-import { CitySheetEntry, Prisma } from '@prisma/client';
+import { CitySheetEntry, CitySheetVerificationEvent, Prisma } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import {
   CitySheetEntryQueryParams,
   CreateCitySheetEntryInput,
+  CreateVerificationEventInput,
   ICitySheetEntryRepository,
   PaginatedCitySheetEntries,
   UpdateCitySheetEntryInput,
@@ -61,5 +62,27 @@ export class PrismaCitySheetEntryRepository implements ICitySheetEntryRepository
 
   async update(id: string, data: UpdateCitySheetEntryInput): Promise<CitySheetEntry> {
     return this.prisma.db.citySheetEntry.update({ where: { id }, data });
+  }
+
+  async appendVerificationEvent(data: CreateVerificationEventInput): Promise<CitySheetVerificationEvent> {
+    return this.prisma.db.citySheetVerificationEvent.create({
+      data: {
+        citySheetEntryId: data.citySheetEntryId,
+        eventType: data.eventType,
+        previousStatus: data.previousStatus,
+        newStatus: data.newStatus,
+        confidence: data.confidence,
+        notes: data.notes,
+        checklistResponses: data.checklistResponses as unknown as Prisma.InputJsonValue,
+        performedById: data.performedById,
+      },
+    });
+  }
+
+  async listVerificationEvents(citySheetEntryId: string): Promise<CitySheetVerificationEvent[]> {
+    return this.prisma.db.citySheetVerificationEvent.findMany({
+      where: { citySheetEntryId },
+      orderBy: { performedAt: 'asc' },
+    });
   }
 }
