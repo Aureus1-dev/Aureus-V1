@@ -1,4 +1,5 @@
 import type { AiToolDefinition } from '../providers/ai-provider.interface';
+import { V1_FEATURE_FLAGS } from '../../config/v1-feature-scope';
 
 /**
  * Dynamic Screen Orchestration — the fixed, backend-owned toolset shared by
@@ -19,8 +20,19 @@ import type { AiToolDefinition } from '../providers/ai-provider.interface';
  * from this list, not a runtime permission check on a broader capability
  * the model could otherwise reach for.
  */
-export const INTERFACE_ALLOWED_ROUTES = ['home', 'journey', 'opportunities', 'academy', 'conversation', 'welcome'] as const;
-export type InterfaceAllowedRoute = (typeof INTERFACE_ALLOWED_ROUTES)[number];
+const ALL_INTERFACE_ROUTES = ['home', 'journey', 'opportunities', 'academy', 'conversation', 'welcome'] as const;
+export type InterfaceAllowedRoute = (typeof ALL_INTERFACE_ROUTES)[number];
+
+/**
+ * C2 — V1 Scope Lockdown: 'academy' is dropped from the reachable set
+ * whenever V1_FEATURE_FLAGS.academy is off, so the Steward can never
+ * navigate a member's screen to a domain cut for V1 — the same rule the
+ * nav and direct route are held to, enforced from the one list both
+ * voice-tools.ts and ConversationsService read.
+ */
+export const INTERFACE_ALLOWED_ROUTES: readonly InterfaceAllowedRoute[] = ALL_INTERFACE_ROUTES.filter(
+  (route) => route !== 'academy' || V1_FEATURE_FLAGS.academy,
+);
 
 /**
  * The fixed set of informational panels the steward may open or close

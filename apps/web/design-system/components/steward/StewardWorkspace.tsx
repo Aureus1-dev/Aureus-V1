@@ -8,6 +8,7 @@ import { VisuallyHidden } from '../../accessibility';
 import { RecentConversationPreview } from './RecentConversationPreview';
 import { NeedsYourDecision } from './NeedsYourDecision';
 import { INTERFACE_ALLOWED_PANEL_IDS } from './interface-tool-allowlists';
+import { V1_FEATURE_FLAGS } from '../../../lib/config/v1-feature-scope';
 import styles from './StewardWorkspace.module.css';
 
 const STEWARD_PANEL_ID = INTERFACE_ALLOWED_PANEL_IDS[0];
@@ -32,7 +33,10 @@ export function StewardWorkspace() {
   const { interfaceState, openPanel, closePanel } = useInterfaceState();
   const voice = useVoice();
   const isExpanded = interfaceState.openPanelIds.includes(STEWARD_PANEL_ID);
-  const isVoiceLive = LIVE_VOICE_STATES.has(voice.state.turnState);
+  // C2 — V1 Scope Lockdown: voice is cut for V1 entirely, so this never
+  // shows live voice UI regardless of turnState, even though the backend
+  // already makes a live turnState unreachable (defense in depth).
+  const isVoiceLive = V1_FEATURE_FLAGS.voice && LIVE_VOICE_STATES.has(voice.state.turnState);
 
   if (!isExpanded) {
     return (

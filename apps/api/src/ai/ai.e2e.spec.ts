@@ -7,6 +7,7 @@ import request from 'supertest';
 import { AppModule } from '../app.module';
 import { AllExceptionsFilter } from '../common/filters/all-exceptions.filter';
 import { PrismaService } from '../prisma/prisma.service';
+import { V1_FEATURE_FLAGS } from '../config/v1-feature-scope';
 
 /**
  * End-to-end test: boots the full Nest application and exercises the AI
@@ -52,6 +53,14 @@ describe('AI Intelligence Engine — E2E', () => {
   let journeyId: string;
 
   beforeAll(async () => {
+    // C2 — V1 Scope Lockdown gates /ai/voice and /academy off by default
+    // (LAUNCH-001: "no Pods, no Academy... voice entirely"). This suite
+    // uses an Academy course as an AI-guidance fixture and exercises the
+    // voice session endpoints directly, so both are flipped on for this
+    // suite only — restored in afterAll so no other suite observes it.
+    V1_FEATURE_FLAGS.voice = true;
+    V1_FEATURE_FLAGS.academy = true;
+
     const moduleRef: TestingModule = await Test.createTestingModule({ imports: [AppModule] }).compile();
 
     app = moduleRef.createNestApplication();
@@ -192,6 +201,8 @@ describe('AI Intelligence Engine — E2E', () => {
     await prisma.db.goal.deleteMany({ where: { title: { startsWith: markerTitlePrefix } } });
     await prisma.db.user.deleteMany({ where: { email: { contains: emailMarker } } });
     await app.close();
+    V1_FEATURE_FLAGS.voice = false;
+    V1_FEATURE_FLAGS.academy = false;
   });
 
   it('rejects unauthenticated access to every AI endpoint', async () => {

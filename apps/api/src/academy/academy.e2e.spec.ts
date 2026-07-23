@@ -7,6 +7,7 @@ import request from 'supertest';
 import { AppModule } from '../app.module';
 import { AllExceptionsFilter } from '../common/filters/all-exceptions.filter';
 import { PrismaService } from '../prisma/prisma.service';
+import { V1_FEATURE_FLAGS } from '../config/v1-feature-scope';
 
 /**
  * End-to-end test: boots the full Nest application and exercises the
@@ -47,6 +48,12 @@ describe('Academy — E2E', () => {
   let learnerToken: string;
 
   beforeAll(async () => {
+    // C2 — V1 Scope Lockdown gates /academy off by default (LAUNCH-001:
+    // "No Pods, no Academy"). Flipped on for this suite only, so it keeps
+    // proving the underlying domain works end-to-end — restored in
+    // afterAll so no other suite observes it.
+    V1_FEATURE_FLAGS.academy = true;
+
     const moduleRef: TestingModule = await Test.createTestingModule({ imports: [AppModule] }).compile();
 
     app = moduleRef.createNestApplication();
@@ -77,6 +84,7 @@ describe('Academy — E2E', () => {
     await prisma.db.mediaAsset.deleteMany({ where: { title: { startsWith: markerTitlePrefix } } });
     await prisma.db.user.deleteMany({ where: { email: { contains: emailMarker } } });
     await app.close();
+    V1_FEATURE_FLAGS.academy = false;
   });
 
   const coursePayload = (overrides: Record<string, unknown> = {}) => ({

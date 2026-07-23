@@ -5,6 +5,7 @@ import { APP_GUARD } from '@nestjs/core';
 import { ThrottlerGuard, ThrottlerModule, ThrottlerModuleOptions } from '@nestjs/throttler';
 import { envValidationSchema } from './config/env.validation';
 import { RequestLoggingMiddleware } from './common/middleware/request-logging.middleware';
+import { V1ScopeMiddleware } from './common/middleware/v1-scope.middleware';
 import { RedisThrottlerStorageService } from './common/throttler/redis-throttler-storage.service';
 import { PrismaModule } from './prisma/prisma.module';
 import { AuthModule } from './auth/auth.module';
@@ -116,7 +117,9 @@ export class AppModule implements NestModule {
   configure(consumer: MiddlewareConsumer): void {
     // Structured per-request access log (PD-002) — every route, including
     // health checks, so a slow/failing instance is diagnosable from logs
-    // alone.
-    consumer.apply(RequestLoggingMiddleware).forRoutes('*');
+    // alone. V1ScopeMiddleware (C2) runs second so a blocked request is
+    // still logged, then 404s before reaching any guard or controller for
+    // a domain cut from the five-member pilot (voice, Academy, Pods).
+    consumer.apply(RequestLoggingMiddleware, V1ScopeMiddleware).forRoutes('*');
   }
 }

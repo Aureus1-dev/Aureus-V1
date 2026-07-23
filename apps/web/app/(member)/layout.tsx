@@ -7,6 +7,7 @@ import {
   StewardWorkspace,
   GlobalActionPalette,
 } from '../../design-system/components/steward';
+import { V1_FEATURE_FLAGS } from '../../lib/config/v1-feature-scope';
 
 /**
  * Applies to every member surface named in FPB-002 §3. `AuthGate`
@@ -24,13 +25,19 @@ import {
  * (orb, state, controls) and the workspace panel into one surface itself,
  * so `PersistentVoicePresence` (DOMAIN-005) is deliberately not also
  * mounted here: never two competing floating widgets.
+ *
+ * C2 — V1 Scope Lockdown: voice is cut for V1 entirely (LAUNCH-001:
+ * "voice entirely"), so `VoiceOrchestrator` (the tool-call executor for
+ * voice-driven navigation) is only mounted when the flag is on. It stays
+ * fully recoverable by flipping `V1_FEATURE_FLAGS.voice` — nothing here
+ * is deleted.
  */
 export default function MemberLayout({ children }: { children: React.ReactNode }) {
   return (
     <AuthGate>
       <AppShell>{children}</AppShell>
       <SurfaceTracker />
-      <VoiceOrchestrator />
+      {V1_FEATURE_FLAGS.voice ? <VoiceOrchestrator /> : null}
       <TextInterfaceOrchestrator />
       <StewardWorkspace />
       <GlobalActionPalette />
