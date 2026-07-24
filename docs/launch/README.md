@@ -12,6 +12,8 @@ This folder is the implementation command center for the Aureus First Members la
 
 Read `LAUNCH-001` first, always — it is the source of truth for what the launch actually is and why. Then check `SCOREBOARD.md` for the current state. Then find the relevant task in `WORKORDERS.md`. Do not start work on any task whose listed dependencies aren't yet marked complete.
 
+For the formal precedence rule (including a fourth document, `docs/releases/version-1-readiness.md`, and what to do if two documents disagree), see `EXECUTION-AUTHORITY.md` in this folder.
+
 ## What this folder is not
 
 It is not a place to introduce new launch strategy. Every Gate, scope boundary, and staffing decision in `WORKORDERS.md` and `SCOREBOARD.md` is derived from `LAUNCH-001` — nothing here invents a new cut, a new ship/no-ship call, or a new gate. If something in the launch needs to change, that change belongs in a revision to `LAUNCH-001` itself, brought to the Founder for approval, not a quiet addition to a work order.
