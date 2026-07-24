@@ -321,6 +321,40 @@ describe('AI Intelligence Engine — E2E', () => {
     });
   });
 
+  describe('Gate C — C2: Clarification', () => {
+    it('reliably asks a clarifying question for an ambiguous initial need, and incorporates the answer without restarting', async () => {
+      const created = await request(app.getHttpServer())
+        .post('/ai/conversations')
+        .set('Authorization', `Bearer ${learnerToken}`)
+        .send({ title: 'Ambiguous start' })
+        .expect(201);
+      const conversationId = created.body.id;
+
+      const clarified = await request(app.getHttpServer())
+        .post(`/ai/conversations/${conversationId}/messages`)
+        .set('Authorization', `Bearer ${learnerToken}`)
+        .send({ content: 'help' })
+        .expect(201);
+      expect(clarified.body.content).toMatch(/tell me a little more/i);
+
+      const answered = await request(app.getHttpServer())
+        .post(`/ai/conversations/${conversationId}/messages`)
+        .set('Authorization', `Bearer ${learnerToken}`)
+        .send({ content: 'I need help finding affordable housing in Chester County' })
+        .expect(201);
+      expect(answered.body.role).toBe('ASSISTANT');
+      expect(answered.body.content.length).toBeGreaterThan(0);
+
+      const messages = await request(app.getHttpServer())
+        .get(`/ai/conversations/${conversationId}/messages`)
+        .set('Authorization', `Bearer ${learnerToken}`)
+        .expect(200);
+      expect(messages.body).toHaveLength(4);
+      expect(messages.body[0].content).toBe('help');
+      expect(messages.body[2].content).toBe('I need help finding affordable housing in Chester County');
+    });
+  });
+
   describe('Insights — explanations, guidance, and search', () => {
     it('explains an Opportunity', async () => {
       const res = await request(app.getHttpServer())

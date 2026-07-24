@@ -9,6 +9,7 @@ import {
 import { AI_MESSAGE_REPOSITORY, IAiMessageRepository } from './repositories/ai-message.repository.interface';
 import { AiRequestsService } from '../requests/ai-requests.service';
 import { NeedsService } from '../../needs/needs.service';
+import { CLARIFYING_QUESTION } from '../../needs/ambiguity.util';
 import type { AuthenticatedUser } from '../../auth/strategies/jwt.strategy';
 import type { AiConversation, AiMessage } from '@prisma/client';
 
@@ -145,6 +146,55 @@ describe('ConversationsService', () => {
         const result = await service.ask('conv-001', { content: 'I need help finding a job' }, USER);
 
         expect(result.content).toBe('Tell me more.');
+      });
+    });
+
+    describe('Gate C — C2: Clarification', () => {
+      it('reliably asks a clarifying question for an ambiguous initial need, without calling the AI', async () => {
+        mockConversationRepo.findById.mockResolvedValue(makeConversation());
+        mockMessageRepo.create
+          .mockResolvedValueOnce(makeMessage({ role: AiMessageRole.USER, content: 'help' }))
+          .mockResolvedValueOnce(makeMessage({
+            id: 'msg-002', role: AiMessageRole.ASSISTANT,
+            content: "Could you tell me a little more about what's going on? The more specific you can be, the better I can help you.",
+          }));
+        mockMessageRepo.findRecentByConversation.mockResolvedValue([makeMessage({ role: AiMessageRole.USER, content: 'help' })]);
+
+        const result = await service.ask('conv-001', { content: 'help' }, USER);
+
+        expect(result.content).toMatch(/tell me a little more/i);
+        expect(mockAiRequests.runCompletion).not.toHaveBeenCalled();
+        expect(mockConversationRepo.touch).toHaveBeenCalledWith('conv-001');
+      });
+
+      it('still captures the ambiguous message as a stated need', async () => {
+        mockConversationRepo.findById.mockResolvedValue(makeConversation());
+        mockMessageRepo.create
+          .mockResolvedValueOnce(makeMessage({ role: AiMessageRole.USER, content: 'help' }))
+          .mockResolvedValueOnce(makeMessage({ id: 'msg-002', role: AiMessageRole.ASSISTANT, content: CLARIFYING_QUESTION }));
+        mockMessageRepo.findRecentByConversation.mockResolvedValue([makeMessage({ role: AiMessageRole.USER, content: 'help' })]);
+
+        await service.ask('conv-001', { content: 'help' }, USER);
+
+        expect(mockNeeds.capture).toHaveBeenCalledWith(USER.id, 'conv-001', 'help');
+      });
+
+      it('does not re-check a later, short reply for ambiguity — the member answers in the same conversation, never restarting', async () => {
+        mockConversationRepo.findById.mockResolvedValue(makeConversation());
+        mockMessageRepo.create
+          .mockResolvedValueOnce(makeMessage({ role: AiMessageRole.USER, content: 'housing' }))
+          .mockResolvedValueOnce(makeMessage({ id: 'msg-003', role: AiMessageRole.ASSISTANT, content: 'Got it, thanks.' }));
+        mockMessageRepo.findRecentByConversation.mockResolvedValue([
+          makeMessage({ role: AiMessageRole.USER, content: 'help' }),
+          makeMessage({ id: 'msg-002', role: AiMessageRole.ASSISTANT, content: CLARIFYING_QUESTION }),
+          makeMessage({ id: 'msg-003', role: AiMessageRole.USER, content: 'housing' }),
+        ]);
+        mockAiRequests.runCompletion.mockResolvedValue({ content: 'Got it, thanks.', requestId: 'req-003' });
+
+        const result = await service.ask('conv-001', { content: 'housing' }, USER);
+
+        expect(mockAiRequests.runCompletion).toHaveBeenCalled();
+        expect(result.content).toBe('Got it, thanks.');
       });
     });
 

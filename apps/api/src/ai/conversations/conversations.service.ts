@@ -6,6 +6,7 @@ import { INTERFACE_TOOL_SPECS } from '../common/interface-tools';
 import type { AiCompletionMessage } from '../providers/ai-provider.interface';
 import { AiRequestsService } from '../requests/ai-requests.service';
 import { NeedsService } from '../../needs/needs.service';
+import { isAmbiguousNeed, CLARIFYING_QUESTION } from '../../needs/ambiguity.util';
 import { CreateConversationDto } from './dto/create-conversation.dto';
 import { AskQuestionDto } from './dto/ask-question.dto';
 import { ListConversationsQueryDto } from './dto/list-conversations-query.dto';
@@ -86,6 +87,20 @@ export class ConversationsService {
         await this.needs.capture(caller.id, id, dto.content);
       } catch (error) {
         this.logger.warn(`Failed to capture stated need for conversation ${id}: ${error}`);
+      }
+
+      // Gate C (C2: Clarification) — an ambiguous or incomplete initial need
+      // reliably gets a clarifying question, decided deterministically
+      // rather than left to the model's judgment (matching the
+      // Orchestrator's preference for reliability over a free-form LLM
+      // decision). The member answers in the very same conversation — no
+      // restart, no new conversation, no lost context.
+      if (isAmbiguousNeed(dto.content)) {
+        const clarifyingMessage = await this.messageRepo.create({
+          conversationId: id, role: AiMessageRole.ASSISTANT, content: CLARIFYING_QUESTION,
+        });
+        await this.repo.touch(id);
+        return MessageResponseDto.fromEntity(clarifyingMessage);
       }
     }
 
