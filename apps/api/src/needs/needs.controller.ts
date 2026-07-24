@@ -4,17 +4,24 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { AuthenticatedUser } from '../auth/strategies/jwt.strategy';
 import { NeedsService } from './needs.service';
+import { NeedEscalationsService } from './need-escalations.service';
 import { StatedNeedResponseDto } from './dto/stated-need-response.dto';
 import { MatchedResourceDto } from './dto/matched-resource.dto';
 import { ResourceOfferResponseDto } from './dto/resource-offer-response.dto';
 import { RespondToOfferDto } from './dto/respond-to-offer.dto';
+import { EscalateNeedDto } from './dto/escalate-need.dto';
+import { ResolveNeedEscalationDto } from './dto/resolve-need-escalation.dto';
+import { NeedEscalationResponseDto } from './dto/need-escalation-response.dto';
 
 @ApiTags('needs')
 @ApiBearerAuth()
 @UseGuards(JwtAuthGuard)
 @Controller('needs')
 export class NeedsController {
-  constructor(private readonly service: NeedsService) {}
+  constructor(
+    private readonly service: NeedsService,
+    private readonly escalations: NeedEscalationsService,
+  ) {}
 
   @Get()
   @ApiOperation({ summary: "List the caller's own stated needs (Gate C — C1: Understanding)" })
@@ -76,5 +83,57 @@ export class NeedsController {
     @CurrentUser() caller: AuthenticatedUser,
   ): Promise<ResourceOfferResponseDto[]> {
     return this.service.findOffers(id, caller.id);
+  }
+
+  @Post(':id/escalate')
+  @ApiOperation({ summary: 'Ask for a human steward on this stated need — always the member\'s own choice (Gate C — C6: Steward escalation)' })
+  @ApiParam({ name: 'id', description: 'Stated need ID' })
+  @ApiResponse({ status: 201, type: NeedEscalationResponseDto })
+  @ApiResponse({ status: 403, description: 'Caller does not own this stated need' })
+  @ApiResponse({ status: 404, description: 'Stated need not found' })
+  escalate(
+    @Param('id') id: string,
+    @Body() dto: EscalateNeedDto,
+    @CurrentUser() caller: AuthenticatedUser,
+  ): Promise<NeedEscalationResponseDto> {
+    return this.escalations.escalate(id, dto.reason, caller.id);
+  }
+
+  @Get(':id/escalations')
+  @ApiOperation({ summary: 'List every escalation and its outcome for this stated need (Gate C — C6)' })
+  @ApiParam({ name: 'id', description: 'Stated need ID' })
+  @ApiResponse({ status: 200, type: [NeedEscalationResponseDto] })
+  findEscalations(
+    @Param('id') id: string,
+    @CurrentUser() caller: AuthenticatedUser,
+  ): Promise<NeedEscalationResponseDto[]> {
+    return this.escalations.findEscalations(id, caller.id);
+  }
+
+  @Post('escalations/:escalationId/acknowledge')
+  @ApiOperation({ summary: 'Acknowledge a member escalation (Steward / Platform Administrator only) (Gate C — C6)' })
+  @ApiParam({ name: 'escalationId', description: 'Escalation ID' })
+  @ApiResponse({ status: 201, type: NeedEscalationResponseDto })
+  @ApiResponse({ status: 403, description: 'Caller is not a Steward or Platform Administrator' })
+  @ApiResponse({ status: 404, description: 'Escalation not found' })
+  acknowledgeEscalation(
+    @Param('escalationId') escalationId: string,
+    @CurrentUser() caller: AuthenticatedUser,
+  ): Promise<NeedEscalationResponseDto> {
+    return this.escalations.acknowledge(escalationId, caller);
+  }
+
+  @Post('escalations/:escalationId/resolve')
+  @ApiOperation({ summary: 'Record the outcome of a member escalation (Steward / Platform Administrator only) (Gate C — C6)' })
+  @ApiParam({ name: 'escalationId', description: 'Escalation ID' })
+  @ApiResponse({ status: 201, type: NeedEscalationResponseDto })
+  @ApiResponse({ status: 403, description: 'Caller is not a Steward or Platform Administrator' })
+  @ApiResponse({ status: 404, description: 'Escalation not found' })
+  resolveEscalation(
+    @Param('escalationId') escalationId: string,
+    @Body() dto: ResolveNeedEscalationDto,
+    @CurrentUser() caller: AuthenticatedUser,
+  ): Promise<NeedEscalationResponseDto> {
+    return this.escalations.resolve(escalationId, dto.resolutionNotes, caller);
   }
 }

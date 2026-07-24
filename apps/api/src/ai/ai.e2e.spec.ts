@@ -614,6 +614,108 @@ describe('AI Intelligence Engine — E2E', () => {
     });
   });
 
+  describe('Gate C — C6: Steward escalation', () => {
+    let escalationNeedId: string;
+
+    beforeAll(async () => {
+      const created = await request(app.getHttpServer())
+        .post('/ai/conversations')
+        .set('Authorization', `Bearer ${learnerToken}`)
+        .send({ title: 'C6 need' })
+        .expect(201);
+      await request(app.getHttpServer())
+        .post(`/ai/conversations/${created.body.id}/messages`)
+        .set('Authorization', `Bearer ${learnerToken}`)
+        .send({ content: 'I need help finding food for my family' })
+        .expect(201);
+      const needs = await request(app.getHttpServer())
+        .get('/needs')
+        .set('Authorization', `Bearer ${learnerToken}`)
+        .expect(200);
+      escalationNeedId = needs.body.find((n: { conversationId: string }) => n.conversationId === created.body.id).id;
+    });
+
+    it('publishes the real on-call rotation and reports it back honestly (never a fabricated placeholder — see the unit test for the unconfigured-null default)', async () => {
+      await request(app.getHttpServer())
+        .patch('/on-call-hours')
+        .set('Authorization', `Bearer ${stewardToken}`)
+        .send({ hoursDescription: 'Monday-Friday 9am-6pm ET' })
+        .expect(200);
+
+      const after = await request(app.getHttpServer())
+        .get('/on-call-hours')
+        .set('Authorization', `Bearer ${learnerToken}`)
+        .expect(200);
+      expect(after.body.hoursDescription).toBe('Monday-Friday 9am-6pm ET');
+    });
+
+    it('forbids a member from publishing on-call hours', async () => {
+      await request(app.getHttpServer())
+        .patch('/on-call-hours')
+        .set('Authorization', `Bearer ${learnerToken}`)
+        .send({ hoursDescription: 'Whenever I feel like it' })
+        .expect(403);
+    });
+
+    it("records the member's own escalation, pages the steward, and lets the steward record the outcome", async () => {
+      const escalated = await request(app.getHttpServer())
+        .post(`/needs/${escalationNeedId}/escalate`)
+        .set('Authorization', `Bearer ${learnerToken}`)
+        .send({ reason: 'I need to talk to a real person' })
+        .expect(201);
+      expect(escalated.body.status).toBe('PENDING');
+
+      const acknowledged = await request(app.getHttpServer())
+        .post(`/needs/escalations/${escalated.body.id}/acknowledge`)
+        .set('Authorization', `Bearer ${stewardToken}`)
+        .expect(201);
+      expect(acknowledged.body.status).toBe('ACKNOWLEDGED');
+
+      const resolved = await request(app.getHttpServer())
+        .post(`/needs/escalations/${escalated.body.id}/resolve`)
+        .set('Authorization', `Bearer ${stewardToken}`)
+        .send({ resolutionNotes: 'Called the member and helped them directly.' })
+        .expect(201);
+      expect(resolved.body.status).toBe('RESOLVED');
+      expect(resolved.body.resolutionNotes).toBe('Called the member and helped them directly.');
+
+      const list = await request(app.getHttpServer())
+        .get(`/needs/${escalationNeedId}/escalations`)
+        .set('Authorization', `Bearer ${learnerToken}`)
+        .expect(200);
+      expect(list.body).toEqual(
+        expect.arrayContaining([expect.objectContaining({ id: escalated.body.id, status: 'RESOLVED' })]),
+      );
+    });
+
+    it('forbids a member from acknowledging or resolving an escalation', async () => {
+      const escalated = await request(app.getHttpServer())
+        .post(`/needs/${escalationNeedId}/escalate`)
+        .set('Authorization', `Bearer ${learnerToken}`)
+        .expect(201);
+
+      await request(app.getHttpServer())
+        .post(`/needs/escalations/${escalated.body.id}/acknowledge`)
+        .set('Authorization', `Bearer ${learnerToken}`)
+        .expect(403);
+      await request(app.getHttpServer())
+        .post(`/needs/escalations/${escalated.body.id}/resolve`)
+        .set('Authorization', `Bearer ${learnerToken}`)
+        .expect(403);
+    });
+
+    it("forbids another member from escalating or viewing this member's stated need", async () => {
+      await request(app.getHttpServer())
+        .post(`/needs/${escalationNeedId}/escalate`)
+        .set('Authorization', `Bearer ${otherLearnerToken}`)
+        .expect(403);
+      await request(app.getHttpServer())
+        .get(`/needs/${escalationNeedId}/escalations`)
+        .set('Authorization', `Bearer ${otherLearnerToken}`)
+        .expect(403);
+    });
+  });
+
   describe('Insights — explanations, guidance, and search', () => {
     it('explains an Opportunity', async () => {
       const res = await request(app.getHttpServer())

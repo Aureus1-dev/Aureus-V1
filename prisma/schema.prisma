@@ -142,6 +142,7 @@ model User {
   consentRecords             ConsentRecord[]
   statedNeeds                StatedNeed[]
   resourceOffers             ResourceOffer[]
+  needEscalations            NeedEscalation[]
 }
 
 // ===========================================================================
@@ -2633,7 +2634,8 @@ model StatedNeed {
 
   createdAt DateTime @default(now())
 
-  resourceOffers ResourceOffer[]
+  resourceOffers  ResourceOffer[]
+  needEscalations NeedEscalation[]
 
   @@index([userId])
   @@index([conversationId])
@@ -2667,4 +2669,50 @@ model ResourceOffer {
   @@index([userId])
   @@index([statedNeedId])
   @@index([citySheetEntryId])
+}
+
+// Gate C (C6: Steward escalation). A member's own, explicit choice to ask
+// for a human steward on a stated need — never triggered automatically.
+// `acknowledgedById`/`resolvedById` are soft references (no enforced
+// relation), matching `StewardshipEscalation.raisedById`/`resolvedById` and
+// `CitySheetEntry.verifiedById` — the steward/admin acting here is not the
+// escalation's own subject, so no back-relation is needed on User.
+enum NeedEscalationStatus {
+  PENDING
+  ACKNOWLEDGED
+  RESOLVED
+}
+
+model NeedEscalation {
+  id           String     @id @default(uuid()) @db.Uuid
+  userId       String     @db.Uuid
+  user         User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  statedNeedId String     @db.Uuid
+  statedNeed   StatedNeed @relation(fields: [statedNeedId], references: [id], onDelete: Cascade)
+
+  reason           String?
+  status           NeedEscalationStatus @default(PENDING)
+  acknowledgedById String?              @db.Uuid
+  acknowledgedAt   DateTime?
+  resolvedById     String?              @db.Uuid
+  resolutionNotes  String?
+  resolvedAt       DateTime?
+  createdAt        DateTime             @default(now())
+
+  @@index([userId])
+  @@index([statedNeedId])
+  @@index([status])
+}
+
+// Gate C (C6). The honestly published on-call rotation a member is told
+// about when escalating — a single config row (mirrors
+// `AiOperationalConfig`'s singleton pattern), left null until a Human
+// Steward/Founder sets it to the real rotation. Never defaults to a
+// fabricated value: `hoursDescription: null` means "not yet configured,"
+// and every member-facing surface must say exactly that rather than guess.
+model PublishedOnCallHours {
+  id               String   @id @default("singleton")
+  hoursDescription String?
+  updatedById      String?  @db.Uuid // soft reference to User, no enforced relation (matches CitySheetEntry.verifiedById convention)
+  updatedAt        DateTime @updatedAt
 }
