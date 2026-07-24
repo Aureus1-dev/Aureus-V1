@@ -8,17 +8,15 @@ Living dashboard for the First Members launch. Source of truth for scope and seq
 
 ## Overall Progress
 
-**16% (8 of 50 work orders complete).**
+**18% (9 of 50 work orders complete).**
 
-All four Pre-Gate Founder decisions (P1–P4) are complete. Gate A's schema (A1), storage (A2), candidate list (A3), and verification-workflow tooling (A4-PREP) are done — A4's human phone/contact check is still untouched. Gate B's B1 (V1 Scope Lockdown, preserved from the prior structure) is done. Progress is calculated as completed work orders ÷ total work orders across Pre-Gate and Gates A–F (8/50).
-
-*Note: this figure corrects a prior arithmetic error (previously stated as 9/50 = 18%); a recount against the actual WORKORDERS.md table found 8 completed items, not 9.*
+All four Pre-Gate Founder decisions (P1–P4) are complete. Gate A's schema (A1), storage (A2), candidate list (A3), and verification-workflow tooling (A4-PREP) are done — A4's human phone/contact check is still untouched. Gate B's B1 (V1 Scope Lockdown, preserved from the prior structure) and B2 (first arrival is observable and safe) are done. Progress is calculated as completed work orders ÷ total work orders across Pre-Gate and Gates A–F (9/50).
 
 ## Overall Launch Readiness
 
-**Not ready. Gate A is in progress (4/7 work orders done); Gate B has begun (1/9 work orders done).**
+**Not ready. Gate A is in progress (4/7 work orders done); Gate B is in progress (2/9 work orders done).**
 
-The Pre-Gate blocker is cleared; the city sheet's data schema (A1), storage/query layer (A2), initial candidate list (A3), and verification-workflow tooling (A4-PREP) are all done. B1 (V1 Scope Lockdown) is also done — voice, Academy, and Pods are now closed to members at the nav, direct-route, API, and AI-tool-navigation levels, recoverable by a single flag. Per a Founder Decision approved 2026-07-24 (see "Governance" below), Gate B and Gate C were substantially rescoped and renamed; Gate B now owns everything from first arrival through a working "How can we help?" hand-off, and does **not** depend on Gate A — B2–B9 are unblocked and may begin now. **No candidate referral may be used by the Clearing until a Human Steward actually verifies it via the A4-PREP tooling — building the workflow is not the same as using it, and this readiness note is not a claim that the city sheet is trustworthy yet.**
+The Pre-Gate blocker is cleared; the city sheet's data schema (A1), storage/query layer (A2), initial candidate list (A3), and verification-workflow tooling (A4-PREP) are all done. B1 (V1 Scope Lockdown) and B2 (arrival screen, three-second return, persistent Urgent-help affordance) are also done — voice, Academy, and Pods are closed to members, and a member now reaches a working arrival screen with an always-available Urgent-help affordance on every surface. Per a Founder Decision approved 2026-07-24 (see "Governance" below), Gate B and Gate C were substantially rescoped and renamed; Gate B now owns everything from first arrival through a working "How can we help?" hand-off, and does **not** depend on Gate A — B3–B9 are unblocked and may begin now. **No candidate referral may be used by the Clearing until a Human Steward actually verifies it via the A4-PREP tooling — building the workflow is not the same as using it, and this readiness note is not a claim that the city sheet is trustworthy yet.** The Urgent-help affordance added in B2 deliberately shows only static, universal safety information (911, 988, Crisis Text Line) — it does not imply Aureus can already detect urgency or discover verified resources; that is Gate C's C1–C7, not yet built.
 
 ## Governance
 
@@ -38,11 +36,11 @@ The old V1 Gate B/C work orders are preserved as a superseded historical record 
 
 ## Current Work Order
 
-**A4 — Human-verify every referral** (blocking, human-owned) and **B2 — First arrival is observable and safe** (next engineering work). A1, A2, A3, and A4-PREP are all done; A4's dependencies are fully satisfied — this is real-world phone/contact verification work for a Human Steward, not an engineering task. 8 candidates are waiting, one of which (Media Food Bank) is flagged lower-confidence and should be checked especially carefully. The full runbook is `docs/launch/A4-Verification-Guide.md`. In parallel, B1 is done and B2–B9 are unblocked; B2 (arrival screen, three-second return, persistent Urgent affordance) is the next engineering work order.
+**A4 — Human-verify every referral** (blocking, human-owned) and **B3 — Consent and expectations are captured** (next engineering work). A1, A2, A3, and A4-PREP are all done; A4's dependencies are fully satisfied — this is real-world phone/contact verification work for a Human Steward, not an engineering task. 8 candidates are waiting, one of which (Media Food Bank) is flagged lower-confidence and should be checked especially carefully. The full runbook is `docs/launch/A4-Verification-Guide.md`. In parallel, B1 and B2 are done and B3–B9 are unblocked; B3 (consent and expectations captured during arrival, retrievable later) is the next engineering work order.
 
 ## Current Focus
 
-The Gate B/Gate C naming conflict previously flagged here has been resolved by Founder decision (see "Governance" above) and reflected in `WORKORDERS.md` V2. Engineering can now proceed on Gate B (B2–B9) without waiting on Gate A, and can build and test Gate C's C1–C8 against labeled fixtures ahead of A4 as well. Only Gate C's C9 (real-member production verification) remains gated on Gate A. In parallel, A4 (human phone verification of all 8 candidates) remains the last item standing before Gate A's remaining engineering work order (A5) and sign-off (A6).
+The Gate B/Gate C naming conflict previously flagged here has been resolved by Founder decision (see "Governance" above) and reflected in `WORKORDERS.md` V2. B2 (arrival screen, three-second return, persistent Urgent-help affordance) is now done. Engineering can continue on Gate B (B3–B9) without waiting on Gate A, and can build and test Gate C's C1–C8 against labeled fixtures ahead of A4 as well. Only Gate C's C9 (real-member production verification) remains gated on Gate A. In parallel, A4 (human phone verification of all 8 candidates) remains the last item standing before Gate A's remaining engineering work order (A5) and sign-off (A6).
 
 ## Blocked Items
 
@@ -53,10 +51,11 @@ The Gate B/Gate C naming conflict previously flagged here has been resolved by F
 | Gate E (all work orders) | Gate C | Not started |
 | Gate F (all work orders) | Gates A–E | Not started |
 
-P1–P4, A1, A2, A4-PREP, and B1 no longer appear as blockers. A3 no longer blocks A4 (one of its three dependencies) — but A3's candidates themselves remain UNVERIFIED and must not be treated as trustworthy until A4 completes. Gate B (B2–B9) and Gate C's build/fixture work (C1–C8) are no longer blocked on Gate A, per the Founder's Gate B/Gate C Reconciliation decision.
+P1–P4, A1, A2, A4-PREP, B1, and B2 no longer appear as blockers. A3 no longer blocks A4 (one of its three dependencies) — but A3's candidates themselves remain UNVERIFIED and must not be treated as trustworthy until A4 completes. Gate B (B3–B9) and Gate C's build/fixture work (C1–C8) are no longer blocked on Gate A, per the Founder's Gate B/Gate C Reconciliation decision.
 
 ## Completed This Week
 
+- **B2 — First arrival is observable and safe**: the arrival screen (`/welcome` → `WelcomeFlow`) already distinguished new members (shown `FirstRunWelcome`) from returning members (redirected to `/home`); this work order closed the two real gaps. New persistent `UrgentHelpAffordance` (`apps/web/design-system/components/urgent-help/`), mounted once in the member layout so it is present on every member surface — fixed bottom-left, the one corner neither `StewardWorkspace` (bottom-right) nor `GlobalActionPalette` (top-right) occupies. It has no dependency on any API, so it cannot fail from backend downtime, and shows only static, universally true safety information (911, 988 Suicide & Crisis Lifeline, Crisis Text Line) — it honestly notes that Aureus's own local resource guide isn't verified yet, rather than implying a capability (crisis detection, resource discovery, steward paging) that doesn't exist — those remain Gate C's C1/C3/C4/C6, not yet built. Also added an automated test asserting the existing returning-member redirect fires within the 3-second budget LAUNCH-001 sets, closing a test gap (the redirect logic itself was already correct). No backend, schema, or migration change. Full `apps/web` suite 101/101 suites, 525/525 tests passing (net +1 suite, +7 tests, zero regressions); `tsc --noEmit`, `next lint`, and `next build` (all 36 routes) all clean.
 - **Founder Decision — Gate B/Gate C Reconciliation:** resolved the naming and scope conflict between LAUNCH-001's original Gate B/Gate C text and the Production Execution Order's later reuse of those labels. Gate A renamed "The Foundation" (unchanged content); Gate B renamed "The Gate" and rescoped to own first arrival through "How can we help?" (not blocked on Gate A); Gate C renamed "The Clearing" and rescoped to own understanding through safe failure (build/fixture work C1–C8 not blocked on Gate A; only real-member production verification C9 is). `WORKORDERS.md` rewritten as V2 to reflect this; the superseded V1 Gate B/C content is preserved as a historical record, not deleted. Old C2 (V1 Scope Lockdown) is preserved and renumbered as new B1, still Done.
 - Founder decided all four Pre-Gate items (P1–P4): launch metro (Chester and Delaware County, PA), invitation path (direct invitations first), steward staffing (Founder + one trusted human steward), and Gate F date ambition (readiness-gated, internal target 2026-08-21).
 - A1 — Defined the Launch City Sheet data schema: `CitySheetEntry` model (plus `CitySheetCategory`, `LaunchAreaScope`, `CitySheetVerificationStatus`, `CitySheetEntryStatus` enums) added to `prisma/schema.prisma`, with migration `20260722140000_add_launch_city_sheet`. No organizations populated — structure only.
@@ -69,11 +68,11 @@ P1–P4, A1, A2, A4-PREP, and B1 no longer appear as blockers. A3 no longer bloc
 
 **Two independent tracks, unblocked in parallel:**
 1. **A4 — Human-verify every referral** (Human Stewards): pull the queue (`GET /city-sheet?verificationStatus=UNVERIFIED`), fetch each candidate's `verification-guide`, make the call, record the outcome via `verify`/`reject`/`flag-for-review` with a confidence level. Start with the two crisis lines; treat "Media Food Bank" as needing extra care.
-2. **B2 — First arrival is observable and safe** (Engineering): build the arrival screen, three-second return for repeat visits, and a persistent Urgent-help affordance on every surface — as a new production build, not a port, per the Founder's Gate B/Gate C Reconciliation decision.
+2. **B3 — Consent and expectations are captured** (Engineering): a member cannot proceed past arrival without giving required consent and seeing what to expect from Aureus, with the record retrievable later.
 
 ## Repository Health
 
-No regression. This week's governance revision touched only documentation (`WORKORDERS.md`, `SCOREBOARD.md`, and dependent launch docs) — no application code, schema, migration, or test file was changed. B1 (the last code change, under its prior "C2" label) added one new backend middleware + config module (both new files, nothing existing removed), a small filter added to the existing `primarySurfaces` array and `INTERFACE_ALLOWED_ROUTES` list, two route-level redirects, and one defensive flag-check inside `StewardWorkspace` — no schema or migration change. `tsc --noEmit`, `eslint`, and the full Jest suite against a live database all pass clean on both apps, with the only failures (Voice Domain/Recommendations flakiness in `ai.e2e.spec.ts`, one AI-summarize 503 in `connected-experiences.e2e.spec.ts`) confirmed pre-existing by reproducing them identically against an unmodified baseline.
+No regression. B2 added one new frontend component directory (`UrgentHelpAffordance` + styles + tests, all new files, nothing existing removed) and mounted it in the member layout alongside the existing persistent elements; it also added one new test to `WelcomeFlow.test.tsx`. No backend, schema, or migration change. `tsc --noEmit`, `next lint`, and `next build` (all 36 routes) are clean; the full `apps/web` Jest suite passes 101/101 suites, 525/525 tests. B1 (the prior code change, under its earlier "C2" label) added one new backend middleware + config module (both new files, nothing existing removed), a small filter added to the existing `primarySurfaces` array and `INTERFACE_ALLOWED_ROUTES` list, two route-level redirects, and one defensive flag-check inside `StewardWorkspace` — no schema or migration change. `tsc --noEmit`, `eslint`, and the full Jest suite against a live database all pass clean on both apps, with the only failures (Voice Domain/Recommendations flakiness in `ai.e2e.spec.ts`, one AI-summarize 503 in `connected-experiences.e2e.spec.ts`) confirmed pre-existing by reproducing them identically against an unmodified baseline.
 
 ---
 
@@ -82,10 +81,10 @@ No regression. This week's governance revision touched only documentation (`WORK
 | Gate | Title | Status | Progress | Owner | Dependencies |
 |---|---|---|---|---|---|
 | A | The Foundation | **In Progress** | 57% (4/7 work orders) | Stewards + Founder | P1 (satisfied) |
-| B | The Gate | **In Progress** | 11% (1/9 work orders) | Engineering | None (proceeds in parallel with Gate A) |
+| B | The Gate | **In Progress** | 22% (2/9 work orders) | Engineering | None (proceeds in parallel with Gate A) |
 | C | The Clearing | Not Started | 0% (0/9 work orders) | Engineering | Gate B (B9) functional; C1–C8 not blocked by Gate A, C9 requires Gate A |
 | D | The Tending Run | Not Started | 0% (0/7 work orders) | Engineering + Stewards | Gate C |
 | E | Memory rights live | Not Started | 0% (0/6 work orders) | Engineering | Gate C |
 | F | The Founding Review | Not Started | 0% (0/8 work orders) | Founder | Gates A–E, P2 (satisfied), P4 (satisfied, target 2026-08-21) |
 
-Nothing in Gates A–F may begin ahead of its listed dependency, per LAUNCH-001's execution order ("each blocking the next") and WORKORDERS.md's per-item Dependencies column, except where a Founder decision has explicitly authorized parallel work: B1 (proceeded in parallel with A4), and now all of Gate B (B2–B9) and Gate C's fixture-based work (C1–C8), per the Gate B/Gate C Reconciliation decision.
+Nothing in Gates A–F may begin ahead of its listed dependency, per LAUNCH-001's execution order ("each blocking the next") and WORKORDERS.md's per-item Dependencies column, except where a Founder decision has explicitly authorized parallel work: B1/B2 (proceeded in parallel with A4), and now all of Gate B (B3–B9) and Gate C's fixture-based work (C1–C8), per the Gate B/Gate C Reconciliation decision.

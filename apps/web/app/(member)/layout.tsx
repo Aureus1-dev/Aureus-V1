@@ -7,6 +7,7 @@ import {
   StewardWorkspace,
   GlobalActionPalette,
 } from '../../design-system/components/steward';
+import { UrgentHelpAffordance } from '../../design-system/components/urgent-help';
 import { V1_FEATURE_FLAGS } from '../../lib/config/v1-feature-scope';
 
 /**
@@ -31,6 +32,14 @@ import { V1_FEATURE_FLAGS } from '../../lib/config/v1-feature-scope';
  * voice-driven navigation) is only mounted when the flag is on. It stays
  * fully recoverable by flipping `V1_FEATURE_FLAGS.voice` — nothing here
  * is deleted.
+ *
+ * B2 (Gate B — The Gate): `UrgentHelpAffordance` is mounted the same way,
+ * fixed bottom-left, so it is present on every member surface without
+ * per-page wiring. It is a safety affordance, not a conversation surface,
+ * so it does not count against the "never two competing floating widgets"
+ * rule above (that rule is about two agent presences) — it coexists with
+ * `StewardWorkspace` (bottom-right) and `GlobalActionPalette` (top-right)
+ * in the one corner they leave free.
  */
 export default function MemberLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -41,6 +50,7 @@ export default function MemberLayout({ children }: { children: React.ReactNode }
       <TextInterfaceOrchestrator />
       <StewardWorkspace />
       <GlobalActionPalette />
+      <UrgentHelpAffordance />
     </AuthGate>
   );
 }

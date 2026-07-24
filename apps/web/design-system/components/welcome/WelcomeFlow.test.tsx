@@ -75,4 +75,16 @@ describe('WelcomeFlow', () => {
     expect(replace).not.toHaveBeenCalled();
     expect(screen.queryByText('Welcome to Aureus')).not.toBeInTheDocument();
   });
+
+  it('B2: a repeat visit returns within three seconds — the redirect fires as soon as goals resolve, with no artificial delay in the path', async () => {
+    mockedGoals.listGoals.mockResolvedValue({ data: [activeGoal], total: 1, page: 1, limit: 20, totalPages: 1 });
+
+    const startedAt = performance.now();
+    renderFlow();
+
+    await waitFor(() => expect(replace).toHaveBeenCalledWith('/home'));
+    const elapsedMs = performance.now() - startedAt;
+
+    expect(elapsedMs).toBeLessThan(3000);
+  });
 });
