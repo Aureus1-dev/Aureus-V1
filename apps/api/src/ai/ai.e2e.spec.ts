@@ -423,6 +423,83 @@ describe('AI Intelligence Engine — E2E', () => {
     });
   });
 
+  describe('Gate C — C4: Resource discovery', () => {
+    let foodBankEntryId: string;
+
+    beforeAll(async () => {
+      const created = await request(app.getHttpServer())
+        .post('/city-sheet')
+        .set('Authorization', `Bearer ${stewardToken}`)
+        .send({
+          organizationName: `${markerTitlePrefix}Food Bank`, category: 'FOOD_RESOURCE',
+          description: 'Provides free groceries to families in need.', serviceArea: 'Chester County',
+          hours: 'Mon-Fri 9am-5pm',
+        })
+        .expect(201);
+      foodBankEntryId = created.body.id;
+      await request(app.getHttpServer())
+        .post(`/city-sheet/${foodBankEntryId}/verify`)
+        .set('Authorization', `Bearer ${stewardToken}`)
+        .send({ confidence: 'HIGH' })
+        .expect(201);
+    });
+
+    it('retrieves the matching, active City Sheet resource for a stated need, without exposing internal steward fields', async () => {
+      const created = await request(app.getHttpServer())
+        .post('/ai/conversations')
+        .set('Authorization', `Bearer ${learnerToken}`)
+        .send({ title: 'Food need' })
+        .expect(201);
+      const conversationId = created.body.id;
+
+      await request(app.getHttpServer())
+        .post(`/ai/conversations/${conversationId}/messages`)
+        .set('Authorization', `Bearer ${learnerToken}`)
+        .send({ content: 'I need help finding food for my family' })
+        .expect(201);
+
+      const needs = await request(app.getHttpServer())
+        .get('/needs')
+        .set('Authorization', `Bearer ${learnerToken}`)
+        .expect(200);
+      const need = needs.body.find((n: { conversationId: string }) => n.conversationId === conversationId);
+
+      const resources = await request(app.getHttpServer())
+        .get(`/needs/${need.id}/resources`)
+        .set('Authorization', `Bearer ${learnerToken}`)
+        .expect(200);
+      expect(resources.body).toEqual(
+        expect.arrayContaining([expect.objectContaining({ id: foodBankEntryId, organizationName: `${markerTitlePrefix}Food Bank` })]),
+      );
+      expect(resources.body[0].verifiedById).toBeUndefined();
+      expect(resources.body[0].verificationNotes).toBeUndefined();
+    });
+
+    it('forbids a caller from viewing resources matched to another member\'s stated need', async () => {
+      const created = await request(app.getHttpServer())
+        .post('/ai/conversations')
+        .set('Authorization', `Bearer ${learnerToken}`)
+        .send({ title: 'Food need 2' })
+        .expect(201);
+      const conversationId = created.body.id;
+      await request(app.getHttpServer())
+        .post(`/ai/conversations/${conversationId}/messages`)
+        .set('Authorization', `Bearer ${learnerToken}`)
+        .send({ content: 'I need help finding food for my family' })
+        .expect(201);
+      const needs = await request(app.getHttpServer())
+        .get('/needs')
+        .set('Authorization', `Bearer ${learnerToken}`)
+        .expect(200);
+      const need = needs.body.find((n: { conversationId: string }) => n.conversationId === conversationId);
+
+      await request(app.getHttpServer())
+        .get(`/needs/${need.id}/resources`)
+        .set('Authorization', `Bearer ${otherLearnerToken}`)
+        .expect(403);
+    });
+  });
+
   describe('Insights — explanations, guidance, and search', () => {
     it('explains an Opportunity', async () => {
       const res = await request(app.getHttpServer())

@@ -17,4 +17,8 @@ export class PrismaStatedNeedRepository implements IStatedNeedRepository {
       orderBy: { createdAt: 'desc' },
     });
   }
+
+  async findById(id: string): Promise<StatedNeed | null> {
+    return this.prisma.db.statedNeed.findUnique({ where: { id } });
+  }
 }

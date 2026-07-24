@@ -11,4 +11,5 @@ export interface CreateStatedNeedInput {
 export interface IStatedNeedRepository {
   create(data: CreateStatedNeedInput): Promise<StatedNeed>;
   findAllByUser(userId: string): Promise<StatedNeed[]>;
+  findById(id: string): Promise<StatedNeed | null>;
 }
