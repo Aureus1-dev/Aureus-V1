@@ -210,6 +210,32 @@ describe('Stewardship System — E2E', () => {
 
         expect(res.body).toEqual(expect.objectContaining({ goals: [], journeys: [], milestones: [], tasks: [] }));
       });
+
+      it("B7: reflects the member's real arrival state — before and after granting consent", async () => {
+        const before = await request(app.getHttpServer())
+          .get(`/stewardship/relationships/${activeRelationshipId}/member-overview`)
+          .set('Authorization', `Bearer ${stewardToken}`)
+          .expect(200);
+
+        expect(before.body.arrivalStatus).toEqual({
+          consentGranted: false, consentVersion: null, consentGrantedAt: null, hasCreatedFirstGoal: false,
+        });
+
+        await request(app.getHttpServer())
+          .post(`/users/${memberId}/consent`)
+          .set('Authorization', `Bearer ${memberToken}`)
+          .send({ version: 'v1-2026-07' })
+          .expect(201);
+
+        const after = await request(app.getHttpServer())
+          .get(`/stewardship/relationships/${activeRelationshipId}/member-overview`)
+          .set('Authorization', `Bearer ${stewardToken}`)
+          .expect(200);
+
+        expect(after.body.arrivalStatus).toEqual(expect.objectContaining({
+          consentGranted: true, consentVersion: 'v1-2026-07', hasCreatedFirstGoal: false,
+        }));
+      });
     });
 
     describe('notes — private vs shared visibility', () => {

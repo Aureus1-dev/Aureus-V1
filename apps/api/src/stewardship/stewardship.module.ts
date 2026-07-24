@@ -9,6 +9,7 @@ import { TasksModule } from '../tasks/tasks.module';
 import { OrganizationsModule } from '../organizations/organizations.module';
 import { OpportunitiesModule } from '../opportunities/opportunities.module';
 import { ResourcesModule } from '../resources/resources.module';
+import { ConsentModule } from '../consent/consent.module';
 
 import { StewardshipRelationshipsController } from './relationships/stewardship-relationships.controller';
 import { StewardshipRelationshipsService } from './relationships/stewardship-relationships.service';
@@ -55,6 +56,7 @@ import { StewardMetricsService } from './metrics/steward-metrics.service';
     OrganizationsModule,
     OpportunitiesModule,
     ResourcesModule,
+    ConsentModule,
   ],
   controllers: [
     StewardshipRelationshipsController,

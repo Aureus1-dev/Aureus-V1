@@ -21,6 +21,7 @@ import { IJourneyRepository, JOURNEY_REPOSITORY } from '../../journeys/repositor
 import { IMilestoneRepository, MILESTONE_REPOSITORY } from '../../milestones/repositories/milestone.repository.interface';
 import { ITaskRepository, TASK_REPOSITORY } from '../../tasks/repositories/task.repository.interface';
 import { ProfileService } from '../../users/profile/profile.service';
+import { ConsentService } from '../../consent/consent.service';
 import { RelationshipResponseDto } from './dto/relationship-response.dto';
 import type { StewardshipRelationship, User, StewardCapacity, Organization, OrganizationMember } from '@prisma/client';
 import type { AuthenticatedUser } from '../../auth/strategies/jwt.strategy';
@@ -94,6 +95,7 @@ const mockTaskRepo: jest.Mocked<ITaskRepository> = {
   create: jest.fn(), findById: jest.fn(), findAll: jest.fn(), update: jest.fn(), softDelete: jest.fn(), findOwnerId: jest.fn(),
 };
 const mockProfileService = { findByUserId: jest.fn() } as unknown as ProfileService;
+const mockConsentService = { getStatus: jest.fn(), grant: jest.fn() } as unknown as jest.Mocked<ConsentService>;
 
 describe('StewardshipRelationshipsService', () => {
   let service: StewardshipRelationshipsService;
@@ -112,10 +114,12 @@ describe('StewardshipRelationshipsService', () => {
         { provide: MILESTONE_REPOSITORY, useValue: mockMilestoneRepo },
         { provide: TASK_REPOSITORY, useValue: mockTaskRepo },
         { provide: ProfileService, useValue: mockProfileService },
+        { provide: ConsentService, useValue: mockConsentService },
       ],
     }).compile();
     service = m.get(StewardshipRelationshipsService);
     jest.clearAllMocks();
+    mockConsentService.getStatus.mockResolvedValue({ granted: false, isCurrentVersion: false, version: null, grantedAt: null });
   });
 
   describe('requestSteward', () => {
@@ -406,6 +410,34 @@ describe('StewardshipRelationshipsService', () => {
       mockGoalRepo.findAll.mockResolvedValue({ data: [], total: 0, page: 1, limit: 100 });
 
       await expect(service.getMemberOverview('rel-001', ADMIN)).resolves.toBeDefined();
+    });
+
+    it("B7: surfaces the member's real arrival state (consent not yet granted, no goal yet)", async () => {
+      mockRepo.findById.mockResolvedValue(makeRelationship({ status: StewardshipRelationshipStatus.ACTIVE }));
+      (mockProfileService.findByUserId as jest.Mock).mockResolvedValue(null);
+      mockGoalRepo.findAll.mockResolvedValue({ data: [], total: 0, page: 1, limit: 100 });
+      mockConsentService.getStatus.mockResolvedValue({ granted: false, isCurrentVersion: false, version: null, grantedAt: null });
+
+      const result = await service.getMemberOverview('rel-001', STEWARD);
+      expect(result.arrivalStatus).toEqual({
+        consentGranted: false, consentVersion: null, consentGrantedAt: null, hasCreatedFirstGoal: false,
+      });
+      expect(mockConsentService.getStatus).toHaveBeenCalledWith(MEMBER.id);
+    });
+
+    it('B7: reflects consent granted and a first goal created, and exposes nothing beyond that', async () => {
+      mockRepo.findById.mockResolvedValue(makeRelationship({ status: StewardshipRelationshipStatus.ACTIVE }));
+      (mockProfileService.findByUserId as jest.Mock).mockResolvedValue(null);
+      const goal = { id: 'goal-1', userId: MEMBER.id, title: 'Find work', status: 'ACTIVE', createdAt: NOW, updatedAt: NOW, deletedAt: null };
+      mockGoalRepo.findAll.mockResolvedValue({ data: [goal as never], total: 1, page: 1, limit: 100 });
+      mockJourneyRepo.findByGoalId.mockResolvedValue(null);
+      const grantedAt = new Date('2026-07-01T00:00:00.000Z');
+      mockConsentService.getStatus.mockResolvedValue({ granted: true, isCurrentVersion: true, version: 'v1-2026-07', grantedAt });
+
+      const result = await service.getMemberOverview('rel-001', STEWARD);
+      expect(result.arrivalStatus).toEqual({
+        consentGranted: true, consentVersion: 'v1-2026-07', consentGrantedAt: grantedAt, hasCreatedFirstGoal: true,
+      });
     });
   });
 });

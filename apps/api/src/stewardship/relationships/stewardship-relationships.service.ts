@@ -45,6 +45,7 @@ import { IJourneyRepository, JOURNEY_REPOSITORY } from '../../journeys/repositor
 import { IMilestoneRepository, MILESTONE_REPOSITORY } from '../../milestones/repositories/milestone.repository.interface';
 import { ITaskRepository, TASK_REPOSITORY } from '../../tasks/repositories/task.repository.interface';
 import { ProfileService } from '../../users/profile/profile.service';
+import { ConsentService } from '../../consent/consent.service';
 import { GoalResponseDto } from '../../goals/dto/goal-response.dto';
 import { JourneyResponseDto } from '../../journeys/dto/journey-response.dto';
 import { MilestoneResponseDto } from '../../milestones/dto/milestone-response.dto';
@@ -68,6 +69,7 @@ export class StewardshipRelationshipsService {
     @Inject(MILESTONE_REPOSITORY) private readonly milestoneRepo: IMilestoneRepository,
     @Inject(TASK_REPOSITORY) private readonly taskRepo: ITaskRepository,
     private readonly profileService: ProfileService,
+    private readonly consentService: ConsentService,
   ) {}
 
   // ── Creation flows ────────────────────────────────────────────────────
@@ -217,12 +219,20 @@ export class StewardshipRelationshipsService {
     );
     const tasks = tasksByMilestone.flatMap((r) => r.data);
 
+    const consentStatus = await this.consentService.getStatus(memberId);
+
     return {
       profile,
       goals: goals.map(GoalResponseDto.fromEntity),
       journeys: journeys.map(JourneyResponseDto.fromEntity),
       milestones: milestones.map(MilestoneResponseDto.fromEntity),
       tasks: tasks.map(TaskResponseDto.fromEntity),
+      arrivalStatus: {
+        consentGranted: consentStatus.granted,
+        consentVersion: consentStatus.version,
+        consentGrantedAt: consentStatus.grantedAt,
+        hasCreatedFirstGoal: goals.length > 0,
+      },
     };
   }
 
