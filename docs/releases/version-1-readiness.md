@@ -7,6 +7,14 @@ Last updated: 2026-07-16 (after WO-030 — Pods)
 
 ---
 
+> ### Historical snapshot notice (added by RS-001 — Repository Truth Reconciliation)
+>
+> Despite the instruction above, this document has **not** been updated since WO-030. Real work has continued past this point — the frontend foundation and every subsequent frontend domain (FWO-001–003, DOMAIN-001–008), the Founder Operating System and Intelligence Layer (PR-002–004), production hardening (PD-001–002), and the LAUNCH-001 "First Members" launch track — without this file being revised to match, contradicting its own maintenance rule. `apps/web` in particular is **not** "an unmodified Next.js scaffold with zero business logic" as the Executive Summary and Release Blockers sections below state; it is a substantially built application.
+>
+> Per the execution-authority hierarchy this reconciliation establishes (`docs/launch/EXECUTION-AUTHORITY.md`), this document's role going forward is **historical readiness and technical evidence of the WO-030 milestone** — everything below is preserved unedited as that record. It is not the current status. For current scope, registry, and status, see `docs/launch/LAUNCH-001-First-Members.md`, `docs/launch/WORKORDERS.md`, and `docs/launch/SCOREBOARD.md` respectively (the latter two are not yet present on this branch as of this reconciliation — see `EXECUTION-AUTHORITY.md` for why).
+
+---
+
 ## Founder Directive: Backend-Before-Frontend Sequencing
 
 **2026-07-15 — the founder made a Version 1 architectural decision: the entire canonical backend (all twelve PA-020-named Version 1 systems) will be completed before any frontend work begins.** This supersedes the WO-023-era recommendation to start a frontend foundation next. **As of WO-030 (2026-07-16), that condition is met — all twelve PA-020-named Version 1 backend systems are implemented, tested, and live-verified.** See Recommended Next Work Order below for what this unblocks.

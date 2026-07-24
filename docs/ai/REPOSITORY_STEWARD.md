@@ -6,8 +6,8 @@ Before making any recommendation or change:
 
 1. Read the current repository state.
 2. Review the relevant implementation documents.
-3. Review WORKORDERS.md.
-4. Review SCOREBOARD.md.
+3. Review `docs/launch/WORKORDERS.md` — the execution registry — if present on the branch you're working from. See `docs/launch/EXECUTION-AUTHORITY.md` for the full authority hierarchy and for what to do when it is not (as of RS-001, it exists only on the `docs/launch-command-center` branch, not yet on `main`).
+4. Review `docs/launch/SCOREBOARD.md` — current status — under the same condition as above.
 5. Review any files directly related to the requested task.
 6. Understand the existing architecture before proposing changes.
 

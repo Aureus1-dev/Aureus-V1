@@ -10,6 +10,8 @@ Aureus Version 1 is a TypeScript monorepo using Turborepo, implementing the cano
 
 ## Implemented Domains
 
+The table below is an early, partial snapshot (six of the platform's domains, recorded early in the project) and has not been kept current — see the Governance & Execution Authority section below for where to find the actual current state instead of trusting this table.
+
 | Domain | Status | Architecture Decision Record |
 |---|---|---|
 | Member Core (Users, Profile) | Implemented | ADR-003 |
@@ -19,7 +21,11 @@ Aureus Version 1 is a TypeScript monorepo using Turborepo, implementing the cano
 | Resource Directory | Implemented | ADR-006 |
 | Administration & Operations (Role Management) | Implemented | ADR-007 |
 
-See `docs/releases/version-1-readiness.md` for the canonical, continuously-updated Version 1 readiness assessment, remaining Work Orders, and release blockers.
+`docs/releases/version-1-readiness.md` is **historical technical evidence as of WO-030** (see the notice at the top of that file), not a continuously-updated document — its own maintenance instruction has not been followed since. See Governance & Execution Authority below for where current scope, registry, and status actually live.
+
+## Governance & Execution Authority
+
+The active execution track is `docs/launch/LAUNCH-001-First-Members.md` — the Founder-approved plan for Aureus's first 25 members, organized into sequential Gates (A–F). The full authority hierarchy for that track (what document governs scope vs. registry vs. current status vs. historical evidence) is recorded in `docs/launch/EXECUTION-AUTHORITY.md`. `docs/ai/REPOSITORY_STEWARD.md` defines the operating rules for any session acting as Repository Steward on this repository.
 
 ## Frontend Governance
 
@@ -28,7 +34,7 @@ Frontend implementation is governed by a dedicated canon and blueprint series, s
 - `docs/frontend/canon/` — Frontend Experience Canons (AFX-001–006): the constitutional principles governing every member interaction (conversation-first, voice and presence, visual design system, member flourishing).
 - `docs/frontend/blueprints/` — Frontend Production Blueprints (FPB-000–016): the engineering specification for implementing the canon, starting from `FPB-000-Frontend-Blueprint-Index.md`.
 
-Frontend Work Orders (FWO series) execute the blueprint one vertical slice at a time and will live in `docs/work-orders/` alongside the existing backend Work Orders once issued.
+Frontend Work Orders (FWO series) execute the blueprint one vertical slice at a time and live in `docs/work-orders/` alongside the backend Work Orders.
 
 ## Workspace Tooling
 
