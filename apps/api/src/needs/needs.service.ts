@@ -43,10 +43,12 @@ export class NeedsService {
   }
 
   /**
-   * Gate C (C4: Resource discovery). Retrieves active City Sheet candidates
-   * whose category deterministically matches this stated need's own words
-   * (see `resource-matching.util.ts`). Self-only — a need's owner is the
-   * only caller who may see resources matched for it.
+   * Gate C (C4: Resource discovery; production-safety enforced per C9).
+   * Retrieves active City Sheet candidates whose category deterministically
+   * matches this stated need's own words (see `resource-matching.util.ts`).
+   * Self-only — a need's owner is the only caller who may see resources
+   * matched for it. A real (non-fixture) candidate is only ever included
+   * once a Human Steward has verified it via A4 — see `isSafeToSurface`.
    */
   async findMatchingResources(needId: string, callerId: string): Promise<MatchedResourceDto[]> {
     const need = await this.getOwnedNeedOrThrow(needId, callerId);
@@ -64,12 +66,26 @@ export class NeedsService {
     const matched: MatchedResourceDto[] = [];
     for (const result of resultsByCategory) {
       for (const entry of result.data) {
-        if (seen.has(entry.id)) continue;
+        if (seen.has(entry.id) || !this.isSafeToSurface(entry)) continue;
         seen.add(entry.id);
         matched.push(MatchedResourceDto.fromEntity(entry));
       }
     }
     return matched;
+  }
+
+  /**
+   * Gate C (C9: Production verification). The one production-safety rule
+   * this work order exists to enforce in code, not only in prose: a real
+   * candidate (`isTestFixture: false` — e.g. A3's 8 launch-metro entries)
+   * must never be surfaced or offered to any member until a Human Steward
+   * has actually verified it (A4). An explicitly labeled `isTestFixture`
+   * entry is exempt — it is synthetic, safe-by-construction build/test
+   * data that Gate C's own engineering (C4–C8) depends on being reachable
+   * before any real verification exists.
+   */
+  private isSafeToSurface(entry: { isTestFixture: boolean; verificationStatus: CitySheetVerificationStatus }): boolean {
+    return entry.isTestFixture || entry.verificationStatus === CitySheetVerificationStatus.VERIFIED;
   }
 
   /**
@@ -81,7 +97,13 @@ export class NeedsService {
    */
   async offerResource(needId: string, citySheetEntryId: string, callerId: string): Promise<ResourceOfferResponseDto> {
     const need = await this.getOwnedNeedOrThrow(needId, callerId);
-    await this.citySheet.findById(citySheetEntryId); // throws NotFoundException if missing
+    const entry = await this.citySheet.findById(citySheetEntryId); // throws NotFoundException if missing
+    // C9: enforced here too, not only in findMatchingResources — a member
+    // (or a client bypassing discovery) must never be able to offer an
+    // unverified real candidate by ID directly.
+    if (!this.isSafeToSurface(entry)) {
+      throw new NotFoundException(`City sheet entry '${citySheetEntryId}' not found`);
+    }
 
     const created = await this.offers.create({ userId: callerId, statedNeedId: need.id, citySheetEntryId });
     return ResourceOfferResponseDto.fromEntity(created);
