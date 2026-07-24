@@ -896,6 +896,93 @@ describe('AI Intelligence Engine — E2E', () => {
     });
   });
 
+  describe('Gate C — C9: Production verification (real members, verified data only)', () => {
+    // C9's acceptance criteria is narrower than C8's: "Real-member session
+    // traces only to verified city sheet entries; no unverified or
+    // live-crawled content ever appears." This test seeds a real
+    // (non-fixture) *unverified* candidate — exactly the shape of A3's
+    // still-untouched launch-metro candidates — alongside a real, actually
+    // steward-verified entry in the same category, then proves a real
+    // member's Clearing session only ever surfaces the verified one, both
+    // through discovery and when attempting to offer the unverified one
+    // directly by ID.
+    it("a real member's resource discovery and offers trace only to verified City Sheet data, never an unverified real candidate", async () => {
+      const unverifiedCandidate = await request(app.getHttpServer())
+        .post('/city-sheet')
+        .set('Authorization', `Bearer ${stewardToken}`)
+        .send({
+          organizationName: `${markerTitlePrefix}C9 Unverified Legal Aid`, category: 'LEGAL_AID',
+          description: 'A real candidate awaiting Human Steward verification (A4) — not yet trustworthy.',
+          serviceArea: 'Delaware County', hours: 'not yet confirmed',
+        })
+        .expect(201);
+      expect(unverifiedCandidate.body.verificationStatus).toBe('UNVERIFIED');
+      expect(unverifiedCandidate.body.isTestFixture).toBe(false);
+
+      const verifiedCandidate = await request(app.getHttpServer())
+        .post('/city-sheet')
+        .set('Authorization', `Bearer ${stewardToken}`)
+        .send({
+          organizationName: `${markerTitlePrefix}C9 Verified Legal Aid`, category: 'LEGAL_AID',
+          description: 'A real candidate, human-verified by a steward.', serviceArea: 'Delaware County',
+          hours: 'Mon-Fri 9am-5pm',
+        })
+        .expect(201);
+      await request(app.getHttpServer())
+        .post(`/city-sheet/${verifiedCandidate.body.id}/verify`)
+        .set('Authorization', `Bearer ${stewardToken}`)
+        .send({ confidence: 'HIGH' })
+        .expect(201);
+
+      const conversation = await request(app.getHttpServer())
+        .post('/ai/conversations')
+        .set('Authorization', `Bearer ${learnerToken}`)
+        .send({ title: 'C9 production verification' })
+        .expect(201);
+      await request(app.getHttpServer())
+        .post(`/ai/conversations/${conversation.body.id}/messages`)
+        .set('Authorization', `Bearer ${learnerToken}`)
+        .send({ content: 'I got an eviction notice and need legal help' })
+        .expect(201);
+      const needs = await request(app.getHttpServer())
+        .get('/needs')
+        .set('Authorization', `Bearer ${learnerToken}`)
+        .expect(200);
+      const needId = needs.body.find(
+        (n: { conversationId: string }) => n.conversationId === conversation.body.id,
+      ).id;
+
+      const resources = await request(app.getHttpServer())
+        .get(`/needs/${needId}/resources`)
+        .set('Authorization', `Bearer ${learnerToken}`)
+        .expect(200);
+      const resourceIds = resources.body.map((r: { id: string }) => r.id);
+      expect(resourceIds).toContain(verifiedCandidate.body.id);
+      expect(resourceIds).not.toContain(unverifiedCandidate.body.id);
+
+      // The verified entry can be offered and accepted normally — a real
+      // member's session can be completed using only verified data.
+      const offer = await request(app.getHttpServer())
+        .post(`/needs/${needId}/resources/${verifiedCandidate.body.id}/offer`)
+        .set('Authorization', `Bearer ${learnerToken}`)
+        .expect(201);
+      await request(app.getHttpServer())
+        .post(`/needs/${needId}/resources/${verifiedCandidate.body.id}/respond`)
+        .set('Authorization', `Bearer ${learnerToken}`)
+        .send({ accepted: true })
+        .expect(201);
+      expect(offer.body.response).toBe('PENDING');
+
+      // Even bypassing discovery and addressing the unverified real
+      // candidate directly by ID, an offer is refused (404 — not merely
+      // filtered from a list, but genuinely unreachable).
+      await request(app.getHttpServer())
+        .post(`/needs/${needId}/resources/${unverifiedCandidate.body.id}/offer`)
+        .set('Authorization', `Bearer ${learnerToken}`)
+        .expect(404);
+    });
+  });
+
   describe('Insights — explanations, guidance, and search', () => {
     it('explains an Opportunity', async () => {
       const res = await request(app.getHttpServer())
