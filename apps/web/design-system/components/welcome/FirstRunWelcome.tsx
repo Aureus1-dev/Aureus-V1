@@ -2,16 +2,30 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { useJourney, useOpportunities, useRecommendations } from '../../../state';
+import { useJourney, useOpportunities, useRecommendations, useSession } from '../../../state';
 import { useRecommendationSubjects } from '../recommendations';
+import { useTheme } from '../../theme';
+import { grantConsent } from '../../../lib/api/consent';
+import { CURRENT_CONSENT_VERSION } from '../../../lib/config/consent';
+import { ConsentStep } from './steps/ConsentStep';
+import { PreferencesStep } from './steps/PreferencesStep';
 import { HospitalityStep } from './steps/HospitalityStep';
 import { ImmediateNeedStep } from './steps/ImmediateNeedStep';
 import { FirstMissionStep } from './steps/FirstMissionStep';
 import { OpportunityDiscoveryStep } from './steps/OpportunityDiscoveryStep';
 import { ReviewApprovalStep } from './steps/ReviewApprovalStep';
 import { NextStepSummary } from './steps/NextStepSummary';
+import { classifyArrivalError, type ArrivalError } from './classify-arrival-error';
 
-type Step = 'hospitality' | 'immediate-need' | 'first-mission' | 'opportunities' | 'review-approval' | 'next-step';
+type Step =
+  | 'consent'
+  | 'preferences'
+  | 'hospitality'
+  | 'immediate-need'
+  | 'first-mission'
+  | 'opportunities'
+  | 'review-approval'
+  | 'next-step';
 
 export interface FirstRunWelcomeProps {
   /** Skip the hospitality intro for a returning member starting a new mission. */
@@ -28,13 +42,31 @@ export interface FirstRunWelcomeProps {
  */
 export function FirstRunWelcome({ skipHospitality = false }: FirstRunWelcomeProps) {
   const router = useRouter();
+  const { session } = useSession();
+  const { motionPreference, setMotionPreference } = useTheme();
   const journey = useJourney();
   const opportunities = useOpportunities();
   const recommendations = useRecommendations();
 
-  const [step, setStep] = useState<Step>(skipHospitality ? 'immediate-need' : 'hospitality');
+  const [step, setStep] = useState<Step>(skipHospitality ? 'immediate-need' : 'consent');
+  const [isGrantingConsent, setIsGrantingConsent] = useState(false);
+  const [consentError, setConsentError] = useState<ArrivalError | null>(null);
   const subjectsById = useRecommendationSubjects(recommendations.state.recommendations);
   const generatedRef = useRef(false);
+
+  const handleGrantConsent = useCallback(async () => {
+    if (!session.accessToken || !session.memberId) return;
+    setIsGrantingConsent(true);
+    setConsentError(null);
+    try {
+      await grantConsent(session.accessToken, session.memberId, CURRENT_CONSENT_VERSION);
+      setIsGrantingConsent(false);
+      setStep('preferences');
+    } catch (error) {
+      setIsGrantingConsent(false);
+      setConsentError(classifyArrivalError(error));
+    }
+  }, [session.accessToken, session.memberId]);
 
   const createdGoal =
     !journey.state.isCreatingFirstMission && !journey.state.firstMissionDraft && !journey.state.error
@@ -68,6 +100,25 @@ export function FirstRunWelcome({ skipHospitality = false }: FirstRunWelcomeProp
   })();
 
   switch (step) {
+    case 'consent':
+      return (
+        <ConsentStep
+          granting={isGrantingConsent}
+          error={consentError}
+          onGrant={() => void handleGrantConsent()}
+          onRetry={() => void handleGrantConsent()}
+        />
+      );
+
+    case 'preferences':
+      return (
+        <PreferencesStep
+          reducedMotion={motionPreference === 'reduced'}
+          onReducedMotionChange={(reducedMotion) => setMotionPreference(reducedMotion ? 'reduced' : 'system')}
+          onContinue={() => setStep('hospitality')}
+        />
+      );
+
     case 'hospitality':
       return <HospitalityStep onContinue={() => setStep('immediate-need')} />;
 

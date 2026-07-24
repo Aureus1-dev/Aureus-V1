@@ -1,5 +1,7 @@
 export { WelcomeFlow, type WelcomeFlowProps } from './WelcomeFlow';
 export { FirstRunWelcome, type FirstRunWelcomeProps } from './FirstRunWelcome';
+export { ConsentStep, type ConsentStepProps } from './steps/ConsentStep';
+export { PreferencesStep, type PreferencesStepProps } from './steps/PreferencesStep';
 export { HospitalityStep, type HospitalityStepProps } from './steps/HospitalityStep';
 export { ImmediateNeedStep, type ImmediateNeedStepProps } from './steps/ImmediateNeedStep';
 export { FirstMissionStep, type FirstMissionStepProps } from './steps/FirstMissionStep';

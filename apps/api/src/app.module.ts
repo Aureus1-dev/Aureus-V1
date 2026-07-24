@@ -29,6 +29,7 @@ import { ConnectedExperiencesModule } from './connected-experiences/connected-ex
 import { AdministrationModule } from './administration/administration.module';
 import { UserInterestsModule } from './users/interests/user-interests.module';
 import { HealthModule } from './health/health.module';
+import { ConsentModule } from './consent/consent.module';
 
 @Module({
   imports: [
@@ -106,6 +107,7 @@ import { HealthModule } from './health/health.module';
     AdministrationModule,
     UserInterestsModule,
     HealthModule,
+    ConsentModule,
   ],
 
   providers: [

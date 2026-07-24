@@ -139,6 +139,7 @@ model User {
   stewardActivityLogs        StewardActivityLog[]
   aiOperationalConfigUpdates AiOperationalConfig[]
   aiOrchestrationRuns        AiOrchestrationRun[]
+  consentRecords             ConsentRecord[]
 }
 
 // ===========================================================================
@@ -214,6 +215,25 @@ model Profile {
 
   userId String @unique @db.Uuid
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+// ===========================================================================
+// Consent (Gate B — B3: consent and expectations captured at arrival)
+// ===========================================================================
+
+// Append-only, like CitySheetVerificationEvent: every grant is a permanent
+// row, never updated or deleted, so a member's consent history can always
+// be reconstructed exactly as it happened. "Current" consent is simply the
+// most recent row for a given (userId, version).
+model ConsentRecord {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @db.Uuid
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  version   String
+  grantedAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([userId, version])
 }
 
 // ===========================================================================

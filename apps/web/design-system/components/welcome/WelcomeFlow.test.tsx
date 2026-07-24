@@ -3,6 +3,7 @@ import { SessionProvider, useSession } from '../../../state/session/SessionConte
 import { JourneyProvider } from '../../../state/journey/JourneyContext';
 import { OpportunitiesProvider } from '../../../state/opportunities/OpportunitiesContext';
 import { RecommendationsProvider } from '../../../state/recommendations/RecommendationsContext';
+import { ThemeProvider } from '../../theme';
 import { WelcomeFlow } from './WelcomeFlow';
 import * as goalsApi from '../../../lib/api/goals';
 
@@ -31,15 +32,17 @@ function TestHarness({ forceNewMission }: { forceNewMission?: boolean }) {
 
 function renderFlow(forceNewMission?: boolean) {
   return render(
-    <SessionProvider>
-      <JourneyProvider>
-        <OpportunitiesProvider>
-          <RecommendationsProvider>
-            <TestHarness forceNewMission={forceNewMission} />
-          </RecommendationsProvider>
-        </OpportunitiesProvider>
-      </JourneyProvider>
-    </SessionProvider>,
+    <ThemeProvider>
+      <SessionProvider>
+        <JourneyProvider>
+          <OpportunitiesProvider>
+            <RecommendationsProvider>
+              <TestHarness forceNewMission={forceNewMission} />
+            </RecommendationsProvider>
+          </OpportunitiesProvider>
+        </JourneyProvider>
+      </SessionProvider>
+    </ThemeProvider>,
   );
 }
 
@@ -57,12 +60,12 @@ describe('WelcomeFlow', () => {
     expect(screen.queryByText('Welcome to Aureus')).not.toBeInTheDocument();
   });
 
-  it('shows the guided first-run flow for a genuine first-run member (no goals yet)', async () => {
+  it('shows the guided first-run flow for a genuine first-run member (no goals yet), starting with consent (B3)', async () => {
     mockedGoals.listGoals.mockResolvedValue({ data: [], total: 0, page: 1, limit: 20, totalPages: 0 });
 
     renderFlow();
 
-    expect(await screen.findByText('Welcome to Aureus')).toBeInTheDocument();
+    expect(await screen.findByText('Before we begin')).toBeInTheDocument();
     expect(replace).not.toHaveBeenCalled();
   });
 

@@ -5,6 +5,7 @@ import { SessionProvider, useSession } from '../../../state/session/SessionConte
 import { JourneyProvider } from '../../../state/journey/JourneyContext';
 import { OpportunitiesProvider } from '../../../state/opportunities/OpportunitiesContext';
 import { RecommendationsProvider } from '../../../state/recommendations/RecommendationsContext';
+import { ThemeProvider } from '../../theme';
 import { FirstRunWelcome } from './FirstRunWelcome';
 import * as goalsApi from '../../../lib/api/goals';
 import * as journeysApi from '../../../lib/api/journeys';
@@ -13,6 +14,8 @@ import * as tasksApi from '../../../lib/api/tasks';
 import * as opportunitiesApi from '../../../lib/api/opportunities';
 import * as savedApi from '../../../lib/api/saved-opportunities';
 import * as recommendationsApi from '../../../lib/api/recommendations';
+import * as consentApi from '../../../lib/api/consent';
+import { CURRENT_CONSENT_VERSION } from '../../../lib/config/consent';
 
 jest.mock('../../../lib/api/goals');
 jest.mock('../../../lib/api/journeys');
@@ -21,6 +24,7 @@ jest.mock('../../../lib/api/tasks');
 jest.mock('../../../lib/api/opportunities');
 jest.mock('../../../lib/api/saved-opportunities');
 jest.mock('../../../lib/api/recommendations');
+jest.mock('../../../lib/api/consent');
 
 const push = jest.fn();
 jest.mock('next/navigation', () => ({ useRouter: () => ({ push }) }));
@@ -32,6 +36,7 @@ const mockedTasks = tasksApi as jest.Mocked<typeof tasksApi>;
 const mockedOpportunities = opportunitiesApi as jest.Mocked<typeof opportunitiesApi>;
 const mockedSaved = savedApi as jest.Mocked<typeof savedApi>;
 const mockedRecommendations = recommendationsApi as jest.Mocked<typeof recommendationsApi>;
+const mockedConsent = consentApi as jest.Mocked<typeof consentApi>;
 
 const goal = { id: 'goal-1', title: 'Find a better job', status: 'ACTIVE' as const, userId: 'member-1', createdAt: 'x', updatedAt: 'x', deletedAt: null };
 const journeyDto = { id: 'journey-1', title: 'Find a better job', status: 'ACTIVE' as const, goalId: 'goal-1', createdAt: 'x', updatedAt: 'x', deletedAt: null };
@@ -68,23 +73,27 @@ function SignedInAs({ children }: { children: React.ReactNode }) {
 
 function renderFlow() {
   return render(
-    <SessionProvider>
-      <JourneyProvider>
-        <OpportunitiesProvider>
-          <RecommendationsProvider>
-            <SignedInAs>
-              <FirstRunWelcome />
-            </SignedInAs>
-          </RecommendationsProvider>
-        </OpportunitiesProvider>
-      </JourneyProvider>
-    </SessionProvider>,
+    <ThemeProvider>
+      <SessionProvider>
+        <JourneyProvider>
+          <OpportunitiesProvider>
+            <RecommendationsProvider>
+              <SignedInAs>
+                <FirstRunWelcome />
+              </SignedInAs>
+            </RecommendationsProvider>
+          </OpportunitiesProvider>
+        </JourneyProvider>
+      </SessionProvider>
+    </ThemeProvider>,
   );
 }
 
 describe('FirstRunWelcome — Domain Completion Rule end-to-end', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    document.documentElement.removeAttribute('data-reduced-motion');
+    window.localStorage.clear();
     mockedGoals.createGoal.mockResolvedValue(goal);
     mockedJourneys.createJourney.mockResolvedValue(journeyDto);
     mockedMilestones.createMilestone.mockResolvedValue(milestone);
@@ -96,14 +105,28 @@ describe('FirstRunWelcome — Domain Completion Rule end-to-end', () => {
     });
     mockedRecommendations.generateRecommendations.mockResolvedValue([recommendation]);
     mockedRecommendations.approveRecommendation.mockResolvedValue({ ...recommendation, status: 'ACCEPTED', decidedAt: 'x' });
+    mockedConsent.grantConsent.mockResolvedValue({
+      granted: true, isCurrentVersion: true, version: CURRENT_CONSENT_VERSION, grantedAt: 'x',
+    });
   });
 
   it('takes a member from welcome through to understanding their next step', async () => {
     renderFlow();
     const user = userEvent.setup();
 
+    // 0. Consent and expectations are captured before arrival proceeds (B3).
+    expect(screen.getByText('Before we begin')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'I understand — continue' }));
+    await waitFor(() =>
+      expect(mockedConsent.grantConsent).toHaveBeenCalledWith('token-123', 'member-1', CURRENT_CONSENT_VERSION),
+    );
+
+    // 0.5. Accessibility/communication preferences are captured (B4).
+    await waitFor(() => expect(screen.getByText('Make this comfortable for you')).toBeInTheDocument());
+    await user.click(screen.getByRole('button', { name: 'Continue' }));
+
     // 1. Welcomed.
-    expect(screen.getByText('Welcome to Aureus')).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByText('Welcome to Aureus')).toBeInTheDocument());
     await user.click(screen.getByRole('button', { name: 'Get started' }));
 
     // 2. Communicates immediate need.
@@ -147,6 +170,11 @@ describe('FirstRunWelcome — Domain Completion Rule end-to-end', () => {
     renderFlow();
     const user = userEvent.setup();
 
+    expect(screen.getByText('Before we begin')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'I understand — continue' }));
+    await waitFor(() => expect(screen.getByText('Make this comfortable for you')).toBeInTheDocument());
+    await user.click(screen.getByRole('button', { name: 'Continue' }));
+    await waitFor(() => expect(screen.getByText('Welcome to Aureus')).toBeInTheDocument());
     await user.click(screen.getByRole('button', { name: 'Get started' }));
     await user.type(screen.getByLabelText('Your immediate need', { exact: false }), 'Find housing');
     await user.click(screen.getByRole('button', { name: 'Continue' }));
@@ -161,5 +189,44 @@ describe('FirstRunWelcome — Domain Completion Rule end-to-end', () => {
     await user.click(screen.getByRole('button', { name: 'Continue' }));
 
     await waitFor(() => expect(screen.getByText("You're ready to begin")).toBeInTheDocument());
+  });
+
+  it('B3: shows an honest, retryable error if granting consent fails, and recovers on retry', async () => {
+    mockedConsent.grantConsent.mockRejectedValueOnce(new (jest.requireActual('../../../lib/api/errors').NetworkError)());
+    renderFlow();
+    const user = userEvent.setup();
+
+    expect(screen.getByText('Before we begin')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'I understand — continue' }));
+
+    await waitFor(() => expect(screen.getByText('Connection interrupted')).toBeInTheDocument());
+    expect(screen.queryByText('Welcome to Aureus')).not.toBeInTheDocument();
+
+    mockedConsent.grantConsent.mockResolvedValueOnce({
+      granted: true, isCurrentVersion: true, version: CURRENT_CONSENT_VERSION, grantedAt: 'x',
+    });
+    await user.click(screen.getByRole('button', { name: 'Try again' }));
+
+    await waitFor(() => expect(screen.getByText('Make this comfortable for you')).toBeInTheDocument());
+    await user.click(screen.getByRole('button', { name: 'Continue' }));
+    await waitFor(() => expect(screen.getByText('Welcome to Aureus')).toBeInTheDocument());
+    expect(mockedConsent.grantConsent).toHaveBeenCalledTimes(2);
+  });
+
+  it('B4: setting "reduce motion" during arrival measurably applies it — not merely stored', async () => {
+    renderFlow();
+    const user = userEvent.setup();
+
+    await user.click(screen.getByRole('button', { name: 'I understand — continue' }));
+    await waitFor(() => expect(screen.getByText('Make this comfortable for you')).toBeInTheDocument());
+
+    expect(document.documentElement.getAttribute('data-reduced-motion')).toBeNull();
+    await user.click(screen.getByRole('checkbox', { name: 'Reduce motion and animation' }));
+    expect(document.documentElement.getAttribute('data-reduced-motion')).toBe('true');
+
+    await user.click(screen.getByRole('button', { name: 'Continue' }));
+    await waitFor(() => expect(screen.getByText('Welcome to Aureus')).toBeInTheDocument());
+    // The applied preference persists past the step that set it.
+    expect(document.documentElement.getAttribute('data-reduced-motion')).toBe('true');
   });
 });

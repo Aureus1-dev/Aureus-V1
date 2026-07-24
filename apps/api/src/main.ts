@@ -80,6 +80,7 @@ async function bootstrap(): Promise<void> {
       .addTag('connected-experiences', 'Connected Experiences endpoints (connected accounts, documents, Steward activity audit trail)')
       .addTag('administration', 'Administration & Operations endpoints (role management)')
       .addTag('health',         'Liveness and readiness endpoints')
+      .addTag('consent',        'Arrival consent endpoints (Gate B — B3: consent and expectations captured)')
       .addBearerAuth({ type: 'http', scheme: 'bearer', bearerFormat: 'JWT' })
       .build();
 
