@@ -65,4 +65,49 @@ describe('AuthGate', () => {
 
     expect(replace).toHaveBeenCalledWith('/login?expired=1');
   });
+
+  it('B5: no leakage across the transition — protected content stops rendering the instant a mid-session flips to unauthenticated', () => {
+    mockedUseSession.mockReturnValue({ session: { isAuthenticated: true }, isRestoring: false, sessionExpired: false });
+
+    const { rerender } = render(
+      <AuthGate>
+        <div>Protected content</div>
+      </AuthGate>,
+    );
+    expect(screen.getByText('Protected content')).toBeInTheDocument();
+
+    // A session expiring mid-arrival (e.g. a 401 that couldn't be silently
+    // refreshed) flips isAuthenticated to false without a page reload.
+    mockedUseSession.mockReturnValue({ session: { isAuthenticated: false }, isRestoring: false, sessionExpired: true });
+    rerender(
+      <AuthGate>
+        <div>Protected content</div>
+      </AuthGate>,
+    );
+
+    expect(screen.queryByText('Protected content')).not.toBeInTheDocument();
+    expect(replace).toHaveBeenCalledWith('/login?expired=1');
+  });
+
+  it('B5: no leakage across the transition — the unauthenticated redirect never fires again once a login completes', () => {
+    mockedUseSession.mockReturnValue({ session: { isAuthenticated: false }, isRestoring: false, sessionExpired: false });
+
+    const { rerender } = render(
+      <AuthGate>
+        <div>Protected content</div>
+      </AuthGate>,
+    );
+    expect(replace).toHaveBeenCalledWith('/login');
+    replace.mockClear();
+
+    mockedUseSession.mockReturnValue({ session: { isAuthenticated: true }, isRestoring: false, sessionExpired: false });
+    rerender(
+      <AuthGate>
+        <div>Protected content</div>
+      </AuthGate>,
+    );
+
+    expect(screen.getByText('Protected content')).toBeInTheDocument();
+    expect(replace).not.toHaveBeenCalled();
+  });
 });
