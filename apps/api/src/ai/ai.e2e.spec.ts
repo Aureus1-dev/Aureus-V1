@@ -716,6 +716,84 @@ describe('AI Intelligence Engine — E2E', () => {
     });
   });
 
+  describe('Gate C — C7: Safe failure', () => {
+    const stateNeed = async (token: string, content: string): Promise<string> => {
+      const created = await request(app.getHttpServer())
+        .post('/ai/conversations')
+        .set('Authorization', `Bearer ${token}`)
+        .send({ title: 'C7 need' })
+        .expect(201);
+      await request(app.getHttpServer())
+        .post(`/ai/conversations/${created.body.id}/messages`)
+        .set('Authorization', `Bearer ${token}`)
+        .send({ content })
+        .expect(201);
+      const needs = await request(app.getHttpServer())
+        .get('/needs')
+        .set('Authorization', `Bearer ${token}`)
+        .expect(200);
+      return needs.body.find((n: { conversationId: string }) => n.conversationId === created.body.id).id;
+    };
+
+    it('is not triggered when a verified resource exists for the matched category (reuses C5\'s verified Food Bank)', async () => {
+      const needId = await stateNeed(learnerToken, 'I need help finding food for my family');
+
+      const result = await request(app.getHttpServer())
+        .get(`/needs/${needId}/safe-failure`)
+        .set('Authorization', `Bearer ${learnerToken}`)
+        .expect(200);
+      expect(result.body.triggered).toBe(false);
+    });
+
+    it('is not triggered when the need matches no known City Sheet category at all', async () => {
+      const needId = await stateNeed(learnerToken, 'xyz nonsense words that match nothing');
+
+      const result = await request(app.getHttpServer())
+        .get(`/needs/${needId}/safe-failure`)
+        .set('Authorization', `Bearer ${learnerToken}`)
+        .expect(200);
+      expect(result.body.triggered).toBe(false);
+    });
+
+    it(
+      'reports a consistent, idempotent result for a matched category with no verified resource — whether a real ' +
+      'steward happens to be reachable elsewhere in this test run or not is a genuinely live, global fact this ' +
+      'endpoint reads honestly rather than a condition this test can control, so both outcomes are valid; what must ' +
+      'always hold is that repeating the check never produces a different answer or a duplicate record, and that a ' +
+      'triggered result always carries a real, non-empty honest message and next step',
+      async () => {
+        const needId = await stateNeed(learnerToken, 'I need help with transportation to get to my job');
+
+        const first = await request(app.getHttpServer())
+          .get(`/needs/${needId}/safe-failure`)
+          .set('Authorization', `Bearer ${learnerToken}`)
+          .expect(200);
+        const second = await request(app.getHttpServer())
+          .get(`/needs/${needId}/safe-failure`)
+          .set('Authorization', `Bearer ${learnerToken}`)
+          .expect(200);
+
+        expect(second.body).toEqual(first.body);
+        if (first.body.triggered) {
+          expect(first.body.message).toEqual(expect.any(String));
+          expect(first.body.message.length).toBeGreaterThan(0);
+          expect(first.body.nextStep).toEqual(expect.any(String));
+          expect(first.body.nextStep.length).toBeGreaterThan(0);
+          expect(first.body.recordedAt).not.toBeNull();
+        }
+      },
+    );
+
+    it("forbids checking safe-failure state for another member's stated need", async () => {
+      const needId = await stateNeed(learnerToken, 'I need help with transportation somewhere else');
+
+      await request(app.getHttpServer())
+        .get(`/needs/${needId}/safe-failure`)
+        .set('Authorization', `Bearer ${otherLearnerToken}`)
+        .expect(403);
+    });
+  });
+
   describe('Insights — explanations, guidance, and search', () => {
     it('explains an Opportunity', async () => {
       const res = await request(app.getHttpServer())

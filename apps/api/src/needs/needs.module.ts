@@ -15,6 +15,8 @@ import { PrismaNeedEscalationRepository } from './repositories/prisma-need-escal
 import { NEED_ESCALATION_REPOSITORY } from './repositories/need-escalation.repository.interface';
 import { PrismaOnCallHoursRepository } from './repositories/prisma-on-call-hours.repository';
 import { ON_CALL_HOURS_REPOSITORY } from './repositories/on-call-hours.repository.interface';
+import { PrismaUnresolvedNeedRepository } from './repositories/prisma-unresolved-need.repository';
+import { UNRESOLVED_NEED_REPOSITORY } from './repositories/unresolved-need.repository.interface';
 
 @Module({
   imports: [AuthGuardsModule, CitySheetModule, CommunicationModule, UsersModule],
@@ -26,6 +28,7 @@ import { ON_CALL_HOURS_REPOSITORY } from './repositories/on-call-hours.repositor
     { provide: RESOURCE_OFFER_REPOSITORY, useClass: PrismaResourceOfferRepository },
     { provide: NEED_ESCALATION_REPOSITORY, useClass: PrismaNeedEscalationRepository },
     { provide: ON_CALL_HOURS_REPOSITORY, useClass: PrismaOnCallHoursRepository },
+    { provide: UNRESOLVED_NEED_REPOSITORY, useClass: PrismaUnresolvedNeedRepository },
   ],
   // Exported so the AI Conversations domain (Gate C — C1) can capture a
   // member's first message as a stated need without duplicating this logic.

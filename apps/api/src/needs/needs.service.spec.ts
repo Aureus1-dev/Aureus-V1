@@ -1,11 +1,16 @@
 import { ForbiddenException, NotFoundException } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { CitySheetCategory, CitySheetEntryStatus, CitySheetVerificationStatus, LaunchAreaScope, ResourceOfferResponse } from '@prisma/client';
-import type { StatedNeed, ResourceOffer } from '@prisma/client';
+import type { StatedNeed, ResourceOffer, UnresolvedNeed } from '@prisma/client';
 import { NeedsService } from './needs.service';
 import { IStatedNeedRepository, STATED_NEED_REPOSITORY } from './repositories/stated-need.repository.interface';
 import { IResourceOfferRepository, RESOURCE_OFFER_REPOSITORY } from './repositories/resource-offer.repository.interface';
+import {
+  IUnresolvedNeedRepository,
+  UNRESOLVED_NEED_REPOSITORY,
+} from './repositories/unresolved-need.repository.interface';
 import { CitySheetService } from '../city-sheet/city-sheet.service';
+import { UsersService } from '../users/users.service';
 import type { CitySheetEntryResponseDto } from '../city-sheet/dto/city-sheet-entry-response.dto';
 
 const NOW = new Date('2026-01-01T00:00:00.000Z');
@@ -32,13 +37,22 @@ const makeOffer = (o: Partial<ResourceOffer> = {}): ResourceOffer => ({
   response: ResourceOfferResponse.PENDING, offeredAt: NOW, respondedAt: null, ...o,
 });
 
+const makeUnresolvedNeed = (o: Partial<UnresolvedNeed> = {}): UnresolvedNeed => ({
+  id: 'unresolved-001', userId: 'user-001', statedNeedId: 'need-001',
+  reason: 'NO_VERIFIED_RESOURCE_NO_STEWARD', message: 'honest message', createdAt: NOW, ...o,
+});
+
 const mockRepo: jest.Mocked<IStatedNeedRepository> = {
   create: jest.fn(), findAllByUser: jest.fn(), findById: jest.fn(),
 };
 const mockOffers: jest.Mocked<IResourceOfferRepository> = {
   create: jest.fn(), findMostRecentPending: jest.fn(), respond: jest.fn(), findAllByStatedNeed: jest.fn(),
 };
+const mockUnresolvedNeeds: jest.Mocked<IUnresolvedNeedRepository> = {
+  create: jest.fn(), findByStatedNeed: jest.fn(),
+};
 const mockCitySheet = { findAll: jest.fn(), findById: jest.fn() } as unknown as jest.Mocked<CitySheetService>;
+const mockUsers = { findAll: jest.fn() } as unknown as jest.Mocked<UsersService>;
 
 describe('NeedsService', () => {
   let service: NeedsService;
@@ -49,7 +63,9 @@ describe('NeedsService', () => {
         NeedsService,
         { provide: STATED_NEED_REPOSITORY, useValue: mockRepo },
         { provide: RESOURCE_OFFER_REPOSITORY, useValue: mockOffers },
+        { provide: UNRESOLVED_NEED_REPOSITORY, useValue: mockUnresolvedNeeds },
         { provide: CitySheetService, useValue: mockCitySheet },
+        { provide: UsersService, useValue: mockUsers },
       ],
     }).compile();
     service = m.get(NeedsService);
@@ -208,6 +224,81 @@ describe('NeedsService', () => {
 
         await expect(service.findOffers('need-001', 'other-999')).rejects.toThrow(ForbiddenException);
       });
+    });
+  });
+
+  describe('Gate C — C7: Safe failure', () => {
+    const noStewards = { data: [], total: 0, page: 1, limit: 1, totalPages: 0 };
+    const oneSteward = { data: [{ id: 'steward-001' }] as never, total: 1, page: 1, limit: 1, totalPages: 1 };
+    const noVerifiedResource = { data: [], total: 0, page: 1, limit: 1, totalPages: 0 };
+    const oneVerifiedResource = { data: [makeCitySheetEntry()], total: 1, page: 1, limit: 1, totalPages: 1 };
+
+    it('is not triggered, and records nothing, when a verified resource exists even without a reachable steward', async () => {
+      mockRepo.findById.mockResolvedValue(makeNeed({ content: 'I need help finding food for my family' }));
+      mockCitySheet.findAll.mockResolvedValue(oneVerifiedResource);
+      mockUsers.findAll.mockResolvedValue(noStewards);
+
+      const result = await service.checkSafeFailure('need-001', 'user-001');
+
+      expect(result.triggered).toBe(false);
+      expect(mockUnresolvedNeeds.create).not.toHaveBeenCalled();
+    });
+
+    it('is not triggered when a steward is reachable even without a verified resource', async () => {
+      mockRepo.findById.mockResolvedValue(makeNeed({ content: 'I need help finding food for my family' }));
+      mockCitySheet.findAll.mockResolvedValue(noVerifiedResource);
+      mockUsers.findAll.mockResolvedValueOnce(oneSteward).mockResolvedValueOnce(noStewards);
+
+      const result = await service.checkSafeFailure('need-001', 'user-001');
+
+      expect(result.triggered).toBe(false);
+      expect(mockUnresolvedNeeds.create).not.toHaveBeenCalled();
+    });
+
+    it('is not triggered when the need matches no known category at all — that is C4\'s "no keyword hit," not this', async () => {
+      mockRepo.findById.mockResolvedValue(makeNeed({ content: 'xyz nonsense words' }));
+
+      const result = await service.checkSafeFailure('need-001', 'user-001');
+
+      expect(result.triggered).toBe(false);
+      expect(mockCitySheet.findAll).not.toHaveBeenCalled();
+      expect(mockUnresolvedNeeds.create).not.toHaveBeenCalled();
+    });
+
+    it('honestly triggers, records the outcome once, and returns a real next step when neither a verified resource nor a steward is reachable', async () => {
+      mockRepo.findById.mockResolvedValue(makeNeed({ content: 'I need help finding food for my family' }));
+      mockCitySheet.findAll.mockResolvedValue(noVerifiedResource);
+      mockUsers.findAll.mockResolvedValue(noStewards);
+      mockUnresolvedNeeds.findByStatedNeed.mockResolvedValue(null);
+      mockUnresolvedNeeds.create.mockResolvedValue(makeUnresolvedNeed());
+
+      const result = await service.checkSafeFailure('need-001', 'user-001');
+
+      expect(mockUnresolvedNeeds.create).toHaveBeenCalledWith(
+        expect.objectContaining({ userId: 'user-001', statedNeedId: 'need-001' }),
+      );
+      expect(result.triggered).toBe(true);
+      expect(result.message).toBeTruthy();
+      expect(result.nextStep).toBeTruthy();
+      expect(result.recordedAt).toEqual(NOW);
+    });
+
+    it('never records a duplicate — a repeat check on an already-recorded need returns the same row', async () => {
+      mockRepo.findById.mockResolvedValue(makeNeed({ content: 'I need help finding food for my family' }));
+      mockCitySheet.findAll.mockResolvedValue(noVerifiedResource);
+      mockUsers.findAll.mockResolvedValue(noStewards);
+      mockUnresolvedNeeds.findByStatedNeed.mockResolvedValue(makeUnresolvedNeed());
+
+      const result = await service.checkSafeFailure('need-001', 'user-001');
+
+      expect(mockUnresolvedNeeds.create).not.toHaveBeenCalled();
+      expect(result.triggered).toBe(true);
+    });
+
+    it("forbids checking safe-failure state for another member's stated need", async () => {
+      mockRepo.findById.mockResolvedValue(makeNeed({ userId: 'user-001' }));
+
+      await expect(service.checkSafeFailure('need-001', 'other-999')).rejects.toThrow(ForbiddenException);
     });
   });
 });

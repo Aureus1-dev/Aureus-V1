@@ -12,6 +12,7 @@ import { RespondToOfferDto } from './dto/respond-to-offer.dto';
 import { EscalateNeedDto } from './dto/escalate-need.dto';
 import { ResolveNeedEscalationDto } from './dto/resolve-need-escalation.dto';
 import { NeedEscalationResponseDto } from './dto/need-escalation-response.dto';
+import { SafeFailureResponseDto } from './dto/safe-failure-response.dto';
 
 @ApiTags('needs')
 @ApiBearerAuth()
@@ -135,5 +136,20 @@ export class NeedsController {
     @CurrentUser() caller: AuthenticatedUser,
   ): Promise<NeedEscalationResponseDto> {
     return this.escalations.resolve(escalationId, dto.resolutionNotes, caller);
+  }
+
+  @Get(':id/safe-failure')
+  @ApiOperation({
+    summary: 'Honestly check whether this need has no verified resource and no reachable steward, and record it if so (Gate C — C7: Safe failure)',
+  })
+  @ApiParam({ name: 'id', description: 'Stated need ID' })
+  @ApiResponse({ status: 200, type: SafeFailureResponseDto })
+  @ApiResponse({ status: 403, description: 'Caller does not own this stated need' })
+  @ApiResponse({ status: 404, description: 'Stated need not found' })
+  checkSafeFailure(
+    @Param('id') id: string,
+    @CurrentUser() caller: AuthenticatedUser,
+  ): Promise<SafeFailureResponseDto> {
+    return this.service.checkSafeFailure(id, caller.id);
   }
 }

@@ -1,12 +1,19 @@
 import { ForbiddenException, Inject, Injectable, NotFoundException } from '@nestjs/common';
-import { CitySheetCategory, CitySheetEntryStatus } from '@prisma/client';
+import { CitySheetCategory, CitySheetEntryStatus, CitySheetVerificationStatus, UserRole } from '@prisma/client';
 import { CitySheetService } from '../city-sheet/city-sheet.service';
+import { UsersService } from '../users/users.service';
 import { StatedNeedResponseDto } from './dto/stated-need-response.dto';
 import { MatchedResourceDto } from './dto/matched-resource.dto';
 import { ResourceOfferResponseDto } from './dto/resource-offer-response.dto';
+import { SafeFailureResponseDto } from './dto/safe-failure-response.dto';
 import { IStatedNeedRepository, STATED_NEED_REPOSITORY } from './repositories/stated-need.repository.interface';
 import { IResourceOfferRepository, RESOURCE_OFFER_REPOSITORY } from './repositories/resource-offer.repository.interface';
+import {
+  IUnresolvedNeedRepository,
+  UNRESOLVED_NEED_REPOSITORY,
+} from './repositories/unresolved-need.repository.interface';
 import { matchCategoriesForNeed } from './resource-matching.util';
+import { NO_VERIFIED_RESOURCE_NO_STEWARD_REASON, SAFE_FAILURE_MESSAGE, SAFE_FAILURE_NEXT_STEP } from './safe-failure.util';
 
 /**
  * Gate C (C1: Understanding). Captures a member's stated need — the first
@@ -20,7 +27,9 @@ export class NeedsService {
   constructor(
     @Inject(STATED_NEED_REPOSITORY) private readonly repo: IStatedNeedRepository,
     @Inject(RESOURCE_OFFER_REPOSITORY) private readonly offers: IResourceOfferRepository,
+    @Inject(UNRESOLVED_NEED_REPOSITORY) private readonly unresolvedNeeds: IUnresolvedNeedRepository,
     private readonly citySheet: CitySheetService,
+    private readonly users: UsersService,
   ) {}
 
   async capture(userId: string, conversationId: string, content: string): Promise<StatedNeedResponseDto> {
@@ -100,6 +109,59 @@ export class NeedsService {
     const need = await this.getOwnedNeedOrThrow(needId, callerId);
     const rows = await this.offers.findAllByStatedNeed(need.id);
     return rows.map(ResourceOfferResponseDto.fromEntity);
+  }
+
+  /**
+   * Gate C (C7: Safe failure). Honestly checks whether this stated need
+   * currently has neither a verified City Sheet resource nor a reachable
+   * steward — the one condition where a member could otherwise be left at
+   * a dead end. If triggered, the outcome is recorded exactly once (a
+   * repeat check on an already-recorded need returns the same row, never a
+   * duplicate) so it stays retrievable evidence the need was seen. Never
+   * triggers on ambiguous input: an unmatched need (no category at all) is
+   * C4's "no keyword hit," not this work order's concern.
+   */
+  async checkSafeFailure(needId: string, callerId: string): Promise<SafeFailureResponseDto> {
+    const need = await this.getOwnedNeedOrThrow(needId, callerId);
+
+    const categories = matchCategoriesForNeed(need.content);
+    const hasVerifiedResource = await this.hasVerifiedResourceFor(categories);
+    const stewardReachable = await this.isStewardReachable();
+
+    if (categories.length === 0 || hasVerifiedResource || stewardReachable) {
+      return SafeFailureResponseDto.notTriggered();
+    }
+
+    const existing = await this.unresolvedNeeds.findByStatedNeed(need.id);
+    const record = existing
+      ?? (await this.unresolvedNeeds.create({
+        userId: callerId,
+        statedNeedId: need.id,
+        reason: NO_VERIFIED_RESOURCE_NO_STEWARD_REASON,
+        message: SAFE_FAILURE_MESSAGE,
+      }));
+    return SafeFailureResponseDto.fromEntity(record, SAFE_FAILURE_NEXT_STEP);
+  }
+
+  private async hasVerifiedResourceFor(categories: CitySheetCategory[]): Promise<boolean> {
+    if (categories.length === 0) return false;
+    const resultsByCategory = await Promise.all(
+      categories.map((category) =>
+        this.citySheet.findAll({
+          page: 1, limit: 1, category, status: CitySheetEntryStatus.ACTIVE,
+          verificationStatus: CitySheetVerificationStatus.VERIFIED,
+        }),
+      ),
+    );
+    return resultsByCategory.some((result) => result.data.length > 0);
+  }
+
+  private async isStewardReachable(): Promise<boolean> {
+    const [stewards, admins] = await Promise.all([
+      this.users.findAll({ page: 1, limit: 1, role: UserRole.STEWARD }),
+      this.users.findAll({ page: 1, limit: 1, role: UserRole.PLATFORM_ADMINISTRATOR }),
+    ]);
+    return stewards.total > 0 || admins.total > 0;
   }
 
   private async getOwnedNeedOrThrow(needId: string, callerId: string) {

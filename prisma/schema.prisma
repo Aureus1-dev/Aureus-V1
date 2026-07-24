@@ -143,6 +143,7 @@ model User {
   statedNeeds                StatedNeed[]
   resourceOffers             ResourceOffer[]
   needEscalations            NeedEscalation[]
+  unresolvedNeeds            UnresolvedNeed[]
 }
 
 // ===========================================================================
@@ -2636,6 +2637,7 @@ model StatedNeed {
 
   resourceOffers  ResourceOffer[]
   needEscalations NeedEscalation[]
+  unresolvedNeed  UnresolvedNeed?
 
   @@index([userId])
   @@index([conversationId])
@@ -2654,13 +2656,13 @@ enum ResourceOfferResponse {
 }
 
 model ResourceOffer {
-  id              String         @id @default(uuid()) @db.Uuid
-  userId          String         @db.Uuid
-  user            User           @relation(fields: [userId], references: [id], onDelete: Cascade)
-  statedNeedId    String         @db.Uuid
-  statedNeed      StatedNeed     @relation(fields: [statedNeedId], references: [id], onDelete: Cascade)
-  citySheetEntryId String        @db.Uuid
-  citySheetEntry  CitySheetEntry @relation(fields: [citySheetEntryId], references: [id], onDelete: Cascade)
+  id               String         @id @default(uuid()) @db.Uuid
+  userId           String         @db.Uuid
+  user             User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  statedNeedId     String         @db.Uuid
+  statedNeed       StatedNeed     @relation(fields: [statedNeedId], references: [id], onDelete: Cascade)
+  citySheetEntryId String         @db.Uuid
+  citySheetEntry   CitySheetEntry @relation(fields: [citySheetEntryId], references: [id], onDelete: Cascade)
 
   response    ResourceOfferResponse @default(PENDING)
   offeredAt   DateTime              @default(now())
@@ -2715,4 +2717,24 @@ model PublishedOnCallHours {
   hoursDescription String?
   updatedById      String?  @db.Uuid // soft reference to User, no enforced relation (matches CitySheetEntry.verifiedById convention)
   updatedAt        DateTime @updatedAt
+}
+
+// Gate C (C7: Safe failure). Recorded the moment a stated need has no
+// verified resource available AND no steward reachable to page — the
+// member is never silently left at a dead end, and this row is the durable
+// evidence that the need was seen and not resolved. One row per stated
+// need (idempotent — re-checking an already-recorded need never spawns a
+// duplicate).
+model UnresolvedNeed {
+  id           String     @id @default(uuid()) @db.Uuid
+  userId       String     @db.Uuid
+  user         User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  statedNeedId String     @unique @db.Uuid
+  statedNeed   StatedNeed @relation(fields: [statedNeedId], references: [id], onDelete: Cascade)
+
+  reason    String
+  message   String
+  createdAt DateTime @default(now())
+
+  @@index([userId])
 }
