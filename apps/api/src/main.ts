@@ -69,6 +69,7 @@ async function bootstrap(): Promise<void> {
       .addTag('auth',           'Authentication and identity endpoints')
       .addTag('users',          'User management endpoints')
       .addTag('resources',      'Resource Directory endpoints')
+      .addTag('city-sheet',     'Launch City Sheet endpoints (verified crisis/assistance referrals for the launch metro — Steward/Founder only)')
       .addTag('organizations',  'Business Portal endpoints (organization profiles and membership)')
       .addTag('stewardship',    'Stewardship System endpoints (relationships, notes, tasks, recommendations, escalations, metrics)')
       .addTag('communication',  'Communication System endpoints (notifications, preferences, announcements, messaging)')

@@ -1,3 +1,5 @@
+import { V1_FEATURE_FLAGS } from '../../lib/config/v1-feature-scope';
+
 /**
  * The 20 primary experience surfaces (FPB-002 §3). This is the single
  * source of truth for both primary navigation and the routing scaffold —
@@ -10,7 +12,7 @@ export interface SurfaceDefinition {
   href: string;
 }
 
-export const primarySurfaces: SurfaceDefinition[] = [
+const ALL_SURFACES: SurfaceDefinition[] = [
   { id: 'welcome', label: 'Welcome', href: '/welcome' },
   { id: 'conversation', label: 'Conversation', href: '/conversation' },
   { id: 'home', label: 'Home', href: '/home' },
@@ -32,3 +34,15 @@ export const primarySurfaces: SurfaceDefinition[] = [
   { id: 'search', label: 'Search', href: '/search' },
   { id: 'help', label: 'Help & Support', href: '/help' },
 ];
+
+/**
+ * C2 — V1 Scope Lockdown: Academy and Pods are explicitly cut for V1
+ * (LAUNCH-001: "No Pods, no Academy"), so they're dropped from this list
+ * whenever their flag is off — the same central check the API's
+ * V1ScopeMiddleware and interface-tools.ts read.
+ */
+export const primarySurfaces: SurfaceDefinition[] = ALL_SURFACES.filter(
+  (surface) =>
+    (surface.id !== 'academy' || V1_FEATURE_FLAGS.academy) &&
+    (surface.id !== 'pods' || V1_FEATURE_FLAGS.pods),
+);

@@ -35,6 +35,12 @@ describe('AppShell', () => {
     expect(screen.queryByRole('link', { name: 'Founder' })).not.toBeInTheDocument();
   });
 
+  it('does not show Academy or Pods (C2 — cut for V1: "No Pods, no Academy")', () => {
+    renderShell();
+    expect(screen.queryByRole('link', { name: 'Academy' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'Pods' })).not.toBeInTheDocument();
+  });
+
   it('shows the Founder link for a Platform Administrator', () => {
     renderShell(['PLATFORM_ADMINISTRATOR']);
     expect(screen.getByRole('link', { name: 'Founder' })).toHaveAttribute('href', '/founder');

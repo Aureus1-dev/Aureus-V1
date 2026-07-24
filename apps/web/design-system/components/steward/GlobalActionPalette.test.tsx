@@ -85,21 +85,30 @@ describe('GlobalActionPalette', () => {
     renderPalette();
     await userEvent.click(screen.getByRole('button', { name: /Open the command palette/ }));
 
-    await userEvent.type(screen.getByRole('combobox'), 'Academy');
+    await userEvent.type(screen.getByRole('combobox'), 'Documents');
 
     const listbox = screen.getByRole('listbox');
-    expect(within(listbox).getByText('Academy')).toBeInTheDocument();
+    expect(within(listbox).getByText('Documents')).toBeInTheDocument();
     expect(within(listbox).queryByText('Journey')).not.toBeInTheDocument();
+  });
+
+  it('does not offer Academy as a navigation option (C2 — cut for V1)', async () => {
+    renderPalette();
+    await userEvent.click(screen.getByRole('button', { name: /Open the command palette/ }));
+
+    await userEvent.type(screen.getByRole('combobox'), 'Academy');
+
+    expect(screen.queryByRole('option', { name: 'Academy' })).not.toBeInTheDocument();
   });
 
   it('navigates and closes when a navigation option is clicked', async () => {
     renderPalette();
     await userEvent.click(screen.getByRole('button', { name: /Open the command palette/ }));
-    await userEvent.type(screen.getByRole('combobox'), 'Academy');
+    await userEvent.type(screen.getByRole('combobox'), 'Documents');
 
-    await userEvent.click(screen.getByRole('option', { name: 'Academy' }));
+    await userEvent.click(screen.getByRole('option', { name: 'Documents' }));
 
-    expect(push).toHaveBeenCalledWith('/academy');
+    expect(push).toHaveBeenCalledWith('/documents');
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
   });
 
@@ -116,21 +125,21 @@ describe('GlobalActionPalette', () => {
   it('supports full keyboard-only operation: Enter selects the first (default-active) option', async () => {
     renderPalette();
     await userEvent.click(screen.getByRole('button', { name: /Open the command palette/ }));
-    await userEvent.type(screen.getByRole('combobox'), 'Academy');
+    await userEvent.type(screen.getByRole('combobox'), 'Documents');
 
-    // The Academy nav option is listed first (before the always-appended
+    // The Documents nav option is listed first (before the always-appended
     // "Ask your Steward" entry), and index 0 is active by default.
     await userEvent.keyboard('{Enter}');
 
-    expect(push).toHaveBeenCalledWith('/academy');
+    expect(push).toHaveBeenCalledWith('/documents');
   });
 
   it('moves the active option down with ArrowDown and selects it with Enter', async () => {
     renderPalette();
     await userEvent.click(screen.getByRole('button', { name: /Open the command palette/ }));
-    await userEvent.type(screen.getByRole('combobox'), 'Academy');
+    await userEvent.type(screen.getByRole('combobox'), 'Documents');
 
-    // Two options exist for "Academy": the nav option, then "Ask your Steward".
+    // Two options exist for "Documents": the nav option, then "Ask your Steward".
     await userEvent.keyboard('{ArrowDown}{Enter}');
 
     expect(push).not.toHaveBeenCalled();

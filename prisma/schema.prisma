@@ -2381,3 +2381,203 @@ model StewardActivityLog {
   @@index([userId])
   @@index([occurredAt])
 }
+
+// ===========================================================================
+// Launch City Sheet  —  Work Order A1 (docs/launch/WORKORDERS.md)
+//
+// The verified referral sheet LAUNCH-001 requires before any member arrives:
+// "Every crisis and assistance referral for the launch metro verified by a
+// human within 14 days of launch" (Gate A), feeding the Clearing (Gate B)
+// and curated Search (Gate C) — never live-crawled data. Distinct from the
+// general-purpose Resource directory (PA-014) above: entries here are
+// scoped to one launch metro, carry a mandatory human-verification
+// lifecycle, and hold fields (hours, eligibility, cost, required documents,
+// emergency-service flag) that a crisis handoff or curated search result
+// must be able to show honestly. This work order defines structure only —
+// no entries are populated here (that is A3/A4).
+// ===========================================================================
+
+// LAUNCH-001 names crisis lines, assistance programs, legal aid, and food
+// resources explicitly (Gate A), and the burden-scope boundary names the
+// kinds of help V1 takes on (utilities, mail, benefits applications,
+// job-search support, transportation, hard calls). Every category named in
+// either passage is represented here, per A1's acceptance criterion that
+// the schema "can represent every referral category LAUNCH-001 names."
+enum CitySheetCategory {
+  CRISIS_LINE
+  ASSISTANCE_PROGRAM
+  LEGAL_AID
+  FOOD_RESOURCE
+  HOUSING_UTILITIES
+  EMPLOYMENT_JOB_SEARCH
+  TRANSPORTATION
+  BENEFITS_APPLICATION_SUPPORT
+  MAIL_CORRESPONDENCE_SUPPORT
+  HEALTHCARE
+  OTHER
+}
+
+// Not requested directly by A1's field list, but required to enforce the
+// Founder's P1 decision in the data itself rather than only in prose: the
+// city sheet begins with Chester and Delaware County, and a Greater
+// Philadelphia entry is only in scope when it "genuinely accepts and serves
+// members from the launch area." Recording that judgment per entry (rather
+// than inferring it from an address string) lets Gate A5's QA spot-check
+// and any future audit confirm the boundary was actually applied, not
+// merely stated.
+enum LaunchAreaScope {
+  CORE_LAUNCH_COUNTY
+  GREATER_PHILADELPHIA_SUPPLEMENTAL
+}
+
+// Not requested directly by A1's field list, but required by A1's own
+// acceptance criteria for A4 ("100% of entries carry a human verification
+// timestamp and verifier name; zero unverified entries reach Gate B") and
+// by Gate B/C's dependency on Gate A being fully verified before use. This
+// tracks the candidate -> verified lifecycle explicitly, distinct from the
+// active/inactive status below (which tracks whether an already-verified
+// resource is currently operating). REJECTED (A4-PREP) is a genuine
+// terminal-failure state — a candidate confirmed wrong, defunct, or out of
+// scope is not merely "unverified" or "needs another look."
+enum CitySheetVerificationStatus {
+  UNVERIFIED
+  VERIFIED
+  NEEDS_REVIEW
+  REJECTED
+}
+
+enum CitySheetEntryStatus {
+  ACTIVE
+  INACTIVE
+}
+
+// A4-PREP (docs/launch/WORKORDERS.md) — Human Steward Verification Workflow.
+enum CitySheetVerificationEventType {
+  VERIFIED
+  REJECTED
+  FLAGGED_FOR_REVIEW
+}
+
+// Preserves context alongside a verification decision without changing the
+// decision's governance: a HIGH/MEDIUM/LOW confidence value never gates
+// whether verify/reject succeeds, it only records how sure the human
+// steward was, for later prioritization (e.g. re-checking LOW-confidence
+// entries sooner).
+enum CitySheetVerificationConfidence {
+  HIGH
+  MEDIUM
+  LOW
+}
+
+model CitySheetEntry {
+  id             String  @id @default(uuid()) @db.Uuid
+  sequenceNumber Int     @unique @default(autoincrement())
+  citySheetRef   String? @unique // AUR-CS-000001, set after insert (mirrors Resource's resourceRef convention)
+
+  organizationName String
+  category         CitySheetCategory
+  description      String
+
+  address     String?
+  serviceArea String
+  launchScope LaunchAreaScope @default(CORE_LAUNCH_COUNTY)
+
+  phone   String?
+  website String?
+  hours   String
+
+  eligibilityRequirements String?
+  languagesSupported      String[] @default([])
+  accessibilityNotes      String?
+  cost                    String?
+  requiredDocuments       String[] @default([])
+
+  referralRequired   Boolean @default(false)
+  isEmergencyService Boolean @default(false)
+
+  verificationStatus     CitySheetVerificationStatus      @default(UNVERIFIED)
+  verificationConfidence CitySheetVerificationConfidence?
+  lastVerifiedAt         DateTime?
+  verifiedById           String?                          @db.Uuid // soft reference to User, no enforced relation (matches Resource.ownerId convention)
+  verificationNotes      String? // the steward's own call notes as of the current status — see verificationEvents for full history
+  rejectionReason        String?
+  nextReviewDueAt        DateTime?
+
+  // Where/how this candidate was originally compiled (e.g. A3's web-research
+  // citations). Set once at creation and never touched by verify/reject/
+  // flag-for-review — distinct from verificationNotes (the steward's call
+  // notes), which those actions do overwrite. Keeping provenance separate
+  // means a verification call can never accidentally erase the record of
+  // where a candidate came from.
+  sourceNotes String?
+
+  status CitySheetEntryStatus @default(ACTIVE)
+
+  createdById String @db.Uuid
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  verificationEvents CitySheetVerificationEvent[]
+
+  @@index([category])
+  @@index([launchScope])
+  @@index([verificationStatus])
+  @@index([status])
+  @@index([createdById])
+}
+
+// A4-PREP — configuration-driven verification checklist template. A null
+// category applies to every category ("common" item); category-scoped items
+// are combined with the common set when a checklist is generated for an
+// entry. Lives in the database (not hardcoded per category in application
+// code) specifically so Operations can add, reorder, or retire items
+// without an engineering deploy. No hard delete — isActive false retires an
+// item while preserving it for any historical verificationEvents that
+// snapshot its label.
+model CitySheetChecklistItem {
+  id        String             @id @default(uuid()) @db.Uuid
+  category  CitySheetCategory?
+  label     String
+  sortOrder Int                @default(0)
+  isActive  Boolean            @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([category])
+  @@index([isActive])
+  @@index([sortOrder])
+}
+
+// A4-PREP — append-only verification history. verify()/reject()/
+// flagForReview() each insert a new row here rather than overwriting
+// anything, so no verification event is ever lost even though
+// CitySheetEntry's own verificationStatus/verifiedById/lastVerifiedAt/
+// verificationConfidence fields continue to reflect only the current state
+// for convenient querying. This table is the permanent record — nothing
+// in this domain ever updates or deletes a row here once written.
+model CitySheetVerificationEvent {
+  id               String         @id @default(uuid()) @db.Uuid
+  citySheetEntryId String         @db.Uuid
+  citySheetEntry   CitySheetEntry @relation(fields: [citySheetEntryId], references: [id], onDelete: Cascade)
+
+  eventType          CitySheetVerificationEventType
+  previousStatus     CitySheetVerificationStatus
+  newStatus          CitySheetVerificationStatus
+  confidence         CitySheetVerificationConfidence?
+  notes              String?
+  // Snapshot of {itemId, label, confirmed, note}[] at the time of this
+  // event — stored as a label snapshot (not just an itemId lookup) so this
+  // history reads correctly even if the checklist item is later edited or
+  // retired.
+  checklistResponses Json?
+
+  performedById String   @db.Uuid // soft reference to User, no enforced relation (matches CitySheetEntry.verifiedById convention)
+  performedAt   DateTime @default(now())
+
+  @@index([citySheetEntryId])
+  @@index([performedById])
+  @@index([performedAt])
+  @@index([eventType])
+}

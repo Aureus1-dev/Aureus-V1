@@ -26,9 +26,15 @@ function renderTracker() {
 
 describe('SurfaceTracker', () => {
   it('records the current surface id for a top-level route', () => {
+    mockPathname = '/documents';
+    renderTracker();
+    expect(screen.getByTestId('current')).toHaveTextContent('documents');
+  });
+
+  it('treats /academy as unrecognized (C2 — cut for V1, no longer in the surface registry)', () => {
     mockPathname = '/academy';
     renderTracker();
-    expect(screen.getByTestId('current')).toHaveTextContent('academy');
+    expect(screen.getByTestId('current')).toHaveTextContent('');
   });
 
   it('matches a nested path under a surface to that surface', () => {
