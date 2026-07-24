@@ -1,5 +1,6 @@
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { axe } from 'jest-axe';
 import { SessionProvider, useSession } from '../../../state/session/SessionContext';
 import { JourneyProvider } from '../../../state/journey/JourneyContext';
 import { OpportunitiesProvider } from '../../../state/opportunities/OpportunitiesContext';
@@ -133,5 +134,16 @@ describe('WelcomeFlow', () => {
 
     expect(await screen.findByText('What brings you to Aureus today?')).toBeInTheDocument();
     expect(replace).not.toHaveBeenCalled();
+  });
+
+  it('B9 (Gate B outcome sign-off): the loading state and the goals-load-failure error state both pass an automated accessibility audit', async () => {
+    mockedGoals.listGoals.mockRejectedValueOnce(new NetworkError());
+    const { container } = renderFlow();
+
+    expect(screen.getByText('Preparing your welcome')).toBeInTheDocument();
+    expect(await axe(container)).toHaveNoViolations();
+
+    expect(await screen.findByText('Connection interrupted')).toBeInTheDocument();
+    expect(await axe(container)).toHaveNoViolations();
   });
 });

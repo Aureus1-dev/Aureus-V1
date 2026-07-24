@@ -1,6 +1,7 @@
 import { render, screen, waitFor } from '@testing-library/react';
 import { useEffect } from 'react';
 import userEvent from '@testing-library/user-event';
+import { axe } from 'jest-axe';
 import { SessionProvider, useSession } from '../../../state/session/SessionContext';
 import { JourneyProvider } from '../../../state/journey/JourneyContext';
 import { OpportunitiesProvider } from '../../../state/opportunities/OpportunitiesContext';
@@ -165,6 +166,66 @@ describe('FirstRunWelcome — Domain Completion Rule end-to-end', () => {
     expect(screen.getByRole('link', { name: 'View my journey' })).toHaveAttribute('href', '/journey');
     expect(screen.getByRole('link', { name: 'Browse opportunities' })).toHaveAttribute('href', '/opportunities');
     expect(screen.getByRole('link', { name: 'Talk to my steward' })).toHaveAttribute('href', '/conversation');
+  });
+
+  it('B9 (Gate B outcome sign-off): every real step of the arrival-to-handoff flow passes an automated accessibility audit (screen-reader condition)', async () => {
+    const { container } = renderFlow();
+    const user = userEvent.setup();
+
+    expect(screen.getByText('Before we begin')).toBeInTheDocument();
+    expect(await axe(container)).toHaveNoViolations();
+    await user.click(screen.getByRole('button', { name: 'I understand — continue' }));
+
+    await waitFor(() => expect(screen.getByText('Make this comfortable for you')).toBeInTheDocument());
+    expect(await axe(container)).toHaveNoViolations();
+    await user.click(screen.getByRole('button', { name: 'Continue' }));
+
+    await waitFor(() => expect(screen.getByText('Welcome to Aureus')).toBeInTheDocument());
+    expect(await axe(container)).toHaveNoViolations();
+    await user.click(screen.getByRole('button', { name: 'Get started' }));
+
+    expect(screen.getByText('What brings you to Aureus today?')).toBeInTheDocument();
+    expect(await axe(container)).toHaveNoViolations();
+    await user.type(screen.getByLabelText('Your immediate need', { exact: false }), 'Find a better job');
+    await user.click(screen.getByRole('button', { name: 'Continue' }));
+
+    await waitFor(() => expect(screen.getByText('Your first mission is set')).toBeInTheDocument());
+    expect(await axe(container)).toHaveNoViolations();
+    await user.click(screen.getByRole('button', { name: 'Continue' }));
+
+    await waitFor(() => expect(screen.getByText('Career Training Grant')).toBeInTheDocument());
+    expect(await axe(container)).toHaveNoViolations();
+    await user.click(screen.getByRole('button', { name: 'Continue' }));
+
+    await waitFor(() => expect(screen.getByText('Aureus prepared a few recommendations')).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText('Career Training Grant')).toBeInTheDocument());
+    expect(await axe(container)).toHaveNoViolations();
+    await user.click(screen.getByRole('button', { name: 'Continue' }));
+
+    // The hand-off: a real, working link to the conversational "How can we
+    // help?" entry point (Gate C's C1) — not merely a static screen.
+    await waitFor(() => expect(screen.getByText("You're ready to begin")).toBeInTheDocument());
+    expect(screen.getByRole('link', { name: 'Talk to my steward' })).toHaveAttribute('href', '/conversation');
+    expect(await axe(container)).toHaveNoViolations();
+  });
+
+  it('B9: the arrival flow is fully operable by keyboard alone (no mouse dependency) — the low-digital-confidence condition', async () => {
+    renderFlow();
+    const user = userEvent.setup();
+
+    expect(screen.getByText('Before we begin')).toBeInTheDocument();
+    const consentButton = screen.getByRole('button', { name: 'I understand — continue' });
+    consentButton.focus();
+    expect(consentButton).toHaveFocus();
+    await user.keyboard('{Enter}');
+
+    await waitFor(() => expect(screen.getByText('Make this comfortable for you')).toBeInTheDocument());
+    await user.tab(); // the "reduce motion" checkbox
+    await user.tab(); // the Continue button
+    expect(screen.getByRole('button', { name: 'Continue' })).toHaveFocus();
+    await user.keyboard('{Enter}');
+
+    await waitFor(() => expect(screen.getByText('Welcome to Aureus')).toBeInTheDocument());
   });
 
   it('lets a member continue past Review & Approval without deciding every recommendation', async () => {
