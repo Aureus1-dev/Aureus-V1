@@ -78,7 +78,7 @@ function reducer(state: State, action: Action): State {
     case 'goals/loading':
       return { ...state, isLoadingGoals: true };
     case 'goals/loaded':
-      return { ...state, isLoadingGoals: false, goals: action.goals };
+      return { ...state, isLoadingGoals: false, goals: action.goals, error: null };
     case 'detail/loading':
       return { ...state, isLoadingDetail: true };
     case 'detail/loaded':

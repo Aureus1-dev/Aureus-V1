@@ -16,6 +16,7 @@ import * as savedApi from '../../../lib/api/saved-opportunities';
 import * as recommendationsApi from '../../../lib/api/recommendations';
 import * as consentApi from '../../../lib/api/consent';
 import { CURRENT_CONSENT_VERSION } from '../../../lib/config/consent';
+import { NetworkError } from '../../../lib/api/errors';
 
 jest.mock('../../../lib/api/goals');
 jest.mock('../../../lib/api/journeys');
@@ -262,5 +263,38 @@ describe('FirstRunWelcome — Domain Completion Rule end-to-end', () => {
 
     // No blank screen, no dead end — the member can simply state their need again.
     await waitFor(() => expect(screen.getByText('What brings you to Aureus today?')).toBeInTheDocument());
+  });
+
+  it('B8: a failed opportunity search shows an honest, retryable error and a Continue path — never a dead end', async () => {
+    window.localStorage.setItem('aureus.arrival.step', 'opportunities');
+    mockedOpportunities.listOpportunities.mockRejectedValueOnce(new NetworkError());
+
+    renderFlow();
+    const user = userEvent.setup();
+
+    await waitFor(() => expect(screen.getByText('Connection interrupted')).toBeInTheDocument());
+    // Not stuck: Continue remains available even while the search failed.
+    expect(screen.getByRole('button', { name: 'Continue' })).toBeInTheDocument();
+
+    mockedOpportunities.listOpportunities.mockResolvedValueOnce({ data: [opportunity], total: 1, page: 1, limit: 20, totalPages: 1 });
+    await user.click(screen.getByRole('button', { name: 'Try again' }));
+
+    await waitFor(() => expect(screen.getByText('Career Training Grant')).toBeInTheDocument());
+  });
+
+  it('B8: a failed recommendation generation shows an honest, retryable error and recovers on retry', async () => {
+    window.localStorage.setItem('aureus.arrival.step', 'review-approval');
+    mockedRecommendations.generateRecommendations.mockRejectedValueOnce(new NetworkError());
+
+    renderFlow();
+    const user = userEvent.setup();
+
+    await waitFor(() => expect(screen.getByText('Connection interrupted')).toBeInTheDocument());
+    expect(screen.getByRole('button', { name: 'Continue' })).toBeInTheDocument();
+
+    mockedRecommendations.generateRecommendations.mockResolvedValueOnce([recommendation]);
+    await user.click(screen.getByRole('button', { name: 'Try again' }));
+
+    await waitFor(() => expect(screen.getByText('This matches your goal of finding a better job.')).toBeInTheDocument());
   });
 });

@@ -123,6 +123,25 @@ describe('JourneyContext', () => {
     expect(getApi().state.goals).toEqual([goal]);
   });
 
+  it('B8: a successful goals load clears a previous load failure (a retry that succeeds must not leave a stale error)', async () => {
+    mockedGoals.listGoals.mockRejectedValueOnce(new ApiError(0, 'Network request failed'));
+
+    const getApi = renderHarness();
+    act(() => getApi().setToken('token-123'));
+    await act(async () => {
+      await getApi().loadGoals();
+    });
+    expect(getApi().state.error).not.toBeNull();
+
+    mockedGoals.listGoals.mockResolvedValue({ data: [goal], total: 1, page: 1, limit: 20, totalPages: 1 });
+    await act(async () => {
+      await getApi().loadGoals();
+    });
+
+    expect(getApi().state.error).toBeNull();
+    expect(getApi().state.goals).toEqual([goal]);
+  });
+
   it('loads a journey detail with nested milestones and tasks', async () => {
     mockedJourneys.getJourneyByGoal.mockResolvedValue(journeyDto);
     mockedMilestones.listMilestones.mockResolvedValue({ data: [milestone], total: 1, page: 1, limit: 100, totalPages: 1 });

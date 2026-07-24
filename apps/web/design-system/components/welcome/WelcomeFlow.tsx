@@ -4,6 +4,9 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useJourney, useSession } from '../../../state';
 import { LoadingState } from '../LoadingState/LoadingState';
+import { ErrorState } from '../ErrorState/ErrorState';
+import { Button } from '../Button/Button';
+import { domainErrorCopy } from '../domain-error-copy';
 import { FirstRunWelcome } from './FirstRunWelcome';
 import { readArrivalStep } from './arrival-progress';
 import styles from './WelcomeFlow.module.css';
@@ -31,6 +34,15 @@ export interface WelcomeFlowProps {
  * `arrival-progress.ts`) overrides the returning-member redirect in
  * exactly that case, so `FirstRunWelcome` mounts and resumes them
  * instead.
+ *
+ * B8 (Gate B — The Gate): if loading goals fails (network/session/service
+ * failure), we genuinely do not know whether this member is new or
+ * returning — silently falling through to `FirstRunWelcome` would show a
+ * returning member the whole onboarding wizard again, an honesty failure
+ * (implying "you have no history here" when we simply couldn't check).
+ * An honest, retryable error is shown instead. `forceNewMission` is exempt:
+ * the member already explicitly chose to start a new mission, so whether
+ * their prior goals loaded is irrelevant to what they asked for.
  */
 export function WelcomeFlow({ forceNewMission = false }: WelcomeFlowProps) {
   const router = useRouter();
@@ -57,6 +69,23 @@ export function WelcomeFlow({ forceNewMission = false }: WelcomeFlowProps) {
     return (
       <div className={styles.loading}>
         <LoadingState label="Preparing your welcome" />
+      </div>
+    );
+  }
+
+  if (journey.state.error && !forceNewMission) {
+    const copy = domainErrorCopy(journey.state.error.kind);
+    return (
+      <div className={styles.loading}>
+        <ErrorState
+          title={copy.title}
+          description={copy.description}
+          action={
+            journey.state.error.retryable ? (
+              <Button onClick={() => void journey.loadGoals()}>Try again</Button>
+            ) : undefined
+          }
+        />
       </div>
     );
   }

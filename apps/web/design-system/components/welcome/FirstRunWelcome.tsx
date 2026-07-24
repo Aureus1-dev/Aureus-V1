@@ -183,6 +183,7 @@ export function FirstRunWelcome({ skipHospitality = false }: FirstRunWelcomeProp
           isDeciding={recommendations.isDeciding}
           onApprove={(id) => void recommendations.approve(id)}
           onDismiss={(id) => void recommendations.dismiss(id)}
+          onRetry={() => void recommendations.generate('OPPORTUNITY')}
           onContinue={() => goToStep('next-step')}
         />
       );

@@ -55,7 +55,17 @@ export function OpportunityDiscoveryStep({
       {searching ? <LoadingState label="Looking for opportunities" /> : null}
 
       {error ? (
-        <ErrorState title={domainErrorCopy(error.kind).title} description={domainErrorCopy(error.kind).description} />
+        <ErrorState
+          title={domainErrorCopy(error.kind).title}
+          description={domainErrorCopy(error.kind).description}
+          action={
+            error.retryable ? (
+              <Button variant="secondary" onClick={() => onSearch(searchHint)}>
+                Try again
+              </Button>
+            ) : undefined
+          }
+        />
       ) : null}
 
       {!searching && !error && results.length === 0 ? (

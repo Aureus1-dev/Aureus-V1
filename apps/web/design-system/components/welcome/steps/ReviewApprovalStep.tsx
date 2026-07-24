@@ -16,6 +16,7 @@ export interface ReviewApprovalStepProps {
   isDeciding: (id: string) => boolean;
   onApprove: (id: string) => void;
   onDismiss: (id: string) => void;
+  onRetry: () => void;
   onContinue: () => void;
 }
 
@@ -33,6 +34,7 @@ export function ReviewApprovalStep({
   isDeciding,
   onApprove,
   onDismiss,
+  onRetry,
   onContinue,
 }: ReviewApprovalStepProps) {
   const pending = recommendations.filter((r) => r.status === 'PENDING');
@@ -47,7 +49,17 @@ export function ReviewApprovalStep({
       {generating ? <LoadingState label="Preparing recommendations" /> : null}
 
       {error ? (
-        <ErrorState title={domainErrorCopy(error.kind).title} description={domainErrorCopy(error.kind).description} />
+        <ErrorState
+          title={domainErrorCopy(error.kind).title}
+          description={domainErrorCopy(error.kind).description}
+          action={
+            error.retryable ? (
+              <Button variant="secondary" onClick={onRetry}>
+                Try again
+              </Button>
+            ) : undefined
+          }
+        />
       ) : null}
 
       {!generating && !error && pending.length === 0 ? (

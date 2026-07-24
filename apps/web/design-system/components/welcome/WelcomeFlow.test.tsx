@@ -1,4 +1,5 @@
 import { render, screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { SessionProvider, useSession } from '../../../state/session/SessionContext';
 import { JourneyProvider } from '../../../state/journey/JourneyContext';
 import { OpportunitiesProvider } from '../../../state/opportunities/OpportunitiesContext';
@@ -6,6 +7,7 @@ import { RecommendationsProvider } from '../../../state/recommendations/Recommen
 import { ThemeProvider } from '../../theme';
 import { WelcomeFlow } from './WelcomeFlow';
 import * as goalsApi from '../../../lib/api/goals';
+import { NetworkError } from '../../../lib/api/errors';
 
 jest.mock('../../../lib/api/goals');
 jest.mock('../../../lib/api/journeys');
@@ -99,6 +101,37 @@ describe('WelcomeFlow', () => {
     renderFlow();
 
     expect(await screen.findByRole('heading', { name: 'Opportunities that might help' })).toBeInTheDocument();
+    expect(replace).not.toHaveBeenCalled();
+  });
+
+  it("B8: a failure to load goals shows an honest, retryable error — never a silent guess at whether the member is new", async () => {
+    mockedGoals.listGoals.mockRejectedValueOnce(new NetworkError());
+
+    renderFlow();
+
+    expect(await screen.findByText('Connection interrupted')).toBeInTheDocument();
+    expect(screen.queryByText('Before we begin')).not.toBeInTheDocument();
+    expect(replace).not.toHaveBeenCalled();
+  });
+
+  it('B8: retrying a failed goals load recovers into the correct flow once it succeeds', async () => {
+    mockedGoals.listGoals.mockRejectedValueOnce(new NetworkError());
+    renderFlow();
+    expect(await screen.findByText('Connection interrupted')).toBeInTheDocument();
+
+    mockedGoals.listGoals.mockResolvedValue({ data: [], total: 0, page: 1, limit: 20, totalPages: 0 });
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('button', { name: 'Try again' }));
+
+    expect(await screen.findByText('Before we begin')).toBeInTheDocument();
+  });
+
+  it('B8: forceNewMission proceeds to the guided flow even if the goals load failed, since it does not need that answer', async () => {
+    mockedGoals.listGoals.mockRejectedValueOnce(new NetworkError());
+
+    renderFlow(true);
+
+    expect(await screen.findByText('What brings you to Aureus today?')).toBeInTheDocument();
     expect(replace).not.toHaveBeenCalled();
   });
 });
