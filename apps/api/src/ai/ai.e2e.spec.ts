@@ -256,6 +256,71 @@ describe('AI Intelligence Engine — E2E', () => {
     });
   });
 
+  describe('Gate C — C1: Understanding (stated need capture)', () => {
+    it('captures the first message of a new conversation as a stated need, retrievable by the member', async () => {
+      const created = await request(app.getHttpServer())
+        .post('/ai/conversations')
+        .set('Authorization', `Bearer ${learnerToken}`)
+        .send({ title: 'New need' })
+        .expect(201);
+      const conversationId = created.body.id;
+
+      await request(app.getHttpServer())
+        .post(`/ai/conversations/${conversationId}/messages`)
+        .set('Authorization', `Bearer ${learnerToken}`)
+        .send({ content: 'I need help finding a job' })
+        .expect(201);
+
+      const needs = await request(app.getHttpServer())
+        .get('/needs')
+        .set('Authorization', `Bearer ${learnerToken}`)
+        .expect(200);
+      expect(needs.body).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ conversationId, content: 'I need help finding a job' }),
+        ]),
+      );
+    });
+
+    it('does not capture a second message in the same conversation as a new stated need', async () => {
+      const created = await request(app.getHttpServer())
+        .post('/ai/conversations')
+        .set('Authorization', `Bearer ${learnerToken}`)
+        .send({ title: 'Multi-turn' })
+        .expect(201);
+      const conversationId = created.body.id;
+
+      await request(app.getHttpServer())
+        .post(`/ai/conversations/${conversationId}/messages`)
+        .set('Authorization', `Bearer ${learnerToken}`)
+        .send({ content: 'First message' })
+        .expect(201);
+      await request(app.getHttpServer())
+        .post(`/ai/conversations/${conversationId}/messages`)
+        .set('Authorization', `Bearer ${learnerToken}`)
+        .send({ content: 'Second message' })
+        .expect(201);
+
+      const needs = await request(app.getHttpServer())
+        .get('/needs')
+        .set('Authorization', `Bearer ${learnerToken}`)
+        .expect(200);
+      const forThisConversation = needs.body.filter((n: { conversationId: string }) => n.conversationId === conversationId);
+      expect(forThisConversation).toHaveLength(1);
+      expect(forThisConversation[0].content).toBe('First message');
+    });
+
+    it("rejects unauthenticated access and never exposes another member's stated needs", async () => {
+      await request(app.getHttpServer()).get('/needs').expect(401);
+
+      const needs = await request(app.getHttpServer())
+        .get('/needs')
+        .set('Authorization', `Bearer ${otherLearnerToken}`)
+        .expect(200);
+      expect(needs.body).toEqual([]);
+    });
+  });
+
   describe('Insights — explanations, guidance, and search', () => {
     it('explains an Opportunity', async () => {
       const res = await request(app.getHttpServer())

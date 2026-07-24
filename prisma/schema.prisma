@@ -140,6 +140,7 @@ model User {
   aiOperationalConfigUpdates AiOperationalConfig[]
   aiOrchestrationRuns        AiOrchestrationRun[]
   consentRecords             ConsentRecord[]
+  statedNeeds                StatedNeed[]
 }
 
 // ===========================================================================
@@ -1674,6 +1675,7 @@ model AiConversation {
   messages      AiMessage[]
   requests      AiRequest[]
   voiceSessions AiVoiceSession[]
+  statedNeeds   StatedNeed[]
 
   @@index([userId])
 }
@@ -2600,4 +2602,28 @@ model CitySheetVerificationEvent {
   @@index([performedById])
   @@index([performedAt])
   @@index([eventType])
+}
+
+// ===========================================================================
+// StatedNeed  —  Gate C, "The Clearing" (C1: Understanding). The first
+// concrete signal that a member's own words, sent through the existing AI
+// Conversation domain (no menu navigation involved), have been recognized as
+// a stated need. Captured automatically from the first user message of a
+// conversation — this is the entry point the rest of the Clearing (C2
+// clarification, C3 urgency, C4 resource discovery, ...) will build on.
+// Append-only: a conversation states one need; later Gate C work orders add
+// their own records referencing this one rather than mutating it.
+// ===========================================================================
+model StatedNeed {
+  id             String         @id @default(uuid()) @db.Uuid
+  userId         String         @db.Uuid
+  user           User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  conversationId String         @db.Uuid
+  conversation   AiConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  content        String
+
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([conversationId])
 }

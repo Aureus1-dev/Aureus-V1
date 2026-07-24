@@ -10,6 +10,7 @@ import { AcademyModule } from '../academy/academy.module';
 import { KnowledgeModule } from '../knowledge/knowledge.module';
 import { PodsModule } from '../pods/pods.module';
 import { StewardshipModule } from '../stewardship/stewardship.module';
+import { NeedsModule } from '../needs/needs.module';
 import { AiProviderModule } from './providers/ai-provider.module';
 
 import { AiRequestsController } from './requests/ai-requests.controller';
@@ -77,6 +78,7 @@ import { AI_TURN_EVENT_REPOSITORY } from './voice/repositories/ai-turn-event.rep
     KnowledgeModule,
     PodsModule,
     StewardshipModule,
+    NeedsModule,
   ],
   controllers: [
     AiRequestsController,

@@ -8,6 +8,7 @@ import {
 } from './repositories/ai-conversation.repository.interface';
 import { AI_MESSAGE_REPOSITORY, IAiMessageRepository } from './repositories/ai-message.repository.interface';
 import { AiRequestsService } from '../requests/ai-requests.service';
+import { NeedsService } from '../../needs/needs.service';
 import type { AuthenticatedUser } from '../../auth/strategies/jwt.strategy';
 import type { AiConversation, AiMessage } from '@prisma/client';
 
@@ -30,6 +31,7 @@ const mockMessageRepo: jest.Mocked<IAiMessageRepository> = {
   create: jest.fn(), createIfNotExists: jest.fn(), findByConversation: jest.fn(), findRecentByConversation: jest.fn(),
 };
 const mockAiRequests = { runCompletion: jest.fn() } as unknown as jest.Mocked<AiRequestsService>;
+const mockNeeds = { capture: jest.fn(), findMine: jest.fn() } as unknown as jest.Mocked<NeedsService>;
 
 describe('ConversationsService', () => {
   let service: ConversationsService;
@@ -41,6 +43,7 @@ describe('ConversationsService', () => {
         { provide: AI_CONVERSATION_REPOSITORY, useValue: mockConversationRepo },
         { provide: AI_MESSAGE_REPOSITORY, useValue: mockMessageRepo },
         { provide: AiRequestsService, useValue: mockAiRequests },
+        { provide: NeedsService, useValue: mockNeeds },
       ],
     }).compile();
     service = m.get(ConversationsService);
@@ -93,6 +96,56 @@ describe('ConversationsService', () => {
     it('forbids asking in a conversation the caller does not own', async () => {
       mockConversationRepo.findById.mockResolvedValue(makeConversation());
       await expect(service.ask('conv-001', { content: 'Hi' }, OTHER_USER)).rejects.toThrow(ForbiddenException);
+    });
+
+    describe('Gate C — C1: Understanding (stated need capture)', () => {
+      it('captures the first message of a conversation as a stated need', async () => {
+        mockConversationRepo.findById.mockResolvedValue(makeConversation());
+        mockMessageRepo.create
+          .mockResolvedValueOnce(makeMessage({ role: AiMessageRole.USER, content: 'I need help finding a job' }))
+          .mockResolvedValueOnce(makeMessage({ id: 'msg-002', role: AiMessageRole.ASSISTANT, content: 'Tell me more.' }));
+        mockMessageRepo.findRecentByConversation.mockResolvedValue([
+          makeMessage({ role: AiMessageRole.USER, content: 'I need help finding a job' }),
+        ]);
+        mockAiRequests.runCompletion.mockResolvedValue({ content: 'Tell me more.', requestId: 'req-001' });
+
+        await service.ask('conv-001', { content: 'I need help finding a job' }, USER);
+
+        expect(mockNeeds.capture).toHaveBeenCalledWith(USER.id, 'conv-001', 'I need help finding a job');
+      });
+
+      it('does not re-capture on a later message in the same conversation', async () => {
+        mockConversationRepo.findById.mockResolvedValue(makeConversation());
+        mockMessageRepo.create
+          .mockResolvedValueOnce(makeMessage({ role: AiMessageRole.USER, content: 'A follow-up question' }))
+          .mockResolvedValueOnce(makeMessage({ id: 'msg-003', role: AiMessageRole.ASSISTANT, content: 'Sure.' }));
+        mockMessageRepo.findRecentByConversation.mockResolvedValue([
+          makeMessage({ role: AiMessageRole.USER, content: 'I need help finding a job' }),
+          makeMessage({ id: 'msg-002', role: AiMessageRole.ASSISTANT, content: 'Tell me more.' }),
+          makeMessage({ id: 'msg-003', role: AiMessageRole.USER, content: 'A follow-up question' }),
+        ]);
+        mockAiRequests.runCompletion.mockResolvedValue({ content: 'Sure.', requestId: 'req-002' });
+
+        await service.ask('conv-001', { content: 'A follow-up question' }, USER);
+
+        expect(mockNeeds.capture).not.toHaveBeenCalled();
+      });
+
+      it('never lets a capture failure block the AI response', async () => {
+        mockConversationRepo.findById.mockResolvedValue(makeConversation());
+        mockMessageRepo.create
+          .mockResolvedValueOnce(makeMessage({ role: AiMessageRole.USER, content: 'I need help finding a job' }))
+          .mockResolvedValueOnce(makeMessage({ id: 'msg-002', role: AiMessageRole.ASSISTANT, content: 'Tell me more.' }));
+        mockMessageRepo.findRecentByConversation.mockResolvedValue([
+          makeMessage({ role: AiMessageRole.USER, content: 'I need help finding a job' }),
+        ]);
+        mockAiRequests.runCompletion.mockResolvedValue({ content: 'Tell me more.', requestId: 'req-001' });
+        mockNeeds.capture.mockRejectedValueOnce(new Error('db unavailable'));
+
+        const result = await service.ask('conv-001', { content: 'I need help finding a job' }, USER);
+
+        expect(result.content).toBe('Tell me more.');
+      });
     });
 
     describe('Dynamic Screen Orchestration for text (DOMAIN-007)', () => {

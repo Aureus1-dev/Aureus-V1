@@ -5,6 +5,7 @@ import { PLATFORM_ASSISTANT_SYSTEM_PROMPT } from '../prompts/system-prompts.util
 import { INTERFACE_TOOL_SPECS } from '../common/interface-tools';
 import type { AiCompletionMessage } from '../providers/ai-provider.interface';
 import { AiRequestsService } from '../requests/ai-requests.service';
+import { NeedsService } from '../../needs/needs.service';
 import { CreateConversationDto } from './dto/create-conversation.dto';
 import { AskQuestionDto } from './dto/ask-question.dto';
 import { ListConversationsQueryDto } from './dto/list-conversations-query.dto';
@@ -27,6 +28,7 @@ export class ConversationsService {
     @Inject(AI_CONVERSATION_REPOSITORY) private readonly repo: IAiConversationRepository,
     @Inject(AI_MESSAGE_REPOSITORY) private readonly messageRepo: IAiMessageRepository,
     private readonly aiRequests: AiRequestsService,
+    private readonly needs: NeedsService,
   ) {}
 
   async create(dto: CreateConversationDto, caller: AuthenticatedUser): Promise<ConversationResponseDto> {
@@ -74,6 +76,18 @@ export class ConversationsService {
 
     await this.messageRepo.create({ conversationId: id, role: AiMessageRole.USER, content: dto.content });
     const history = await this.messageRepo.findRecentByConversation(id, RECENT_MESSAGE_HISTORY_LIMIT);
+
+    // Gate C (C1: Understanding) — the very first message of a conversation
+    // is the member's stated need, captured with no menu navigation
+    // involved. Best-effort: a capture failure must never block the actual
+    // AI response the member is waiting for.
+    if (history.length === 1) {
+      try {
+        await this.needs.capture(caller.id, id, dto.content);
+      } catch (error) {
+        this.logger.warn(`Failed to capture stated need for conversation ${id}: ${error}`);
+      }
+    }
 
     const systemMessages: AiCompletionMessage[] = [{ role: 'system', content: PLATFORM_ASSISTANT_SYSTEM_PROMPT }];
     if (dto.interfaceContext) {
