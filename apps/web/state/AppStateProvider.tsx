@@ -19,6 +19,7 @@ import { ResourcesProvider } from './resources/ResourcesContext';
 import { MessagesProvider } from './messages/MessagesContext';
 import { FounderProvider } from './founder/FounderContext';
 import { ReviewQueueProvider } from './review-queue/ReviewQueueContext';
+import { CitySheetProvider } from './city-sheet/CitySheetContext';
 import { StewardshipOversightProvider } from './stewardship-oversight/StewardshipOversightContext';
 import { AnnouncementsProvider } from './announcements/AnnouncementsContext';
 
@@ -57,9 +58,11 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
                                     <MessagesProvider>
                                       <FounderProvider>
                                         <ReviewQueueProvider>
-                                          <StewardshipOversightProvider>
-                                            <AnnouncementsProvider>{children}</AnnouncementsProvider>
-                                          </StewardshipOversightProvider>
+                                          <CitySheetProvider>
+                                            <StewardshipOversightProvider>
+                                              <AnnouncementsProvider>{children}</AnnouncementsProvider>
+                                            </StewardshipOversightProvider>
+                                          </CitySheetProvider>
                                         </ReviewQueueProvider>
                                       </FounderProvider>
                                     </MessagesProvider>
