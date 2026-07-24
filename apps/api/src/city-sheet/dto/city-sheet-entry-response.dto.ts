@@ -25,6 +25,8 @@ export class CitySheetEntryResponseDto {
   @ApiProperty({ type: [String] }) requiredDocuments: string[];
   @ApiProperty() referralRequired: boolean;
   @ApiProperty() isEmergencyService: boolean;
+  @ApiProperty({ description: 'Build/test fixture data, distinct from a real (if still unverified) A3 candidate. See Gate C — C5.' })
+  isTestFixture: boolean;
   @ApiProperty({ enum: CitySheetVerificationStatus }) verificationStatus: CitySheetVerificationStatus;
   @ApiPropertyOptional({ enum: CitySheetVerificationConfidence, nullable: true }) verificationConfidence: CitySheetVerificationConfidence | null;
   @ApiPropertyOptional({ nullable: true }) lastVerifiedAt: Date | null;

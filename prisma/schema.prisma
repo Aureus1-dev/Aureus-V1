@@ -141,6 +141,7 @@ model User {
   aiOrchestrationRuns        AiOrchestrationRun[]
   consentRecords             ConsentRecord[]
   statedNeeds                StatedNeed[]
+  resourceOffers             ResourceOffer[]
 }
 
 // ===========================================================================
@@ -2517,6 +2518,13 @@ model CitySheetEntry {
   referralRequired   Boolean @default(false)
   isEmergencyService Boolean @default(false)
 
+  // Gate C (C5: Verified resource presentation) — explicitly labels an
+  // entry as build/test fixture data (e.g. seeded for C4-C8's testing
+  // against fixtures ahead of A4), distinct from a real, unverified A3
+  // candidate. Never inferred from naming conventions — set deliberately
+  // by whoever creates the entry.
+  isTestFixture Boolean @default(false)
+
   verificationStatus     CitySheetVerificationStatus      @default(UNVERIFIED)
   verificationConfidence CitySheetVerificationConfidence?
   lastVerifiedAt         DateTime?
@@ -2541,6 +2549,7 @@ model CitySheetEntry {
   updatedAt DateTime @updatedAt
 
   verificationEvents CitySheetVerificationEvent[]
+  resourceOffers     ResourceOffer[]
 
   @@index([category])
   @@index([launchScope])
@@ -2624,6 +2633,38 @@ model StatedNeed {
 
   createdAt DateTime @default(now())
 
+  resourceOffers ResourceOffer[]
+
   @@index([userId])
   @@index([conversationId])
+}
+
+// Gate C (C5: Verified resource presentation). Records that a matched City
+// Sheet resource was actually offered to a member, and whatever the member
+// did about it — "every offer made, and the member's acceptance or refusal
+// of it, is recorded" per the acceptance criteria. A fresh offer is created
+// each time a resource is (re-)presented; the member's response is recorded
+// on that same row, never inferred or overwritten silently.
+enum ResourceOfferResponse {
+  PENDING
+  ACCEPTED
+  DECLINED
+}
+
+model ResourceOffer {
+  id              String         @id @default(uuid()) @db.Uuid
+  userId          String         @db.Uuid
+  user            User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  statedNeedId    String         @db.Uuid
+  statedNeed      StatedNeed     @relation(fields: [statedNeedId], references: [id], onDelete: Cascade)
+  citySheetEntryId String        @db.Uuid
+  citySheetEntry  CitySheetEntry @relation(fields: [citySheetEntryId], references: [id], onDelete: Cascade)
+
+  response    ResourceOfferResponse @default(PENDING)
+  offeredAt   DateTime              @default(now())
+  respondedAt DateTime?
+
+  @@index([userId])
+  @@index([statedNeedId])
+  @@index([citySheetEntryId])
 }

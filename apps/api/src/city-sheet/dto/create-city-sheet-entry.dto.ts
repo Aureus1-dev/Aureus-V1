@@ -73,6 +73,10 @@ export class CreateCitySheetEntryDto {
   @IsOptional() @IsBoolean()
   isEmergencyService?: boolean;
 
+  @ApiPropertyOptional({ default: false, description: 'Build/test fixture data, distinct from a real (if still unverified) A3 candidate. See Gate C — C5.' })
+  @IsOptional() @IsBoolean()
+  isTestFixture?: boolean;
+
   @ApiPropertyOptional({
     description: 'Where/how this candidate was originally compiled (e.g. a web-research citation). Immutable after creation — never touched by verify/reject/flag-for-review.',
     example: 'Candidate compiled via web research on 2026-07-22. Source: chesco.org/1640/Emergency.',

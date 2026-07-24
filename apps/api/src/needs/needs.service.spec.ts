@@ -1,9 +1,10 @@
 import { ForbiddenException, NotFoundException } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
-import { CitySheetCategory, CitySheetEntryStatus, CitySheetVerificationStatus, LaunchAreaScope } from '@prisma/client';
-import type { StatedNeed } from '@prisma/client';
+import { CitySheetCategory, CitySheetEntryStatus, CitySheetVerificationStatus, LaunchAreaScope, ResourceOfferResponse } from '@prisma/client';
+import type { StatedNeed, ResourceOffer } from '@prisma/client';
 import { NeedsService } from './needs.service';
 import { IStatedNeedRepository, STATED_NEED_REPOSITORY } from './repositories/stated-need.repository.interface';
+import { IResourceOfferRepository, RESOURCE_OFFER_REPOSITORY } from './repositories/resource-offer.repository.interface';
 import { CitySheetService } from '../city-sheet/city-sheet.service';
 import type { CitySheetEntryResponseDto } from '../city-sheet/dto/city-sheet-entry-response.dto';
 
@@ -23,13 +24,21 @@ const makeCitySheetEntry = (o: Partial<CitySheetEntryResponseDto> = {}): CityShe
   verificationStatus: CitySheetVerificationStatus.UNVERIFIED, verificationConfidence: null,
   lastVerifiedAt: null, verifiedById: null, verificationNotes: null, rejectionReason: null,
   nextReviewDueAt: null, sourceNotes: null, status: CitySheetEntryStatus.ACTIVE,
-  createdById: 'steward-001', createdAt: NOW, updatedAt: NOW, ...o,
+  isTestFixture: false, createdById: 'steward-001', createdAt: NOW, updatedAt: NOW, ...o,
+});
+
+const makeOffer = (o: Partial<ResourceOffer> = {}): ResourceOffer => ({
+  id: 'offer-001', userId: 'user-001', statedNeedId: 'need-001', citySheetEntryId: 'entry-001',
+  response: ResourceOfferResponse.PENDING, offeredAt: NOW, respondedAt: null, ...o,
 });
 
 const mockRepo: jest.Mocked<IStatedNeedRepository> = {
   create: jest.fn(), findAllByUser: jest.fn(), findById: jest.fn(),
 };
-const mockCitySheet = { findAll: jest.fn() } as unknown as jest.Mocked<CitySheetService>;
+const mockOffers: jest.Mocked<IResourceOfferRepository> = {
+  create: jest.fn(), findMostRecentPending: jest.fn(), respond: jest.fn(), findAllByStatedNeed: jest.fn(),
+};
+const mockCitySheet = { findAll: jest.fn(), findById: jest.fn() } as unknown as jest.Mocked<CitySheetService>;
 
 describe('NeedsService', () => {
   let service: NeedsService;
@@ -39,6 +48,7 @@ describe('NeedsService', () => {
       providers: [
         NeedsService,
         { provide: STATED_NEED_REPOSITORY, useValue: mockRepo },
+        { provide: RESOURCE_OFFER_REPOSITORY, useValue: mockOffers },
         { provide: CitySheetService, useValue: mockCitySheet },
       ],
     }).compile();
@@ -119,6 +129,85 @@ describe('NeedsService', () => {
       mockRepo.findById.mockResolvedValue(null);
 
       await expect(service.findMatchingResources('ghost', 'user-001')).rejects.toThrow(NotFoundException);
+    });
+  });
+
+  describe('Gate C — C5: Verified resource presentation', () => {
+    describe('offerResource', () => {
+      it('records a new offer for the caller\'s own stated need', async () => {
+        mockRepo.findById.mockResolvedValue(makeNeed());
+        mockCitySheet.findById.mockResolvedValue(makeCitySheetEntry());
+        mockOffers.create.mockResolvedValue(makeOffer());
+
+        const result = await service.offerResource('need-001', 'entry-001', 'user-001');
+
+        expect(mockOffers.create).toHaveBeenCalledWith({
+          userId: 'user-001', statedNeedId: 'need-001', citySheetEntryId: 'entry-001',
+        });
+        expect(result.response).toBe('PENDING');
+      });
+
+      it("forbids offering a resource against another member's stated need", async () => {
+        mockRepo.findById.mockResolvedValue(makeNeed({ userId: 'user-001' }));
+
+        await expect(service.offerResource('need-001', 'entry-001', 'other-999')).rejects.toThrow(ForbiddenException);
+        expect(mockOffers.create).not.toHaveBeenCalled();
+      });
+    });
+
+    describe('respondToOffer', () => {
+      it('records ACCEPTED against the most recent pending offer', async () => {
+        mockRepo.findById.mockResolvedValue(makeNeed());
+        mockOffers.findMostRecentPending.mockResolvedValue(makeOffer());
+        mockOffers.respond.mockResolvedValue(makeOffer({ response: ResourceOfferResponse.ACCEPTED, respondedAt: NOW }));
+
+        const result = await service.respondToOffer('need-001', 'entry-001', true, 'user-001');
+
+        expect(mockOffers.respond).toHaveBeenCalledWith('offer-001', true);
+        expect(result.response).toBe('ACCEPTED');
+      });
+
+      it('records DECLINED against the most recent pending offer', async () => {
+        mockRepo.findById.mockResolvedValue(makeNeed());
+        mockOffers.findMostRecentPending.mockResolvedValue(makeOffer());
+        mockOffers.respond.mockResolvedValue(makeOffer({ response: ResourceOfferResponse.DECLINED, respondedAt: NOW }));
+
+        const result = await service.respondToOffer('need-001', 'entry-001', false, 'user-001');
+
+        expect(mockOffers.respond).toHaveBeenCalledWith('offer-001', false);
+        expect(result.response).toBe('DECLINED');
+      });
+
+      it('throws NotFoundException when there is no pending offer to respond to', async () => {
+        mockRepo.findById.mockResolvedValue(makeNeed());
+        mockOffers.findMostRecentPending.mockResolvedValue(null);
+
+        await expect(service.respondToOffer('need-001', 'entry-001', true, 'user-001')).rejects.toThrow(NotFoundException);
+      });
+
+      it("forbids responding to an offer on another member's stated need", async () => {
+        mockRepo.findById.mockResolvedValue(makeNeed({ userId: 'user-001' }));
+
+        await expect(service.respondToOffer('need-001', 'entry-001', true, 'other-999')).rejects.toThrow(ForbiddenException);
+        expect(mockOffers.findMostRecentPending).not.toHaveBeenCalled();
+      });
+    });
+
+    describe('findOffers', () => {
+      it("retrieves every offer recorded for the caller's own stated need", async () => {
+        mockRepo.findById.mockResolvedValue(makeNeed());
+        mockOffers.findAllByStatedNeed.mockResolvedValue([makeOffer(), makeOffer({ id: 'offer-002', response: ResourceOfferResponse.ACCEPTED })]);
+
+        const result = await service.findOffers('need-001', 'user-001');
+
+        expect(result).toHaveLength(2);
+      });
+
+      it("forbids listing another member's offers", async () => {
+        mockRepo.findById.mockResolvedValue(makeNeed({ userId: 'user-001' }));
+
+        await expect(service.findOffers('need-001', 'other-999')).rejects.toThrow(ForbiddenException);
+      });
     });
   });
 });

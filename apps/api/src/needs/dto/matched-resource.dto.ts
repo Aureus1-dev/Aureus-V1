@@ -32,6 +32,7 @@ export class MatchedResourceDto {
   @ApiProperty() referralRequired: boolean;
   @ApiProperty() isEmergencyService: boolean;
   @ApiProperty({ enum: CitySheetVerificationStatus }) verificationStatus: CitySheetVerificationStatus;
+  @ApiProperty({ description: 'Build/test fixture data. See Gate C — C5.' }) isTestFixture: boolean;
 
   static fromEntity(e: CitySheetEntryResponseDto): MatchedResourceDto {
     const dto = new MatchedResourceDto();
@@ -53,6 +54,7 @@ export class MatchedResourceDto {
     dto.referralRequired = e.referralRequired;
     dto.isEmergencyService = e.isEmergencyService;
     dto.verificationStatus = e.verificationStatus;
+    dto.isTestFixture = e.isTestFixture;
     return dto;
   }
 }

@@ -28,6 +28,7 @@ export interface CreateCitySheetEntryInput {
   requiredDocuments?: string[];
   referralRequired?: boolean;
   isEmergencyService?: boolean;
+  isTestFixture?: boolean;
   sourceNotes?: string;
   createdById: string;
 }
@@ -49,6 +50,7 @@ export interface UpdateCitySheetEntryInput {
   requiredDocuments?: string[];
   referralRequired?: boolean;
   isEmergencyService?: boolean;
+  isTestFixture?: boolean;
   sourceNotes?: string | null;
   status?: CitySheetEntryStatus;
   verificationStatus?: CitySheetVerificationStatus;

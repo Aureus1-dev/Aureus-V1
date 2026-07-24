@@ -500,6 +500,120 @@ describe('AI Intelligence Engine — E2E', () => {
     });
   });
 
+  describe('Gate C — C5: Verified resource presentation', () => {
+    let verifiedEntryId: string;
+    let testFixtureEntryId: string;
+    let needId: string;
+
+    beforeAll(async () => {
+      const verified = await request(app.getHttpServer())
+        .post('/city-sheet')
+        .set('Authorization', `Bearer ${stewardToken}`)
+        .send({
+          organizationName: `${markerTitlePrefix}Verified Food Bank`, category: 'FOOD_RESOURCE',
+          description: 'A verified, real food bank for the community.', serviceArea: 'Chester County',
+          hours: 'Mon-Fri 9am-5pm',
+        })
+        .expect(201);
+      verifiedEntryId = verified.body.id;
+      await request(app.getHttpServer())
+        .post(`/city-sheet/${verifiedEntryId}/verify`)
+        .set('Authorization', `Bearer ${stewardToken}`)
+        .send({ confidence: 'HIGH' })
+        .expect(201);
+
+      const testFixture = await request(app.getHttpServer())
+        .post('/city-sheet')
+        .set('Authorization', `Bearer ${stewardToken}`)
+        .send({
+          organizationName: `${markerTitlePrefix}Test Fixture Food Bank`, category: 'FOOD_RESOURCE',
+          description: 'A labeled build/test fixture, not a real candidate.', serviceArea: 'Chester County',
+          hours: 'Mon-Fri 9am-5pm', isTestFixture: true,
+        })
+        .expect(201);
+      testFixtureEntryId = testFixture.body.id;
+
+      const created = await request(app.getHttpServer())
+        .post('/ai/conversations')
+        .set('Authorization', `Bearer ${learnerToken}`)
+        .send({ title: 'C5 food need' })
+        .expect(201);
+      await request(app.getHttpServer())
+        .post(`/ai/conversations/${created.body.id}/messages`)
+        .set('Authorization', `Bearer ${learnerToken}`)
+        .send({ content: 'I need help finding food for my family' })
+        .expect(201);
+      const needs = await request(app.getHttpServer())
+        .get('/needs')
+        .set('Authorization', `Bearer ${learnerToken}`)
+        .expect(200);
+      needId = needs.body.find((n: { conversationId: string }) => n.conversationId === created.body.id).id;
+    });
+
+    it('unambiguously distinguishes verified resources from unverified/test-fixture resources in the retrieved data', async () => {
+      const resources = await request(app.getHttpServer())
+        .get(`/needs/${needId}/resources`)
+        .set('Authorization', `Bearer ${learnerToken}`)
+        .expect(200);
+
+      const verifiedResource = resources.body.find((r: { id: string }) => r.id === verifiedEntryId);
+      const testFixtureResource = resources.body.find((r: { id: string }) => r.id === testFixtureEntryId);
+      expect(verifiedResource.verificationStatus).toBe('VERIFIED');
+      expect(verifiedResource.isTestFixture).toBe(false);
+      expect(testFixtureResource.verificationStatus).toBe('UNVERIFIED');
+      expect(testFixtureResource.isTestFixture).toBe(true);
+    });
+
+    it('records an offer and the member\'s acceptance, retrievable afterward', async () => {
+      const offer = await request(app.getHttpServer())
+        .post(`/needs/${needId}/resources/${verifiedEntryId}/offer`)
+        .set('Authorization', `Bearer ${learnerToken}`)
+        .expect(201);
+      expect(offer.body.response).toBe('PENDING');
+
+      const responded = await request(app.getHttpServer())
+        .post(`/needs/${needId}/resources/${verifiedEntryId}/respond`)
+        .set('Authorization', `Bearer ${learnerToken}`)
+        .send({ accepted: true })
+        .expect(201);
+      expect(responded.body.response).toBe('ACCEPTED');
+      expect(responded.body.respondedAt).not.toBeNull();
+
+      const offers = await request(app.getHttpServer())
+        .get(`/needs/${needId}/offers`)
+        .set('Authorization', `Bearer ${learnerToken}`)
+        .expect(200);
+      expect(offers.body).toEqual(
+        expect.arrayContaining([expect.objectContaining({ id: offer.body.id, response: 'ACCEPTED' })]),
+      );
+    });
+
+    it('records a declined response for a separately offered resource', async () => {
+      await request(app.getHttpServer())
+        .post(`/needs/${needId}/resources/${testFixtureEntryId}/offer`)
+        .set('Authorization', `Bearer ${learnerToken}`)
+        .expect(201);
+
+      const responded = await request(app.getHttpServer())
+        .post(`/needs/${needId}/resources/${testFixtureEntryId}/respond`)
+        .set('Authorization', `Bearer ${learnerToken}`)
+        .send({ accepted: false })
+        .expect(201);
+      expect(responded.body.response).toBe('DECLINED');
+    });
+
+    it('forbids another member from offering or responding on this stated need', async () => {
+      await request(app.getHttpServer())
+        .post(`/needs/${needId}/resources/${verifiedEntryId}/offer`)
+        .set('Authorization', `Bearer ${otherLearnerToken}`)
+        .expect(403);
+      await request(app.getHttpServer())
+        .get(`/needs/${needId}/offers`)
+        .set('Authorization', `Bearer ${otherLearnerToken}`)
+        .expect(403);
+    });
+  });
+
   describe('Insights — explanations, guidance, and search', () => {
     it('explains an Opportunity', async () => {
       const res = await request(app.getHttpServer())
