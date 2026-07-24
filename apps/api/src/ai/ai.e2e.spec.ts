@@ -794,6 +794,108 @@ describe('AI Intelligence Engine — E2E', () => {
     });
   });
 
+  describe('Gate C — C8: Gate C build/test sign-off (fixtures)', () => {
+    // C1–C7 each already have their own dedicated tests above; this block's
+    // one job is different — proving the whole understanding-through-safe-
+    // failure pipeline composes correctly as a single continuous member
+    // journey, using only an explicitly labeled `isTestFixture: true` City
+    // Sheet entry throughout (never calling `/verify`), exactly as the
+    // acceptance criteria requires: "without requiring verified City Sheet
+    // data."
+    it('carries one real test member through the full Clearing flow — understanding, resource discovery, verified presentation, steward escalation, and safe failure — against fixtures alone', async () => {
+      // C1 (Understanding) and C2 (Clarification) already have their own
+      // dedicated, passing coverage above (and C3, urgency, likewise) —
+      // this test deliberately keeps its own conversation to a single
+      // message rather than re-deriving those branches here, since every
+      // message-post in this file shares one throttled route
+      // (`@Throttle` on `POST /ai/conversations/:id/messages`, PD-001) and
+      // C1–C3's blocks already spend a meaningful share of that budget.
+      // What this test uniquely proves is that C4 through C7 compose
+      // correctly as one continuous chain for a real member.
+      const fixture = await request(app.getHttpServer())
+        .post('/city-sheet')
+        .set('Authorization', `Bearer ${stewardToken}`)
+        .send({
+          organizationName: `${markerTitlePrefix}C8 Job Center`, category: 'EMPLOYMENT_JOB_SEARCH',
+          description: 'A labeled build/test fixture, not a real candidate.', serviceArea: 'Chester County',
+          hours: 'Mon-Fri 9am-5pm', isTestFixture: true,
+        })
+        .expect(201);
+      const fixtureEntryId = fixture.body.id;
+      expect(fixture.body.verificationStatus).toBe('UNVERIFIED');
+
+      // C1 (Understanding): a clear first message is captured as the stated
+      // need that drives everything below.
+      const conversation = await request(app.getHttpServer())
+        .post('/ai/conversations')
+        .set('Authorization', `Bearer ${learnerToken}`)
+        .send({ title: 'C8 sign-off' })
+        .expect(201);
+      const conversationId = conversation.body.id;
+      await request(app.getHttpServer())
+        .post(`/ai/conversations/${conversationId}/messages`)
+        .set('Authorization', `Bearer ${learnerToken}`)
+        .send({ content: 'I need help finding a job' })
+        .expect(201);
+
+      const needs = await request(app.getHttpServer())
+        .get('/needs')
+        .set('Authorization', `Bearer ${learnerToken}`)
+        .expect(200);
+      const needId = needs.body.find((n: { conversationId: string }) => n.conversationId === conversationId).id;
+
+      // C4 (Resource discovery): the fixture is matched, unverified.
+      const resources = await request(app.getHttpServer())
+        .get(`/needs/${needId}/resources`)
+        .set('Authorization', `Bearer ${learnerToken}`)
+        .expect(200);
+      const matched = resources.body.find((r: { id: string }) => r.id === fixtureEntryId);
+      expect(matched).toBeDefined();
+      expect(matched.verificationStatus).toBe('UNVERIFIED');
+      expect(matched.isTestFixture).toBe(true);
+
+      // C5 (Verified resource presentation): honestly labeled as test data
+      // (never presented as verified), and the offer/response is recorded.
+      const offer = await request(app.getHttpServer())
+        .post(`/needs/${needId}/resources/${fixtureEntryId}/offer`)
+        .set('Authorization', `Bearer ${learnerToken}`)
+        .expect(201);
+      const responded = await request(app.getHttpServer())
+        .post(`/needs/${needId}/resources/${fixtureEntryId}/respond`)
+        .set('Authorization', `Bearer ${learnerToken}`)
+        .send({ accepted: true })
+        .expect(201);
+      expect(responded.body.id).toBe(offer.body.id);
+      expect(responded.body.response).toBe('ACCEPTED');
+
+      // C6 (Steward escalation): still the member's own choice, always
+      // recorded end-to-end through acknowledgment and resolution.
+      const escalated = await request(app.getHttpServer())
+        .post(`/needs/${needId}/escalate`)
+        .set('Authorization', `Bearer ${learnerToken}`)
+        .send({ reason: 'I would like to talk this through with a person' })
+        .expect(201);
+      await request(app.getHttpServer())
+        .post(`/needs/escalations/${escalated.body.id}/acknowledge`)
+        .set('Authorization', `Bearer ${stewardToken}`)
+        .expect(201);
+      const resolved = await request(app.getHttpServer())
+        .post(`/needs/escalations/${escalated.body.id}/resolve`)
+        .set('Authorization', `Bearer ${stewardToken}`)
+        .send({ resolutionNotes: 'Spoke with the member directly.' })
+        .expect(201);
+      expect(resolved.body.status).toBe('RESOLVED');
+
+      // C7 (Safe failure): reachable and honest regardless of outcome —
+      // never errors, always a defined triggered state, no dead end.
+      const safeFailure = await request(app.getHttpServer())
+        .get(`/needs/${needId}/safe-failure`)
+        .set('Authorization', `Bearer ${learnerToken}`)
+        .expect(200);
+      expect(typeof safeFailure.body.triggered).toBe('boolean');
+    });
+  });
+
   describe('Insights — explanations, guidance, and search', () => {
     it('explains an Opportunity', async () => {
       const res = await request(app.getHttpServer())
