@@ -29,3 +29,14 @@ Before this reconciliation (RS-001), `docs/ai/REPOSITORY_STEWARD.md` instructed 
 Until that merge happens, a Repository Steward session working from `main` alone has `LAUNCH-001` (scope) but no live registry or status for it — `docs/releases/version-1-readiness.md` remains the most current committed technical evidence on `main`, understood as historical (frozen at WO-030) rather than live.
 
 **Resolved:** `docs/launch-command-center` merged to `main` first, bringing `WORKORDERS.md` and `SCOREBOARD.md` into this folder for real; this document (RS-001) merged immediately after. All four rows in the hierarchy above are now live on `main` simultaneously — the paragraphs above are preserved as the historical record of the gap between the two merges, not a description of the current state.
+
+**Further resolved (2026-07-24):** A Gate B/Gate C naming and scope conflict — between `LAUNCH-001`'s original text and later Production Execution Order guidance that reused the same labels for different content — was escalated to the Founder as a Decision Brief and resolved by an approved Founder decision. `WORKORDERS.md` was rewritten (V2) to apply that decision; `SCOREBOARD.md` was updated to match. The superseded content is preserved in `WORKORDERS.md`'s Revision History, not deleted. This is a normal application of the hierarchy above, not a change to it: `LAUNCH-001` remains unedited (per its own read-only status) and still governs scope; `WORKORDERS.md` remains the execution registry and is the document that changed.
+
+## Experience Architecture vs. Execution Architecture
+
+A related distinction, made explicit by the same Founder decision, governs how the execution registry is organized — not just what it says:
+
+- **Experience Architecture** is the Canon: the Gate, the Question, the Bench, the Greeting, the Watchkeeper, the Clearing, Memory rights, the Leaving, the Quiet Day, the Homecoming, and any other named "room." It lives in `LAUNCH-001-First-Members.md` and describes how a member should feel.
+- **Execution Architecture** is `WORKORDERS.md`. Work orders are organized by engineering Gate (A–F) and describe observable behavior, member outcomes, accessibility, resilience, and production readiness — never by which Experience Canon room they happen to touch.
+
+This does not change the hierarchy table above; it constrains how the "execution registry" row is written, the same way `README.md`'s "What this folder is not" constrains what may be introduced into it.
