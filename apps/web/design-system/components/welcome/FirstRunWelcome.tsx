@@ -16,16 +16,9 @@ import { OpportunityDiscoveryStep } from './steps/OpportunityDiscoveryStep';
 import { ReviewApprovalStep } from './steps/ReviewApprovalStep';
 import { NextStepSummary } from './steps/NextStepSummary';
 import { classifyArrivalError, type ArrivalError } from './classify-arrival-error';
+import { clearArrivalStep, readArrivalStep, writeArrivalStep, type ArrivalStep } from './arrival-progress';
 
-type Step =
-  | 'consent'
-  | 'preferences'
-  | 'hospitality'
-  | 'immediate-need'
-  | 'first-mission'
-  | 'opportunities'
-  | 'review-approval'
-  | 'next-step';
+type Step = ArrivalStep;
 
 export interface FirstRunWelcomeProps {
   /** Skip the hospitality intro for a returning member starting a new mission. */
@@ -39,6 +32,13 @@ export interface FirstRunWelcomeProps {
  * built after them). Satisfies the Domain Completion Rule end to end:
  * welcomed -> immediate need -> first mission -> opportunities ->
  * review & approval -> understands next step.
+ *
+ * B6 (Gate B — The Gate): the current step is persisted (`arrival-
+ * progress.ts`) and restored on mount, so a member who leaves mid-
+ * arrival and returns resumes exactly where they left off rather than
+ * repeating completed steps or losing progress. `forceNewMission`
+ * (a returning member deliberately starting over) ignores and clears
+ * any stale persisted step, since that is an intentional fresh start.
  */
 export function FirstRunWelcome({ skipHospitality = false }: FirstRunWelcomeProps) {
   const router = useRouter();
@@ -48,11 +48,26 @@ export function FirstRunWelcome({ skipHospitality = false }: FirstRunWelcomeProp
   const opportunities = useOpportunities();
   const recommendations = useRecommendations();
 
-  const [step, setStep] = useState<Step>(skipHospitality ? 'immediate-need' : 'consent');
+  const [step, setStepState] = useState<Step>(() => {
+    if (skipHospitality) {
+      clearArrivalStep();
+      return 'immediate-need';
+    }
+    return readArrivalStep() ?? 'consent';
+  });
   const [isGrantingConsent, setIsGrantingConsent] = useState(false);
   const [consentError, setConsentError] = useState<ArrivalError | null>(null);
   const subjectsById = useRecommendationSubjects(recommendations.state.recommendations);
   const generatedRef = useRef(false);
+
+  const goToStep = useCallback((next: Step) => {
+    setStepState(next);
+    if (next === 'next-step') {
+      clearArrivalStep();
+    } else {
+      writeArrivalStep(next);
+    }
+  }, []);
 
   const handleGrantConsent = useCallback(async () => {
     if (!session.accessToken || !session.memberId) return;
@@ -61,12 +76,12 @@ export function FirstRunWelcome({ skipHospitality = false }: FirstRunWelcomeProp
     try {
       await grantConsent(session.accessToken, session.memberId, CURRENT_CONSENT_VERSION);
       setIsGrantingConsent(false);
-      setStep('preferences');
+      goToStep('preferences');
     } catch (error) {
       setIsGrantingConsent(false);
       setConsentError(classifyArrivalError(error));
     }
-  }, [session.accessToken, session.memberId]);
+  }, [session.accessToken, session.memberId, goToStep]);
 
   const createdGoal =
     !journey.state.isCreatingFirstMission && !journey.state.firstMissionDraft && !journey.state.error
@@ -75,10 +90,10 @@ export function FirstRunWelcome({ skipHospitality = false }: FirstRunWelcomeProp
 
   const handleImmediateNeed = useCallback(
     (need: string) => {
-      setStep('first-mission');
+      goToStep('first-mission');
       void journey.createFirstMission(need);
     },
-    [journey],
+    [journey, goToStep],
   );
 
   useEffect(() => {
@@ -115,24 +130,31 @@ export function FirstRunWelcome({ skipHospitality = false }: FirstRunWelcomeProp
         <PreferencesStep
           reducedMotion={motionPreference === 'reduced'}
           onReducedMotionChange={(reducedMotion) => setMotionPreference(reducedMotion ? 'reduced' : 'system')}
-          onContinue={() => setStep('hospitality')}
+          onContinue={() => goToStep('hospitality')}
         />
       );
 
     case 'hospitality':
-      return <HospitalityStep onContinue={() => setStep('immediate-need')} />;
+      return <HospitalityStep onContinue={() => goToStep('immediate-need')} />;
 
     case 'immediate-need':
       return <ImmediateNeedStep onSubmit={handleImmediateNeed} submitting={journey.state.isCreatingFirstMission} />;
 
     case 'first-mission':
+      // A resumed session can land here with no in-flight creation and no
+      // created goal (e.g. the member reloaded before submission ever
+      // completed) — fall back to immediate-need rather than showing a
+      // stuck blank screen (B6: "without being stuck").
+      if (!createdGoal && !journey.state.isCreatingFirstMission && !journey.state.error) {
+        return <ImmediateNeedStep onSubmit={handleImmediateNeed} submitting={false} />;
+      }
       return (
         <FirstMissionStep
           goal={createdGoal}
           creating={journey.state.isCreatingFirstMission}
           error={journey.state.error}
           onRetry={() => void journey.retryFirstMission()}
-          onContinue={() => setStep('opportunities')}
+          onContinue={() => goToStep('opportunities')}
         />
       );
 
@@ -147,7 +169,7 @@ export function FirstRunWelcome({ skipHospitality = false }: FirstRunWelcomeProp
           isSaved={opportunities.isSaved}
           onToggleSave={(id) => void opportunities.toggleSave(id)}
           onOpenOpportunity={() => router.push('/opportunities')}
-          onContinue={() => setStep('review-approval')}
+          onContinue={() => goToStep('review-approval')}
         />
       );
 
@@ -161,7 +183,7 @@ export function FirstRunWelcome({ skipHospitality = false }: FirstRunWelcomeProp
           isDeciding={recommendations.isDeciding}
           onApprove={(id) => void recommendations.approve(id)}
           onDismiss={(id) => void recommendations.dismiss(id)}
-          onContinue={() => setStep('next-step')}
+          onContinue={() => goToStep('next-step')}
         />
       );
 

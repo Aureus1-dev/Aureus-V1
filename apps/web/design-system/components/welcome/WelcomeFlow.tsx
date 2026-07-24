@@ -1,10 +1,11 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useJourney, useSession } from '../../../state';
 import { LoadingState } from '../LoadingState/LoadingState';
 import { FirstRunWelcome } from './FirstRunWelcome';
+import { readArrivalStep } from './arrival-progress';
 import styles from './WelcomeFlow.module.css';
 
 export interface WelcomeFlowProps {
@@ -20,11 +21,22 @@ export interface WelcomeFlowProps {
  * twice (AFX-005 §3) and "every return begins where the previous
  * journey paused" (FPB-003 §10) — that resumption point is Home, not
  * Welcome.
+ *
+ * B6 (Gate B — The Gate): a member who created a first Goal but left
+ * mid-guided-flow (never reached the final summary) has `goals.length
+ * > 0` yet has not actually finished onboarding — redirecting them to
+ * Home here would silently skip the rest of arrival (Opportunities,
+ * Review & Approval) and count as "data loss" of their in-progress
+ * position. `hasIncompleteArrival` (a persisted step from
+ * `arrival-progress.ts`) overrides the returning-member redirect in
+ * exactly that case, so `FirstRunWelcome` mounts and resumes them
+ * instead.
  */
 export function WelcomeFlow({ forceNewMission = false }: WelcomeFlowProps) {
   const router = useRouter();
   const { session } = useSession();
   const journey = useJourney();
+  const [hasIncompleteArrival] = useState(() => readArrivalStep() !== null);
 
   useEffect(() => {
     if (session.isAuthenticated) {
@@ -33,7 +45,7 @@ export function WelcomeFlow({ forceNewMission = false }: WelcomeFlowProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [session.isAuthenticated]);
 
-  const isReturningMember = journey.state.goals.length > 0;
+  const isReturningMember = journey.state.goals.length > 0 && !hasIncompleteArrival;
 
   useEffect(() => {
     if (!journey.state.isLoadingGoals && isReturningMember && !forceNewMission) {

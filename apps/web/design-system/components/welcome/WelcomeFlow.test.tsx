@@ -49,6 +49,7 @@ function renderFlow(forceNewMission?: boolean) {
 describe('WelcomeFlow', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    window.localStorage.clear();
   });
 
   it('redirects a returning member (one who already has goals) to Home rather than showing a second summary here', async () => {
@@ -89,5 +90,15 @@ describe('WelcomeFlow', () => {
     const elapsedMs = performance.now() - startedAt;
 
     expect(elapsedMs).toBeLessThan(3000);
+  });
+
+  it('B6: a member with a goal but an incomplete guided flow is resumed, not redirected to Home', async () => {
+    mockedGoals.listGoals.mockResolvedValue({ data: [activeGoal], total: 1, page: 1, limit: 20, totalPages: 1 });
+    window.localStorage.setItem('aureus.arrival.step', 'opportunities');
+
+    renderFlow();
+
+    expect(await screen.findByRole('heading', { name: 'Opportunities that might help' })).toBeInTheDocument();
+    expect(replace).not.toHaveBeenCalled();
   });
 });

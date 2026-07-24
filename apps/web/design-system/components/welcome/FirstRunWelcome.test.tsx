@@ -229,4 +229,38 @@ describe('FirstRunWelcome — Domain Completion Rule end-to-end', () => {
     // The applied preference persists past the step that set it.
     expect(document.documentElement.getAttribute('data-reduced-motion')).toBe('true');
   });
+
+  it('B6: a reload mid-arrival resumes at the persisted step instead of restarting at consent', async () => {
+    window.localStorage.setItem('aureus.arrival.step', 'hospitality');
+
+    renderFlow();
+
+    await waitFor(() => expect(screen.getByText('Welcome to Aureus')).toBeInTheDocument());
+    expect(screen.queryByText('Before we begin')).not.toBeInTheDocument();
+    expect(screen.queryByText('Make this comfortable for you')).not.toBeInTheDocument();
+    expect(mockedConsent.grantConsent).not.toHaveBeenCalled();
+  });
+
+  it('B6: reaching the final step clears the persisted position — nothing left to resume', async () => {
+    window.localStorage.setItem('aureus.arrival.step', 'review-approval');
+    mockedRecommendations.generateRecommendations.mockResolvedValue([recommendation]);
+
+    renderFlow();
+    const user = userEvent.setup();
+
+    await waitFor(() => expect(screen.getByText('Aureus prepared a few recommendations')).toBeInTheDocument());
+    await user.click(screen.getByRole('button', { name: 'Continue' }));
+
+    await waitFor(() => expect(screen.getByText("You're ready to begin")).toBeInTheDocument());
+    expect(window.localStorage.getItem('aureus.arrival.step')).toBeNull();
+  });
+
+  it('B6: resuming at first-mission with no created goal falls back to immediate-need rather than getting stuck', async () => {
+    window.localStorage.setItem('aureus.arrival.step', 'first-mission');
+
+    renderFlow();
+
+    // No blank screen, no dead end — the member can simply state their need again.
+    await waitFor(() => expect(screen.getByText('What brings you to Aureus today?')).toBeInTheDocument());
+  });
 });
