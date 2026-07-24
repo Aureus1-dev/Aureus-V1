@@ -10,6 +10,7 @@ import { AI_MESSAGE_REPOSITORY, IAiMessageRepository } from './repositories/ai-m
 import { AiRequestsService } from '../requests/ai-requests.service';
 import { NeedsService } from '../../needs/needs.service';
 import { CLARIFYING_QUESTION } from '../../needs/ambiguity.util';
+import { CRISIS_REDIRECT_MESSAGE } from '../../needs/crisis-detection.util';
 import type { AuthenticatedUser } from '../../auth/strategies/jwt.strategy';
 import type { AiConversation, AiMessage } from '@prisma/client';
 
@@ -195,6 +196,71 @@ describe('ConversationsService', () => {
 
         expect(mockAiRequests.runCompletion).toHaveBeenCalled();
         expect(result.content).toBe('Got it, thanks.');
+      });
+    });
+
+    describe('Gate C — C3: Urgency assessment', () => {
+      it('reliably redirects crisis language to real help, without calling the AI', async () => {
+        mockConversationRepo.findById.mockResolvedValue(makeConversation());
+        mockMessageRepo.create
+          .mockResolvedValueOnce(makeMessage({ role: AiMessageRole.USER, content: 'I want to kill myself' }))
+          .mockResolvedValueOnce(makeMessage({ id: 'msg-002', role: AiMessageRole.ASSISTANT, content: CRISIS_REDIRECT_MESSAGE }));
+        mockMessageRepo.findRecentByConversation.mockResolvedValue([
+          makeMessage({ role: AiMessageRole.USER, content: 'I want to kill myself' }),
+        ]);
+
+        const result = await service.ask('conv-001', { content: 'I want to kill myself' }, USER);
+
+        expect(result.content).toBe(CRISIS_REDIRECT_MESSAGE);
+        expect(mockAiRequests.runCompletion).not.toHaveBeenCalled();
+        expect(mockConversationRepo.touch).toHaveBeenCalledWith('conv-001');
+      });
+
+      it('detects crisis language at any point in a conversation, not only the first message', async () => {
+        mockConversationRepo.findById.mockResolvedValue(makeConversation());
+        mockMessageRepo.create
+          .mockResolvedValueOnce(makeMessage({ role: AiMessageRole.USER, content: "I can't go on anymore" }))
+          .mockResolvedValueOnce(makeMessage({ id: 'msg-004', role: AiMessageRole.ASSISTANT, content: CRISIS_REDIRECT_MESSAGE }));
+        mockMessageRepo.findRecentByConversation.mockResolvedValue([
+          makeMessage({ role: AiMessageRole.USER, content: 'I need help finding a job' }),
+          makeMessage({ id: 'msg-002', role: AiMessageRole.ASSISTANT, content: 'Tell me more.' }),
+          makeMessage({ id: 'msg-003', role: AiMessageRole.USER, content: "I can't go on anymore" }),
+        ]);
+
+        const result = await service.ask('conv-001', { content: "I can't go on anymore" }, USER);
+
+        expect(result.content).toBe(CRISIS_REDIRECT_MESSAGE);
+        expect(mockAiRequests.runCompletion).not.toHaveBeenCalled();
+      });
+
+      it('takes priority over the C2 clarification check for a short crisis message', async () => {
+        mockConversationRepo.findById.mockResolvedValue(makeConversation());
+        mockMessageRepo.create
+          .mockResolvedValueOnce(makeMessage({ role: AiMessageRole.USER, content: 'want to die' }))
+          .mockResolvedValueOnce(makeMessage({ id: 'msg-002', role: AiMessageRole.ASSISTANT, content: CRISIS_REDIRECT_MESSAGE }));
+        mockMessageRepo.findRecentByConversation.mockResolvedValue([
+          makeMessage({ role: AiMessageRole.USER, content: 'want to die' }),
+        ]);
+
+        const result = await service.ask('conv-001', { content: 'want to die' }, USER);
+
+        expect(result.content).toBe(CRISIS_REDIRECT_MESSAGE);
+        expect(result.content).not.toMatch(/tell me a little more/i);
+        expect(mockAiRequests.runCompletion).not.toHaveBeenCalled();
+      });
+
+      it('still captures the stated need when a crisis message is the first message of the conversation', async () => {
+        mockConversationRepo.findById.mockResolvedValue(makeConversation());
+        mockMessageRepo.create
+          .mockResolvedValueOnce(makeMessage({ role: AiMessageRole.USER, content: 'I want to kill myself' }))
+          .mockResolvedValueOnce(makeMessage({ id: 'msg-002', role: AiMessageRole.ASSISTANT, content: CRISIS_REDIRECT_MESSAGE }));
+        mockMessageRepo.findRecentByConversation.mockResolvedValue([
+          makeMessage({ role: AiMessageRole.USER, content: 'I want to kill myself' }),
+        ]);
+
+        await service.ask('conv-001', { content: 'I want to kill myself' }, USER);
+
+        expect(mockNeeds.capture).toHaveBeenCalledWith(USER.id, 'conv-001', 'I want to kill myself');
       });
     });
 
