@@ -81,6 +81,22 @@ describe('PodRequestsService', () => {
       expect(result.status).toBe(PodRequestStatus.PENDING);
       expect(mockMembershipRepo.create).not.toHaveBeenCalled();
     });
+
+    it('strips markup from proposedPodName/proposedPodDescription/reason before persisting (PD-008)', async () => {
+      mockRequestRepo.create.mockResolvedValue(makeRequest());
+      await service.create(
+        {
+          type: PodRequestType.PROPOSE_NEW_POD,
+          proposedPodName: '<script>alert(1)</script>New Pod',
+          proposedPodDescription: '<b>A</b> proposed community',
+          reason: '<i>Because</i> reasons',
+        },
+        MEMBER,
+      );
+      expect(mockRequestRepo.create).toHaveBeenCalledWith(
+        expect.objectContaining({ proposedPodName: 'New Pod', proposedPodDescription: 'A proposed community', reason: 'Because reasons' }),
+      );
+    });
   });
 
   describe('decide', () => {

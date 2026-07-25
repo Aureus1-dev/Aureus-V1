@@ -1,6 +1,7 @@
 import { BadRequestException, ConflictException, ForbiddenException, Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { PodMembershipOrigin, PodMembershipStatus, PodRequestStatus, PodRequestType, PodType } from '@prisma/client';
 import { AuthenticatedUser } from '../../auth/strategies/jwt.strategy';
+import { sanitizePlainText } from '../../common/utils/sanitize-text';
 import { PodAuthorizationService } from '../common/pod-authorization.service';
 import { CreateRequestDto, DecideRequestDto, RequestResponseDto } from './dto/request.dto';
 import { IPodRequestRepository, POD_REQUEST_REPOSITORY } from './repositories/pod-request.repository.interface';
@@ -37,7 +38,8 @@ export class PodRequestsService {
       if (!membership) throw new NotFoundException('You do not have an active membership in this Pod');
       await this.membershipRepo.update(membership.id, { status: PodMembershipStatus.ENDED, endedAt: new Date(), endReason: 'MEMBER_LEFT' });
       const request = await this.repo.create({
-        userId: caller.id, type: dto.type, podId: dto.podId, reason: dto.reason,
+        userId: caller.id, type: dto.type, podId: dto.podId,
+        reason: dto.reason !== undefined ? sanitizePlainText(dto.reason) : undefined,
         status: PodRequestStatus.APPROVED, decidedAt: new Date(),
       });
       return RequestResponseDto.fromEntity(request);
@@ -45,7 +47,9 @@ export class PodRequestsService {
 
     const request = await this.repo.create({
       userId: caller.id, type: dto.type, podId: dto.podId,
-      proposedPodName: dto.proposedPodName, proposedPodDescription: dto.proposedPodDescription, reason: dto.reason,
+      proposedPodName: dto.proposedPodName !== undefined ? sanitizePlainText(dto.proposedPodName) : undefined,
+      proposedPodDescription: dto.proposedPodDescription !== undefined ? sanitizePlainText(dto.proposedPodDescription) : undefined,
+      reason: dto.reason !== undefined ? sanitizePlainText(dto.reason) : undefined,
     });
     return RequestResponseDto.fromEntity(request);
   }

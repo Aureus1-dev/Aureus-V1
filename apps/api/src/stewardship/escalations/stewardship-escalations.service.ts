@@ -2,6 +2,7 @@ import { ConflictException, ForbiddenException, Inject, Injectable, NotFoundExce
 import { StewardshipEscalationStatus } from '@prisma/client';
 import { AuthenticatedUser } from '../../auth/strategies/jwt.strategy';
 import { hasRole } from '../../auth/utils/has-role.util';
+import { sanitizePlainText } from '../../common/utils/sanitize-text';
 import { PLATFORM_ADMIN_ROLES } from '../common/stewardship-roles.util';
 import { CreateEscalationDto } from './dto/create-escalation.dto';
 import { UpdateEscalationStatusDto } from './dto/update-escalation-status.dto';
@@ -34,8 +35,8 @@ export class StewardshipEscalationsService {
 
     const escalation = await this.repo.create({
       relationshipId,
-      title: dto.title,
-      description: dto.description,
+      title: sanitizePlainText(dto.title),
+      description: sanitizePlainText(dto.description),
       severity: dto.severity,
       raisedById: caller.id,
     });

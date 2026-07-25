@@ -54,6 +54,18 @@ describe('PodsService', () => {
       expect(mockRepo.setRef).toHaveBeenCalledWith('pod-001', 'AUR-POD-000001');
       expect(result.podRef).toBe('AUR-POD-000001');
     });
+
+    it('strips markup from name/shortDescription/fullDescription before persisting (PD-008)', async () => {
+      mockRepo.create.mockResolvedValue(makePod({ podRef: null }));
+      mockRepo.setRef.mockResolvedValue(makePod());
+      await service.create(
+        { name: '<script>alert(1)</script>Riverside', shortDescription: '<b>S</b>hort', fullDescription: '<i>F</i>ull', type: PodType.HOME },
+        STEWARD,
+      );
+      expect(mockRepo.create).toHaveBeenCalledWith(
+        expect.objectContaining({ name: 'Riverside', shortDescription: 'Short', fullDescription: 'Full' }),
+      );
+    });
   });
 
   describe('update', () => {
@@ -74,6 +86,14 @@ describe('PodsService', () => {
     it('throws NotFoundException for a missing Pod', async () => {
       mockRepo.findById.mockResolvedValue(null);
       await expect(service.update('missing', {}, ADMIN)).rejects.toThrow(NotFoundException);
+    });
+
+    it('strips markup from an updated name before persisting (PD-008)', async () => {
+      mockRepo.findById.mockResolvedValue(makePod());
+      mockMembershipRepo.isActiveSteward.mockResolvedValue(true);
+      mockRepo.update.mockResolvedValue(makePod({ name: 'New Name' }));
+      await service.update('pod-001', { name: '<script>alert(1)</script>New Name' }, STEWARD);
+      expect(mockRepo.update).toHaveBeenCalledWith('pod-001', expect.objectContaining({ name: 'New Name' }));
     });
   });
 
