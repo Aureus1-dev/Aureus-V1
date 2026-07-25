@@ -1,0 +1,2 @@
+-- AlterEnum
+ALTER TYPE "AiRequestStatus" ADD VALUE 'MODERATION_BLOCKED';

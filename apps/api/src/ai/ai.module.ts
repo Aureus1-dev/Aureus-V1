@@ -13,6 +13,8 @@ import { StewardshipModule } from '../stewardship/stewardship.module';
 import { NeedsModule } from '../needs/needs.module';
 import { AiProviderModule } from './providers/ai-provider.module';
 
+import { ModerationService } from './moderation/moderation.service';
+
 import { AiRequestsController } from './requests/ai-requests.controller';
 import { AiRequestsService } from './requests/ai-requests.service';
 import { PrismaAiRequestRepository } from './requests/repositories/prisma-ai-request.repository';
@@ -92,6 +94,7 @@ import { AI_TURN_EVENT_REPOSITORY } from './voice/repositories/ai-turn-event.rep
   ],
   providers: [
     AiRequestsService,
+    ModerationService,
     { provide: AI_REQUEST_REPOSITORY, useClass: PrismaAiRequestRepository },
     AiOperationalConfigService,
     { provide: AI_OPERATIONAL_CONFIG_REPOSITORY, useClass: PrismaAiOperationalConfigRepository },

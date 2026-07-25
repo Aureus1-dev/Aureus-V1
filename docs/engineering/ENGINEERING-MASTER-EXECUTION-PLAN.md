@@ -72,7 +72,7 @@ Each task carries: **Title · Description · References · Why it matters · Dep
 - **Testing required:** A deliberately-flagged input (e.g. explicit self-harm language) is intercepted before reaching the provider and produces a safe, on-brand refusal, logged distinctly from a normal `AiRequest`; existing orchestrator/conversation/voice suites extended to cover the moderation-block path.
 - **Completion criteria:** Per `PD-007`'s own acceptance criterion, verbatim.
 - **Suggested owner:** Engineering — AI/Intelligence Layer domain (owns `apps/api/src/ai/`).
-- **Status:** **Not Started.**
+- **Status:** **Complete for all text-based capabilities** (Conversations, Insights, Recommendations, Orchestrator, Pod Insights) — `ModerationService` + prompt-injection wrapping wired into the shared `AiRequestsService.runCompletion()` choke point; new `AiRequestStatus.MODERATION_BLOCKED` audit state; 29 new tests (unit + e2e), full suite green (same 7 pre-existing unrelated Voice failures, zero new regressions). See `docs/work-orders/PD-007-AI-Safety-Moderation.md`. **Open remainder:** `VoiceSessionService` bypasses this choke point via its own realtime broker and is not yet covered — tracked as follow-up, not blocking for text-only pilot use.
 
 #### Task 1.3 — Platform-Wide Content Moderation & Trust/Safety
 

@@ -11,7 +11,7 @@ export type AiCapability =
   | 'JOURNEY_GUIDANCE' | 'ACADEMY_GUIDANCE' | 'KNOWLEDGE_SEARCH' | 'POD_INSIGHT'
   | 'VOICE_CONVERSATION' | 'DOCUMENT_SUMMARY' | 'NEXT_BEST_ACTION' | 'STEWARD_ESCALATION';
 
-export type AiRequestStatus = 'SUCCESS' | 'FAILED';
+export type AiRequestStatus = 'SUCCESS' | 'FAILED' | 'MODERATION_BLOCKED';
 
 export interface AiRequestDto {
   id: string;

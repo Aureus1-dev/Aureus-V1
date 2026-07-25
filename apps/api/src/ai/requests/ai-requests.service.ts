@@ -2,7 +2,10 @@ import { ForbiddenException, Inject, Injectable, Logger, NotFoundException, Serv
 import { AiCapability, AiRequestStatus } from '@prisma/client';
 import { AuthenticatedUser } from '../../auth/strategies/jwt.strategy';
 import { hasRole } from '../../auth/utils/has-role.util';
+import { CRISIS_REDIRECT_MESSAGE } from '../../needs/crisis-detection.util';
 import { PLATFORM_ADMIN_ROLES } from '../common/ai-roles.util';
+import { ModerationService } from '../moderation/moderation.service';
+import { wrapUntrustedUserContent } from '../moderation/prompt-injection.util';
 import { AI_PROVIDER, AiCompletionMessage, AiToolCallRequest, AiToolDefinition, IAiProvider } from '../providers/ai-provider.interface';
 import { computeCostUsd } from './ai-pricing.util';
 import { AiOperationalConfigService } from './ai-operational-config.service';
@@ -12,6 +15,15 @@ import { AiCapabilitySpendResponseDto } from './dto/ai-capability-spend-response
 import { ListAiRequestsQueryDto } from './dto/list-ai-requests-query.dto';
 import { PaginatedAiRequestsResponseDto } from './dto/paginated-ai-requests-response.dto';
 import { AI_REQUEST_REPOSITORY, IAiRequestRepository } from './repositories/ai-request.repository.interface';
+
+/**
+ * PD-007 (AI Safety). A generic, honest refusal for moderation categories
+ * that are not self-harm-specific — self-harm-flagged content instead
+ * reuses `CRISIS_REDIRECT_MESSAGE` verbatim, per this repository's own
+ * established convention (Gate C, C3/C7) of never restating crisis-safety
+ * copy differently in different places.
+ */
+const MODERATION_REFUSAL_MESSAGE = "I'm not able to help with that. If you'd like, tell me more about what you're actually trying to get done, and I'll do my best to help with that instead.";
 
 export interface RunCompletionParams {
   userId: string;
@@ -48,15 +60,29 @@ export class AiRequestsService {
     @Inject(AI_PROVIDER) private readonly provider: IAiProvider,
     @Inject(AI_REQUEST_REPOSITORY) private readonly repo: IAiRequestRepository,
     private readonly operationalConfig: AiOperationalConfigService,
+    private readonly moderation: ModerationService,
   ) {}
 
   async runCompletion(params: RunCompletionParams): Promise<CompletionResult> {
     await this.enforceSpendCeilings(params.userId);
+
+    const moderationResult = await this.moderation.checkMessages(params.messages);
+    if (moderationResult.flagged) {
+      return this.recordModerationBlock(params, moderationResult.categories);
+    }
+
     const startedAt = Date.now();
 
     try {
+      // PD-007 item 3 (PII-handling policy): member content is never
+      // scrubbed for PII before this call — retention/deletion of that
+      // data is PD-010's scope, not this method's. Prompt-injection
+      // mitigation (delimiting + neutralizing override phrases) is applied
+      // here, immediately before the provider call, so it can never be
+      // accidentally skipped by a capability that forgets to apply it.
+      const safeMessages = wrapUntrustedUserContent(params.messages);
       const output = await this.provider.complete({
-        messages: params.messages,
+        messages: safeMessages,
         maxTokens: params.maxTokens,
         temperature: params.temperature,
         tools: params.tools,
@@ -98,6 +124,40 @@ export class AiRequestsService {
       this.logger.error(`AI completion failed for capability ${params.capability}: ${errorMessage}`);
       throw new ServiceUnavailableException('The AI service is temporarily unavailable. Please try again shortly.');
     }
+  }
+
+  /**
+   * PD-007 — the provider is never called for flagged content. Returns a
+   * normal `CompletionResult` (never throws) so every existing call site
+   * (Conversations, Insights, Recommendations, Orchestrator, Pod Insights)
+   * handles a moderation block exactly like a successful reply, with no
+   * special-case exception handling required anywhere upstream. Logged as
+   * its own distinct `AiRequestStatus.MODERATION_BLOCKED` row — never
+   * merged into a normal SUCCESS or FAILED entry — so the audit log/cost
+   * dashboard can always distinguish "a member was refused by moderation"
+   * from "the AI service actually replied" or "the provider errored."
+   */
+  private async recordModerationBlock(
+    params: RunCompletionParams, categories: string[],
+  ): Promise<CompletionResult> {
+    const request = await this.repo.create({
+      userId: params.userId,
+      conversationId: params.conversationId,
+      capability: params.capability,
+      provider: this.provider.provider,
+      model: 'moderation-block',
+      promptTokens: 0,
+      completionTokens: 0,
+      costUsd: 0,
+      latencyMs: 0,
+      status: AiRequestStatus.MODERATION_BLOCKED,
+      errorMessage: `Blocked by content moderation: ${categories.join(', ') || 'unspecified'}`,
+    });
+
+    this.logger.warn(`AI request blocked by moderation for capability ${params.capability}: ${categories.join(', ')}`);
+
+    const isSelfHarm = categories.includes('self-harm');
+    return { content: isSelfHarm ? CRISIS_REDIRECT_MESSAGE : MODERATION_REFUSAL_MESSAGE, requestId: request.id };
   }
 
   /**
