@@ -171,15 +171,15 @@ Each task carries: **Title · Description · References · Why it matters · Dep
 #### Task 2.4 — AI Provider Resilience & Cost Governance Maturity
 
 - **Description:** Add retry-with-backoff and timeout handling to both AI providers, a simple cross-provider fallback, and per-capability budget ceilings (particularly Voice, given its cost profile).
-- **References:** `PD-000` §PD-009.
+- **References:** `PD-000` §PD-009; `docs/work-orders/PD-009-AI-Provider-Resilience.md` (full readiness report).
 - **Why it matters:** Confirmed: `OpenAiProvider`/`AnthropicProvider` are single bare `fetch()` calls with no retry, timeout, or fallback. A transient provider hiccup — which happens regularly with both providers in real operation — currently surfaces as a hard user-facing failure.
 - **Dependencies:** None. Should land before Task 2.9 (Intelligence Layer integration testing), which benefits from reduced flakiness.
-- **Effort:** Medium (4-6 engineer-days).
+- **Effort:** Medium (4-6 engineer-days) — delivered.
 - **Risk:** High once real members depend on AI availability.
 - **Testing required:** A simulated provider timeout is retried per a documented backoff policy; a simulated total-provider-outage falls over to the secondary provider; a per-capability ceiling (demonstrated on Voice) refuses further requests for that capability specifically while others continue.
-- **Completion criteria:** Per `PD-009`'s own acceptance criterion.
+- **Completion criteria:** Per `PD-009`'s own acceptance criterion — all three met: `OpenAiProvider`/`AnthropicProvider` retry transient failures with backoff behind a per-provider circuit breaker (unit-tested); `FallbackAiProvider` fails over to the secondary when both providers are configured (unit-tested, strictly sequential); a new `AiCapabilityBudget` model's request-count lever caps Voice specifically while other capabilities continue (unit-tested) — the dollar lever alone could never trigger for Voice since its `AiRequest` rows always log `costUsd: 0` (ADR-017 Decision 6). A related defect found in the same pass — `VoiceSessionService` had no integration with the emergency stop or existing budget ceilings at all — was fixed alongside this task rather than deferred.
 - **Suggested owner:** Engineering — AI provider abstraction layer (`apps/api/src/ai/providers/`).
-- **Status:** **Not Started.**
+- **Status:** **Complete.**
 
 #### Task 2.5 — AI Data Retention & Conversation Memory Management
 
@@ -205,7 +205,7 @@ Each task carries: **Title · Description · References · Why it matters · Dep
 - **Testing required:** N/A until root cause is found; then a regression test proving the fix.
 - **Completion criteria:** The 7 Voice Domain failures either resolve to a known, accepted, and documented cause (e.g., an environment-specific limitation) or are fixed outright; either way, the finding is committed to the repository instead of silently re-appearing in every future validation note.
 - **Suggested owner:** Engineering — Voice domain (`DOMAIN-002`/`005`).
-- **Status:** **Not Started** (as an investigation; the symptom itself has existed since Voice was first built).
+- **Status:** **Not Started** (as a fix), but **root cause now confirmed** as a byproduct of Task 2.4's own verification work: `VoiceProviderModule`'s factory (`apps/api/src/ai/voice/providers/voice-provider.module.ts`) selects the real `OpenAiVoiceProvider` whenever `OPENAI_API_KEY` is present in the environment — independent of the `AI_PROVIDER` text-pipeline selector that every other test in this repository relies on to get the safe stub. This sandbox's `.env` has a real `OPENAI_API_KEY` configured, and this sandbox's egress to `api.openai.com` is blocked, so every Voice session-start attempt in a test run gets a real 403 from the network layer, not a mocked response. Confirmed by direct reproduction: running the identical Voice Domain e2e tests against a clean `git stash` of every Task 2.4 change reproduces the exact same 7 failures, ruling out Task 2.4 as the cause. The fix, if wanted, is straightforward — gate `VoiceProviderModule`'s factory on the same `AI_PROVIDER` value the text pipeline already uses (e.g., only select `OpenAiVoiceProvider` when `AI_PROVIDER !== 'stub'`), not a new mechanism.
 
 #### Task 2.7 — Real Document Storage Backend
 
@@ -442,7 +442,6 @@ Fully independent, start immediately (no dependency on anything):
   Task 1.1  Legal/Privacy/Consent
   Task 1.2  AI Moderation
   Task 1.4  A4 (human phone-verification)
-  Task 2.4  AI Provider Resilience
   Task 2.5  AI Data Retention
   Task 2.6  Voice Domain flaky-test investigation
   Task 2.8  Frontend error boundary + polish (items 1-3)
@@ -465,8 +464,8 @@ Depends on Task 1.1 (design coordination, not a hard blocker):
   Task 2.3  Gate E (Memory Rights) — coordinate "forget"/"export" with Task 1.1 and Task 2.5
   Task 2.5  AI Data Retention — same coordination
 
-Depends on Task 2.4:
-  Task 3.5  Intelligence Layer integration/eval harness (reduced flakiness prerequisite)
+Depends on Task 2.4 (done):
+  Task 3.5  Intelligence Layer integration/eval harness (reduced flakiness prerequisite) — may now start
 
 Depends on Task 1.2 + Task 3.5:
   Task 4.2  Next Best Action surface (should not be the first unmoderated AI-facing surface)
@@ -493,7 +492,7 @@ Milestone 4 (Public Launch) tasks may all proceed in parallel with Milestone 2/3
 | Category | Items |
 |---|---|
 | **Critical (blocks pilot)** | 1.1 Legal/Privacy · 1.2 AI Moderation · 1.4 A4 · 1.5 A5/A6 · 2.1 C9 sign-off · 2.2 Gate D · 2.3 Gate E |
-| **High** | 2.4 AI Resilience · 2.7 Document Storage · 3.3 CD/Staging/Load Test |
+| **High** | 2.7 Document Storage · 3.3 CD/Staging/Load Test |
 | **Medium** | 2.5 AI Retention · 2.6 Voice flaky-test · 2.8 Frontend Polish · 2.9 Pods/Messages UI · 3.1 Budget Alerting · 3.2 Frontend Sentry · 3.5 Integration Testing · 3.6 Playwright · 4.1 Deferred Surfaces decision |
 | **Low** | 4.2 Next Best Action · 4.3 OAuth/CAPTCHA · 5.1 SMTP revisit |
 | **Founder decisions required** | Task 3.3/3.4 hosting-target decision · Task 4.1 build-or-remove decision · (separately, out of this plan's scope: the constitutional-hierarchy and domain-canon-duplication decisions in `AUREUS-REPOSITORY-VALIDATION-REPORT.md` §10) |

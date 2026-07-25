@@ -1,7 +1,7 @@
-import { Body, Controller, Get, Patch, UseGuards } from '@nestjs/common';
-import { ApiBearerAuth, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
+import { Body, Controller, Delete, Get, Param, ParseEnumPipe, Patch, UseGuards } from '@nestjs/common';
+import { ApiBearerAuth, ApiOperation, ApiParam, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
-import { UserRole } from '@prisma/client';
+import { AiCapability, UserRole } from '@prisma/client';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../../auth/guards/roles.guard';
 import { Roles } from '../../auth/decorators/roles.decorator';
@@ -10,6 +10,8 @@ import { AuthenticatedUser } from '../../auth/strategies/jwt.strategy';
 import { AiOperationalConfigService } from './ai-operational-config.service';
 import { UpdateAiOperationalConfigDto } from './dto/update-ai-operational-config.dto';
 import { AiOperationalConfigResponseDto } from './dto/ai-operational-config-response.dto';
+import { SetAiCapabilityBudgetDto } from './dto/set-ai-capability-budget.dto';
+import { AiCapabilityBudgetResponseDto } from './dto/ai-capability-budget-response.dto';
 
 const ADMIN_ROLES = [UserRole.PLATFORM_ADMINISTRATOR, UserRole.SYSTEM_ADMINISTRATOR];
 
@@ -40,5 +42,36 @@ export class AiOperationalConfigController {
     @CurrentUser() caller: AuthenticatedUser,
   ): Promise<AiOperationalConfigResponseDto> {
     return AiOperationalConfigResponseDto.fromEntity(await this.service.update(dto, caller));
+  }
+
+  @Get('capability-budgets')
+  @ApiOperation({ summary: 'PD-009 — every per-capability AI budget ceiling currently configured (Platform / System Administrator)' })
+  @ApiResponse({ status: 200, type: [AiCapabilityBudgetResponseDto] })
+  async getCapabilityBudgets(): Promise<AiCapabilityBudgetResponseDto[]> {
+    const budgets = await this.service.getCapabilityBudgets();
+    return budgets.map(AiCapabilityBudgetResponseDto.fromEntity);
+  }
+
+  @Patch('capability-budgets')
+  @Throttle(OPERATIONAL_CONFIG_THROTTLE)
+  @ApiOperation({ summary: 'PD-009 — set (or replace) a per-capability AI budget ceiling — takes effect on the next request for that capability, no restart required (Platform / System Administrator)' })
+  @ApiResponse({ status: 200, type: AiCapabilityBudgetResponseDto })
+  async setCapabilityBudget(
+    @Body() dto: SetAiCapabilityBudgetDto,
+    @CurrentUser() caller: AuthenticatedUser,
+  ): Promise<AiCapabilityBudgetResponseDto> {
+    return AiCapabilityBudgetResponseDto.fromEntity(await this.service.setCapabilityBudget(dto, caller));
+  }
+
+  @Delete('capability-budgets/:capability')
+  @Throttle(OPERATIONAL_CONFIG_THROTTLE)
+  @ApiOperation({ summary: 'PD-009 — remove a per-capability AI budget ceiling entirely (Platform / System Administrator)' })
+  @ApiParam({ name: 'capability', enum: AiCapability })
+  async removeCapabilityBudget(
+    @Param('capability', new ParseEnumPipe(AiCapability)) capability: AiCapability,
+    @CurrentUser() caller: AuthenticatedUser,
+  ): Promise<{ success: true }> {
+    await this.service.removeCapabilityBudget(capability, caller);
+    return { success: true };
   }
 }

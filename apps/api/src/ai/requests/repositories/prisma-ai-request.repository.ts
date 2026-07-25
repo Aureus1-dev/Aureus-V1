@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { AiRequest, AiRequestStatus } from '@prisma/client';
+import { AiCapability, AiRequest, AiRequestStatus } from '@prisma/client';
 import { PrismaService } from '../../../prisma/prisma.service';
 import {
   AiCapabilitySpendSummary,
@@ -35,12 +35,18 @@ export class PrismaAiRequestRepository implements IAiRequestRepository {
     return { data, total, page, limit };
   }
 
-  async sumCostSince(since: Date, userId?: string): Promise<number> {
+  async sumCostSince(since: Date, userId?: string, capability?: AiCapability): Promise<number> {
     const result = await this.prisma.db.aiRequest.aggregate({
-      where: { createdAt: { gte: since }, ...(userId && { userId }) },
+      where: { createdAt: { gte: since }, ...(userId && { userId }), ...(capability && { capability }) },
       _sum: { costUsd: true },
     });
     return result._sum.costUsd ?? 0;
+  }
+
+  async countSince(since: Date, capability?: AiCapability): Promise<number> {
+    return this.prisma.db.aiRequest.count({
+      where: { createdAt: { gte: since }, ...(capability && { capability }) },
+    });
   }
 
   async summarySince(since: Date, userId?: string): Promise<AiSpendSummary> {

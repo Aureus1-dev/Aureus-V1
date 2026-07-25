@@ -28,7 +28,7 @@ const makeConfig = (o: Partial<AiOperationalConfig> = {}): AiOperationalConfig =
 
 const mockRepo: jest.Mocked<IAiRequestRepository> = {
   create: jest.fn(), findById: jest.fn(), findAll: jest.fn(), sumCostSince: jest.fn(), summarySince: jest.fn(),
-  groupedByCapabilitySince: jest.fn(),
+  groupedByCapabilitySince: jest.fn(), countSince: jest.fn(),
 };
 const mockProvider: jest.Mocked<IAiProvider> = {
   provider: AiProvider.STUB,
@@ -36,6 +36,7 @@ const mockProvider: jest.Mocked<IAiProvider> = {
 };
 const mockOperationalConfig = {
   getEffective: jest.fn(),
+  getCapabilityBudget: jest.fn(),
 } as unknown as jest.Mocked<AiOperationalConfigService>;
 const mockModeration = {
   checkMessages: jest.fn(),
@@ -57,7 +58,9 @@ describe('AiRequestsService', () => {
     service = m.get(AiRequestsService);
     jest.clearAllMocks();
     mockOperationalConfig.getEffective.mockResolvedValue(makeConfig());
+    mockOperationalConfig.getCapabilityBudget.mockResolvedValue(null);
     mockRepo.sumCostSince.mockResolvedValue(0);
+    mockRepo.countSince.mockResolvedValue(0);
     mockModeration.checkMessages.mockResolvedValue({ flagged: false, categories: [] });
   });
 
@@ -221,6 +224,70 @@ describe('AiRequestsService', () => {
         userId: USER.id, capability: AiCapability.QUESTION_ANSWERING,
         messages: [{ role: 'user', content: 'Hi' }],
       })).resolves.toBeDefined();
+    });
+
+    // ── Per-capability budget ceiling (PD-009) ──
+
+    it('blocks the call once the capability daily dollar budget is reached', async () => {
+      mockOperationalConfig.getCapabilityBudget.mockResolvedValue({
+        id: 'budget-001', capability: AiCapability.VOICE_CONVERSATION, dailyBudgetUsd: 5, dailyRequestLimit: null,
+        updatedById: null, updatedAt: NOW,
+      });
+      mockRepo.sumCostSince.mockResolvedValueOnce(0).mockResolvedValueOnce(0).mockResolvedValueOnce(5);
+
+      await expect(service.runCompletion({
+        userId: USER.id, capability: AiCapability.VOICE_CONVERSATION,
+        messages: [{ role: 'user', content: 'Hi' }],
+      })).rejects.toThrow(ServiceUnavailableException);
+
+      expect(mockProvider.complete).not.toHaveBeenCalled();
+    });
+
+    it('blocks the call once the capability daily request-count limit is reached', async () => {
+      mockOperationalConfig.getCapabilityBudget.mockResolvedValue({
+        id: 'budget-001', capability: AiCapability.VOICE_CONVERSATION, dailyBudgetUsd: null, dailyRequestLimit: 10,
+        updatedById: null, updatedAt: NOW,
+      });
+      mockRepo.countSince.mockResolvedValue(10);
+
+      await expect(service.runCompletion({
+        userId: USER.id, capability: AiCapability.VOICE_CONVERSATION,
+        messages: [{ role: 'user', content: 'Hi' }],
+      })).rejects.toThrow(ServiceUnavailableException);
+
+      expect(mockProvider.complete).not.toHaveBeenCalled();
+    });
+
+    it('does not affect other capabilities when one capability hits its ceiling', async () => {
+      mockOperationalConfig.getCapabilityBudget.mockImplementation(async (capability: AiCapability) =>
+        capability === AiCapability.VOICE_CONVERSATION
+          ? { id: 'budget-001', capability, dailyBudgetUsd: null, dailyRequestLimit: 1, updatedById: null, updatedAt: NOW }
+          : null,
+      );
+      mockRepo.countSince.mockResolvedValue(1);
+      mockProvider.complete.mockResolvedValue({
+        content: 'Hello!', provider: AiProvider.STUB, model: 'stub', promptTokens: 10, completionTokens: 5,
+      });
+      mockRepo.create.mockResolvedValue(makeRequest());
+
+      await expect(service.runCompletion({
+        userId: USER.id, capability: AiCapability.QUESTION_ANSWERING,
+        messages: [{ role: 'user', content: 'Hi' }],
+      })).resolves.toBeDefined();
+    });
+
+    it('passes through unaffected when no capability budget is configured', async () => {
+      mockOperationalConfig.getCapabilityBudget.mockResolvedValue(null);
+      mockProvider.complete.mockResolvedValue({
+        content: 'Hello!', provider: AiProvider.STUB, model: 'stub', promptTokens: 10, completionTokens: 5,
+      });
+      mockRepo.create.mockResolvedValue(makeRequest());
+
+      await expect(service.runCompletion({
+        userId: USER.id, capability: AiCapability.VOICE_CONVERSATION,
+        messages: [{ role: 'user', content: 'Hi' }],
+      })).resolves.toBeDefined();
+      expect(mockRepo.countSince).not.toHaveBeenCalled();
     });
   });
 
