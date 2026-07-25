@@ -1649,6 +1649,7 @@ enum AiCapability {
 enum AiRequestStatus {
   SUCCESS
   FAILED
+  MODERATION_BLOCKED
 }
 
 enum AiMessageRole {

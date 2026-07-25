@@ -165,6 +165,10 @@ Domains are numbered in **recommended implementation order** — PD-001 is the s
 
 ## PD-007 — AI Safety: Content Moderation & Prompt-Injection Defense
 
+**Status: Complete for text-based capabilities.** See `docs/work-orders/PD-007-AI-Safety-Moderation.md` for the full readiness report: a `ModerationService` checks every `user`-role message routed through `AiRequestsService.runCompletion()` (the single choke point every capability already shares), preferring the real OpenAI moderation endpoint when `AI_PROVIDER=openai` and falling back to a deterministic phrase-list check otherwise; prompt-injection mitigation (delimiting + neutralizing override phrases) is applied to the same choke point; a new `AiRequestStatus.MODERATION_BLOCKED` value keeps a block distinct from a normal `SUCCESS`/`FAILED` request in the audit log. **Known limitation, not silently expanded around:** `VoiceSessionService` does not call `runCompletion()` — it writes directly to the AI request repository via its own realtime broker — so this does not yet cover Voice traffic; that remains open, tracked in that report.
+
+**Original scope (for historical record, now delivered per the above):**
+
 **Objective:** Member-supplied text never reaches an AI provider (and provider output never reaches a member) without a safety check.
 
 **Scope:** Confirmed: `ConversationsService.ask()` and `VoiceSessionService` push member input straight into provider prompts with **zero filtering** — no moderation-endpoint call, no profanity/PII scrub, no prompt-injection defense beyond the system prompt's own (unenforced) instructional boundaries (`system-prompts.util.ts`). This is the highest-severity Intelligence Layer finding in this audit: a consumer-facing AI surface with no safety layer at all. This PD: (1) adds a moderation-endpoint call (OpenAI's moderation API, or an equivalent for Anthropic) as a required pre-check before any member text is sent to a completion call, wired through the single `AiRequestsService.runCompletion()` choke point so every capability gets it automatically, (2) adds basic prompt-injection mitigation (e.g., wrapping member content in clearly-delimited untrusted-input blocks, stripping instruction-like patterns aimed at overriding the system prompt), (3) decides and documents a PII-handling policy for AI inputs (likely: don't attempt to strip PII pre-hoc, but ensure retention policy in PD-010 covers it).
@@ -374,7 +378,8 @@ Domains are numbered in **recommended implementation order** — PD-001 is the s
 | PD-004 | ~~Account Security & Auth Hardening~~ (absorbed into PD-001) | ✅ **Complete** (as part of PD-001) | None | Delivered | — |
 | — | ↳ *Remainder of this audit's original PD-005 (CD pipeline + staging + k6 load testing)* | 🔴 Critical | Indirect | Medium (5-6d) | Hosting decision |
 | — | ↳ *Remainder of this audit's original PD-006 (scheduled, provider-managed backup policy)* | 🟠 High | Indirect | Small (1-2d) | Hosting decision |
-| PD-007 | AI Safety: Content Moderation & Prompt-Injection Defense | 🔴 Critical (IL) | **Direct** | Medium (3-5d) | — |
+| PD-007 | AI Safety: Content Moderation & Prompt-Injection Defense (text capabilities) | ✅ **Complete** | **Direct** | Delivered | — |
+| — | ↳ *Remainder of PD-007 (Voice traffic, which bypasses `AiRequestsService.runCompletion()` via its own realtime broker)* | 🟠 High | **Direct** | Not yet estimated | — |
 | PD-008 | Content Moderation & Trust/Safety (Platform-Wide) | 🟠 High | None | Medium (3-5d) | — |
 | PD-009 | AI Provider Resilience & Cost Governance Maturity | 🟠 High | **Direct** | Medium (4-6d) | — |
 | PD-010 | AI Data Retention & Conversation Memory Management | 🟡 Medium | **Direct** | Medium (3-5d) | PD-003 |
@@ -385,9 +390,9 @@ Domains are numbered in **recommended implementation order** — PD-001 is the s
 | PD-015 | Member-Facing Next Best Action Surface | 🟢 Low | **Direct** | Medium (4-5d) | PD-007, PD-011 |
 | PD-016 | Governance Documentation Consolidation | 🟢 Low (ops) / 🟠 High (governance) | None | Not estimable | Founder decision |
 
-**Total estimated engineering effort remaining (excluding delivered PD-001/PD-002/PD-004, non-estimable legal drafting, and PD-016):** approximately **35-51 engineer-days**, sequenced with real dependencies — the PD-002/PD-005 remainders are both gated on a hosting-provider decision the Founder has not yet made; PD-003/007/008/009 have no dependencies on each other and could run concurrently with separate work streams if more than one engineer/session is available.
+**Total estimated engineering effort remaining (excluding delivered PD-001/PD-002/PD-004/PD-007 text-capability scope, non-estimable legal drafting, and PD-016):** approximately **30-46 engineer-days**, sequenced with real dependencies — the PD-002/PD-005 remainders are both gated on a hosting-provider decision the Founder has not yet made; PD-003/008/009 have no dependencies on each other and could run concurrently with separate work streams if more than one engineer/session is available; the PD-007 Voice remainder is not yet estimated (see `docs/work-orders/PD-007-AI-Safety-Moderation.md`).
 
-**Critical-path minimum before any real-user production launch:** ~~PD-001~~ (done) → ~~PD-002~~ (done) → PD-003 → PD-005 remainder → PD-006 remainder, plus PD-007 if AI features remain enabled for real users at launch. See `docs/work-orders/PD-002-Production-Infrastructure-Deployment.md` §14 for why a **private beta** is judged ready now, ahead of that full critical path. PD-008, PD-009 through PD-015 materially improve safety/quality/completeness but do not block a first launch to a limited/trusted user set the way the critical-path items do.
+**Critical-path minimum before any real-user production launch:** ~~PD-001~~ (done) → ~~PD-002~~ (done) → PD-003 → PD-005 remainder → PD-006 remainder. ~~PD-007~~ is done for all text-based AI capabilities (Conversations, Insights, Recommendations, Orchestrator, Pod Insights); its Voice-traffic remainder must still land before Voice can be enabled for real users, since Voice bypasses this fix's choke point entirely. See `docs/work-orders/PD-002-Production-Infrastructure-Deployment.md` §14 for why a **private beta** is judged ready now, ahead of that full critical path. PD-008, PD-009 through PD-015 materially improve safety/quality/completeness but do not block a first launch to a limited/trusted user set the way the critical-path items do.
 
 ---
 
