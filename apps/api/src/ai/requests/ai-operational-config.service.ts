@@ -1,6 +1,6 @@
 import { ForbiddenException, Inject, Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { AiOperationalConfig } from '@prisma/client';
+import { AiCapability, AiCapabilityBudget, AiOperationalConfig } from '@prisma/client';
 import { AuthenticatedUser } from '../../auth/strategies/jwt.strategy';
 import { hasRole } from '../../auth/utils/has-role.util';
 import { PLATFORM_ADMIN_ROLES } from '../common/ai-roles.util';
@@ -8,7 +8,12 @@ import {
   AI_OPERATIONAL_CONFIG_REPOSITORY,
   IAiOperationalConfigRepository,
 } from './repositories/ai-operational-config.repository.interface';
+import {
+  AI_CAPABILITY_BUDGET_REPOSITORY,
+  IAiCapabilityBudgetRepository,
+} from './repositories/ai-capability-budget.repository.interface';
 import { UpdateAiOperationalConfigDto } from './dto/update-ai-operational-config.dto';
+import { SetAiCapabilityBudgetDto } from './dto/set-ai-capability-budget.dto';
 
 const DEFAULT_GLOBAL_DAILY_BUDGET_USD = 50;
 const DEFAULT_USER_DAILY_BUDGET_USD = 2;
@@ -29,6 +34,7 @@ export class AiOperationalConfigService {
 
   constructor(
     @Inject(AI_OPERATIONAL_CONFIG_REPOSITORY) private readonly repo: IAiOperationalConfigRepository,
+    @Inject(AI_CAPABILITY_BUDGET_REPOSITORY) private readonly capabilityBudgetRepo: IAiCapabilityBudgetRepository,
     private readonly config: ConfigService,
   ) {}
 
@@ -64,5 +70,45 @@ export class AiOperationalConfigService {
     }
 
     return updated;
+  }
+
+  /** PD-009 — every per-capability ceiling currently configured (Founder Operating System visibility). */
+  async getCapabilityBudgets(): Promise<AiCapabilityBudget[]> {
+    return this.capabilityBudgetRepo.findAll();
+  }
+
+  /** PD-009 — the effective ceiling for one capability, or `null` if none is configured. Read by `AiRequestsService.enforceSpendCeilings`. */
+  async getCapabilityBudget(capability: AiCapability): Promise<AiCapabilityBudget | null> {
+    return this.capabilityBudgetRepo.findByCapability(capability);
+  }
+
+  /** PD-009 — set (or replace) a per-capability ceiling. Administrator only, mirrors `update()`'s own authorization. */
+  async setCapabilityBudget(dto: SetAiCapabilityBudgetDto, caller: AuthenticatedUser): Promise<AiCapabilityBudget> {
+    if (!hasRole(caller, PLATFORM_ADMIN_ROLES)) {
+      throw new ForbiddenException('Only a Platform or System Administrator may change AI capability budgets');
+    }
+
+    const updated = await this.capabilityBudgetRepo.upsert({
+      capability: dto.capability,
+      dailyBudgetUsd: dto.dailyBudgetUsd ?? null,
+      dailyRequestLimit: dto.dailyRequestLimit ?? null,
+      updatedById: caller.id,
+    });
+
+    this.logger.warn(
+      `AI capability budget updated by ${caller.id}: ${dto.capability} — dailyBudgetUsd=${updated.dailyBudgetUsd ?? 'none'} dailyRequestLimit=${updated.dailyRequestLimit ?? 'none'}`,
+    );
+
+    return updated;
+  }
+
+  /** PD-009 — removes a capability's ceiling entirely (no limit until one is set again). Administrator only. */
+  async removeCapabilityBudget(capability: AiCapability, caller: AuthenticatedUser): Promise<void> {
+    if (!hasRole(caller, PLATFORM_ADMIN_ROLES)) {
+      throw new ForbiddenException('Only a Platform or System Administrator may change AI capability budgets');
+    }
+
+    await this.capabilityBudgetRepo.remove(capability);
+    this.logger.warn(`AI capability budget removed by ${caller.id}: ${capability}`);
   }
 }

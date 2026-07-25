@@ -1882,6 +1882,25 @@ model AiOperationalConfig {
   updatedAt            DateTime @updatedAt
 }
 
+// AiCapabilityBudget  —  PD-009 (AI Provider Resilience) per-capability
+// ceiling, additive sibling of AiOperationalConfig's platform-wide/per-user
+// ceilings, not a replacement (enforceSpendCeilings checks all three).
+// Either field may be set independently: dailyBudgetUsd for capabilities
+// with a real, observable per-token cost; dailyRequestLimit for capabilities
+// where dollar cost isn't observable at this layer — Voice specifically
+// (ADR-017 Decision 6: realtime usage happens directly between client and
+// provider, so every Voice AiRequest is logged at costUsd: 0 by design; a
+// dollar ceiling could never trigger for it, so a request-count ceiling is
+// the only lever that is actually real for that capability today).
+model AiCapabilityBudget {
+  id                String       @id @default(uuid()) @db.Uuid
+  capability        AiCapability @unique
+  dailyBudgetUsd    Float?
+  dailyRequestLimit Int?
+  updatedById       String?      @db.Uuid // soft reference to User, no enforced relation (matches CitySheetEntry.verifiedById convention)
+  updatedAt         DateTime     @updatedAt
+}
+
 // AiRecommendation  —  A suggestion the AI Engine produced. Real, nullable,
 // mutually-exclusive FKs per target type, reusing the StewardshipRecommendation
 // precedent (a fixed, small target-type set) rather than a polymorphic loose
