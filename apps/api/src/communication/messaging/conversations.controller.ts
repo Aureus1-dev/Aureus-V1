@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Post, Query, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Patch, Post, Query, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiParam, ApiQuery, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { CurrentUser } from '../../auth/decorators/current-user.decorator';
@@ -6,9 +6,12 @@ import { AuthenticatedUser } from '../../auth/strategies/jwt.strategy';
 import { ConversationsService } from './conversations.service';
 import { SendMessageDto } from './dto/send-message.dto';
 import { ListMessagesQueryDto } from './dto/list-messages-query.dto';
+import { ReportMessageDto } from './dto/report-message.dto';
+import { ResolveReportDto } from './dto/resolve-report.dto';
 import { ConversationResponseDto } from './dto/conversation-response.dto';
 import { PaginatedConversationsResponseDto } from './dto/paginated-conversations-response.dto';
 import { MessageResponseDto } from './dto/message-response.dto';
+import { MessageReportResponseDto } from './dto/message-report-response.dto';
 import { PaginatedMessagesResponseDto } from './dto/paginated-messages-response.dto';
 
 @ApiTags('communication')
@@ -57,6 +60,29 @@ export class ConversationsController {
     return this.service.findAllForUser(Number(page) || 1, Number(limit) || 20, caller);
   }
 
+  // Static "moderation/reports" routes are declared before the ':id' route
+  // below so Nest/Express matches them first — otherwise ':id' would greedily
+  // capture "moderation" as a conversation ID.
+
+  @Get('moderation/reports')
+  @ApiOperation({ summary: 'PD-008 — platform-wide OPEN moderation queue, every conversation type (Administrator only)' })
+  @ApiResponse({ status: 200, type: [MessageReportResponseDto] })
+  listReportsForAdmin(@CurrentUser() caller: AuthenticatedUser): Promise<MessageReportResponseDto[]> {
+    return this.service.listReportsForAdmin(caller);
+  }
+
+  @Patch('moderation/reports/:reportId')
+  @ApiOperation({ summary: 'PD-008 — resolve or dismiss a moderation report (Administrator only)' })
+  @ApiParam({ name: 'reportId', description: 'MessageReport UUID' })
+  @ApiResponse({ status: 200, type: MessageReportResponseDto })
+  resolveReport(
+    @Param('reportId') reportId: string,
+    @Body() dto: ResolveReportDto,
+    @CurrentUser() caller: AuthenticatedUser,
+  ): Promise<MessageReportResponseDto> {
+    return this.service.resolveReport(reportId, dto, caller);
+  }
+
   @Get(':id')
   @ApiOperation({ summary: 'Get a conversation by ID (participant or Administrator)' })
   @ApiParam({ name: 'id', description: 'Conversation UUID' })
@@ -95,5 +121,32 @@ export class ConversationsController {
   @ApiParam({ name: 'id', description: 'Conversation UUID' })
   markRead(@Param('id') id: string, @CurrentUser() caller: AuthenticatedUser): Promise<{ success: true }> {
     return this.service.markRead(id, caller);
+  }
+
+  @Delete(':id/messages/:messageId')
+  @ApiOperation({ summary: 'PD-008 — delete a message (your own message, or any message if you are a Platform/System Administrator)' })
+  @ApiParam({ name: 'id', description: 'Conversation UUID' })
+  @ApiParam({ name: 'messageId', description: 'Message UUID' })
+  @ApiResponse({ status: 200, type: MessageResponseDto })
+  deleteMessage(
+    @Param('id') id: string,
+    @Param('messageId') messageId: string,
+    @CurrentUser() caller: AuthenticatedUser,
+  ): Promise<MessageResponseDto> {
+    return this.service.deleteMessage(id, messageId, caller);
+  }
+
+  @Post(':id/messages/:messageId/report')
+  @ApiOperation({ summary: 'PD-008 — report a message for moderation review (participant only)' })
+  @ApiParam({ name: 'id', description: 'Conversation UUID' })
+  @ApiParam({ name: 'messageId', description: 'Message UUID' })
+  @ApiResponse({ status: 201, type: MessageReportResponseDto })
+  reportMessage(
+    @Param('id') id: string,
+    @Param('messageId') messageId: string,
+    @Body() dto: ReportMessageDto,
+    @CurrentUser() caller: AuthenticatedUser,
+  ): Promise<MessageReportResponseDto> {
+    return this.service.reportMessage(id, messageId, dto, caller);
   }
 }

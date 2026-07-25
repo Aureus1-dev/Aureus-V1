@@ -21,7 +21,7 @@ function makeConversation(o: Partial<ConversationDto> = {}): ConversationDto {
 function makeMessage(o: Partial<MessageDto> = {}): MessageDto {
   return {
     id: 'msg-1', conversationId: 'conv-1', senderId: 'member-1', body: 'Hello there', status: 'SENT',
-    createdAt: '2026-01-01T00:00:00Z', ...o,
+    createdAt: '2026-01-01T00:00:00Z', deleted: false, ...o,
   };
 }
 

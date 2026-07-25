@@ -1,6 +1,7 @@
 import { ConflictException, ForbiddenException, Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { PodInvitationStatus, PodMembershipOrigin, PodMembershipStatus, PodType } from '@prisma/client';
 import { AuthenticatedUser } from '../../auth/strategies/jwt.strategy';
+import { sanitizePlainText } from '../../common/utils/sanitize-text';
 import { PodAuthorizationService } from '../common/pod-authorization.service';
 import { CreateInvitationDto, InvitationResponseDto, RespondToInvitationDto } from './dto/invitation.dto';
 import { IPodInvitationRepository, POD_INVITATION_REPOSITORY } from './repositories/pod-invitation.repository.interface';
@@ -35,7 +36,10 @@ export class PodInvitationsService {
     const existing = await this.repo.findPendingForPodAndUser(podId, dto.invitedUserId);
     if (existing) throw new ConflictException('A pending invitation for this person already exists on this Pod');
 
-    const invitation = await this.repo.create({ podId, invitedUserId: dto.invitedUserId, invitedById: caller.id, message: dto.message });
+    const invitation = await this.repo.create({
+      podId, invitedUserId: dto.invitedUserId, invitedById: caller.id,
+      message: dto.message !== undefined ? sanitizePlainText(dto.message) : undefined,
+    });
     return InvitationResponseDto.fromEntity(invitation);
   }
 

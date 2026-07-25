@@ -28,6 +28,8 @@ import { PrismaConversationRepository } from './messaging/repositories/prisma-co
 import { CONVERSATION_REPOSITORY } from './messaging/repositories/conversation.repository.interface';
 import { PrismaMessageRepository } from './messaging/repositories/prisma-message.repository';
 import { MESSAGE_REPOSITORY } from './messaging/repositories/message.repository.interface';
+import { PrismaMessageReportRepository } from './messaging/repositories/prisma-message-report.repository';
+import { MESSAGE_REPORT_REPOSITORY } from './messaging/repositories/message-report.repository.interface';
 
 @Module({
   imports: [AuthGuardsModule, UsersModule, OrganizationsModule, StewardshipModule, EmailModule],
@@ -48,6 +50,7 @@ import { MESSAGE_REPOSITORY } from './messaging/repositories/message.repository.
     ConversationsService,
     { provide: CONVERSATION_REPOSITORY, useClass: PrismaConversationRepository },
     { provide: MESSAGE_REPOSITORY, useClass: PrismaMessageRepository },
+    { provide: MESSAGE_REPORT_REPOSITORY, useClass: PrismaMessageReportRepository },
   ],
   exports: [
     NotificationsService,

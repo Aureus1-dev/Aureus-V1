@@ -85,7 +85,7 @@ Each task carries: **Title · Description · References · Why it matters · Dep
 - **Testing required:** A member can delete their own Pod message; a steward/admin can remove any Pod message and see a reported-content queue; an XSS-payload string submitted through any affected endpoint is stored/returned sanitized, per-domain test added.
 - **Completion criteria:** Per `PD-008`'s own acceptance criterion.
 - **Suggested owner:** Engineering — Pods/Communication domains.
-- **Status:** **Not Started.**
+- **Status:** **Complete.** Delete/report/moderation-queue endpoints added to `ConversationsService`/`ConversationsController` (every conversation type) with a Pod-Steward-scoped wrapper in `PodMessagesService`/`PodMessagesController` matching this task's own acceptance criterion exactly. Sanitization: PD-001 already covered Pod messages/announcements/notes/knowledge articles before this task started; this task additionally closed the remaining Pods-domain gaps (Pod name/description, escalations, requests, invitations, service projects). 19 new tests (unit + e2e); full suite green (same 7 pre-existing unrelated Voice failures, zero new regressions). See `docs/work-orders/PD-008-Platform-Wide-Content-Moderation.md`.
 
 #### Task 1.4 — A4: Human Phone-Verification of the 8 Real City Sheet Candidates
 
@@ -493,7 +493,7 @@ Milestone 4 (Public Launch) tasks may all proceed in parallel with Milestone 2/3
 | Category | Items |
 |---|---|
 | **Critical (blocks pilot)** | 1.1 Legal/Privacy · 1.2 AI Moderation · 1.4 A4 · 1.5 A5/A6 · 2.1 C9 sign-off · 2.2 Gate D · 2.3 Gate E |
-| **High** | 1.3 Content Moderation (if Pods enabled) · 2.4 AI Resilience · 2.7 Document Storage · 3.3 CD/Staging/Load Test |
+| **High** | 2.4 AI Resilience · 2.7 Document Storage · 3.3 CD/Staging/Load Test |
 | **Medium** | 2.5 AI Retention · 2.6 Voice flaky-test · 2.8 Frontend Polish · 2.9 Pods/Messages UI · 3.1 Budget Alerting · 3.2 Frontend Sentry · 3.5 Integration Testing · 3.6 Playwright · 4.1 Deferred Surfaces decision |
 | **Low** | 4.2 Next Best Action · 4.3 OAuth/CAPTCHA · 5.1 SMTP revisit |
 | **Founder decisions required** | Task 3.3/3.4 hosting-target decision · Task 4.1 build-or-remove decision · (separately, out of this plan's scope: the constitutional-hierarchy and domain-canon-duplication decisions in `AUREUS-REPOSITORY-VALIDATION-REPORT.md` §10) |

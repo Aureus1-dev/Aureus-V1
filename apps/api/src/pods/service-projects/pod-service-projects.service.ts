@@ -1,5 +1,6 @@
 import { Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { AuthenticatedUser } from '../../auth/strategies/jwt.strategy';
+import { sanitizePlainText } from '../../common/utils/sanitize-text';
 import { PodAuthorizationService } from '../common/pod-authorization.service';
 import { CreateServiceProjectDto, ServiceProjectResponseDto, UpdateServiceProjectDto, UpdateServiceProjectStatusDto } from './dto/service-project.dto';
 import { IPodServiceProjectRepository, POD_SERVICE_PROJECT_REPOSITORY } from './repositories/pod-service-project.repository.interface';
@@ -14,7 +15,9 @@ export class PodServiceProjectsService {
 
   async create(podId: string, dto: CreateServiceProjectDto, caller: AuthenticatedUser): Promise<ServiceProjectResponseDto> {
     await this.auth.assertActiveMemberOrAdmin(podId, caller);
-    const project = await this.repo.create({ podId, ...dto, proposedById: caller.id });
+    const project = await this.repo.create({
+      podId, title: sanitizePlainText(dto.title), description: sanitizePlainText(dto.description), proposedById: caller.id,
+    });
     return ServiceProjectResponseDto.fromEntity(project);
   }
 
@@ -26,7 +29,11 @@ export class PodServiceProjectsService {
   async update(id: string, dto: UpdateServiceProjectDto, caller: AuthenticatedUser): Promise<ServiceProjectResponseDto> {
     const project = await this.getOrThrow(id);
     if (project.proposedById !== caller.id) await this.auth.assertStewardOrAdmin(project.podId, caller);
-    const updated = await this.repo.update(id, dto);
+    const updated = await this.repo.update(id, {
+      ...dto,
+      title: dto.title !== undefined ? sanitizePlainText(dto.title) : undefined,
+      description: dto.description !== undefined ? sanitizePlainText(dto.description) : undefined,
+    });
     return ServiceProjectResponseDto.fromEntity(updated);
   }
 

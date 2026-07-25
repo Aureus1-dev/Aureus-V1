@@ -1,5 +1,6 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { AuthenticatedUser } from '../../auth/strategies/jwt.strategy';
+import { sanitizePlainText } from '../../common/utils/sanitize-text';
 import { PodAuthorizationService } from '../common/pod-authorization.service';
 import { CreateEscalationDto } from '../../stewardship/escalations/dto/create-escalation.dto';
 import { EscalationResponseDto } from '../../stewardship/escalations/dto/escalation-response.dto';
@@ -26,7 +27,11 @@ export class PodEscalationsService {
   async create(podId: string, dto: CreateEscalationDto, caller: AuthenticatedUser): Promise<EscalationResponseDto> {
     await this.auth.assertActiveMemberOrAdmin(podId, caller);
     const escalation = await this.repo.create({
-      podId, title: dto.title, description: dto.description, severity: dto.severity, raisedById: caller.id,
+      podId,
+      title: sanitizePlainText(dto.title),
+      description: sanitizePlainText(dto.description),
+      severity: dto.severity,
+      raisedById: caller.id,
     });
     return EscalationResponseDto.fromEntity(escalation);
   }

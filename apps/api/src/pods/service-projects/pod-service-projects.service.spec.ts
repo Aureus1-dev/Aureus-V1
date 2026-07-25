@@ -54,6 +54,13 @@ describe('PodServiceProjectsService — Article IX "who needs us?"', () => {
     await expect(service.create('pod-001', { title: 'X', description: 'Y desc long enough' }, MEMBER)).rejects.toThrow(ForbiddenException);
   });
 
+  it('strips markup from title/description before persisting (PD-008)', async () => {
+    mockMembershipRepo.isActiveMember.mockResolvedValue(true);
+    mockRepo.create.mockResolvedValue(makeProject());
+    await service.create('pod-001', { title: '<script>alert(1)</script>Food Pantry', description: '<b>Who</b> needs us?' }, MEMBER);
+    expect(mockRepo.create).toHaveBeenCalledWith(expect.objectContaining({ title: 'Food Pantry', description: 'Who needs us?' }));
+  });
+
   it('allows the proposer to edit their own project without Steward status', async () => {
     mockRepo.findById.mockResolvedValue(makeProject({ proposedById: MEMBER.id }));
     mockRepo.update.mockResolvedValue(makeProject({ title: 'Updated' }));

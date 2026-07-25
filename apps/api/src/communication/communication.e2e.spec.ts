@@ -375,6 +375,100 @@ describe('Communication System — E2E', () => {
           .set('Authorization', `Bearer ${memberToken}`)
           .expect(201);
       });
+
+      describe('PD-008 — message delete, report, and moderation queue', () => {
+        let ownMessageId: string;
+        let reportedMessageId: string;
+        let reportId: string;
+
+        it('lets the member delete their own message', async () => {
+          const sent = await request(app.getHttpServer())
+            .post(`/communications/conversations/${conversationId}/messages`)
+            .set('Authorization', `Bearer ${memberToken}`)
+            .send({ body: 'Oops, sending this by mistake' })
+            .expect(201);
+          ownMessageId = sent.body.id;
+
+          const deleted = await request(app.getHttpServer())
+            .delete(`/communications/conversations/${conversationId}/messages/${ownMessageId}`)
+            .set('Authorization', `Bearer ${memberToken}`)
+            .expect(200);
+          expect(deleted.body.deleted).toBe(true);
+
+          const list = await request(app.getHttpServer())
+            .get(`/communications/conversations/${conversationId}/messages`)
+            .set('Authorization', `Bearer ${memberToken}`)
+            .expect(200);
+          expect(list.body.data.some((m: { id: string }) => m.id === ownMessageId)).toBe(false);
+        });
+
+        it('forbids one member from deleting another member\'s message', async () => {
+          const sent = await request(app.getHttpServer())
+            .post(`/communications/conversations/${conversationId}/messages`)
+            .set('Authorization', `Bearer ${stewardToken}`)
+            .send({ body: 'A steward message the member cannot delete' })
+            .expect(201);
+
+          await request(app.getHttpServer())
+            .delete(`/communications/conversations/${conversationId}/messages/${sent.body.id}`)
+            .set('Authorization', `Bearer ${memberToken}`)
+            .expect(403);
+        });
+
+        it('lets an Administrator delete any message', async () => {
+          const sent = await request(app.getHttpServer())
+            .post(`/communications/conversations/${conversationId}/messages`)
+            .set('Authorization', `Bearer ${memberToken}`)
+            .send({ body: 'A message an Administrator will remove' })
+            .expect(201);
+
+          const deleted = await request(app.getHttpServer())
+            .delete(`/communications/conversations/${conversationId}/messages/${sent.body.id}`)
+            .set('Authorization', `Bearer ${adminToken}`)
+            .expect(200);
+          expect(deleted.body.deleted).toBe(true);
+        });
+
+        it('lets a participant report a message, sanitizing the reason', async () => {
+          const sent = await request(app.getHttpServer())
+            .post(`/communications/conversations/${conversationId}/messages`)
+            .set('Authorization', `Bearer ${memberToken}`)
+            .send({ body: 'A message someone finds concerning' })
+            .expect(201);
+          reportedMessageId = sent.body.id;
+
+          const reported = await request(app.getHttpServer())
+            .post(`/communications/conversations/${conversationId}/messages/${reportedMessageId}/report`)
+            .set('Authorization', `Bearer ${stewardToken}`)
+            .send({ reason: '<script>alert(1)</script>This seems off' })
+            .expect(201);
+          expect(reported.body.reason).toBe('This seems off');
+          expect(reported.body.status).toBe('OPEN');
+          reportId = reported.body.id;
+        });
+
+        it('forbids a non-administrator from viewing the platform-wide moderation queue', async () => {
+          await request(app.getHttpServer())
+            .get('/communications/conversations/moderation/reports')
+            .set('Authorization', `Bearer ${memberToken}`)
+            .expect(403);
+        });
+
+        it('lets an Administrator see the reported message in the platform-wide queue and resolve it', async () => {
+          const queue = await request(app.getHttpServer())
+            .get('/communications/conversations/moderation/reports')
+            .set('Authorization', `Bearer ${adminToken}`)
+            .expect(200);
+          expect(queue.body.some((r: { id: string; messageId: string }) => r.id === reportId && r.messageId === reportedMessageId)).toBe(true);
+
+          const resolved = await request(app.getHttpServer())
+            .patch(`/communications/conversations/moderation/reports/${reportId}`)
+            .set('Authorization', `Bearer ${adminToken}`)
+            .send({ status: 'RESOLVED' })
+            .expect(200);
+          expect(resolved.body.status).toBe('RESOLVED');
+        });
+      });
     });
   });
 

@@ -189,6 +189,10 @@ Domains are numbered in **recommended implementation order** — PD-001 is the s
 
 ## PD-008 — Content Moderation & Trust/Safety (Platform-Wide User-Generated Content)
 
+**Status: Complete.** See `docs/work-orders/PD-008-Platform-Wide-Content-Moderation.md` for the full readiness report. Delete + report endpoints and an Administrator moderation queue now exist for every conversation type (Stewardship, Organization, Pod), with a Pod-Steward-scoped delete/queue wrapper matching this PD's own acceptance criterion exactly. Sanitization: PD-001 already covered Pod messages, announcements, notes, and knowledge articles before this PD started (its own scope text below predates that and is stale); this PD additionally closed the remaining Pods-domain gaps (Pod name/description, escalations, requests, invitations, service projects).
+
+**Original scope (for historical record, now delivered per the above):**
+
 **Objective:** Abusive or harmful user-generated content (outside the AI system) can be removed, and stored free-text is not a stored-XSS vector.
 
 **Scope:** Existing "moderation" is limited to steward/admin verification authority over Resources/Organizations/Knowledge/Academy content — a content-quality gate, not an abuse-response mechanism. `PodMessagesController` exposes only `@Post()` — **no delete or report endpoint exists for Pod messages at all**, so abusive content posted in a Pod cannot be removed via the API by anyone, member or admin. No HTML/rich-text sanitization exists anywhere in the backend (`sanitize-html`/`dompurify`/`xss` — zero hits in either `package.json`), so Pod messages, announcements, notes, and knowledge-article bodies are stored and returned as raw free text. This PD: (1) adds delete + report endpoints to `PodMessagesController` with appropriate authorization (own message, or steward/admin), (2) adds a lightweight admin moderation queue for reported content, (3) adds server-side sanitization for all free-text fields that are ever rendered as rich content on the frontend.
@@ -380,7 +384,7 @@ Domains are numbered in **recommended implementation order** — PD-001 is the s
 | — | ↳ *Remainder of this audit's original PD-006 (scheduled, provider-managed backup policy)* | 🟠 High | Indirect | Small (1-2d) | Hosting decision |
 | PD-007 | AI Safety: Content Moderation & Prompt-Injection Defense (text capabilities) | ✅ **Complete** | **Direct** | Delivered | — |
 | — | ↳ *Remainder of PD-007 (Voice traffic, which bypasses `AiRequestsService.runCompletion()` via its own realtime broker)* | 🟠 High | **Direct** | Not yet estimated | — |
-| PD-008 | Content Moderation & Trust/Safety (Platform-Wide) | 🟠 High | None | Medium (3-5d) | — |
+| PD-008 | Content Moderation & Trust/Safety (Platform-Wide) | ✅ **Complete** | None | Delivered | — |
 | PD-009 | AI Provider Resilience & Cost Governance Maturity | 🟠 High | **Direct** | Medium (4-6d) | — |
 | PD-010 | AI Data Retention & Conversation Memory Management | 🟡 Medium | **Direct** | Medium (3-5d) | PD-003 |
 | PD-011 | Intelligence Layer Integration Testing & Prompt Evaluation | 🟡 Medium | **Direct** | Med-Large (5-7d) | PD-009 |
@@ -390,9 +394,9 @@ Domains are numbered in **recommended implementation order** — PD-001 is the s
 | PD-015 | Member-Facing Next Best Action Surface | 🟢 Low | **Direct** | Medium (4-5d) | PD-007, PD-011 |
 | PD-016 | Governance Documentation Consolidation | 🟢 Low (ops) / 🟠 High (governance) | None | Not estimable | Founder decision |
 
-**Total estimated engineering effort remaining (excluding delivered PD-001/PD-002/PD-004/PD-007 text-capability scope, non-estimable legal drafting, and PD-016):** approximately **30-46 engineer-days**, sequenced with real dependencies — the PD-002/PD-005 remainders are both gated on a hosting-provider decision the Founder has not yet made; PD-003/008/009 have no dependencies on each other and could run concurrently with separate work streams if more than one engineer/session is available; the PD-007 Voice remainder is not yet estimated (see `docs/work-orders/PD-007-AI-Safety-Moderation.md`).
+**Total estimated engineering effort remaining (excluding delivered PD-001/PD-002/PD-004/PD-007 text-capability scope/PD-008, non-estimable legal drafting, and PD-016):** approximately **27-43 engineer-days**, sequenced with real dependencies — the PD-002/PD-005 remainders are both gated on a hosting-provider decision the Founder has not yet made; PD-003/009 have no dependencies on each other and could run concurrently with separate work streams if more than one engineer/session is available; the PD-007 Voice remainder is not yet estimated (see `docs/work-orders/PD-007-AI-Safety-Moderation.md`).
 
-**Critical-path minimum before any real-user production launch:** ~~PD-001~~ (done) → ~~PD-002~~ (done) → PD-003 → PD-005 remainder → PD-006 remainder. ~~PD-007~~ is done for all text-based AI capabilities (Conversations, Insights, Recommendations, Orchestrator, Pod Insights); its Voice-traffic remainder must still land before Voice can be enabled for real users, since Voice bypasses this fix's choke point entirely. See `docs/work-orders/PD-002-Production-Infrastructure-Deployment.md` §14 for why a **private beta** is judged ready now, ahead of that full critical path. PD-008, PD-009 through PD-015 materially improve safety/quality/completeness but do not block a first launch to a limited/trusted user set the way the critical-path items do.
+**Critical-path minimum before any real-user production launch:** ~~PD-001~~ (done) → ~~PD-002~~ (done) → PD-003 → PD-005 remainder → PD-006 remainder. ~~PD-007~~ is done for all text-based AI capabilities (Conversations, Insights, Recommendations, Orchestrator, Pod Insights); its Voice-traffic remainder must still land before Voice can be enabled for real users, since Voice bypasses this fix's choke point entirely. ~~PD-008~~ is done. See `docs/work-orders/PD-002-Production-Infrastructure-Deployment.md` §14 for why a **private beta** is judged ready now, ahead of that full critical path. PD-009 through PD-015 materially improve safety/quality/completeness but do not block a first launch to a limited/trusted user set the way the critical-path items do.
 
 ---
 

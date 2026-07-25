@@ -1189,9 +1189,47 @@ model Message {
   status         MessageStatus @default(SENT)
   createdAt      DateTime      @default(now())
   deletedAt      DateTime?
+  deletedById    String?       @db.Uuid // soft reference to User, no enforced relation (matches CitySheetEntry.verifiedById convention)
+
+  reports MessageReport[]
 
   @@index([conversationId, createdAt])
   @@index([senderId])
+}
+
+// ===========================================================================
+// MessageReport  —  PD-008 (Platform-Wide Content Moderation & Trust/Safety).
+// Any conversation participant may report a message; a Platform/System
+// Administrator (any conversation type) or, for POD conversations, that
+// Pod's Steward (delegated from the Pods domain — Communication does not
+// depend on Pods) reviews the queue and resolves it. Kept separate from
+// StewardshipEscalation deliberately: an escalation is a confidential
+// request for additional stewardship support and is never an accusation
+// (Founder Decision #4, `pod-escalations.service.ts`); a message report is
+// exactly that — an accusation about specific content — a different
+// concept that must not be blurred into the escalation model.
+// ===========================================================================
+
+model MessageReport {
+  id             String              @id @default(uuid()) @db.Uuid
+  messageId      String              @db.Uuid
+  message        Message             @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  conversationId String              @db.Uuid
+  reporterId     String              @db.Uuid // soft reference to User, no enforced relation (matches CitySheetEntry.verifiedById convention)
+  reason         String
+  status         MessageReportStatus @default(OPEN)
+  resolvedById   String?             @db.Uuid // soft reference to User, no enforced relation
+  resolvedAt     DateTime?
+  createdAt      DateTime            @default(now())
+
+  @@index([conversationId, status])
+  @@index([status])
+}
+
+enum MessageReportStatus {
+  OPEN
+  RESOLVED
+  DISMISSED
 }
 
 // ===========================================================================

@@ -83,6 +83,15 @@ describe('PodInvitationsService — split-by-type (Founder Decision #3)', () => 
     await expect(service.create('pod-001', { invitedUserId: 'x' }, MEMBER)).rejects.toThrow(ForbiddenException);
   });
 
+  it('strips markup from the invitation message before persisting (PD-008)', async () => {
+    mockPodRepo.findById.mockResolvedValue(makePod({ type: PodType.INTEREST }));
+    mockMembershipRepo.isActiveMember.mockResolvedValue(true);
+    mockInvitationRepo.findPendingForPodAndUser.mockResolvedValue(null);
+    mockInvitationRepo.create.mockResolvedValue(makeInvitation());
+    await service.create('pod-001', { invitedUserId: 'invitee-001', message: '<script>alert(1)</script>Join us!' }, MEMBER);
+    expect(mockInvitationRepo.create).toHaveBeenCalledWith(expect.objectContaining({ message: 'Join us!' }));
+  });
+
   describe('respond', () => {
     it('creates an ACTIVE membership on ACCEPT', async () => {
       mockInvitationRepo.findById.mockResolvedValue(makeInvitation({ invitedUserId: MEMBER.id }));
