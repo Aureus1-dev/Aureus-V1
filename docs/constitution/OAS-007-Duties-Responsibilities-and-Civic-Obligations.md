@@ -157,7 +157,7 @@ This document establishes the enduring duties, responsibilities, and civic oblig
 
 **Section 1.** Every person who uses artificial intelligence or another automated instrument in the course of their engagement with the System owes a personal duty to remain responsible for the result, and may not treat the instrument's output as relieving them of that responsibility.
 
-**Section 2.** This Article generalizes, to every person, the rule OAS-001, Article IV, Section 2 already establishes for officers specifically, and the right OAS-006, Article 11 [*sic*, Article 8] already grants correlative to it — that no one may use an automated instrument to escape responsibility for a decision or action that is properly their own.
+**Section 2.** This Article generalizes, to every person, the rule OAS-001, Article IV, Section 2 already establishes for officers specifically, and the right OAS-006, Article 8 already grants correlative to it — that no one may use an automated instrument to escape responsibility for a decision or action that is properly their own.
 
 #### Article 20. Duty to Disclose AI Involvement
 
@@ -223,7 +223,7 @@ This document establishes the enduring duties, responsibilities, and civic oblig
 
 *The following is provided for Founder review only. It is not part of the Articles in Section 3, and must not be entered into the constitutional record if and when this document is canonized.*
 
-**N1. Membership remains undefined.** Article 12 states the duty that will accompany membership once membership is defined, but cannot itself define membership. This is the same gap carried forward from OAS-001 (N2), OAS-002 (N2), OAS-003 (N2), and OAS-006 (N1), now affecting the duties side as well as the rights side. A Charter of Membership would resolve this gap on both sides at once.
+**N1. Membership has since been defined.** Article 12 states the duty that accompanies membership, drafted conditionally at the time this document was written because membership was not yet defined elsewhere in the constitutional record — the same gap carried forward from OAS-001 (N2), OAS-002 (N2), OAS-003 (N2), and OAS-006 (N1). OAS-008 has since supplied that definition and, in its Article 27, expressly activated this Article's conditional language into full operative effect. This note is retained to record that the gap it originally flagged is closed, not because the gap remains open.
 
 **N2. "Organization" remains undefined.** Article 18 mirrors the provisional treatment already given in OAS-006, Article 17 and its Note N2. The same future document would resolve both.
 
