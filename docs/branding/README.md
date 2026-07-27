@@ -40,17 +40,23 @@ BRAND-006 — Typography System
 
 BRAND-007 — Design System
 
-BRAND-008 — Iconography
+BRAND-008 — Iconography System
 
-BRAND-009 — Illustration & Photography
+BRAND-009 — Illustration & Photography System
 
 BRAND-010 — Motion System
 
-BRAND-011 — Website Guidelines
+BRAND-011 — Website & Digital Experience Standards
 
-BRAND-012 — Social Media Guidelines
+BRAND-012 — Brand Voice & Communication Standards
 
-BRAND-013 — Brand Book
+BRAND-013 — Social Media Standards
+
+BRAND-014 — Marketing & Campaign Standards
+
+BRAND-015 — Brand Governance & Amendment Process
+
+BRAND-016 — Brand Book
 
 ---
 

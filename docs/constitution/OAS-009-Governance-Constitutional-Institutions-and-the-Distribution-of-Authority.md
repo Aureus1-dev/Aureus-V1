@@ -186,4 +186,3 @@ This document establishes the governance architecture the Founding Charter requi
 ---
 
 *End of OAS-009 draft. Awaiting Founder review of Notes N1–N7. Not beginning OAS-010; waiting for the next Constitutional Work Order.*
-docs/constitution/OAS-009-Governance-Constitutional-Institutions-and-the-Distribution-of-Authority.md
