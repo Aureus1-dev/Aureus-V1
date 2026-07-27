@@ -28,7 +28,7 @@ We found this institution to endure. We therefore bind it not to the technologie
 
 **Section 2. Perpetual Character.** The System is established with the intention of perpetual existence. No provision of this Charter, and no act of any officer or body of the System, shall be construed to favor short-term advantage over the long-term survival and integrity of the mission, except as this Charter expressly provides for dissolution.
 
-**Section 3. Supremacy of the Charter.** This Charter is the supreme governing instrument of the System. Every constitutional document, bylaw, policy, procedure, contract, and decision of the System must conform to it. Any instrument or act inconsistent with this Charter is void to the extent of the inconsistency.
+**Section 3. Supremacy of the Charter.** This Charter derives its authority from, and remains subordinate to, FOUNDATION-001 — The Foundation of Aureus, the sole highest governing authority of Aureus, which this Charter may never contradict. Subject to FOUNDATION-001, this Charter is the supreme governing instrument of the System. Every constitutional document, bylaw, policy, procedure, contract, and decision of the System must conform to it. Any instrument or act inconsistent with this Charter, or with FOUNDATION-001, is void to the extent of the inconsistency.
 
 **Section 4. Constitutional Order.** The constitutional order of the System consists of this Charter and such further constitutional documents as are canonized under the authority of this Charter. Where constitutional documents conflict, this Charter prevails; among subordinate constitutional documents, the conflict shall be resolved by the amendment process rather than by silent reinterpretation.
 
@@ -139,6 +139,78 @@ The following principles bind every officer, body, and instrument of the System.
 ### ARTICLE IX — RATIFICATION
 
 This Charter takes effect upon its approval and canonization by the Founder and its entry into the constitutional record, and thereupon binds Aureus, its officers, its bodies, and its instruments, in perpetuity, subject only to amendment under Article VII.
+
+---
+
+## Appendix — Founding Declarations
+
+*The following is preserved as ceremonial and historical constitutional material. It expresses the founding intent, spirit, and enduring commitments of Aureus. It does not establish independent constitutional authority beyond the operative Articles of this Charter. Where any conflict exists between an operative Article and this Appendix, the operative Article governs.*
+
+### Founder's Declaration
+
+As the First Steward of Aureus, I acknowledge that this institution does not exist for my benefit.
+
+I accept stewardship rather than ownership.
+
+I accept responsibility rather than privilege.
+
+I recognize that future generations will inherit the institution entrusted to my care.
+
+Accordingly, I pledge to preserve the mission, protect the Constitution, strengthen public trust, and faithfully prepare Aureus to flourish beyond my lifetime.
+
+May those who follow do so with greater wisdom than those who began.
+
+---
+
+### Institutional Blessing
+
+May Aureus always remain worthy of the trust placed in it.
+
+May it seek wisdom before certainty.
+
+May it choose truth before comfort.
+
+May it pursue stewardship before power.
+
+May it strengthen hope where hope has faded.
+
+May it help people discover opportunity where none seemed to exist.
+
+May it encourage learning, responsibility, service, and flourishing.
+
+May every person who encounters Aureus leave stronger, wiser, more hopeful, and more capable than when they arrived.
+
+May every generation faithfully preserve what is good, courageously improve what can be made better, and humbly pass the institution forward.
+
+---
+
+### Final Words
+
+The success of Aureus shall never be measured merely by its size.
+
+Nor by its wealth.
+
+Nor by its influence.
+
+Nor by the sophistication of its technology.
+
+Its true measure shall always be this:
+
+How many lives were strengthened.
+
+How many burdens were lifted.
+
+How much wisdom was shared.
+
+How faithfully trust was kept.
+
+How many people flourished because Aureus existed.
+
+If Aureus remains faithful to that purpose, then every generation will inherit something worthy of preserving.
+
+And if each generation faithfully adds to that inheritance before passing it forward, then Aureus shall become not merely an organization, but an enduring institution of hope, stewardship, and human flourishing.
+
+May that stewardship never end.
 
 ---
 
