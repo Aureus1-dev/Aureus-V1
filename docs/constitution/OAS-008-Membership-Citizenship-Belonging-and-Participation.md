@@ -179,7 +179,7 @@ This document supplies the definition of membership that OAS-006, Article 15 and
 
 **Section 2. Entrenchment Status.** No provision of this document is entrenched. Only the Founding Charter can entrench its own text or the text of another document (OAS-001, Article VII, Section 3).
 
-**Section 3. Relationship to OAS-006 and OAS-007.** This document completes, rather than amends, OAS-006, Article 15 and OAS-007, Article 12, as Article 22 provides. In every other case of apparent tension with OAS-006 or OAS-007, those documents govern to the extent Article 21 of OAS-007 and Article 19 of OAS-006 already establish rights as prevailing over duties.
+**Section 3. Relationship to OAS-006 and OAS-007.** This document completes, rather than amends, OAS-006, Article 15 and OAS-007, Article 12, as Article 22 provides. In every other case of apparent tension with OAS-006 or OAS-007, those documents govern to the extent Article 22 of OAS-007 and Article 20 of OAS-006 already establish rights as prevailing over duties.
 
 ---
 

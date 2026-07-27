@@ -9,7 +9,7 @@ Relationship to Canon: A constitutional document canonized under, subordinate to
 
 ## 2. Purpose
 
-This document establishes the enduring duties, responsibilities, and civic obligations that correspond to the constitutional rights established in OAS-006. It is written under one governing constraint, stated fully in Article 21: no duty established here may condition, offset, or diminish any right established in OAS-006. Duties are owed to the constitutional order, to the Mission, and to other persons; they are not a price paid for rights, which this Constitution grants without regard to conduct. Where a duty restates an obligation already established in OAS-001, this document translates it, without amendment, from an institutional or official rule into a stated civic obligation; where a duty is established here for the first time, it is identified as such. This document is expressly operative, pursuant to OAS-005, Article VII, Section 3.
+This document establishes the enduring duties, responsibilities, and civic obligations that correspond to the constitutional rights established in OAS-006. It is written under one governing constraint, stated fully in Article 22: no duty established here may condition, offset, or diminish any right established in OAS-006. Duties are owed to the constitutional order, to the Mission, and to other persons; they are not a price paid for rights, which this Constitution grants without regard to conduct. Where a duty restates an obligation already established in OAS-001, this document translates it, without amendment, from an institutional or official rule into a stated civic obligation; where a duty is established here for the first time, it is identified as such. This document is expressly operative, pursuant to OAS-005, Article VII, Section 3.
 
 ## 3. Draft Constitutional Text
 
@@ -24,6 +24,8 @@ This document establishes the enduring duties, responsibilities, and civic oblig
 **Section 1.** Every person owes to every other person the same treatment as an end in themselves that the System owes under OAS-006, Article 1. This duty is established here for the first time as a person-to-person obligation; OAS-006, Article 1 and OAS-001, Article III, Section 1 bind the System's own conduct, not the conduct of persons toward one another.
 
 **Section 2.** This duty creates no new enforcement mechanism of its own. Where one person's dignity is violated by another rather than by the System, the injured person's remedy runs through whatever governance or dispute mechanism a future subordinate document establishes; this Article states the obligation and does not itself supply that mechanism.
+
+**Section 3. Standards of Interpersonal Conduct.** This duty is not satisfied merely by refraining from treating another as a means; it calls for treating others with honesty, patience, humility, and respect. Disagreement does not justify contempt. Correction of another's error should seek their restoration, not their condemnation. The exercise of authority, wherever held, should seek to serve rather than to be recognized for serving.
 
 #### Article 2. Duty to Respect the Agency of Others
 
@@ -53,7 +55,7 @@ This document establishes the enduring duties, responsibilities, and civic oblig
 
 **Section 1.** Every person invoking the procedural protections of OAS-006, Part Two — Notice, Explanation, Human Review, and Petition — owes the System engagement in good faith: an accurate representation of the matter at issue, and use of these mechanisms for their intended purpose rather than for harassment or delay.
 
-**Section 2.** This duty protects the integrity of the mechanisms Part Two of OAS-006 establishes; a right that can be weaponized in bad faith becomes, in practice, unavailable to those who need it in good faith. This duty does not authorize the System to deny Notice, Explanation, Human Review, or Petition on a unilateral finding of bad faith; any such finding is itself a decision subject to the same procedural protections it concerns (see Article 21).
+**Section 2.** This duty protects the integrity of the mechanisms Part Two of OAS-006 establishes; a right that can be weaponized in bad faith becomes, in practice, unavailable to those who need it in good faith. This duty does not authorize the System to deny Notice, Explanation, Human Review, or Petition on a unilateral finding of bad faith; any such finding is itself a decision subject to the same procedural protections it concerns (see Article 22).
 
 ---
 
@@ -165,7 +167,21 @@ This document establishes the enduring duties, responsibilities, and civic oblig
 
 ---
 
-### ARTICLE 21 — THE RELATIONSHIP BETWEEN DUTIES AND RIGHTS
+### PART SEVEN — DUTY TOWARD PERSONS IN VULNERABLE CIRCUMSTANCES
+
+#### Article 21. Duty of Care Toward Persons in Vulnerable Circumstances
+
+**Section 1.** The System, its Stewards, and its systems owe a proactive duty of particular care, patience, dignity, and support toward persons whose circumstances leave them more exposed to neglect, exploitation, coercion, or exclusion, corresponding to the Right to Protection, Care, and Support (OAS-006, Article 19). Where every other duty in this document is triggered by a person's own claim or invocation, this duty is not: it binds the System, its Stewards, and its systems to act with this care as a standing obligation, not only when asked.
+
+**Section 2. General, Not Enumerated.** Consistent with the right it mirrors, this duty is stated generally and is not limited to an enumerated list of protected circumstances.
+
+**Section 3. Harmony with Agency.** This duty does not authorize the System, a Steward, or any system acting on the System's behalf to override a person's own choices, dignity, autonomy, or lawful agency merely because another choice is believed to be better for them. It is discharged through care, support, access, accommodation, safeguarding, and responsible intervention where justified — never through substitution of judgment for a person able to exercise their own. This Section restates, for this specific duty, the same limit Article 2 of this document already places on every duty owed between persons generally.
+
+**Section 4. Relationship to the Corresponding Right.** This duty does not create the right it corresponds to, narrow it, or condition it; the Right to Protection, Care, and Support (OAS-006, Article 19) exists independently of this Article, consistent with the governing rule of Article 22 of this document.
+
+---
+
+### ARTICLE 22 — THE RELATIONSHIP BETWEEN DUTIES AND RIGHTS
 
 **Section 1. No Conditionality.** No right established in OAS-006 is conditioned upon, or may be diminished by, the performance or non-performance of any duty established in this document. The Right to Dignity (OAS-006, Article 1) in particular remains absolute regardless of any person's fulfillment of any duty stated here.
 
@@ -177,7 +193,7 @@ This document establishes the enduring duties, responsibilities, and civic oblig
 
 ---
 
-### ARTICLE 22 — THE RELATIONSHIP AMONG DUTIES
+### ARTICLE 23 — THE RELATIONSHIP AMONG DUTIES
 
 **Section 1. Mutual Reinforcement.** The duties of this document are not independent obligations to be weighed against one another in each case; they are one constitutional commitment to the Collective and the Mission, viewed from the position of the person who owes them, and are to be read, wherever possible, as reinforcing one another.
 
@@ -185,17 +201,17 @@ This document establishes the enduring duties, responsibilities, and civic oblig
 
 **Section 3. Conflicts Among Duties.** Where two duties appear to conflict, the person concerned shall seek a reading that honors both. Where none is available, the matter shall be treated as a genuine constitutional ambiguity under OAS-005, Article VI, and recorded rather than silently decided.
 
-**Section 4. Priority of Rights.** No conflict between a duty in this document and a right in OAS-006 is a conflict within the meaning of Section 3; Article 21 governs such cases, and the right prevails.
+**Section 4. Priority of Rights.** No conflict between a duty in this document and a right in OAS-006 is a conflict within the meaning of Section 3; Article 22 governs such cases, and the right prevails.
 
 ---
 
-### ARTICLE 23 — STATUS AND EFFECT
+### ARTICLE 24 — STATUS AND EFFECT
 
-**Section 1. Operative Effect.** Pursuant to OAS-005, Article VII, Section 3, this document expressly overrides the default presumption of non-operative effect: it establishes the binding duties, responsibilities, and civic obligations stated in Parts One through Six.
+**Section 1. Operative Effect.** Pursuant to OAS-005, Article VII, Section 3, this document expressly overrides the default presumption of non-operative effect: it establishes the binding duties, responsibilities, and civic obligations stated in Parts One through Seven.
 
 **Section 2. Entrenchment Status.** No provision of this document is entrenched. Only the Founding Charter can entrench its own text or the text of another document (OAS-001, Article VII, Section 3).
 
-**Section 3. Controlling Relationship to OAS-006.** In every case of apparent tension between this document and OAS-006, Article 21 of this document governs, and OAS-006 prevails.
+**Section 3. Controlling Relationship to OAS-006.** In every case of apparent tension between this document and OAS-006, Article 22 of this document governs, and OAS-006 prevails.
 
 ---
 
@@ -217,7 +233,7 @@ This document establishes the enduring duties, responsibilities, and civic oblig
 
 **N5. No dispute-resolution mechanism for person-to-person duties.** Articles 1, 2, 3, 5, and 9 create duties owed between persons, not only to the System, but this document — consistent with its instruction not to create disciplinary procedures — supplies no mechanism for resolving a dispute where one person alleges another has breached such a duty. This is a genuine governance gap, distinct from but related to the membership and organization gaps, and would require its own future document.
 
-**N6. Article 21 is the load-bearing provision of this document.** The entire relationship between OAS-006 and OAS-007 depends on Article 21 holding without exception. If any future amendment to this document, however incremental, allows a duty to condition or offset a right, the protective structure of OAS-006 is compromised regardless of how that document itself reads. The Founder's closest review is recommended here specifically.
+**N6. Article 22 is the load-bearing provision of this document.** The entire relationship between OAS-006 and OAS-007 depends on Article 22 holding without exception. If any future amendment to this document, however incremental, allows a duty to condition or offset a right, the protective structure of OAS-006 is compromised regardless of how that document itself reads. The Founder's closest review is recommended here specifically.
 
 ---
 
