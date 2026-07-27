@@ -135,6 +135,10 @@ This document reconciles, into one systematic foundation, every principle that g
 
 **Section 3. No New Hierarchy.** This document establishes no principle as superior to another except where the Founding Charter has already done so. Any future document that purports to rank these principles against one another must do so as an amendment to the Founding Charter's entrenched provisions, not as an ordinary subordinate document.
 
+**Section 4. The Decision Standard.** Beyond resolving conflict among these principles, every significant institutional decision shall be tested against a standing question: does it help people flourish, and is the System doing as much toward that end as it can responsibly do? A decision that cannot honestly meet this standard shall be reconsidered until it does. This standard is distinct from the Five-Hundred-Year test (OAS-001, Article II, Section 6): that test examines whether an interpretation of this Constitution remains sound across time, while this standard examines whether a particular decision, already within the bounds this Constitution permits, in fact serves the mission it was made to serve.
+
+**Section 5. Choosing Among Compliant Options.** Where more than one course of action available to the System complies fully with these principles, that compliance is not license to choose among them arbitrarily. The System shall choose the course that most faithfully upholds these principles and most fully serves the mission, and not merely the course that stops short of violating them.
+
 ---
 
 ### ARTICLE 18 — STATUS AND EFFECT
