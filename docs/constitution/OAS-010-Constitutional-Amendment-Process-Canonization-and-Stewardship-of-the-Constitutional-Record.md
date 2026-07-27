@@ -133,7 +133,31 @@ This document establishes the complete process by which constitutional change oc
 
 ---
 
-### ARTICLE 17 — RELATIONSHIP AMONG PROCESS PROVISIONS
+### PART SIX — MEMBER DELIBERATION INPUT
+
+*This Part implements Founder Ruling 003's advisory participation model. It does not alter Article 1, Section 2's definition of the Canonizing Authority or Article 5's Canonizing-Authority-decides structure; it adds a structured opportunity for Members to be heard before a decision is made, and does not itself decide anything.*
+
+#### Article 17. Registration of Member Position
+
+**Section 1.** During the deliberation stage of Article 5, Section 1, every Member holds a meaningful and structured opportunity to register a position on a CAP under review: **Support**, **Opposition**, or **Not Yet Ready to Decide**.
+
+**Section 2.** "Not Yet Ready to Decide" is a meaningful signal that a Member believes more time, information, clarification, or deliberation may be needed before the proposal is decided. It does not, by itself, prevent the Canonizing Authority from proceeding to a decision.
+
+**Section 3.** This Article creates no binding vote, threshold, quorum, or veto. Registered positions inform the Canonizing Authority's judgment; they do not themselves approve, reject, or condition the outcome of any CAP. A future constitutional change establishing a binding participant-vote threshold, a quorum requirement, a supermajority requirement, or a participant veto requires a separate Founder or Canonizing Authority decision and may not be inferred from this Article.
+
+#### Article 18. Effect on the Canonizing Authority's Decision
+
+**Section 1.** The Canonizing Authority remains the sole body empowered to approve, reject, or return a CAP under Article 5. Nothing in this Part transfers, conditions, or limits that authority.
+
+**Section 2.** The Canonizing Authority remains accountable for considering the positions registered under Article 17 before deciding a CAP. The record entered under Article 7 shall note that registered input, if any, was considered, consistent with the Office of the Constitutional Record's existing custodial function under Article 14.
+
+#### Article 19. Administration
+
+**Section 1.** The form, timing, and mechanics of registration under Article 17 — including how positions are submitted, displayed, and closed at the end of deliberation — are reserved to subordinate governance documents, consistent with this document's general practice of establishing process rather than administrative detail.
+
+---
+
+### ARTICLE 20 — RELATIONSHIP AMONG PROCESS PROVISIONS
 
 **Section 1. Mutual Reinforcement.** The stages and rules of this document form one process; no stage may be treated as optional because another appears satisfied.
 
@@ -145,7 +169,7 @@ This document establishes the complete process by which constitutional change oc
 
 ---
 
-### ARTICLE 18 — STATUS AND EFFECT
+### ARTICLE 21 — STATUS AND EFFECT
 
 **Section 1. Operative Effect.** Pursuant to OAS-005, Article VII, Section 3, this document expressly overrides the default presumption of non-operative effect: it establishes the binding process by which all constitutional change occurs.
 
@@ -165,7 +189,7 @@ This document establishes the complete process by which constitutional change oc
 
 **N1. Recommended CAP: entrench the core amendment discipline.** The rule that no canonical change may occur without an approved CAP is, at present, established only by non-entrenched text (OAS-004, Article 16; this document in full). A future amendment to this document, approved by ordinary process rather than the Founding Charter's stricter entrenchment procedure, could in principle weaken the very discipline meant to prevent silent or convenient change. This mirrors the structural vulnerability flagged in OAS-009, Note N1, regarding the separation of powers. A future Constitutional Amendment Proposal extending entrenchment to this discipline, via OAS-001, Article VII, is strongly recommended; this document does not take that action, since only the Founding Charter can entrench its own text.
 
-**N2. Relationship to prior informal practice.** The Constitutional Amendment Proposal process was first described informally, as operating instruction rather than canonical text, earlier in this constitutional record's history, and produced a body of proposed CAPs before this document existed to give that process formal constitutional status. This document does not supersede that informal description, since it was never itself a canonical document and there is nothing formally to supersede; this document is instead its first canonical treatment. Article 18, Section 3 confirms that CAPs already produced under that informal practice, and the recommended future CAPs flagged in the Drafting Notes of OAS-006 through OAS-009, are CAPs within the meaning of this document and may proceed through Articles 5 through 7 without re-submission.
+**N2. Relationship to prior informal practice.** The Constitutional Amendment Proposal process was first described informally, as operating instruction rather than canonical text, earlier in this constitutional record's history, and produced a body of proposed CAPs before this document existed to give that process formal constitutional status. This document does not supersede that informal description, since it was never itself a canonical document and there is nothing formally to supersede; this document is instead its first canonical treatment. Article 21, Section 3 confirms that CAPs already produced under that informal practice, and the recommended future CAPs flagged in the Drafting Notes of OAS-006 through OAS-009, are CAPs within the meaning of this document and may proceed through Articles 5 through 7 without re-submission.
 
 **N3. The Tribunal and Office of the Constitutional Record enforcement chain is new integration, not restatement.** Article 6, Section 2 and Article 7, Section 2 connect OAS-009's institutions to the amendment process for the first time, giving entrenchment a concrete enforcement mechanism: the Tribunal flags an entrenchment conflict, and the Office of the Constitutional Record — not the Canonizing Authority alone — is the body that actually refuses entry of text that would violate it. This is a significant design choice deserving specific Founder review, since it means even the Canonizing Authority cannot single-handedly force an entrenchment-violating change into the record.
 
