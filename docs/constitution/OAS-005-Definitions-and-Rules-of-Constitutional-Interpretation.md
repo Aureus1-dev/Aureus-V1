@@ -71,6 +71,16 @@ Each term below is defined only to the precision constitutional use requires. Wh
 
 **Section 26. Wisdom.** The judgment to apply knowledge well, treated jointly with Knowledge (Section 15) as a single constitutional principle in OAS-004, Article 6.
 
+*Sections 27 through 30 were added after this Article's original alphabetical drafting, to define terms that became operative in later constitutional documents. They are appended here, out of alphabetical sequence, rather than inserted into their alphabetical position, so that the numbering of Sections 1 through 26 — already cited by number in OAS-006, OAS-008, OAS-009, and OAS-010 — is not disturbed.*
+
+**Section 27. Canonizing Authority.** Whoever currently holds the authority to approve Constitutional Amendment Proposals under OAS-001, Article V, Section 4 — the Founder, during the founding period, or the Council, from the transition OAS-009, Article 16 describes onward — as OAS-010, Article 1, Section 2 establishes.
+
+**Section 28. Member.** A person who holds Membership, the formal, voluntary, and mutually recognized relationship with the System established in OAS-008, Article 1. "Member" is distinct from "Steward" (Section 22): membership is held by voluntary entry, stewardship by grant of authority, and neither implies the other.
+
+**Section 29. Stewardship Covenant.** The voluntary, mutual commitment between the System and a Member to pursue human flourishing together, established in OAS-008, Article 22. It does not use "Steward" in the sense Section 22 of this Article reserves for a holder of constitutional authority.
+
+**Section 30. The Mark.** The unique, voluntarily placed symbol signifying a Member's participation in the Stewardship Covenant (Section 29), as established in OAS-008, Article 26.
+
 ---
 
 ### ARTICLE II — CONSTITUTIONAL HIERARCHY AND CANONICAL AUTHORITY
@@ -183,7 +193,7 @@ Each term below is defined only to the precision constitutional use requires. Wh
 
 **N4. Retroactive harmonization was deliberately not performed.** Per Article VII, Section 5, this document does not remove the repeated Canonical Status, Interpretive Effect, Non-Duplication, Non-Supersession, or Amendment language already present in OAS-002, OAS-003, and OAS-004. If the Founder wishes those documents streamlined to rely on OAS-005 rather than repeating its content, that requires individual CAPs amending each document — a cleanup exercise distinct from, and subsequent to, this document's own adoption.
 
-**N5. Definitions given as pointers, not restatements.** The majority of the twenty-six defined terms in Article I are defined only by cross-reference to their source Article, consistent with the instruction that this document remain procedural rather than philosophical. If the Founder wants a self-contained glossary with full definitions reproduced in one place for convenience or public-facing use, that would be a different document with a different, non-procedural character than this one.
+**N5. Definitions given as pointers, not restatements.** The majority of the thirty defined terms in Article I are defined only by cross-reference to their source Article, consistent with the instruction that this document remain procedural rather than philosophical. If the Founder wants a self-contained glossary with full definitions reproduced in one place for convenience or public-facing use, that would be a different document with a different, non-procedural character than this one.
 
 ---
 
