@@ -41,16 +41,17 @@ Where this pipeline's Member-facing output (a recommendation, a published opport
 
 When interpreting this pipeline's requirements, authority shall be applied in the following order:
 
-1. The Aureus Living Constitution (ALC-001)
-2. PC-009 (Opportunity Canon) and PC-010 (Discovery Canon)
-3. ENG-001 (AI Engineering Constitution)
-4. This Constitution (ENG-010)
-5. PA-007 (Opportunity Engine Architecture)
-6. Approved architecture and ADRs for this pipeline
-7. Existing repository implementation
-8. Historical work orders for this pipeline
+1. FOUNDATION-001 (The Foundation of Aureus)
+2. The Aureus Living Constitution (ALC-001)
+3. PC-009 (Opportunity Canon) and PC-010 (Discovery Canon)
+4. ENG-001 (AI Engineering Constitution)
+5. This Constitution (ENG-010)
+6. PA-007 (Opportunity Engine Architecture)
+7. Approved architecture and ADRs for this pipeline
+8. Existing repository implementation
+9. Historical work orders for this pipeline
 
-If two authorities conflict, follow the higher authority. If equal, follow the newest approved decision. If still unresolved, stop and request Founder clarification. Nothing in this document may be read to permit what ALC-001, PC-009, PC-010, or ENG-001 forbid.
+If two authorities conflict, follow the higher authority. If equal, follow the newest approved decision. If still unresolved, stop and request Founder clarification. Nothing in this document may be read to permit what FOUNDATION-001, ALC-001, PC-009, PC-010, or ENG-001 forbid.
 
 ---
 
@@ -318,7 +319,8 @@ This pipeline is an extension of the existing Opportunity domain, not a replacem
 
 # 18. Relationship to Existing Constitutions
 
-- **ALC-001 (Aureus Living Constitution):** supreme authority. Nothing in this document may be read to permit what ALC-001 forbids.
+- **FOUNDATION-001 (The Foundation of Aureus):** the sole highest governing authority. No document exists above FOUNDATION-001. Nothing in this document may be read to permit what FOUNDATION-001 forbids.
+- **ALC-001 (Aureus Living Constitution):** subordinate to FOUNDATION-001. Nothing in this document may be read to permit what ALC-001 forbids.
 - **PC-009 (Opportunity Canon) and PC-010 (Discovery Canon):** define what opportunity and discovery mean for a Member — their purpose, their truthfulness standard, their preservation of freedom of choice. This Constitution does not restate those meanings; it translates them into concrete engineering rules for one higher-risk subsystem that ingests content from outside Aureus's own trust boundary.
 - **ENG-001 (AI Engineering Constitution):** establishes the general rules every AI engineering system at Aureus follows — repository authority, engineering principles, security, testing, the Definition of Completion. This Constitution specializes those general rules for this one pipeline; it does not loosen or replace any of them.
 - **PA-007 (Opportunity Engine Architecture):** the architectural parent — mission, inputs, outputs, and boundaries for the Opportunity Engine as a whole. This Constitution adds the trust, review, scoring, and AI-governance layer that PA-007 does not itself specify, for the automated-discovery portion of that engine.
@@ -329,7 +331,7 @@ Where any future specification, architecture document, or work order for this pi
 
 # 19. Amendment Process
 
-This Constitution may be amended only through Founder approval. Any future specification, architecture document, or work order for the Opportunity Intelligence Pipeline shall conform to it, and shall conform to ENG-001, PC-009, PC-010, and ALC-001 above it.
+This Constitution may be amended only through Founder approval. Any future specification, architecture document, or work order for the Opportunity Intelligence Pipeline shall conform to it, and shall conform to ENG-001, PC-009, PC-010, ALC-001, and FOUNDATION-001 above it.
 
 ---
 

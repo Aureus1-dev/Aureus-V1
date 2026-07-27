@@ -3,6 +3,7 @@
 
 Status: Permanent
 Authority: Constitutional
+Subordinate to: FOUNDATION-001
 
 ---
 

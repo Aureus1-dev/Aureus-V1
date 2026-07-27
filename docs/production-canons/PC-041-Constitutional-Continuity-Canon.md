@@ -64,7 +64,7 @@ No generation owns the Constitution; each generation stewards it.
 
 ## 8. Constitutional Supremacy
 
-The Constitution and its duly adopted amendments remain the highest governing authority of Aureus.
+FOUNDATION-001 — The Foundation of Aureus is the highest governing authority of Aureus. The Constitution and its duly adopted amendments derive their authority from, and remain subordinate to, FOUNDATION-001.
 
 Every Production Canon, policy, system, process, and institutional decision shall remain consistent with constitutional authority.
 
