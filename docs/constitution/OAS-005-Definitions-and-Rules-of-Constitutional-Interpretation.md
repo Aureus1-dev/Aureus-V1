@@ -149,7 +149,15 @@ Each term below is defined only to the precision constitutional use requires. Wh
 
 ---
 
-### ARTICLE IX — STATUS AND EFFECT OF THIS DOCUMENT
+### ARTICLE IX — SEVERABILITY AND LANGUAGE
+
+**Section 1. Severability.** If any provision of this Constitution is found invalid, unenforceable, or incapable of implementation under applicable law, the remaining provisions continue in full force to the greatest extent reasonably possible. Wherever practical, the System shall pursue the narrowest constitutional amendment necessary to restore consistency while preserving the affected provision's original constitutional intent, rather than treating the defect as license to depart from it further than the defect requires.
+
+**Section 2. Language of the Constitutional Text.** The official constitutional text is maintained in English. Translations may be prepared to broaden access and understanding, but confer no independent authority. Where a translation and the English text materially conflict, the ratified English text governs until a revised constitutional translation is formally approved through the amendment process.
+
+---
+
+### ARTICLE X — STATUS AND EFFECT OF THIS DOCUMENT
 
 **Section 1.** This document is a constitutional document of Aureus, governed by its own Article VII like every constitutional document that follows it. It is subordinate to the Founding Charter (OAS-001) and consistent with OAS-002, OAS-003, and OAS-004.
 
