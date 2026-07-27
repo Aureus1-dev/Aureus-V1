@@ -4,7 +4,7 @@
 
 **Definitions and Rules of Constitutional Interpretation**
 Canonical Designation: OAS-005
-Status: Draft for Founder Review
+Status: Canonical — ratified by the Founder, effective 2026-07-27. See Constitutional Record Entry 001.
 Relationship to Canon: A constitutional document canonized under, subordinate to, and conformant with the Founding Charter (OAS-001), and consistent with OAS-002, OAS-003, and OAS-004.
 
 ## 2. Purpose

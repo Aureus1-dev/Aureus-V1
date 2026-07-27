@@ -4,7 +4,7 @@
 
 **Identity, Mission, Vision, and Purpose of Aureus**
 Canonical Designation: OAS-003
-Status: Draft for Founder Review
+Status: Canonical — ratified by the Founder, effective 2026-07-27. See Constitutional Record Entry 001.
 Relationship to Canon: A constitutional document canonized under, subordinate to, and conformant with the Founding Charter (OAS-001), and consistent with the Preamble to the Constitution (OAS-002).
 
 ## 2. Purpose

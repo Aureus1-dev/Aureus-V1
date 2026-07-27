@@ -4,7 +4,7 @@
 
 **Founding Charter of Aureus**
 Canonical Designation: OAS-001
-Status: **Draft 0.95** — Constitutional Revision of Draft 0.9, integrating canonical institutional philosophy. Not yet ratified.
+Status: **Ratified** — Draft 0.95, ratified by the Founder as the governing Founding Charter of Aureus, effective 2026-07-27. See Constitutional Record Entry 001.
 
 ## 2. Purpose
 

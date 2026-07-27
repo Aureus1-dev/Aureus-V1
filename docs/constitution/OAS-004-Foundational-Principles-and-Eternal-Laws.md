@@ -4,7 +4,7 @@
 
 **Foundational Principles and Eternal Laws of Aureus**
 Canonical Designation: OAS-004
-Status: Draft for Founder Review
+Status: Canonical — ratified by the Founder, effective 2026-07-27. See Constitutional Record Entry 001.
 Relationship to Canon: A constitutional document canonized under, subordinate to, and conformant with the Founding Charter (OAS-001), and consistent with the Preamble to the Constitution (OAS-002) and with Identity, Mission, Vision, and Purpose (OAS-003).
 
 ## 2. Purpose

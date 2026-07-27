@@ -4,7 +4,7 @@
 
 **Governance, Constitutional Institutions, and the Distribution of Authority**
 Canonical Designation: OAS-009
-Status: Draft for Founder Review
+Status: Canonical — ratified by the Founder, effective 2026-07-27. See Constitutional Record Entry 001.
 Relationship to Canon: A constitutional document canonized under, subordinate to, and conformant with the Founding Charter (OAS-001), and consistent with OAS-002 through OAS-008. Governed by the default rules of OAS-005, Article VII, except where this document expressly provides otherwise.
 
 ## 2. Purpose

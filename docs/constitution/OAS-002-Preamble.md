@@ -4,7 +4,7 @@
 
 **Preamble to the Constitution of Aureus**
 Canonical Designation: OAS-002
-Status: Draft for Founder Review
+Status: Canonical — ratified by the Founder, effective 2026-07-27. See Constitutional Record Entry 001.
 Relationship to Canon: A constitutional document canonized under, subordinate to, and conformant with the Founding Charter (OAS-001), which remains the supreme governing instrument of the System.
 
 ## 2. Purpose
