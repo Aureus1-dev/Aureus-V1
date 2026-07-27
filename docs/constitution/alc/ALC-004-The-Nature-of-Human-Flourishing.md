@@ -1,7 +1,3 @@
-Absolutely.
-
-docs/constitution/alc/ALC-004-The-Nature-of-Human-Flourishing.md
-
 # ALC-004 — The Nature of Human Flourishing
 
 Canonical Designation: ALC-004

@@ -1,15 +1,15 @@
-# OAS-002 — Preamble to the Constitution of the Open Advancement System
+# OAS-002 — Preamble to the Constitution of Aureus
 
 ## 1. Document Title
 
-**Preamble to the Constitution of the Open Advancement System**
+**Preamble to the Constitution of Aureus**
 Canonical Designation: OAS-002
-Status: Draft for Founder Review
+Status: Canonical — ratified by the Founder, effective 2026-07-27. See Constitutional Record Entry 001.
 Relationship to Canon: A constitutional document canonized under, subordinate to, and conformant with the Founding Charter (OAS-001), which remains the supreme governing instrument of the System.
 
 ## 2. Purpose
 
-This document states, in a single unified voice, the convictions that the entire constitutional order of the Open Advancement System exists to serve. Where the Founding Charter establishes the institution's structure, authority, and law, this Preamble states why that structure, authority, and law were thought worth establishing at all. It is the frontispiece of the Constitution — read first, binding always as an interpretive guide, but creating no office, authority, or obligation of its own beyond what the Founding Charter and its subordinate documents provide.
+This document states, in a single unified voice, the convictions that the entire constitutional order of Aureus exists to serve. Where the Founding Charter establishes the institution's structure, authority, and law, this Preamble states why that structure, authority, and law were thought worth establishing at all. It is the frontispiece of the Constitution — read first, binding always as an interpretive guide, but creating no office, authority, or obligation of its own beyond what the Founding Charter and its subordinate documents provide.
 
 ## 3. Draft Constitutional Text
 
@@ -17,7 +17,7 @@ This document states, in a single unified voice, the convictions that the entire
 
 ### PREAMBLE
 
-**1.** We, in founding the Open Advancement System, ordain and establish this Constitution so that an institution devoted to human flourishing may outlast its founders — trusted, tested, and amended in the open by those who come after us, rather than remade in secret or by force.
+**1.** We, in founding Aureus, ordain and establish this Constitution so that an institution devoted to human flourishing may outlast its founders — trusted, tested, and amended in the open by those who come after us, rather than remade in secret or by force.
 
 **2.** We hold flourishing to be the highest good this institution can serve: not comfort alone, nor productivity, nor the accumulation of knowledge for its own sake, but the growth of a person's capability, wisdom, purpose, dignity, relationship, opportunity, and contribution, sustained across the whole of a life.
 
@@ -31,13 +31,13 @@ This document states, in a single unified voice, the convictions that the entire
 
 **7.** We hold that a constitution written only to answer the questions of its own founding will not survive its founders. We write, instead, for a horizon longer than any single life, testing what we establish by whether it will still strengthen the people who hold it five centuries hence — so that this institution is judged, at every turn, not only by what it accomplishes today but by what it leaves capable of enduring.
 
-**8.** Upon these convictions we ordain this Constitution — consisting of this Preamble, the Founding Charter that gives it legal effect, and such further constitutional documents as are lawfully canonized under it — and we commit it to the stewardship of those who serve within the Open Advancement System, and to the judgment of those it serves.
+**8.** Upon these convictions we ordain this Constitution — consisting of this Preamble, the Founding Charter that gives it legal effect, and such further constitutional documents as are lawfully canonized under it — and we commit it to the stewardship of those who serve within Aureus, and to the judgment of those it serves.
 
 ---
 
 ### ARTICLE — STATUS AND EFFECT OF THIS PREAMBLE
 
-**Section 1. The Constitution Defined.** This Preamble is a constitutional document of the Open Advancement System, canonized under the authority of, and subordinate to, the Founding Charter (OAS-001). Together with the Founding Charter and every document lawfully canonized under it, this Preamble forms the Constitution of the Open Advancement System. None of these documents is to be read in isolation from the others.
+**Section 1. The Constitution Defined.** This Preamble is a constitutional document of Aureus, canonized under the authority of, and subordinate to, the Founding Charter (OAS-001). Together with the Founding Charter and every document lawfully canonized under it, this Preamble forms the Constitution of Aureus. None of these documents is to be read in isolation from the others.
 
 **Section 2. Interpretive Effect.** This Preamble grants no office, authority, or enforceable right of its own. It states the purpose and convictions that the operative provisions of the Constitution exist to serve. Every such provision shall be interpreted in light of it; where an operative provision admits of more than one lawful meaning, the meaning most consistent with this Preamble shall prevail.
 
@@ -49,7 +49,7 @@ This document states, in a single unified voice, the convictions that the entire
 
 **N1. Amendment procedure for subordinate constitutional documents — a gap in the existing canon, not created by this document.** Article VII of the Founding Charter establishes how the Charter itself is amended, and Article I, Section 4 of the Charter contemplates "further constitutional documents... canonized under the authority of this Charter," but no canonical text yet specifies the procedure by which such subordinate documents — including this Preamble — are themselves amended once canonized. Section 3 of this document deliberately does not invent that procedure; it only states that any such procedure must respect the Charter's supremacy and entrenched provisions. The Founder should direct whether this gap is closed by an amendment to OAS-001, Article I, or by a dedicated future document governing canonization and amendment of subordinate instruments generally.
 
-**N2. Relationship to the Preamble within OAS-001.** The Founding Charter already contains its own preamble, addressed to the establishment of the Charter specifically. This document is broader in scope — it is the preamble to the whole Constitution, of which the Charter is the founding and supreme part — and was drafted to complement rather than duplicate that text: it does not repeat OAS-001's preamble verbatim, and where their subjects overlap (human dignity, human agency, the founders' trusteeship), this document treats them in service of the fuller canonical philosophy rather than restating them. The coexistence of two preambles — one to the Charter, one to the Constitution as a whole — is unusual and should be confirmed by the Founder as intentional. If it is not, the correction belongs in a future amendment to OAS-001, not in a silent change made here.
+**N2. Relationship to the Preamble within OAS-001 — confirmed intentional by the Founder.** The Founding Charter already contains its own preamble, addressed to the establishment of the Charter specifically. This document is broader in scope — it is the preamble to the whole Constitution, of which the Charter is the founding and supreme part — and was drafted to complement rather than duplicate that text: it does not repeat OAS-001's preamble verbatim, and where their subjects overlap (human dignity, human agency, the founders' trusteeship), this document treats them in service of the fuller canonical philosophy rather than restating them. The coexistence of two preambles was flagged as unusual and left open pending Founder confirmation. The Founder has since confirmed the dual-preamble structure is intentional: OAS-001 serves as the constitutional and legal charter; this document, OAS-002, serves as the institutional and interpretive preamble. No further action is required on this note.
 
 **N3. Reading order versus legal hierarchy.** This document is designed to be read first and to bind last — that is, it precedes the Founding Charter in the order a person encounters the Constitution, but remains legally subordinate to it under OAS-001, Article I, Sections 3 and 4. The Founder should confirm this is the intended relationship, since it is easy for a document titled "Preamble to the Constitution" to be mistaken for an instrument of equal or superior authority to the Charter it precedes.
 

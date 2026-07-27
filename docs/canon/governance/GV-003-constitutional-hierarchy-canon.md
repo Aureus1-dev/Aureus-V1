@@ -32,6 +32,14 @@ If a contradiction exists, the lower authority shall be revised.
 
 The governing hierarchy of Aureus shall be:
 
+## Level 0 — Foundation
+
+**FOUNDATION-001 — The Foundation of Aureus.**
+
+The Foundation is the sole, permanent, highest governing authority of Aureus. No document exists above it. Every level below derives its authority from the Foundation and may never contradict it.
+
+---
+
 ## Level 1 — Mission
 
 **Helping people flourish. Forever.**

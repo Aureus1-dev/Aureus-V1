@@ -1,0 +1,108 @@
+WO-030	docs/verification/WO-030-OPERATIONAL-VERIFICATION.md	10147	957439f01175
+WO-030	docs/work-orders/WO-030-Pods-Founder-Review-Specification.md	43526	78eee360b293
+WO-030	docs/work-orders/WO-030-Pods.md	19615	da5521f8cd0c
+DOMAIN-002	docs/work-orders/DOMAIN-002-Voice-Backend.md	13349	1e659eb9b3ea
+DOMAIN-002	docs/work-orders/DOMAIN-002-Voice-Frontend-Manual-Validation-Plan.md	7317	5e91faaf3fe4
+DOMAIN-002	docs/work-orders/DOMAIN-002-Voice-Frontend.md	13171	97f24430acb8
+WO-029	docs/verification/WO-029-OPERATIONAL-VERIFICATION.md	8573	7b7e7ba09b95
+WO-029	docs/work-orders/WO-029-AI-Intelligence-Engine.md	15307	f344023165cc
+WO-028	docs/verification/WO-028-OPERATIONAL-VERIFICATION.md	9482	5406ceca373e
+WO-028	docs/work-orders/WO-028-Academy-Foundation.md	16565	3324da283ab4
+WO-027	docs/verification/WO-027-OPERATIONAL-VERIFICATION.md	8459	445896b907ad
+WO-027	docs/work-orders/WO-027-Knowledge-System.md	11299	109020e91674
+WO-026	docs/verification/WO-026-OPERATIONAL-VERIFICATION.md	10263	caa881af3ec4
+WO-026	docs/work-orders/WO-026-Communication-System.md	18299	53af08b668a8
+WO-025	docs/verification/WO-025-OPERATIONAL-VERIFICATION.md	10236	7445068be5bb
+WO-025	docs/work-orders/WO-025-Stewardship-System.md	16887	c169300aff49
+WO-024	docs/verification/WO-024-OPERATIONAL-VERIFICATION.md	6407	8b61f6f5ed13
+WO-024	docs/work-orders/WO-024-Business-Portal.md	9447	270d8001f038
+WO-023	docs/verification/WO-023-OPERATIONAL-VERIFICATION.md	6626	cdfc65fcec1f
+WO-023	docs/work-orders/WO-023-Email-Delivery-Integration.md	8791	7b7b9e185656
+WO-022	docs/verification/WO-022-OPERATIONAL-VERIFICATION.md	5662	d532b8ec8bbb
+WO-022	docs/work-orders/WO-022-Authorization-Retrofit.md	10488	e8a609d0625d
+WO-021	docs/verification/WO-021-OPERATIONAL-VERIFICATION.md	4912	8a887b5a1382
+WO-021	docs/work-orders/WO-021-Administration-Role-Management.md	7234	64c939c325ad
+WO-020	docs/verification/WO-020-OPERATIONAL-VERIFICATION.md	7169	7fe4369ce6b1
+WO-020	docs/work-orders/WO-020-Resource-Directory.md	10006	120e602d4b3b
+WO-019	docs/verification/WO-019-OPERATIONAL-VERIFICATION.md	5403	9c348fae58ac
+WO-019	docs/work-orders/WO-019-Authentication-Identity-Access-Management.md	8766	3f68ae06f5df
+SC-001	docs/canon/steward/foundation/SC-001-steward-constitution.md	4146	995bba1327d1
+SC-001	docs/steward/foundation/SC-001-Steward-Constitution.md	5442	e04c135beae1
+PR-002	docs/work-orders/PR-002-Deferred-Surfaces-Justification.md	4518	abf9427c505c
+PR-002	docs/work-orders/PR-002-Production-Foundation-Remediation.md	9368	b030fe86062a
+OC-001	docs/canon/experience/OC-001-opening-ceremony-canon.md	4525	31a24dbe66d5
+OC-001	docs/canon/opportunity-center/OC-001-opportunity-center-canon.md	3455	ba20be23e3c4
+OAS-006	docs/constitution/OAS-006-Stewardship-Governance-and-Leadership.md	21163	2c3b5277e25c
+OAS-006	docs/docs/constitution/OAS-006-Rights-Human-Dignity-Agency-and-Constitutional-Protections.md	25440	c845d2c2c9a3
+OAS-005	docs/constitution/OAS-005-Constitutional-Interpretation-Amendment-and-Document-Hierarchy.md	22443	aa9edb929cb9
+OAS-005	docs/docs/constitution/OAS-005-Definitions-and-Rules-of-Constitutional-Interpretation.md	26905	56ead303461f
+OAS-004	docs/constitution/OAS-004-Membership-Rights-and-Responsibilities.md	27628	10277909fab1
+OAS-004	docs/docs/constitution/OAS-004-Foundational-Principles-and-Eternal-Laws.md	30296	4990eb2859ac
+OAS-003	docs/constitution/OAS-003-Identity-Mission-Vision-and-Purpose.md	10177	f8b08e86fc1a
+OAS-003	docs/docs/constitution/OAS-003-Identity-Mission-Vision-and-Purpose.md	10177	f8b08e86fc1a
+FPB-016	docs/03-member-experience/frontend-blueprints/FPB-016 — Frontend Architecture & Technical Standards.md	4518	c7cfb62248d3
+FPB-016	docs/frontend/blueprints/FPB-016-Acceptance-Test-Specification.md	3451	600c68951b18
+FPB-015	docs/03-member-experience/frontend-blueprints/FPB-015 — Design System & Component Blueprint.md	4022	b6549ae92323
+FPB-015	docs/frontend/blueprints/FPB-015-Frontend-Build-Order.md	3339	45c5815bc9dd
+FPB-014	docs/03-member-experience/frontend-blueprints/FPB-014 — Accessibility & Inclusive Experience.md	3725	6a2fa993d7be
+FPB-014	docs/frontend/blueprints/FPB-014-Error-and-Recovery-Specification.md	2754	9993fac8eb91
+FPB-013	docs/03-member-experience/frontend-blueprints/FPB-013 — Notifications & Communications.md	3928	0571a93756a8
+FPB-013	docs/frontend/blueprints/FPB-013-AI-Interaction-Specification.md	3130	6d4d16f5f23e
+FPB-012	docs/03-member-experience/frontend-blueprints/FPB-012 — Member Profile.md	3464	95ad009fdd31
+FPB-012	docs/frontend/blueprints/FPB-012-Responsive-Layout-Specification.md	2828	fb3e97ec9bed
+FPB-011	docs/03-member-experience/frontend-blueprints/FPB-011 — Member Journey.md	3311	2c7617f87d49
+FPB-011	docs/frontend/blueprints/FPB-011-Accessibility-Specification.md	2965	2e1b977a9bc4
+FPB-010	docs/03-member-experience/frontend-blueprints/FPB-010 — The Treasury.md	3836	d3e7c245e110
+FPB-010	docs/frontend/blueprints/FPB-010-State-Management-Architecture.md	3211	37c824d71d61
+FPB-009	docs/03-member-experience/frontend-blueprints/FPB-009 — The Academy.md	3986	fd004051230a
+FPB-009	docs/frontend/blueprints/FPB-009-Backend-Integration-Map.md	3234	617c59d196be
+FPB-008	docs/03-member-experience/frontend-blueprints/FPB-008 — Opportunity Center.md	4501	5121e48779d9
+FPB-008	docs/frontend/blueprints/FPB-008-Voice-and-Multimodal-Interaction-Specification.md	3817	31f1af1d03a0
+FPB-007	docs/03-member-experience/frontend-blueprints/FPB-007 — The Workshop.md	4206	dbeab188915a
+FPB-007	docs/frontend/blueprints/FPB-007-Motion-and-Animation-Specification.md	2612	6ce3d0fd4f7b
+FPB-006	docs/03-member-experience/frontend-blueprints/FPB-006 — The Steward Study.md	4297	2f2916bd398d
+FPB-006	docs/frontend/blueprints/FPB-006-Design-Token-Specification.md	3192	d840f2760b53
+FPB-005	docs/03-member-experience/frontend-blueprints/FPB-005 — The Garden.md	3828	8bb5041df8a1
+FPB-005	docs/frontend/blueprints/FPB-005-Component-Library-Specification.md	3383	aad15018e5d3
+FPB-004	docs/03-member-experience/frontend-blueprints/FPB-004 — The Library.md	3715	2739be740a99
+FPB-004	docs/frontend/blueprints/FPB-004-Conversation-Engine-Specification.md	3696	c6c6254f55f1
+FPB-003	docs/03-member-experience/frontend-blueprints/FPB-003 — The Circle.md	3838	37da4214d34a
+FPB-003	docs/frontend/blueprints/FPB-003-Member-Journey-Flows.md	3304	7c4e63cf7799
+FPB-002	docs/03-member-experience/frontend-blueprints/FPB-002 — The Living Hall.md	4376	af8f1a80ad08
+FPB-002	docs/frontend/blueprints/FPB-002-Screen-Architecture.md	3103	64c0dd2a0397
+FPB-001	docs/03-member-experience/frontend-blueprints/FPB-001 — The Aureus Opening.md	3798	3992da50aa45
+FPB-001	docs/frontend/blueprints/FPB-001-Frontend-Production-Blueprint.md	3851	78fa642dd634
+FPB-000	docs/03-member-experience/frontend-blueprints/FPB-000 — Experience Implementation Framework.md	3447	0a8ae1ec1ea9
+FPB-000	docs/frontend/blueprints/FPB-000-Frontend-Blueprint-Index.md	3191	9debd931f8f0
+EX-001	docs/canon/branding/experience-architecture/EX-001-experience-architecture.md	2483	99bb2aade8f4
+EX-001	docs/canon/execution-center/EX-001-execution-center-canon.md	3083	b6c27dd6f4a9
+BRAND-016	docs/branding/BRAND-016-Brand-Book.md	3666	94e329d383ee
+BRAND-016	docs/canon/branding/BRAND-016-logo-system.md	3352	f720ca2bfd1e
+BRAND-015	docs/branding/BRAND-015-Brand-Governance-and-Amendment-Process.md	3357	b16bfdf00dd9
+BRAND-015	docs/canon/branding/BRAND-015-typography-system.md	2562	16d14d137ed7
+BRAND-014	docs/branding/BRAND-014-Marketing-and-Campaign-Standards.md	3493	60ba9490a519
+BRAND-014	docs/canon/branding/BRAND-014-color-system.md	2379	8535611c4bca
+BRAND-013	docs/branding/BRAND-013-Social-Media-Standards.md	3253	739190019a30
+BRAND-013	docs/canon/branding/BRAND-013-design-language.md	3245	5c2de2f70766
+BRAND-012	docs/branding/BRAND-012-Brand-Voice-and-Communication-Standards.md	3350	4c989936f684
+BRAND-012	docs/canon/branding/BRAND-012-aureus-experience-manual.md	3859	6fc8ff449cb8
+BRAND-011	docs/branding/BRAND-011-Website-and-Digital-Experience-Standards.md	3708	0c0128e1ef3f
+BRAND-011	docs/canon/branding/BRAND-011-brand-standards.md	4463	276cea7515ff
+BRAND-010	docs/branding/BRAND-010-Motion-System.md	2820	a1c700b8d1f2
+BRAND-010	docs/canon/branding/BRAND-010-brand-research-and-learning.md	3012	afe81efb4d74
+BRAND-009	docs/branding/BRAND-009-Illustration-and-Photography-System.md	2990	386025c77b3c
+BRAND-009	docs/canon/branding/BRAND-009-brand-governance.md	5642	e90c77c4c92a
+BRAND-008	docs/branding/BRAND-008-Iconography-System.md	2257	6e1a9326d621
+BRAND-008	docs/canon/branding/BRAND-008-communication-and-voice.md	4747	a6a1ced7c1aa
+BRAND-007	docs/branding/BRAND-007-Design-System.md	3193	9601374dfd77
+BRAND-007	docs/canon/branding/BRAND-007-visual-identity-system.md	5158	265663dc042c
+BRAND-006	docs/branding/BRAND-006-Typography-System.md	2273	f2f3e03eff3b
+BRAND-006	docs/canon/branding/BRAND-006-visual-philosophy.md	5115	dbd3f9bc0328
+BRAND-005	docs/branding/BRAND-005-Color-System.md	2305	4215f58d396f
+BRAND-005	docs/canon/branding/BRAND-005-onboarding-philosophy.md	5230	e3e40e9beb81
+BRAND-004	docs/branding/BRAND-004-Logo-System.md	2360	8a529ea6b6d2
+BRAND-004	docs/canon/branding/BRAND-004-personalization-philosophy.md	5715	7f0172a4005d
+BRAND-003	docs/branding/BRAND-003-Brand-Identity.md	2794	9575926b94fc
+BRAND-003	docs/canon/branding/BRAND-003-member-experience-philosophy.md	4774	17d1654a5715
+BRAND-002	docs/branding/BRAND-002-Brand-Foundation.md	3334	ac4123e0ffa2
+BRAND-002	docs/canon/branding/BRAND-002-brand-identity.md	3989	ce61deb090f7

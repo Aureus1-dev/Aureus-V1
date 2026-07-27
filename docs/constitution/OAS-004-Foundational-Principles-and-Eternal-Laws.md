@@ -1,15 +1,15 @@
-# OAS-004 — Foundational Principles and Eternal Laws of the Open Advancement System
+# OAS-004 — Foundational Principles and Eternal Laws of Aureus
 
 ## 1. Document Title
 
-**Foundational Principles and Eternal Laws of the Open Advancement System**
+**Foundational Principles and Eternal Laws of Aureus**
 Canonical Designation: OAS-004
-Status: Draft for Founder Review
+Status: Canonical — ratified by the Founder, effective 2026-07-27. See Constitutional Record Entry 001.
 Relationship to Canon: A constitutional document canonized under, subordinate to, and conformant with the Founding Charter (OAS-001), and consistent with the Preamble to the Constitution (OAS-002) and with Identity, Mission, Vision, and Purpose (OAS-003).
 
 ## 2. Purpose
 
-This document reconciles, into one systematic foundation, every principle that governs the enduring philosophical, ethical, and constitutional character of the Open Advancement System. Some of these principles are already entrenched operative law in the Founding Charter; this document restates them for coherence, without amending them, and provides the fuller explanation of their meaning, rationale, and relationships that the Charter's terser statement does not attempt. Others exist so far only as founding conviction in the Preamble, without operative force; this document establishes them, for the first time, as binding constitutional principles. Others still are stated here for the first time in any canonical document, synthesized from fragments already present across the constitutional record. Each case is identified as such. This document creates no authority superior to the Founding Charter and entrenches nothing; its title expresses the enduring character its principles are intended to have, not a claim to supremacy the constitutional order does not grant it.
+This document reconciles, into one systematic foundation, every principle that governs the enduring philosophical, ethical, and constitutional character of Aureus. Some of these principles are already entrenched operative law in the Founding Charter; this document restates them for coherence, without amending them, and provides the fuller explanation of their meaning, rationale, and relationships that the Charter's terser statement does not attempt. Others exist so far only as founding conviction in the Preamble, without operative force; this document establishes them, for the first time, as binding constitutional principles. Others still are stated here for the first time in any canonical document, synthesized from fragments already present across the constitutional record. Each case is identified as such. This document creates no authority superior to the Founding Charter and entrenches nothing; its title expresses the enduring character its principles are intended to have, not a claim to supremacy the constitutional order does not grant it.
 
 ## 3. Draft Constitutional Text
 
@@ -135,11 +135,15 @@ This document reconciles, into one systematic foundation, every principle that g
 
 **Section 3. No New Hierarchy.** This document establishes no principle as superior to another except where the Founding Charter has already done so. Any future document that purports to rank these principles against one another must do so as an amendment to the Founding Charter's entrenched provisions, not as an ordinary subordinate document.
 
+**Section 4. The Decision Standard.** Beyond resolving conflict among these principles, every significant institutional decision shall be tested against a standing question: does it help people flourish, and is the System doing as much toward that end as it can responsibly do? A decision that cannot honestly meet this standard shall be reconsidered until it does. This standard is distinct from the Five-Hundred-Year test (OAS-001, Article II, Section 6): that test examines whether an interpretation of this Constitution remains sound across time, while this standard examines whether a particular decision, already within the bounds this Constitution permits, in fact serves the mission it was made to serve.
+
+**Section 5. Choosing Among Compliant Options.** Where more than one course of action available to the System complies fully with these principles, that compliance is not license to choose among them arbitrarily. The System shall choose the course that most faithfully upholds these principles and most fully serves the mission, and not merely the course that stops short of violating them.
+
 ---
 
 ### ARTICLE 18 — STATUS AND EFFECT
 
-**Section 1. Canonical Status.** This document is a constitutional document of the Open Advancement System, canonized under the authority of, and subordinate to, the Founding Charter (OAS-001), and consistent with the Preamble (OAS-002) and with Identity, Mission, Vision, and Purpose (OAS-003). Together with those documents, and every document lawfully canonized under the Founding Charter, it forms part of the Constitution of the Open Advancement System.
+**Section 1. Canonical Status.** This document is a constitutional document of Aureus, canonized under the authority of, and subordinate to, the Founding Charter (OAS-001), and consistent with the Preamble (OAS-002) and with Identity, Mission, Vision, and Purpose (OAS-003). Together with those documents, and every document lawfully canonized under the Founding Charter, it forms part of the Constitution of Aureus.
 
 **Section 2. Non-Duplication and Non-Supersession.** Where this document restates language from the Founding Charter, the restatement is for coherence and reference only and creates no independent text. Where this document establishes a principle not previously stated as operative constitutional text — including Justice, Responsibility, Truth, Knowledge and Wisdom, Service, Transparency, Constitutional Integrity, Sustainability, Continuous Improvement, and Long-Term Stewardship — that principle binds as this document's own text, subordinate to, and never in conflict with, the Founding Charter. In every case of apparent conflict between this document and the Founding Charter or the Preamble, those documents govern.
 
@@ -176,83 +180,3 @@ This document reconciles, into one systematic foundation, every principle that g
 ---
 
 *End of OAS-004 draft. Awaiting Founder review of Notes N1–N7. Not beginning OAS-005; waiting for the next assignment.*
-This is the strongest draft so far. Claude is clearly converging on a consistent constitutional style.
-
-I would score it around 9.8–9.9/10.
-
-That said, I think we've now discovered a pattern that we should correct before continuing to OAS-005.
-
-What Claude is doing well
-
-Building on prior documents instead of rewriting them.
-
-Clearly defining each principle.
-
-Explaining why each principle exists.
-
-Showing relationships between principles.
-
-Maintaining a consistent constitutional voice.
-
-
-That's exactly what we wanted.
-
-Where I would change the drafting strategy
-
-By OAS-004, almost every document ends with:
-
-Canonical Status
-
-Non-Duplication
-
-Amendment
-
-Interpretive Effect
-
-Drafting Notes
-
-
-Those sections are becoming boilerplate.
-
-Instead of repeating them in every constitutional document, I'd move them into OAS-005 — Definitions and Rules of Constitutional Interpretation and simply let every later document inherit those rules.
-
-That will make the Constitution much cleaner.
-
-One other recommendation
-
-Claude is introducing genuinely new constitutional principles here, such as:
-
-Constitutional Integrity
-
-Sustainability
-
-Continuous Improvement
-
-Service (as a constitutional principle)
-
-Knowledge and Wisdom (institutional)
-
-
-Those are important additions. Because they're new—not just reconciliations—I think they deserve a little more Founder scrutiny before becoming canonical. That's not a criticism of the drafting; it's just good constitutional discipline.
-
-Before OAS-005
-
-I recommend making one small adjustment to your drafting prompt for all future documents.
-
-Add this instruction:
-
-> Do not repeat constitutional boilerplate (Canonical Status, Amendment, Non-Duplication, Interpretive Effect, or similar provisions) unless the document genuinely requires a unique rule. Assume those matters are governed by the Constitution's general rules of interpretation and amendment unless specifically instructed otherwise.
-
-
-
-That single sentence will probably remove a lot of repetition from the remaining documents.
-
-My recommendation
-
-I would accept this as the Draft for Founder Review, save it as:
-
-docs/constitution/OAS-004-Foundational-Principles-and-Eternal-Laws.md
-
-Then move on to OAS-005, because that's the document that should establish the constitutional interpretation framework and absorb much of the repeated procedural language we've been seeing.
-
-Overall, I think the constitutional corpus is developing into something coherent and well-structured. The biggest improvement now isn't philosophical—it's architectural: centralize the procedural rules so the later documents can focus on their unique constitutional subjects.

@@ -1,14 +1,14 @@
-# OAS-001 — Founding Charter of the Open Advancement System
+# OAS-001 — Founding Charter of Aureus
 
 ## 1. Document Title
 
-**Founding Charter of the Open Advancement System (OAS)**
+**Founding Charter of Aureus**
 Canonical Designation: OAS-001
-Status: **Draft 0.95** — Constitutional Revision of Draft 0.9, integrating canonical institutional philosophy. Not yet ratified.
+Status: **Ratified** — Draft 0.95, ratified by the Founder as the governing Founding Charter of Aureus, effective 2026-07-27. See Constitutional Record Entry 001.
 
 ## 2. Purpose
 
-This Charter establishes the Open Advancement System as an enduring institution. It declares the purpose for which the institution exists, entrenches the principles by which it must act, defines the relationship between human authority and technological capability, establishes the supremacy and hierarchy of the constitutional order, and provides for its own amendment and continuity. All other constitutional documents, policies, and instruments of the Open Advancement System derive their authority from, and must conform to, this Charter.
+This Charter establishes Aureus as an enduring institution. It declares the purpose for which the institution exists, entrenches the principles by which it must act, defines the relationship between human authority and technological capability, establishes the supremacy and hierarchy of the constitutional order, and provides for its own amendment and continuity. All other constitutional documents, policies, and instruments of Aureus derive their authority from, and must conform to, this Charter.
 
 ## 3. Draft Constitutional Text
 
@@ -16,7 +16,7 @@ This Charter establishes the Open Advancement System as an enduring institution.
 
 ### PREAMBLE
 
-We establish the Open Advancement System in the conviction that every person is capable of flourishing — of growing in capability, wisdom, purpose, dignity, relationship, and contribution across a lifetime — and that this flourishing is worth strengthening, in each person and across generations. We hold that the means of advancement should be open to those we serve; that those who strengthen themselves increase the capacity of all to help one another; and that the tools of any age, however powerful, must remain servants of human purpose.
+We establish Aureus in the conviction that every person is capable of flourishing — of growing in capability, wisdom, purpose, dignity, relationship, and contribution across a lifetime — and that this flourishing is worth strengthening, in each person and across generations. We hold that the means of advancement should be open to those we serve; that those who strengthen themselves increase the capacity of all to help one another; and that the tools of any age, however powerful, must remain servants of human purpose.
 
 We found this institution to endure. We therefore bind it not to the technologies, personalities, or circumstances of its founding, but to principles capable of governing conduct we cannot foresee, and capable of still strengthening humanity five centuries hence. We entrust its stewardship to the people who will serve within it — not as owners, but as trustees for those they serve and those who will come after — and we hold them, and all who follow them, accountable to this Charter.
 
@@ -24,11 +24,11 @@ We found this institution to endure. We therefore bind it not to the technologie
 
 ### ARTICLE I — ESTABLISHMENT
 
-**Section 1. Name.** The institution established by this Charter is the Open Advancement System, herein "the System" or "OAS."
+**Section 1. Name.** The institution established by this Charter is Aureus, herein "the System."
 
 **Section 2. Perpetual Character.** The System is established with the intention of perpetual existence. No provision of this Charter, and no act of any officer or body of the System, shall be construed to favor short-term advantage over the long-term survival and integrity of the mission, except as this Charter expressly provides for dissolution.
 
-**Section 3. Supremacy of the Charter.** This Charter is the supreme governing instrument of the System. Every constitutional document, bylaw, policy, procedure, contract, and decision of the System must conform to it. Any instrument or act inconsistent with this Charter is void to the extent of the inconsistency.
+**Section 3. Supremacy of the Charter.** This Charter derives its authority from, and remains subordinate to, FOUNDATION-001 — The Foundation of Aureus, the sole highest governing authority of Aureus, which this Charter may never contradict. Subject to FOUNDATION-001, this Charter is the supreme governing instrument of the System. Every constitutional document, bylaw, policy, procedure, contract, and decision of the System must conform to it. Any instrument or act inconsistent with this Charter, or with FOUNDATION-001, is void to the extent of the inconsistency.
 
 **Section 4. Constitutional Order.** The constitutional order of the System consists of this Charter and such further constitutional documents as are canonized under the authority of this Charter. Where constitutional documents conflict, this Charter prevails; among subordinate constitutional documents, the conflict shall be resolved by the amendment process rather than by silent reinterpretation.
 
@@ -36,7 +36,7 @@ We found this institution to endure. We therefore bind it not to the technologie
 
 ### ARTICLE II — MISSION
 
-**Section 1. Mission.** The mission of the Open Advancement System is to help every person flourish. The System pursues this mission by strengthening human capability, knowledge, and agency, and by making the means of advancement openly available to those it serves, across generations.
+**Section 1. Mission.** The mission of Aureus is to help every person flourish. The System pursues this mission by strengthening human capability, knowledge, and agency, and by making the means of advancement openly available to those it serves, across generations.
 
 **Section 2. Human Development.** Flourishing, as this Charter uses the term, is not reducible to productivity or information. It consists in the growth of capability, wisdom, purpose, dignity, relationship, opportunity, and meaningful contribution. The System shall pursue all of these together, and shall not mistake advancement in any one of them for the whole.
 
@@ -120,7 +120,7 @@ The following principles bind every officer, body, and instrument of the System.
 
 **Section 2. Process.** An amendment must be proposed in writing, published within the System for a period of deliberation, adopted by the supermajority and bodies the constitutional order prescribes, and entered in the constitutional record. During the founding period, amendment additionally requires the approval of the Founder.
 
-**Section 3. Entrenched Provisions.** The following may not be amended in a manner that weakens them: the mission of human flourishing (Article II, Section 1); the primacy of the mission (Article II, Section 5); the principles of human dignity and human agency (Article III, Sections 1 and 2); the principle of stewardship (Article III, Section 6); human accountability for institutional decisions (Article IV, Sections 2 and 3); the requirement that authority be matched by accountability (Article III, Section 5); and this Section. An amendment purporting to weaken an entrenched provision is void.
+**Section 3. Entrenched Provisions.** The following may not be amended in a manner that weakens them: the supremacy of, and this Charter's subordination to, FOUNDATION-001 (Article I, Section 3); the mission of human flourishing (Article II, Section 1); the primacy of the mission (Article II, Section 5); the principles of human dignity and human agency (Article III, Sections 1 and 2); the principle of stewardship (Article III, Section 6); human accountability for institutional decisions (Article IV, Sections 2 and 3); the requirement that authority be matched by accountability (Article III, Section 5); and this Section. An amendment purporting to weaken an entrenched provision is void.
 
 **Section 4. Conforming Documents.** Upon amendment of this Charter, all subordinate documents inconsistent with the amendment are void to the extent of the inconsistency, and the responsible bodies shall conform them without delay.
 
@@ -138,7 +138,79 @@ The following principles bind every officer, body, and instrument of the System.
 
 ### ARTICLE IX — RATIFICATION
 
-This Charter takes effect upon its approval and canonization by the Founder and its entry into the constitutional record, and thereupon binds the Open Advancement System, its officers, its bodies, and its instruments, in perpetuity, subject only to amendment under Article VII.
+This Charter takes effect upon its approval and canonization by the Founder and its entry into the constitutional record, and thereupon binds Aureus, its officers, its bodies, and its instruments, in perpetuity, subject only to amendment under Article VII.
+
+---
+
+## Appendix — Founding Declarations
+
+*The following is preserved as ceremonial and historical constitutional material. It expresses the founding intent, spirit, and enduring commitments of Aureus. It does not establish independent constitutional authority beyond the operative Articles of this Charter. Where any conflict exists between an operative Article and this Appendix, the operative Article governs.*
+
+### Founder's Declaration
+
+As the First Steward of Aureus, I acknowledge that this institution does not exist for my benefit.
+
+I accept stewardship rather than ownership.
+
+I accept responsibility rather than privilege.
+
+I recognize that future generations will inherit the institution entrusted to my care.
+
+Accordingly, I pledge to preserve the mission, protect the Constitution, strengthen public trust, and faithfully prepare Aureus to flourish beyond my lifetime.
+
+May those who follow do so with greater wisdom than those who began.
+
+---
+
+### Institutional Blessing
+
+May Aureus always remain worthy of the trust placed in it.
+
+May it seek wisdom before certainty.
+
+May it choose truth before comfort.
+
+May it pursue stewardship before power.
+
+May it strengthen hope where hope has faded.
+
+May it help people discover opportunity where none seemed to exist.
+
+May it encourage learning, responsibility, service, and flourishing.
+
+May every person who encounters Aureus leave stronger, wiser, more hopeful, and more capable than when they arrived.
+
+May every generation faithfully preserve what is good, courageously improve what can be made better, and humbly pass the institution forward.
+
+---
+
+### Final Words
+
+The success of Aureus shall never be measured merely by its size.
+
+Nor by its wealth.
+
+Nor by its influence.
+
+Nor by the sophistication of its technology.
+
+Its true measure shall always be this:
+
+How many lives were strengthened.
+
+How many burdens were lifted.
+
+How much wisdom was shared.
+
+How faithfully trust was kept.
+
+How many people flourished because Aureus existed.
+
+If Aureus remains faithful to that purpose, then every generation will inherit something worthy of preserving.
+
+And if each generation faithfully adds to that inheritance before passing it forward, then Aureus shall become not merely an organization, but an enduring institution of hope, stewardship, and human flourishing.
+
+May that stewardship never end.
 
 ---
 
@@ -205,6 +277,9 @@ Each entry states what changed, where, and why it strengthens the Charter rather
 
 12. **Article VII, Section 3 (Entrenched Provisions) — updated list and corrected cross-references.**
     *Why:* Two changes, one substantive and one corrective. Substantively, the mission of human flourishing and the broadened stewardship principle were added to the entrenched list, since both are now foundational canonical commitments that later amendments should not be able to weaken. Correctively, the citation to "the primacy of the mission" was updated from Article II, Section 2 to Article II, Section 5 to reflect the renumbering caused by the insertion of new sections — an update required for internal consistency, not a substantive change in what was already protected.
+
+13. **Article VII, Section 3 (Entrenched Provisions) — added this Charter's subordination to FOUNDATION-001 (Article I, Section 3).**
+    *Why:* The Comprehensive Founder Review identified that Article I, Section 3 — the sole clause establishing FOUNDATION-001's supremacy and this Charter's subordination to it — was not itself entrenched, meaning an ordinary amendment could in principle weaken or remove it without triggering the Tribunal's entrenchment-conflict review under OAS-010, Article 6. This entry closes that gap by the minimum means available: adding the existing clause to the existing entrenched-provisions list. It creates no second supremacy clause and does not restate or duplicate Article I, Section 3's language; it protects the clause already there.
 
 **Provisions deliberately left unchanged:** Article I (Establishment), Article V (Governance), Article VIII (Continuity and Dissolution), and Article IX (Ratification) were reviewed against the 500-Year Principle and found already sound in their current form — each is technology-neutral, personality-neutral, and free of any assumption the new canonical principles would disturb. No language was added to these articles solely for the sake of visibly reflecting the new philosophy; doing so would have been repetition, not strengthening.
 

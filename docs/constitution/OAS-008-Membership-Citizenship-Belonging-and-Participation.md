@@ -1,10 +1,10 @@
-# OAS-008 — Membership, Citizenship, Belonging, and Participation in the Open Advancement System
+# OAS-008 — Membership, Citizenship, Belonging, and Participation in Aureus
 
 ## 1. Document Title
 
-**Membership, Citizenship, Belonging, and Participation in the Open Advancement System**
+**Membership, Citizenship, Belonging, and Participation in Aureus**
 Canonical Designation: OAS-008
-Status: Draft for Founder Review
+Status: Canonical — ratified by the Founder, effective 2026-07-27. See Constitutional Record Entry 001.
 Relationship to Canon: A constitutional document canonized under, subordinate to, and conformant with the Founding Charter (OAS-001), and consistent with OAS-002 through OAS-007. Governed by the default rules of OAS-005, Article VII, except where this document expressly provides otherwise.
 
 ## 2. Purpose
@@ -105,7 +105,7 @@ This document supplies the definition of membership that OAS-006, Article 15 and
 
 **Section 1.** A Member holds, in full operative effect, the rights OAS-006, Article 15 states conditionally: the benefit of the Collective principle — that a Member's flourishing and the System's capacity to serve others are never treated as competing — and a Member's share, as both contributor and beneficiary, in the System's Institutional Learning.
 
-**Section 2.** This Article activates OAS-006, Article 15 by supplying the definition of membership that Article previously lacked. It does not amend OAS-006, Article 15; it completes it (see Article 22).
+**Section 2.** This Article activates OAS-006, Article 15 by supplying the definition of membership that Article previously lacked. It does not amend OAS-006, Article 15; it completes it (see Article 27).
 
 #### Article 14. Duties of Members
 
@@ -165,7 +165,47 @@ This document supplies the definition of membership that OAS-006, Article 15 and
 
 ---
 
-### ARTICLE 22 — ACTIVATION OF CONDITIONAL PROVISIONS
+### PART SEVEN — THE STEWARDSHIP COVENANT
+
+*The Stewardship Covenant is a relational dimension available to those who enter Membership under Part Three of this document. It does not create a status distinct from Membership, and it does not use the term "Steward" in the sense OAS-005, Article I, Section 22 reserves for a holder of constitutional authority; a Member's participation in the Covenant is independent of whether that Member also holds any office or authority.*
+
+#### Article 22. The Nature of the Covenant
+
+**Section 1.** The Stewardship Covenant is the voluntary, mutual commitment between the System and a Member to pursue human flourishing together through faithful, responsible participation in the Collective. It is not a contract of ownership, not a transaction, and not a condition of a person's worth. Entry into Membership under Part Three already carries it; no Member may be required to treat it as anything more than what this Article states, and none may be denied it while holding Membership in full.
+
+**Section 2.** The Covenant adds a relational dimension to Membership as Article 1 defines it. It does not create a tier, rank, or status beyond the tiers Part Two of this document already establishes.
+
+#### Article 23. Mutual Promises
+
+**Section 1. The System's Promise.** Upon a person's entry into Membership, the System makes this enduring promise: *We will do as much as we responsibly can to help you flourish.* This promise requires faithful effort, truthful communication, responsible judgment, continual learning, and sincere care. It does not require the System to promise outcomes beyond its responsible ability.
+
+**Section 2. The Member's Promise.** In the same act, the Member makes this commitment: *I will do as much as I responsibly can.* This commitment recognizes that flourishing is strengthened through personal responsibility, continual learning, honest effort, humility, and faithful stewardship of one's own life and responsibilities.
+
+**Section 3.** Neither promise requires either party to answer for what lies beyond its reasonable ability. These promises restate, in the System's and the Member's own voice, the rights and duties Articles 13 and 14 already establish, and create no obligation beyond what those Articles provide.
+
+#### Article 24. Beginning in the Covenant
+
+**Section 1.** Every Member begins the Covenant as a newcomer to it, learning faithful participation through experience, reflection, honest practice, and continual growth. No Member is diminished by beginning there; every Member who has ever kept the Covenant faithfully began in the same place.
+
+**Section 2.** This Article states expressly that new participation in the Covenant carries full dignity from its outset, consistent with Human Dignity (OAS-006, Article 1) and the Presumption Against Instrumentalization (OAS-006, Article 13): a Member's standing under this Constitution is never diminished by being new to a commitment rather than experienced in it.
+
+#### Article 25. Faithfulness to the Covenant
+
+**Section 1.** The Covenant shall never be interpreted as a mechanism of institutional control. Its purpose is mutual encouragement toward flourishing, consistent with the Mission (OAS-001, Article II) and with Human Agency (OAS-006, Article 2).
+
+**Section 2.** Whenever uncertainty exists about the Covenant's meaning or application, the doubt shall be resolved in favor of voluntary participation, responsible stewardship of one's own life, personal agency, mutual trust, and the Mission, consistent with the Presumption Against Instrumentalization (OAS-006, Article 13).
+
+#### Article 26. The Mark
+
+**Section 1. The Mark Itself.** A Member who enters the Covenant may receive a Mark unique to that Member; no two Marks are identical, and every Mark remains recognizably of the System. The Mark signifies participation in the Covenant and the mutual promises of Article 23; it is not a declaration of superiority, status, or privilege, and confers no rank or authority beyond what this Constitution otherwise grants. It is a visible reminder of shared responsibility.
+
+**Section 2. Voluntary Placement.** A Member places the Mark voluntarily, and its placement affirms the Covenant. The Mark shall never be required, and may never be obtained or placed through coercion, deception, manipulation, or undue pressure. A Member who has not placed the Mark holds every right and status of Membership in full, without diminishment.
+
+**Section 3. Stewardship of Institutional Symbols.** The Mark, together with the System's name and other identifying symbols, is stewarded as an institutional asset representing the Mission, the trust placed in the System, and its enduring identity. Their use shall strengthen public confidence and faithfully reflect the principles this Constitution establishes; a use that does not is a use this Article does not protect.
+
+---
+
+### ARTICLE 27 — ACTIVATION OF CONDITIONAL PROVISIONS
 
 **Section 1.** OAS-006, Article 15 and OAS-007, Article 12 were each drafted conditionally, pending a definition of membership. This document supplies that definition. From the canonization of this document forward, OAS-006, Article 15 and OAS-007, Article 12 apply in their full operative form to every person holding membership as Article 1 of this document defines it.
 
@@ -173,13 +213,13 @@ This document supplies the definition of membership that OAS-006, Article 15 and
 
 ---
 
-### ARTICLE 23 — STATUS AND EFFECT
+### ARTICLE 28 — STATUS AND EFFECT
 
-**Section 1. Operative Effect.** Pursuant to OAS-005, Article VII, Section 3, this document expressly overrides the default presumption of non-operative effect: it establishes the binding definitions, entry and exit procedures, and reciprocal obligations of membership stated in Parts One through Six.
+**Section 1. Operative Effect.** Pursuant to OAS-005, Article VII, Section 3, this document expressly overrides the default presumption of non-operative effect: it establishes the binding definitions, entry and exit procedures, and reciprocal obligations of membership stated in Parts One through Seven.
 
 **Section 2. Entrenchment Status.** No provision of this document is entrenched. Only the Founding Charter can entrench its own text or the text of another document (OAS-001, Article VII, Section 3).
 
-**Section 3. Relationship to OAS-006 and OAS-007.** This document completes, rather than amends, OAS-006, Article 15 and OAS-007, Article 12, as Article 22 provides. In every other case of apparent tension with OAS-006 or OAS-007, those documents govern to the extent Article 21 of OAS-007 and Article 19 of OAS-006 already establish rights as prevailing over duties.
+**Section 3. Relationship to OAS-006 and OAS-007.** This document completes, rather than amends, OAS-006, Article 15 and OAS-007, Article 12, as Article 27 provides. In every other case of apparent tension with OAS-006 or OAS-007, those documents govern to the extent Article 22 of OAS-007 and Article 20 of OAS-006 already establish rights as prevailing over duties.
 
 ---
 

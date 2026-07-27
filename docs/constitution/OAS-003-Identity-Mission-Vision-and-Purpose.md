@@ -1,15 +1,15 @@
-# OAS-003 — Identity, Mission, Vision, and Purpose of the Open Advancement System
+# OAS-003 — Identity, Mission, Vision, and Purpose of Aureus
 
 ## 1. Document Title
 
-**Identity, Mission, Vision, and Purpose of the Open Advancement System**
+**Identity, Mission, Vision, and Purpose of Aureus**
 Canonical Designation: OAS-003
-Status: Draft for Founder Review
+Status: Canonical — ratified by the Founder, effective 2026-07-27. See Constitutional Record Entry 001.
 Relationship to Canon: A constitutional document canonized under, subordinate to, and conformant with the Founding Charter (OAS-001), and consistent with the Preamble to the Constitution (OAS-002).
 
 ## 2. Purpose
 
-This document consolidates, into a single coherent statement, everything the constitutional order has already established about who the Open Advancement System is (its identity), what it exists to do (its mission, as entrenched in the Founding Charter), what future its work is meant to bring about (its vision), and why that work matters at the deepest level (its purpose). It resolves no new law and creates no new authority. It draws together principles already canonized in the Founding Charter and the Preamble to the Constitution so that the System's self-understanding is stated once, clearly, and without redundancy across separate documents.
+This document consolidates, into a single coherent statement, everything the constitutional order has already established about who Aureus is (its identity), what it exists to do (its mission, as entrenched in the Founding Charter), what future its work is meant to bring about (its vision), and why that work matters at the deepest level (its purpose). It resolves no new law and creates no new authority. It draws together principles already canonized in the Founding Charter and the Preamble to the Constitution so that the System's self-understanding is stated once, clearly, and without redundancy across separate documents.
 
 ## 3. Draft Constitutional Text
 
@@ -17,17 +17,19 @@ This document consolidates, into a single coherent statement, everything the con
 
 ### ARTICLE I — IDENTITY
 
-**Section 1. What the System Is.** The Open Advancement System is a perpetual, self-governing constitutional institution, established to endure across generations rather than to serve any single generation, founder, or officer (OAS-001, Article I, Section 2). It exists, as the Preamble declares, as a collective learning community in which the flourishing of its members and the flourishing of those it serves strengthen one another rather than compete (OAS-002, recital 4; OAS-001, Article II, Section 4).
+**Section 1. What the System Is.** Aureus is a perpetual, self-governing constitutional institution, established to endure across generations rather than to serve any single generation, founder, or officer (OAS-001, Article I, Section 2). It exists, as the Preamble declares, as a collective learning community in which the flourishing of its members and the flourishing of those it serves strengthen one another rather than compete (OAS-002, recital 4; OAS-001, Article II, Section 4).
 
 **Section 2. Character.** The System conducts itself openly rather than secretly, honestly rather than expediently, and accountably rather than unilaterally (OAS-001, Article III, Sections 3–5; OAS-002, recital 3). It holds every grant of authority as a trust to be exercised for the benefit of those it touches, never as a possession to be used for the advantage of those who hold it (OAS-001, Article III, Section 6; OAS-002, recital 5). It employs the tools of every age, including artificial intelligence, only to strengthen human judgment, and never to replace the human responsibility this Constitution reserves (OAS-001, Article IV; OAS-002, recital 8).
 
 **Section 3. Standing Among Those It Serves.** The System exercises only the authority this Constitution grants it, and holds no authority beyond what is written (OAS-001, Article V, Section 3). Its officers act as trustees, answerable to the people and principles this Constitution establishes, and remain open to challenge, correction, and review by those affected by their decisions (OAS-001, Article III, Section 5; Article VI, Section 3).
 
+**Section 4. Identity Preserved Through Faithfulness.** The identity this Article describes endures only so long as the System remains faithful to this Constitution. A System unfaithful to its own Constitution would no longer be the institution this Article describes, whatever it continued to call itself.
+
 ---
 
 ### ARTICLE II — MISSION
 
-**Section 1. Mission Restated.** The mission of the Open Advancement System is to help every person flourish, exactly as the Founding Charter establishes it (OAS-001, Article II, Section 1). This Article restates that mission for coherence with this document. It does not amend, narrow, or supersede the Founding Charter, which remains the sole authoritative and entrenched statement of the System's mission.
+**Section 1. Mission Restated.** The mission of Aureus is to help every person flourish, exactly as the Founding Charter establishes it (OAS-001, Article II, Section 1). This Article restates that mission for coherence with this document. It does not amend, narrow, or supersede the Founding Charter, which remains the sole authoritative and entrenched statement of the System's mission.
 
 **Section 2. Relationship to This Document.** The Founding Charter defines the mission fully: the manner of its pursuit, the components of human development it comprises, the community through which it is pursued, and the principles that guide and limit its execution (OAS-001, Article II). This document does not restate those provisions. It situates the mission within the System's fuller identity, vision, and purpose, so that all four are read as one coherent whole.
 
@@ -51,7 +53,7 @@ This document consolidates, into a single coherent statement, everything the con
 
 ### ARTICLE V — STATUS AND EFFECT
 
-**Section 1. Canonical Status.** This document is a constitutional document of the Open Advancement System, canonized under the authority of, and subordinate to, the Founding Charter (OAS-001), and consistent with the Preamble to the Constitution (OAS-002). Together with those documents, and every document lawfully canonized under the Founding Charter, it forms part of the Constitution of the Open Advancement System.
+**Section 1. Canonical Status.** This document is a constitutional document of Aureus, canonized under the authority of, and subordinate to, the Founding Charter (OAS-001), and consistent with the Preamble to the Constitution (OAS-002). Together with those documents, and every document lawfully canonized under the Founding Charter, it forms part of the Constitution of Aureus.
 
 **Section 2. Non-Duplication of Entrenched Text.** Where this document restates language from the Founding Charter, the restatement is for coherence and reference only and creates no independent text. In every case of apparent conflict between this document and the Founding Charter, the Founding Charter governs.
 

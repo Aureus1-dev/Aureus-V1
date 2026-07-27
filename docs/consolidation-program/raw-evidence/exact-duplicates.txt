@@ -1,0 +1,6 @@
+=== hash f8b08e86fc1a6ef1273028c372621f6032c544831a0b767bd15391550fd91d63 ===
+f8b08e86fc1a6ef1273028c372621f6032c544831a0b767bd15391550fd91d63  docs/constitution/OAS-003-Identity-Mission-Vision-and-Purpose.md
+f8b08e86fc1a6ef1273028c372621f6032c544831a0b767bd15391550fd91d63  docs/docs/constitution/OAS-003-Identity-Mission-Vision-and-Purpose.md
+=== hash 6dd57a97dbce6a02ae2acf1d2ae81db9c14eedca38c018bfbabb83e4f8e47b25 ===
+6dd57a97dbce6a02ae2acf1d2ae81db9c14eedca38c018bfbabb83e4f8e47b25  docs/product-architecture/PA-004-user-journey-architecture.md
+6dd57a97dbce6a02ae2acf1d2ae81db9c14eedca38c018bfbabb83e4f8e47b25  docs/product-architecture/PA-005-member-experience-architecture.md

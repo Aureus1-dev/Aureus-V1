@@ -4,12 +4,12 @@
 
 **Rights, Human Dignity, Agency, and Constitutional Protections**
 Canonical Designation: OAS-006
-Status: Draft for Founder Review
+Status: Canonical — ratified by the Founder, effective 2026-07-27. See Constitutional Record Entry 001.
 Relationship to Canon: A constitutional document canonized under, subordinate to, and conformant with the Founding Charter (OAS-001), and consistent with OAS-002 through OAS-005. Governed by the default rules of OAS-005, Article VII, except where this document expressly provides otherwise.
 
 ## 2. Purpose
 
-This document establishes the enduring rights, protections, and guarantees owed to every person by the Open Advancement System. Where a right restates a principle already established in OAS-001 or OAS-004, this document translates that principle from an institutional duty into a person-held claim, without amending its source. Where a right is established here for the first time, it is identified as such. This document is expressly operative: pursuant to OAS-005, Article VII, Section 3, it grants enforceable rights rather than merely declaring conviction, and that default is overridden accordingly.
+This document establishes the enduring rights, protections, and guarantees owed to every person by Aureus. Where a right restates a principle already established in OAS-001 or OAS-004, this document translates that principle from an institutional duty into a person-held claim, without amending its source. Where a right is established here for the first time, it is identified as such. This document is expressly operative: pursuant to OAS-005, Article VII, Section 3, it grants enforceable rights rather than merely declaring conviction, and that default is overridden accordingly.
 
 ## 3. Draft Constitutional Text
 
@@ -115,7 +115,7 @@ This document establishes the enduring rights, protections, and guarantees owed 
 
 **Section 1.** The rights of Parts One, Two, and Three apply to every person the System's acts touch, regardless of whether that person also falls within Article 15, 16, or 17. The categories that follow add to those universal rights; they never subtract from them, and no person may be denied a universal right on the ground that they do not fall within any of those categories.
 
-**Section 2.** Where this Article and a more specific provision of this Part appear to conflict, Article 19 governs.
+**Section 2.** Where this Article and a more specific provision of this Part appear to conflict, Article 20 governs.
 
 #### Article 15. Rights of Members
 
@@ -143,7 +143,23 @@ This document establishes the enduring rights, protections, and guarantees owed 
 
 ---
 
-### ARTICLE 19 — THE RELATIONSHIP AMONG RIGHTS AND LIMITS
+### PART FIVE — PROTECTION OF PERSONS IN VULNERABLE CIRCUMSTANCES
+
+*The right of this Part is held by every person, in recognition that vulnerability is a circumstance any person may enter — through age, capacity, hardship, or dependence on others — and not a fixed category limited to some.*
+
+#### Article 19. The Right to Protection, Care, and Support
+
+**Section 1.** Every person whose circumstances leave them more exposed to neglect, exploitation, coercion, or exclusion holds the right to protection, care, dignity, and support appropriate to that exposure. This right is established here for the first time, grounded in Human Dignity (Article 1) and in the constitutional standard that the System's strength is measured not by how it serves those best able to compel its attention, but by how faithfully it serves those most in need.
+
+**Section 2. General, Not Enumerated.** This right is stated generally and is not limited to an enumerated list of protected circumstances, so that a person's protection does not depend on whether their particular circumstance was anticipated at the time this Article was drafted.
+
+**Section 3. Harmony with Agency.** This right shall never be read to authorize the System to override a person's own choices, dignity, autonomy, or lawful agency merely because the System judges another choice preferable. Protection under this Article means care, support, access, accommodation, safeguarding, and responsible intervention where justified — not substitution of the System's judgment for the person's own. Any limitation on a person's agency undertaken in the name of this Article must rest on a legitimate constitutional or legal basis and must use the least coercive means responsibly available; where doubt exists whether an act taken in the name of protection has instead become a denial of agency, that doubt is resolved as Article 13 already provides for Human Dignity.
+
+**Section 4. Corresponding Duty.** This right is paired with a corresponding duty upon the System, its Stewards, and its systems, stated in OAS-007.
+
+---
+
+### ARTICLE 20 — THE RELATIONSHIP AMONG RIGHTS AND LIMITS
 
 **Section 1. Mutual Reinforcement.** The rights and limits of this document are not independent claims to be weighed against one another in each case; they are one constitutional commitment to human dignity and agency, viewed from the position of the person who holds them, and are to be read, wherever possible, as reinforcing one another.
 
@@ -153,11 +169,13 @@ This document establishes the enduring rights, protections, and guarantees owed 
 
 **Section 4. No Hierarchy Beyond Dignity.** Except as Section 2 provides for the Right to Dignity, this document ranks no right above another. The order of the Parts and Articles above is expository, not a hierarchy of constitutional weight.
 
+**Section 5. The Interaction Standard.** Every interaction with the System should leave a person with greater understanding, greater dignity, greater clarity, or greater hope than existed before it began. No institutional objective shall knowingly sacrifice a person's dignity or hope merely to improve efficiency, revenue, popularity, or growth.
+
 ---
 
-### ARTICLE 20 — STATUS AND EFFECT
+### ARTICLE 21 — STATUS AND EFFECT
 
-**Section 1. Operative Effect.** Pursuant to OAS-005, Article VII, Section 3, this document expressly overrides the default presumption of non-operative effect: it grants the enforceable rights, protections, and guarantees stated in Parts One through Four to the persons and entities each Part and Article describes.
+**Section 1. Operative Effect.** Pursuant to OAS-005, Article VII, Section 3, this document expressly overrides the default presumption of non-operative effect: it grants the enforceable rights, protections, and guarantees stated in Parts One through Five to the persons and entities each Part and Article describes.
 
 **Section 2. Entrenchment Status.** Except where an Article of this document expressly identifies itself as restating entrenched text of the Founding Charter (Articles 1, 2, and 8, and Article 18, Section 1), no right established for the first time in this document is itself entrenched. Only the Founding Charter can entrench its own text or the text of another document (OAS-001, Article VII, Section 3).
 
@@ -171,11 +189,11 @@ This document establishes the enduring rights, protections, and guarantees owed 
 
 *The following is provided for Founder review only. It is not part of the Articles in Section 3, and must not be entered into the constitutional record if and when this document is canonized.*
 
-**N1. Membership remains undefined.** Article 15 states the rights that will attach to membership once membership is defined, but does not and cannot define membership itself. This is the same gap flagged in OAS-001 (N2), OAS-002 (N2), and OAS-003 (N2), now made more consequential: a person cannot know today whether Article 15 applies to them. A Charter of Membership is the most urgent outstanding drafting need this document surfaces.
+**N1. Membership has since been defined.** Article 15 states the rights that attach to membership, drafted conditionally at the time this document was written because membership was not yet defined elsewhere in the constitutional record — the same gap flagged in OAS-001 (N2), OAS-002 (N2), and OAS-003 (N2). OAS-008 has since supplied that definition and, in its Article 27, expressly activated this Article's conditional language into full operative effect. This note is retained to record that the gap it originally flagged is closed, not because the gap remains open.
 
 **N2. "Organization" is a wholly new, undefined category.** Article 17 was drafted narrowly and conditionally because no prior canonical document defines what an "organization participating in OAS" is, how such participation is established, or what obligations accompany it. The Article extends only the procedural protections that follow logically from existing principles (fairness, accountability) and expressly withholds Part One's person-specific rights. The Founder should treat Article 17 as provisional pending a dedicated foundational document, in the same manner as Article 15.
 
-**N3. New rights created by this subordinate document are not entrenched.** Article 20, Section 2 makes this explicit, but it deserves emphasis: the Right to Privacy (Article 5), the Right to Notice (Article 6), the broadened Right to Be Free from Retaliation (Article 10), and the Presumption Against Instrumentalization (Article 13) are all established here for the first time and are, as a structural matter, less protected than the rights that restate entrenched Founding Charter text. A future amendment to this document — properly approved through the CAP process — could in principle narrow them without touching the Founding Charter at all. If the Founder regards any of these as foundational enough to warrant entrenchment, that requires a separate amendment to OAS-001, Article VII, Section 3, which only the Founding Charter can accomplish.
+**N3. New rights created by this subordinate document are not entrenched.** Article 21, Section 2 makes this explicit, but it deserves emphasis: the Right to Privacy (Article 5), the Right to Notice (Article 6), the broadened Right to Be Free from Retaliation (Article 10), and the Presumption Against Instrumentalization (Article 13) are all established here for the first time and are, as a structural matter, less protected than the rights that restate entrenched Founding Charter text. A future amendment to this document — properly approved through the CAP process — could in principle narrow them without touching the Founding Charter at all. If the Founder regards any of these as foundational enough to warrant entrenchment, that requires a separate amendment to OAS-001, Article VII, Section 3, which only the Founding Charter can accomplish.
 
 **N4. The broadened anti-retaliation right (Article 10) is a genuine expansion, not a restatement.** OAS-001, Article VI, Section 4 protects only officers who report a Charter violation. Article 10 of this document extends protection to any person exercising any right in this entire document. This was a drafting judgment made to close an obvious gap — a right to petition is of little value if petitioning can be punished — but it is new law, not reconciliation, and the Founder should confirm it was intended at this breadth.
 

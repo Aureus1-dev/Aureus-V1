@@ -4,7 +4,7 @@
 
 **Definitions and Rules of Constitutional Interpretation**
 Canonical Designation: OAS-005
-Status: Draft for Founder Review
+Status: Canonical — ratified by the Founder, effective 2026-07-27. See Constitutional Record Entry 001.
 Relationship to Canon: A constitutional document canonized under, subordinate to, and conformant with the Founding Charter (OAS-001), and consistent with OAS-002, OAS-003, and OAS-004.
 
 ## 2. Purpose
@@ -43,7 +43,7 @@ Each term below is defined only to the precision constitutional use requires. Wh
 
 **Section 12. Human Dignity.** The principle that every person is to be treated as an end in themselves, and never merely as a means to the System's purposes, as established in OAS-001, Article III, Section 1, and expounded in OAS-004, Article 1.
 
-**Section 13. Institution.** The Open Advancement System itself, as established by OAS-001, Article I. "Institution" and "System" are used interchangeably throughout the Constitution to refer to the same entity.
+**Section 13. Institution.** Aureus itself, as established by OAS-001, Article I. "Institution" and "System" are used interchangeably throughout the Constitution to refer to the same entity.
 
 **Section 14. Justice.** The principle that every person is owed fair and equal regard by the System's authority, whatever their standing, as established in OAS-004, Article 3.
 
@@ -70,6 +70,16 @@ Each term below is defined only to the precision constitutional use requires. Wh
 **Section 25. Vision.** The future the System's mission works toward, as established in OAS-003, Article III.
 
 **Section 26. Wisdom.** The judgment to apply knowledge well, treated jointly with Knowledge (Section 15) as a single constitutional principle in OAS-004, Article 6.
+
+*Sections 27 through 30 were added after this Article's original alphabetical drafting, to define terms that became operative in later constitutional documents. They are appended here, out of alphabetical sequence, rather than inserted into their alphabetical position, so that the numbering of Sections 1 through 26 — already cited by number in OAS-006, OAS-008, OAS-009, and OAS-010 — is not disturbed.*
+
+**Section 27. Canonizing Authority.** Whoever currently holds the authority to approve Constitutional Amendment Proposals under OAS-001, Article V, Section 4 — the Founder, during the founding period, or the Council, from the transition OAS-009, Article 16 describes onward — as OAS-010, Article 1, Section 2 establishes.
+
+**Section 28. Member.** A person who holds Membership, the formal, voluntary, and mutually recognized relationship with the System established in OAS-008, Article 1. "Member" is distinct from "Steward" (Section 22): membership is held by voluntary entry, stewardship by grant of authority, and neither implies the other.
+
+**Section 29. Stewardship Covenant.** The voluntary, mutual commitment between the System and a Member to pursue human flourishing together, established in OAS-008, Article 22. It does not use "Steward" in the sense Section 22 of this Article reserves for a holder of constitutional authority.
+
+**Section 30. The Mark.** The unique, voluntarily placed symbol signifying a Member's participation in the Stewardship Covenant (Section 29), as established in OAS-008, Article 26.
 
 ---
 
@@ -149,9 +159,17 @@ Each term below is defined only to the precision constitutional use requires. Wh
 
 ---
 
-### ARTICLE IX — STATUS AND EFFECT OF THIS DOCUMENT
+### ARTICLE IX — SEVERABILITY AND LANGUAGE
 
-**Section 1.** This document is a constitutional document of the Open Advancement System, governed by its own Article VII like every constitutional document that follows it. It is subordinate to the Founding Charter (OAS-001) and consistent with OAS-002, OAS-003, and OAS-004.
+**Section 1. Severability.** If any provision of this Constitution is found invalid, unenforceable, or incapable of implementation under applicable law, the remaining provisions continue in full force to the greatest extent reasonably possible. Wherever practical, the System shall pursue the narrowest constitutional amendment necessary to restore consistency while preserving the affected provision's original constitutional intent, rather than treating the defect as license to depart from it further than the defect requires.
+
+**Section 2. Language of the Constitutional Text.** The official constitutional text is maintained in English. Translations may be prepared to broaden access and understanding, but confer no independent authority. Where a translation and the English text materially conflict, the ratified English text governs until a revised constitutional translation is formally approved through the amendment process.
+
+---
+
+### ARTICLE X — STATUS AND EFFECT OF THIS DOCUMENT
+
+**Section 1.** This document is a constitutional document of Aureus, governed by its own Article VII like every constitutional document that follows it. It is subordinate to the Founding Charter (OAS-001) and consistent with OAS-002, OAS-003, and OAS-004.
 
 **Section 2.** This document creates no new philosophical or ethical principle, and no new office or authority. It is procedural: it fixes the meaning of terms already used in Canon and establishes how the Constitution is to be read, cited, and reconciled with itself. Where any provision of this document appears to state a substantive principle rather than a procedural rule, that appearance is an error to be corrected by amendment, not relied upon as new law.
 
@@ -175,7 +193,7 @@ Each term below is defined only to the precision constitutional use requires. Wh
 
 **N4. Retroactive harmonization was deliberately not performed.** Per Article VII, Section 5, this document does not remove the repeated Canonical Status, Interpretive Effect, Non-Duplication, Non-Supersession, or Amendment language already present in OAS-002, OAS-003, and OAS-004. If the Founder wishes those documents streamlined to rely on OAS-005 rather than repeating its content, that requires individual CAPs amending each document — a cleanup exercise distinct from, and subsequent to, this document's own adoption.
 
-**N5. Definitions given as pointers, not restatements.** The majority of the twenty-six defined terms in Article I are defined only by cross-reference to their source Article, consistent with the instruction that this document remain procedural rather than philosophical. If the Founder wants a self-contained glossary with full definitions reproduced in one place for convenience or public-facing use, that would be a different document with a different, non-procedural character than this one.
+**N5. Definitions given as pointers, not restatements.** The majority of the thirty defined terms in Article I are defined only by cross-reference to their source Article, consistent with the instruction that this document remain procedural rather than philosophical. If the Founder wants a self-contained glossary with full definitions reproduced in one place for convenience or public-facing use, that would be a different document with a different, non-procedural character than this one.
 
 ---
 

@@ -4,6 +4,7 @@
 **Title:** Experience Constitution  
 **Status:** Living Draft  
 **Authority:** Constitutional  
+**Subordinate To:** FOUNDATION-001  
 **Applies To:** Every Aureus experience, interface, product, service, platform, AI steward, employee, volunteer, contractor, partner, designer, and engineer.
 
 ---
@@ -298,7 +299,7 @@ Everyone is a steward of the member's experience.
 # ARTICLE XIV
 ## Relationship to Other Canons
 
-This Constitution is the highest authority within the Experience Architecture.
+This Constitution derives its authority from FOUNDATION-001 — The Foundation of Aureus, the sole highest governing authority of Aureus, and may never contradict it. Subject to FOUNDATION-001, this Constitution is the highest authority within the Experience Architecture.
 
 The following documents derive their authority from this Constitution:
 
@@ -310,7 +311,7 @@ The following documents derive their authority from this Constitution:
 - AEX-006 — Audio Canon
 - AEX-007 — Production Blueprint
 
-If any subordinate document conflicts with this Constitution, this Constitution prevails until formally amended.
+If any subordinate document conflicts with this Constitution, this Constitution prevails until formally amended, always subject to FOUNDATION-001.
 
 ---
 

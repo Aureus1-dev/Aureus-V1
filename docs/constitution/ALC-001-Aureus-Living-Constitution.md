@@ -10,6 +10,12 @@
 
 ---
 
+> **ADMINISTRATIVE NOTICE — added after the fact; not part of the original document text below.**
+>
+> This document is retained in the constitutional record for historical and source purposes only. By Founder Decision 002 (`docs/consolidation-program/FOUNDER-DECISION-002-THE-CONSTITUTION.md`), the governing Constitution of Aureus is the Founding Charter (`OAS-001`) and its subordinate lineage (`OAS-002` through `OAS-011`), consistent with `docs/consolidation-program/UNIFIED-CONSTITUTION-DRAFTING-PLAN.md`. `ALC-001` is not canonical and is not in force, notwithstanding the supremacy language in its own text below, which is preserved unaltered as originally drafted. `ALC-001`'s content was reviewed in full and substantially incorporated into the OAS lineage through the Constitutional Preservation Audit and the Unified Constitution drafting sequence (see `docs/consolidation-program/CONSTITUTIONAL-PRESERVATION-AUDIT-FINAL.md` and `docs/consolidation-program/STEP-13-FOUNDER-REVIEW-PACKAGE.md`).
+
+---
+
 # Article I — Constitutional Authority
 
 ## Section 1. Purpose
