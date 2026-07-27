@@ -1,15 +1,15 @@
-# OAS-004 — Foundational Principles and Eternal Laws of the Open Advancement System
+# OAS-004 — Foundational Principles and Eternal Laws of Aureus
 
 ## 1. Document Title
 
-**Foundational Principles and Eternal Laws of the Open Advancement System**
+**Foundational Principles and Eternal Laws of Aureus**
 Canonical Designation: OAS-004
 Status: Draft for Founder Review
 Relationship to Canon: A constitutional document canonized under, subordinate to, and conformant with the Founding Charter (OAS-001), and consistent with the Preamble to the Constitution (OAS-002) and with Identity, Mission, Vision, and Purpose (OAS-003).
 
 ## 2. Purpose
 
-This document reconciles, into one systematic foundation, every principle that governs the enduring philosophical, ethical, and constitutional character of the Open Advancement System. Some of these principles are already entrenched operative law in the Founding Charter; this document restates them for coherence, without amending them, and provides the fuller explanation of their meaning, rationale, and relationships that the Charter's terser statement does not attempt. Others exist so far only as founding conviction in the Preamble, without operative force; this document establishes them, for the first time, as binding constitutional principles. Others still are stated here for the first time in any canonical document, synthesized from fragments already present across the constitutional record. Each case is identified as such. This document creates no authority superior to the Founding Charter and entrenches nothing; its title expresses the enduring character its principles are intended to have, not a claim to supremacy the constitutional order does not grant it.
+This document reconciles, into one systematic foundation, every principle that governs the enduring philosophical, ethical, and constitutional character of Aureus. Some of these principles are already entrenched operative law in the Founding Charter; this document restates them for coherence, without amending them, and provides the fuller explanation of their meaning, rationale, and relationships that the Charter's terser statement does not attempt. Others exist so far only as founding conviction in the Preamble, without operative force; this document establishes them, for the first time, as binding constitutional principles. Others still are stated here for the first time in any canonical document, synthesized from fragments already present across the constitutional record. Each case is identified as such. This document creates no authority superior to the Founding Charter and entrenches nothing; its title expresses the enduring character its principles are intended to have, not a claim to supremacy the constitutional order does not grant it.
 
 ## 3. Draft Constitutional Text
 
@@ -139,7 +139,7 @@ This document reconciles, into one systematic foundation, every principle that g
 
 ### ARTICLE 18 — STATUS AND EFFECT
 
-**Section 1. Canonical Status.** This document is a constitutional document of the Open Advancement System, canonized under the authority of, and subordinate to, the Founding Charter (OAS-001), and consistent with the Preamble (OAS-002) and with Identity, Mission, Vision, and Purpose (OAS-003). Together with those documents, and every document lawfully canonized under the Founding Charter, it forms part of the Constitution of the Open Advancement System.
+**Section 1. Canonical Status.** This document is a constitutional document of Aureus, canonized under the authority of, and subordinate to, the Founding Charter (OAS-001), and consistent with the Preamble (OAS-002) and with Identity, Mission, Vision, and Purpose (OAS-003). Together with those documents, and every document lawfully canonized under the Founding Charter, it forms part of the Constitution of Aureus.
 
 **Section 2. Non-Duplication and Non-Supersession.** Where this document restates language from the Founding Charter, the restatement is for coherence and reference only and creates no independent text. Where this document establishes a principle not previously stated as operative constitutional text — including Justice, Responsibility, Truth, Knowledge and Wisdom, Service, Transparency, Constitutional Integrity, Sustainability, Continuous Improvement, and Long-Term Stewardship — that principle binds as this document's own text, subordinate to, and never in conflict with, the Founding Charter. In every case of apparent conflict between this document and the Founding Charter or the Preamble, those documents govern.
 

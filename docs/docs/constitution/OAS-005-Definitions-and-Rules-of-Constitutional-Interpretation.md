@@ -43,7 +43,7 @@ Each term below is defined only to the precision constitutional use requires. Wh
 
 **Section 12. Human Dignity.** The principle that every person is to be treated as an end in themselves, and never merely as a means to the System's purposes, as established in OAS-001, Article III, Section 1, and expounded in OAS-004, Article 1.
 
-**Section 13. Institution.** The Open Advancement System itself, as established by OAS-001, Article I. "Institution" and "System" are used interchangeably throughout the Constitution to refer to the same entity.
+**Section 13. Institution.** Aureus itself, as established by OAS-001, Article I. "Institution" and "System" are used interchangeably throughout the Constitution to refer to the same entity.
 
 **Section 14. Justice.** The principle that every person is owed fair and equal regard by the System's authority, whatever their standing, as established in OAS-004, Article 3.
 
@@ -151,7 +151,7 @@ Each term below is defined only to the precision constitutional use requires. Wh
 
 ### ARTICLE IX — STATUS AND EFFECT OF THIS DOCUMENT
 
-**Section 1.** This document is a constitutional document of the Open Advancement System, governed by its own Article VII like every constitutional document that follows it. It is subordinate to the Founding Charter (OAS-001) and consistent with OAS-002, OAS-003, and OAS-004.
+**Section 1.** This document is a constitutional document of Aureus, governed by its own Article VII like every constitutional document that follows it. It is subordinate to the Founding Charter (OAS-001) and consistent with OAS-002, OAS-003, and OAS-004.
 
 **Section 2.** This document creates no new philosophical or ethical principle, and no new office or authority. It is procedural: it fixes the meaning of terms already used in Canon and establishes how the Constitution is to be read, cited, and reconciled with itself. Where any provision of this document appears to state a substantive principle rather than a procedural rule, that appearance is an error to be corrected by amendment, not relied upon as new law.
 

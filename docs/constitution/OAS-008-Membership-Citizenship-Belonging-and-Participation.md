@@ -1,8 +1,8 @@
-# OAS-008 — Membership, Citizenship, Belonging, and Participation in the Open Advancement System
+# OAS-008 — Membership, Citizenship, Belonging, and Participation in Aureus
 
 ## 1. Document Title
 
-**Membership, Citizenship, Belonging, and Participation in the Open Advancement System**
+**Membership, Citizenship, Belonging, and Participation in Aureus**
 Canonical Designation: OAS-008
 Status: Draft for Founder Review
 Relationship to Canon: A constitutional document canonized under, subordinate to, and conformant with the Founding Charter (OAS-001), and consistent with OAS-002 through OAS-007. Governed by the default rules of OAS-005, Article VII, except where this document expressly provides otherwise.

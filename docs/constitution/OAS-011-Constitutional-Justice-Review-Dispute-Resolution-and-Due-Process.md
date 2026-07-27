@@ -9,7 +9,7 @@ Relationship to Canon: A constitutional document canonized under, subordinate to
 
 ## 2. Purpose
 
-This document establishes the justice system of the Open Advancement System: the due process every person is owed, the jurisdiction and independence of the Tribunal established in OAS-009, the standards by which disputes are heard and decided, the remedies available when this Constitution is violated, and the appeal and finality of Tribunal decisions. It gives the Tribunal's authority, stated in outline in OAS-009, Article 6, its full operative jurisdiction and procedure, and closes the gap — flagged in the Drafting Notes of OAS-007 and OAS-008 — that left disputes between persons themselves without any forum. It does not amend OAS-006, OAS-007, or OAS-009; it completes what each already anticipated.
+This document establishes the justice system of Aureus: the due process every person is owed, the jurisdiction and independence of the Tribunal established in OAS-009, the standards by which disputes are heard and decided, the remedies available when this Constitution is violated, and the appeal and finality of Tribunal decisions. It gives the Tribunal's authority, stated in outline in OAS-009, Article 6, its full operative jurisdiction and procedure, and closes the gap — flagged in the Drafting Notes of OAS-007 and OAS-008 — that left disputes between persons themselves without any forum. It does not amend OAS-006, OAS-007, or OAS-009; it completes what each already anticipated.
 
 ## 3. Draft Constitutional Text
 

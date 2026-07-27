@@ -1,14 +1,14 @@
-# OAS-001 — Founding Charter of the Open Advancement System
+# OAS-001 — Founding Charter of Aureus
 
 ## 1. Document Title
 
-**Founding Charter of the Open Advancement System (OAS)**
+**Founding Charter of Aureus**
 Canonical Designation: OAS-001
 Status: **Draft 0.95** — Constitutional Revision of Draft 0.9, integrating canonical institutional philosophy. Not yet ratified.
 
 ## 2. Purpose
 
-This Charter establishes the Open Advancement System as an enduring institution. It declares the purpose for which the institution exists, entrenches the principles by which it must act, defines the relationship between human authority and technological capability, establishes the supremacy and hierarchy of the constitutional order, and provides for its own amendment and continuity. All other constitutional documents, policies, and instruments of the Open Advancement System derive their authority from, and must conform to, this Charter.
+This Charter establishes Aureus as an enduring institution. It declares the purpose for which the institution exists, entrenches the principles by which it must act, defines the relationship between human authority and technological capability, establishes the supremacy and hierarchy of the constitutional order, and provides for its own amendment and continuity. All other constitutional documents, policies, and instruments of Aureus derive their authority from, and must conform to, this Charter.
 
 ## 3. Draft Constitutional Text
 
@@ -16,7 +16,7 @@ This Charter establishes the Open Advancement System as an enduring institution.
 
 ### PREAMBLE
 
-We establish the Open Advancement System in the conviction that every person is capable of flourishing — of growing in capability, wisdom, purpose, dignity, relationship, and contribution across a lifetime — and that this flourishing is worth strengthening, in each person and across generations. We hold that the means of advancement should be open to those we serve; that those who strengthen themselves increase the capacity of all to help one another; and that the tools of any age, however powerful, must remain servants of human purpose.
+We establish Aureus in the conviction that every person is capable of flourishing — of growing in capability, wisdom, purpose, dignity, relationship, and contribution across a lifetime — and that this flourishing is worth strengthening, in each person and across generations. We hold that the means of advancement should be open to those we serve; that those who strengthen themselves increase the capacity of all to help one another; and that the tools of any age, however powerful, must remain servants of human purpose.
 
 We found this institution to endure. We therefore bind it not to the technologies, personalities, or circumstances of its founding, but to principles capable of governing conduct we cannot foresee, and capable of still strengthening humanity five centuries hence. We entrust its stewardship to the people who will serve within it — not as owners, but as trustees for those they serve and those who will come after — and we hold them, and all who follow them, accountable to this Charter.
 
@@ -24,7 +24,7 @@ We found this institution to endure. We therefore bind it not to the technologie
 
 ### ARTICLE I — ESTABLISHMENT
 
-**Section 1. Name.** The institution established by this Charter is the Open Advancement System, herein "the System" or "OAS."
+**Section 1. Name.** The institution established by this Charter is Aureus, herein "the System."
 
 **Section 2. Perpetual Character.** The System is established with the intention of perpetual existence. No provision of this Charter, and no act of any officer or body of the System, shall be construed to favor short-term advantage over the long-term survival and integrity of the mission, except as this Charter expressly provides for dissolution.
 
@@ -36,7 +36,7 @@ We found this institution to endure. We therefore bind it not to the technologie
 
 ### ARTICLE II — MISSION
 
-**Section 1. Mission.** The mission of the Open Advancement System is to help every person flourish. The System pursues this mission by strengthening human capability, knowledge, and agency, and by making the means of advancement openly available to those it serves, across generations.
+**Section 1. Mission.** The mission of Aureus is to help every person flourish. The System pursues this mission by strengthening human capability, knowledge, and agency, and by making the means of advancement openly available to those it serves, across generations.
 
 **Section 2. Human Development.** Flourishing, as this Charter uses the term, is not reducible to productivity or information. It consists in the growth of capability, wisdom, purpose, dignity, relationship, opportunity, and meaningful contribution. The System shall pursue all of these together, and shall not mistake advancement in any one of them for the whole.
 
@@ -138,7 +138,7 @@ The following principles bind every officer, body, and instrument of the System.
 
 ### ARTICLE IX — RATIFICATION
 
-This Charter takes effect upon its approval and canonization by the Founder and its entry into the constitutional record, and thereupon binds the Open Advancement System, its officers, its bodies, and its instruments, in perpetuity, subject only to amendment under Article VII.
+This Charter takes effect upon its approval and canonization by the Founder and its entry into the constitutional record, and thereupon binds Aureus, its officers, its bodies, and its instruments, in perpetuity, subject only to amendment under Article VII.
 
 ---
 

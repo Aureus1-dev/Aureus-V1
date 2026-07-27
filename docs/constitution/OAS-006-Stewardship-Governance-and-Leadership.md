@@ -9,7 +9,7 @@ Relationship to Canon: A constitutional document canonized under, subordinate to
 
 ## 2. Purpose
 
-This document establishes the enduring rights, protections, and guarantees owed to every person by the Open Advancement System. Where a right restates a principle already established in OAS-001 or OAS-004, this document translates that principle from an institutional duty into a person-held claim, without amending its source. Where a right is established here for the first time, it is identified as such. This document is expressly operative: pursuant to OAS-005, Article VII, Section 3, it grants enforceable rights rather than merely declaring conviction, and that default is overridden accordingly.
+This document establishes the enduring rights, protections, and guarantees owed to every person by Aureus. Where a right restates a principle already established in OAS-001 or OAS-004, this document translates that principle from an institutional duty into a person-held claim, without amending its source. Where a right is established here for the first time, it is identified as such. This document is expressly operative: pursuant to OAS-005, Article VII, Section 3, it grants enforceable rights rather than merely declaring conviction, and that default is overridden accordingly.
 
 ## 3. Draft Constitutional Text
 
