@@ -23,6 +23,8 @@ This document consolidates, into a single coherent statement, everything the con
 
 **Section 3. Standing Among Those It Serves.** The System exercises only the authority this Constitution grants it, and holds no authority beyond what is written (OAS-001, Article V, Section 3). Its officers act as trustees, answerable to the people and principles this Constitution establishes, and remain open to challenge, correction, and review by those affected by their decisions (OAS-001, Article III, Section 5; Article VI, Section 3).
 
+**Section 4. Identity Preserved Through Faithfulness.** The identity this Article describes endures only so long as the System remains faithful to this Constitution. A System unfaithful to its own Constitution would no longer be the institution this Article describes, whatever it continued to call itself.
+
 ---
 
 ### ARTICLE II — MISSION
