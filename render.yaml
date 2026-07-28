@@ -1,4 +1,4 @@
-# Render Blueprint for the Aureus API (apps/api).
+# Render Blueprint for Aureus — both apps/api (NestJS) and apps/web (Next.js).
 #
 # This file exists to close a real gap found during the 2026-07-28
 # "every route 404s" incident investigation: this repository had NO
@@ -9,13 +9,23 @@
 # own even though it was not the direct cause of the reported 404s (see
 # the incident note in docs/operations/production-runbook.md).
 #
-# apps/api/Dockerfile's own header comment is explicit: it must be built
-# from the REPOSITORY ROOT, not from apps/api, because it needs the pnpm
-# workspace (apps/*, packages/*) and the root-level Prisma schema
-# (prisma/schema.prisma, prisma.config.ts) to resolve. `rootDir` is
-# deliberately NOT set below (or set to "." / left absent) for exactly
-# this reason — setting Render's Root Directory to apps/api would break
-# this Dockerfile's COPY paths, which are all relative to the repo root.
+# Both Dockerfiles' own header comments are explicit: each must be built
+# from the REPOSITORY ROOT, not from apps/api or apps/web, because both
+# need the pnpm workspace (apps/*, packages/*) and the root-level Prisma
+# schema (prisma/schema.prisma, prisma.config.ts) to resolve. `rootDir`
+# is deliberately NOT set on either service below for exactly this
+# reason — setting Render's Root Directory to a subdirectory would break
+# both Dockerfiles' COPY paths, which are all relative to the repo root.
+#
+# CORS_ORIGIN (API), FRONTEND_URL (API), and NEXT_PUBLIC_API_BASE_URL
+# (web) are deliberately left `sync: false` rather than auto-wired
+# between the two services: Render's inter-service env var references
+# (`fromService`) only expose a bare host, not a full https:// origin,
+# and the two services' URLs (or eventual custom domains) aren't known
+# until first deploy — a chicken-and-egg auto-wiring attempt here would
+# be more fragile than an explicit, documented manual step. Fill these
+# in from the Render dashboard once both services have real URLs (see
+# the comments on each var below for the exact value each one needs).
 
 services:
   - type: web
@@ -32,6 +42,17 @@ services:
     # (a container-level liveness check) still uses /health/live separately.
     healthCheckPath: /health/ready
     autoDeploy: true
+    # Runs before the new version receives traffic (Render's own
+    # pre-deploy hook, distinct from the container's CMD). Plain
+    # `prisma migrate deploy`, not scripts/db-migrate-deploy.sh's
+    # backup-wrapped version — that wrapper shells out to pg_dump/
+    # pg_restore, which apps/api/Dockerfile's runtime layer does not
+    # install (only openssl/libc6-compat, see the Dockerfile). Render's
+    # own managed Postgres has its own backup story; rely on that, or
+    # run the wrapper script manually from a deploy host per
+    # docs/operations/production-runbook.md §4 before a migration you
+    # want an extra manual safety net around.
+    preDeployCommand: npx prisma migrate deploy
     envVars:
       - key: NODE_ENV
         value: production
@@ -43,7 +64,15 @@ services:
           property: connectionString
       - key: JWT_ACCESS_SECRET
         generateValue: true
+      # Set to the deployed web service's real origin, e.g.
+      # https://aureus-web.onrender.com (or the production custom domain).
+      # Required in production — main.ts's env validation rejects
+      # NODE_ENV=production with CORS_ORIGIN left at its "*" default.
       - key: CORS_ORIGIN
+        sync: false
+      # Same origin as CORS_ORIGIN above — where verification/reset
+      # emails link back to.
+      - key: FRONTEND_URL
         sync: false
       - key: SENTRY_DSN
         sync: false
@@ -51,6 +80,35 @@ services:
         sync: false
       - key: ENABLE_API_DOCS
         value: false
+
+  - type: web
+    name: aureus-web
+    runtime: docker
+    dockerfilePath: ./apps/web/Dockerfile
+    dockerContext: .
+    plan: starter
+    region: oregon
+    # Matches the Dockerfile's own HEALTHCHECK (GET /, expects < 500).
+    healthCheckPath: /
+    autoDeploy: true
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 3001
+      # NEXT_PUBLIC_* vars are inlined into the client bundle at BUILD
+      # time, not read at runtime (see apps/web/Dockerfile's own comment
+      # and lib/api/config.ts). Render passes envVars through as Docker
+      # build args automatically for a `runtime: docker` service, which
+      # is why this works here without a separate `dockerBuildArgs`
+      # block — apps/web/Dockerfile already declares
+      # `ARG NEXT_PUBLIC_API_BASE_URL`. Set this to the deployed
+      # aureus-api service's real origin, e.g. https://aureus-api.onrender.com
+      # (or its production custom domain), and trigger a rebuild (not
+      # just a restart) after changing it, since it only takes effect
+      # at build time.
+      - key: NEXT_PUBLIC_API_BASE_URL
+        sync: false
 
 databases:
   - name: aureus-postgres
