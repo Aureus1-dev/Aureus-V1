@@ -13,6 +13,7 @@ export interface CreateUserInput {
   status?: UserStatus;
   passwordHash?: string;
   roles?: UserRole[];
+  isGuest?: boolean;
 }
 
 export interface UpdateUserInput {
@@ -26,6 +27,8 @@ export interface UpdateUserInput {
   mfaEnabled?: boolean;
   mfaSecret?: string | null;
   mfaRecoveryCodes?: string[];
+  isGuest?: boolean;
+  guestClaimedAt?: Date | null;
 }
 
 export interface PaginationParams {

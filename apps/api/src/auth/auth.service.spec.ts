@@ -31,6 +31,8 @@ const makeUser = (o: Partial<User> = {}): User => ({
   createdAt: NOW,
   updatedAt: NOW,
   deletedAt: null,
+  isGuest: false,
+  guestClaimedAt: null,
   ...o,
 });
 
@@ -132,6 +134,107 @@ describe('AuthService', () => {
         service.register({ email: 'alice@example.com', password: 'Str0ngPassw0rd' }),
       ).rejects.toThrow(ConflictException);
       expect(mockUserRepo.create).not.toHaveBeenCalled();
+    });
+  });
+
+  // ── guest ─────────────────────────────────────────────────────────────
+
+  describe('guest', () => {
+    it('creates a guest user with a synthetic unique email and no password, and issues tokens', async () => {
+      mockUserRepo.create.mockResolvedValue(
+        makeUser({ isGuest: true, email: 'guest+abc@guest.aureus.internal' }),
+      );
+
+      const result = await service.guest();
+
+      const createCall = mockUserRepo.create.mock.calls[0][0];
+      expect(createCall.isGuest).toBe(true);
+      expect(createCall.passwordHash).toBeUndefined();
+      expect(createCall.email).toMatch(/^guest\+.+@guest\.aureus\.internal$/);
+      expect(createCall.roles).toEqual([UserRole.MEMBER]);
+      // No verification email for a guest — there is no real inbox yet.
+      expect(mockEmailService.sendEmailVerification).not.toHaveBeenCalled();
+      expect(result.user.isGuest).toBe(true);
+      expect(result.tokens.accessToken).toBe('signed.jwt.token');
+    });
+
+    it('embeds isGuest in the issued access token payload', async () => {
+      mockUserRepo.create.mockResolvedValue(makeUser({ isGuest: true, id: 'guest-1' }));
+
+      await service.guest();
+
+      expect(mockJwt.signAsync).toHaveBeenCalledWith(
+        expect.objectContaining({ sub: 'guest-1', isGuest: true }),
+        expect.anything(),
+      );
+    });
+
+    it('never embeds isGuest for a normal registered user', async () => {
+      mockUserRepo.findByEmail.mockResolvedValue(null);
+      mockUserRepo.create.mockResolvedValue(makeUser());
+
+      await service.register({ email: 'alice@example.com', password: 'Str0ngPassw0rd' });
+
+      const payload = mockJwt.signAsync.mock.calls[0][0] as Record<string, unknown>;
+      expect(payload.isGuest).toBeUndefined();
+    });
+  });
+
+  // ── claimGuestAccount ────────────────────────────────────────────────
+
+  describe('claimGuestAccount', () => {
+    it('attaches email/password to the same user row and clears isGuest', async () => {
+      const guest = makeUser({ id: 'guest-1', isGuest: true, email: 'guest+abc@guest.aureus.internal' });
+      mockUserRepo.findById.mockResolvedValue(guest);
+      mockUserRepo.findByEmail.mockResolvedValue(null);
+      mockUserRepo.update.mockResolvedValue(
+        makeUser({ id: 'guest-1', isGuest: false, email: 'real@example.com' }),
+      );
+
+      const result = await service.claimGuestAccount('guest-1', {
+        email: 'real@example.com',
+        password: 'Str0ngPassw0rd',
+      });
+
+      expect(mockUserRepo.update).toHaveBeenCalledWith(
+        'guest-1',
+        expect.objectContaining({ email: 'real@example.com', isGuest: false }),
+      );
+      const updateCall = mockUserRepo.update.mock.calls[0][1];
+      expect(await bcrypt.compare('Str0ngPassw0rd', updateCall.passwordHash!)).toBe(true);
+      expect(updateCall.guestClaimedAt).toBeInstanceOf(Date);
+      // Same standard as a fresh register(): a verification email goes out.
+      expect(mockAuthRepo.createEmailVerificationToken).toHaveBeenCalled();
+      expect(result.user.id).toBe('guest-1');
+      expect(result.user.isGuest).toBe(false);
+      expect(result.tokens.accessToken).toBe('signed.jwt.token');
+    });
+
+    it('throws ConflictException when the caller is not a guest', async () => {
+      mockUserRepo.findById.mockResolvedValue(makeUser({ id: 'u-001', isGuest: false }));
+
+      await expect(
+        service.claimGuestAccount('u-001', { email: 'real@example.com', password: 'Str0ngPassw0rd' }),
+      ).rejects.toThrow(ConflictException);
+      expect(mockUserRepo.update).not.toHaveBeenCalled();
+    });
+
+    it('throws ConflictException when the requested email is already registered', async () => {
+      mockUserRepo.findById.mockResolvedValue(makeUser({ id: 'guest-1', isGuest: true }));
+      mockUserRepo.findByEmail.mockResolvedValue(makeUser({ id: 'other', email: 'taken@example.com' }));
+
+      await expect(
+        service.claimGuestAccount('guest-1', { email: 'taken@example.com', password: 'Str0ngPassw0rd' }),
+      ).rejects.toThrow(ConflictException);
+      expect(mockUserRepo.update).not.toHaveBeenCalled();
+    });
+
+    it('throws UnauthorizedException when the caller id does not resolve to a user', async () => {
+      mockUserRepo.findById.mockResolvedValue(null);
+
+      await expect(
+        service.claimGuestAccount('missing', { email: 'real@example.com', password: 'Str0ngPassw0rd' }),
+      ).rejects.toThrow(UnauthorizedException);
     });
   });
 

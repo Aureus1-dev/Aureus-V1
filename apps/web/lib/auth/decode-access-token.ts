@@ -2,6 +2,8 @@ export interface AccessTokenClaims {
   sub: string;
   email: string;
   roles: string[];
+  /** Guest Steward mode — true for a session issued by POST /auth/guest. */
+  isGuest?: boolean;
 }
 
 /**
@@ -20,7 +22,7 @@ export function decodeAccessToken(accessToken: string): AccessTokenClaims | null
     const json = atob(padded);
     const claims = JSON.parse(json) as Partial<AccessTokenClaims>;
     if (!claims.sub || !claims.email || !Array.isArray(claims.roles)) return null;
-    return { sub: claims.sub, email: claims.email, roles: claims.roles };
+    return { sub: claims.sub, email: claims.email, roles: claims.roles, isGuest: claims.isGuest === true };
   } catch {
     return null;
   }

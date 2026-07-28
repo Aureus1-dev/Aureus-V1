@@ -14,12 +14,21 @@ export interface JwtPayload {
    * replayed as a Bearer access token against JwtAuthGuard-only endpoints.
    */
   type?: string;
+  /**
+   * Guest Steward mode (Production Execution Order). True for a session
+   * issued by `POST /auth/guest` — embedded in the token itself (not
+   * re-fetched per request) so the frontend can show/hide the account-
+   * creation nudge without an extra round trip. Absent/false for every
+   * other token.
+   */
+  isGuest?: boolean;
 }
 
 export interface AuthenticatedUser {
   id: string;
   email: string;
   roles: string[];
+  isGuest?: boolean;
 }
 
 @Injectable()
@@ -40,6 +49,6 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     if (payload.type && payload.type !== 'access') {
       throw new UnauthorizedException('Invalid access token');
     }
-    return { id: payload.sub, email: payload.email, roles: payload.roles };
+    return { id: payload.sub, email: payload.email, roles: payload.roles, isGuest: payload.isGuest };
   }
 }

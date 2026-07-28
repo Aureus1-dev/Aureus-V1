@@ -1,3 +1,4 @@
+import { randomUUID } from 'crypto';
 import {
   ConflictException,
   ForbiddenException,
@@ -72,6 +73,66 @@ export class AuthService {
     const tokens = await this.issueTokenPair(user.id, user.email, user.roles);
     this.logger.log(`User registered: ${user.id}`);
     return { user: UserResponseDto.fromEntity(user), tokens };
+  }
+
+  // ── Guest Steward mode ───────────────────────────────────────────────
+  // Production Execution Order: the first Aureus experience must never
+  // require an account. A guest is an ordinary User row — real id, real
+  // JWTs — so every existing self-only endpoint (conversations, needs,
+  // resources, goals) already works for one unchanged. `email` only ever
+  // needs to be unique, never shown or logged into, so a synthetic
+  // address costs nothing; `passwordHash` was already nullable for
+  // exactly this "no credential yet" case (see the model comment).
+
+  async guest(): Promise<AuthResponseDto> {
+    const email = `guest+${randomUUID()}@guest.aureus.internal`;
+    const user = await this.users.create({
+      email,
+      roles: [UserRole.MEMBER],
+      isGuest: true,
+    });
+
+    const tokens = await this.issueTokenPair(user.id, user.email, user.roles, true);
+    this.logger.log(`Guest session started: ${user.id}`);
+    return { user: UserResponseDto.fromEntity(user), tokens };
+  }
+
+  /**
+   * Claims a guest account: attaches a real email/password to the SAME
+   * user row a guest session already has (id unchanged), so every piece
+   * of context that row already owns — conversation, stated needs,
+   * goals, whatever the member built as a guest — is preserved without
+   * a separate data migration. Mirrors `register()`'s verification-email
+   * behavior so a claimed account is held to the same standard as a
+   * freshly-registered one.
+   */
+  async claimGuestAccount(userId: string, dto: RegisterDto): Promise<AuthResponseDto> {
+    const user = await this.users.findById(userId);
+    if (!user) {
+      throw new UnauthorizedException('Session not found');
+    }
+    if (!user.isGuest) {
+      throw new ConflictException('This account has already been claimed');
+    }
+
+    const existing = await this.users.findByEmail(dto.email);
+    if (existing) {
+      throw new ConflictException(`Email '${dto.email}' is already registered`);
+    }
+
+    const passwordHash = await bcrypt.hash(dto.password, BCRYPT_SALT_ROUNDS);
+    const claimed = await this.users.update(user.id, {
+      email: dto.email,
+      passwordHash,
+      isGuest: false,
+      guestClaimedAt: new Date(),
+    });
+
+    await this.issueEmailVerificationToken(claimed.id, claimed.email);
+
+    const tokens = await this.issueTokenPair(claimed.id, claimed.email, claimed.roles);
+    this.logger.log(`Guest account claimed: ${claimed.id}`);
+    return { user: UserResponseDto.fromEntity(claimed), tokens };
   }
 
   // ── Login ─────────────────────────────────────────────────────────────
@@ -282,8 +343,9 @@ export class AuthService {
     userId: string,
     email: string,
     roles: UserRole[],
+    isGuest = false,
   ): Promise<TokenPairDto> {
-    const payload: JwtPayload = { sub: userId, email, roles };
+    const payload: JwtPayload = { sub: userId, email, roles, ...(isGuest ? { isGuest: true } : {}) };
     const expiresIn = this.config.get<string>('JWT_ACCESS_EXPIRY', '15m');
     // eslint-disable-next-line @typescript-eslint/no-explicit-any -- see auth.module.ts
     const accessToken = await this.jwt.signAsync(payload, { expiresIn: expiresIn as any });

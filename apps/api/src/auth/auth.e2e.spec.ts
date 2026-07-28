@@ -77,8 +77,18 @@ describe('Auth — Email Delivery E2E', () => {
     jest.clearAllMocks();
   });
 
+  // Guest-created User rows carry a synthetic `guest.aureus.internal`
+  // email, not `emailMarker` — tracked by id here instead, so cleanup
+  // never risks touching another suite's real rows under this codebase's
+  // shared-database parallel e2e architecture (the same cross-suite-
+  // isolation care C6/C7's tests already document).
+  const createdGuestIds: string[] = [];
+
   afterAll(async () => {
     await prisma.db.user.deleteMany({ where: { email: { contains: emailMarker } } });
+    if (createdGuestIds.length > 0) {
+      await prisma.db.user.deleteMany({ where: { id: { in: createdGuestIds } } });
+    }
     await app.close();
   });
 
@@ -286,4 +296,102 @@ describe('Auth — Email Delivery E2E', () => {
       .send({ email, password: 'Str0ng!Passw0rd' })
       .expect(200);
   }, 15_000);
+
+  // ── Guest Steward mode (Production Execution Order) ───────────────────
+
+  it('starts a guest session with no email or password, usable against a real self-only endpoint', async () => {
+    const guestRes = await request(app.getHttpServer()).post('/auth/guest').send({}).expect(201);
+    createdGuestIds.push(guestRes.body.user.id);
+
+    expect(guestRes.body.user.isGuest).toBe(true);
+    expect(guestRes.body.tokens.accessToken).toEqual(expect.any(String));
+
+    // A real, already-built self-only endpoint — no change was made to
+    // it for Guest Steward mode; a valid JWT is all it has ever required.
+    await request(app.getHttpServer())
+      .get('/needs')
+      .set('Authorization', `Bearer ${guestRes.body.tokens.accessToken}`)
+      .expect(200);
+  });
+
+  it('claiming a guest account preserves everything created under the guest session', async () => {
+    const email = `claimed-${emailMarker}@example.test`;
+    const guestRes = await request(app.getHttpServer()).post('/auth/guest').send({}).expect(201);
+    const guestId = guestRes.body.user.id;
+    createdGuestIds.push(guestId);
+    const guestToken = guestRes.body.tokens.accessToken;
+
+    // Build real context as a guest — a conversation, exactly what a
+    // visitor does before ever being asked for an account.
+    const convoRes = await request(app.getHttpServer())
+      .post('/ai/conversations')
+      .set('Authorization', `Bearer ${guestToken}`)
+      .send({})
+      .expect(201);
+    expect(convoRes.body.userId).toBe(guestId);
+
+    const claimRes = await request(app.getHttpServer())
+      .post('/auth/claim')
+      .set('Authorization', `Bearer ${guestToken}`)
+      .send({ email, password: 'Str0ng!Passw0rd' })
+      .expect(200);
+
+    // Same id, same row — this is what makes "lose nothing" true by
+    // construction rather than by a separate migration step.
+    expect(claimRes.body.user.id).toBe(guestId);
+    expect(claimRes.body.user.isGuest).toBe(false);
+    expect(claimRes.body.user.email).toBe(email);
+
+    const listRes = await request(app.getHttpServer())
+      .get('/ai/conversations')
+      .set('Authorization', `Bearer ${claimRes.body.tokens.accessToken}`)
+      .expect(200);
+    expect(listRes.body.data.map((c: { id: string }) => c.id)).toContain(convoRes.body.id);
+
+    // Claiming is held to the same standard as a fresh register(): a
+    // verification email goes out, and it works.
+    const [, verificationToken] = mockEmailService.sendEmailVerification.mock.calls.at(-1)!;
+    await request(app.getHttpServer())
+      .post('/auth/verify-email')
+      .send({ token: verificationToken })
+      .expect(204);
+    await request(app.getHttpServer())
+      .post('/auth/login')
+      .send({ email, password: 'Str0ng!Passw0rd' })
+      .expect(200);
+  });
+
+  it('rejects claiming an already-claimed account, and rejects claiming with an email already in use', async () => {
+    const email = `already-claimed-${emailMarker}@example.test`;
+    const guestRes = await request(app.getHttpServer()).post('/auth/guest').send({}).expect(201);
+    createdGuestIds.push(guestRes.body.user.id);
+    const guestToken = guestRes.body.tokens.accessToken;
+
+    const claimRes = await request(app.getHttpServer())
+      .post('/auth/claim')
+      .set('Authorization', `Bearer ${guestToken}`)
+      .send({ email, password: 'Str0ng!Passw0rd' })
+      .expect(200);
+
+    await request(app.getHttpServer())
+      .post('/auth/claim')
+      .set('Authorization', `Bearer ${claimRes.body.tokens.accessToken}`)
+      .send({ email: `other-${emailMarker}@example.test`, password: 'Str0ng!Passw0rd' })
+      .expect(409);
+
+    const secondGuestRes = await request(app.getHttpServer()).post('/auth/guest').send({}).expect(201);
+    createdGuestIds.push(secondGuestRes.body.user.id);
+    await request(app.getHttpServer())
+      .post('/auth/claim')
+      .set('Authorization', `Bearer ${secondGuestRes.body.tokens.accessToken}`)
+      .send({ email, password: 'Str0ng!Passw0rd' }) // already claimed by the first guest above
+      .expect(409);
+  });
+
+  it('rejects an unauthenticated claim attempt', async () => {
+    await request(app.getHttpServer())
+      .post('/auth/claim')
+      .send({ email: `no-auth-${emailMarker}@example.test`, password: 'Str0ng!Passw0rd' })
+      .expect(401);
+  });
 });

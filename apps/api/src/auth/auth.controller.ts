@@ -47,6 +47,28 @@ export class AuthController {
     return this.authService.register(dto);
   }
 
+  @Post('guest')
+  @HttpCode(HttpStatus.CREATED)
+  @Throttle(AUTH_THROTTLE)
+  @ApiOperation({ summary: 'Start an unauthenticated guest session — no email or password required. Guest Steward mode: the first Aureus experience never requires an account.' })
+  @ApiResponse({ status: 201, type: AuthResponseDto })
+  guest(): Promise<AuthResponseDto> {
+    return this.authService.guest();
+  }
+
+  @Post('claim')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @Throttle(AUTH_THROTTLE)
+  @ApiOperation({ summary: 'Claim the caller\'s guest session by attaching a real email/password — same account id, so every conversation, need, and goal already built as a guest is preserved.' })
+  @ApiResponse({ status: 200, type: AuthResponseDto })
+  @ApiResponse({ status: 401, description: 'Unauthenticated' })
+  @ApiResponse({ status: 409, description: 'Not a guest session, or the email is already registered' })
+  claim(@Body() dto: RegisterDto, @CurrentUser() caller: AuthenticatedUser): Promise<AuthResponseDto> {
+    return this.authService.claimGuestAccount(caller.id, dto);
+  }
+
   @Post('login')
   @HttpCode(HttpStatus.OK)
   @Throttle(AUTH_THROTTLE)
