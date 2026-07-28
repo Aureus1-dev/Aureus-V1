@@ -1,0 +1,58 @@
+# Render Blueprint for the Aureus API (apps/api).
+#
+# This file exists to close a real gap found during the 2026-07-28
+# "every route 404s" incident investigation: this repository had NO
+# committed Render configuration. Root Directory, Build Command, Start
+# Command, and health-check path lived only in the Render dashboard —
+# invisible to anyone reading this repo, with no audit trail and no way
+# to redeploy an identical service elsewhere. That is a real risk on its
+# own even though it was not the direct cause of the reported 404s (see
+# the incident note in docs/operations/production-runbook.md).
+#
+# apps/api/Dockerfile's own header comment is explicit: it must be built
+# from the REPOSITORY ROOT, not from apps/api, because it needs the pnpm
+# workspace (apps/*, packages/*) and the root-level Prisma schema
+# (prisma/schema.prisma, prisma.config.ts) to resolve. `rootDir` is
+# deliberately NOT set below (or set to "." / left absent) for exactly
+# this reason — setting Render's Root Directory to apps/api would break
+# this Dockerfile's COPY paths, which are all relative to the repo root.
+
+services:
+  - type: web
+    name: aureus-api
+    runtime: docker
+    dockerfilePath: ./apps/api/Dockerfile
+    dockerContext: .
+    plan: starter
+    region: oregon
+    # /health/ready (DB-inclusive), not /health/live — matches railway.json's
+    # deploy.healthcheckPath rationale: a platform deciding whether a new
+    # deploy is ready for traffic should confirm the database is reachable,
+    # not just that the process started. The Dockerfile's own HEALTHCHECK
+    # (a container-level liveness check) still uses /health/live separately.
+    healthCheckPath: /health/ready
+    autoDeploy: true
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 3000
+      - key: DATABASE_URL
+        fromDatabase:
+          name: aureus-postgres
+          property: connectionString
+      - key: JWT_ACCESS_SECRET
+        generateValue: true
+      - key: CORS_ORIGIN
+        sync: false
+      - key: SENTRY_DSN
+        sync: false
+      - key: REDIS_URL
+        sync: false
+      - key: ENABLE_API_DOCS
+        value: false
+
+databases:
+  - name: aureus-postgres
+    plan: starter
+    region: oregon
