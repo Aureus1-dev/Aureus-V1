@@ -9,6 +9,7 @@ import { AppModule } from '../app.module';
 import { AllExceptionsFilter } from '../common/filters/all-exceptions.filter';
 import { PrismaService } from '../prisma/prisma.service';
 import { EMAIL_SERVICE, IEmailService } from '../email/email.service.interface';
+import { GuestLifecycleService } from './guest-lifecycle.service';
 
 /**
  * End-to-end test for the auth module's email-dependent flows — originally
@@ -393,5 +394,82 @@ describe('Auth — Email Delivery E2E', () => {
       .post('/auth/claim')
       .send({ email: `no-auth-${emailMarker}@example.test`, password: 'Str0ng!Passw0rd' })
       .expect(401);
+  });
+
+  // ── Guest Steward mode privacy lifecycle ───────────────────────────────
+  // Proves the actual, real-database behavior the privacy principle
+  // depends on: an abandoned guest is genuinely gone, and so is
+  // everything they created — not merely hidden, not asserted from the
+  // schema alone.
+
+  it('permanently deletes an inactive guest and cascades to everything they created; an active guest survives the same pass', async () => {
+    const guestLifecycle = app.get(GuestLifecycleService);
+
+    // An abandoned guest: real conversation, then backdated past the
+    // retention window (the interceptor normally does this touch live;
+    // here it's simulated directly against the database, exactly like a
+    // guest who never returned would look).
+    const abandonedRes = await request(app.getHttpServer()).post('/auth/guest').send({}).expect(201);
+    const abandonedId = abandonedRes.body.user.id;
+    const abandonedToken = abandonedRes.body.tokens.accessToken;
+    const convoRes = await request(app.getHttpServer())
+      .post('/ai/conversations')
+      .set('Authorization', `Bearer ${abandonedToken}`)
+      .send({})
+      .expect(201);
+
+    // The request above just triggered GuestActivityInterceptor's own
+    // fire-and-forget `guestLastActiveAt` touch — deliberately not
+    // awaited by the request itself (that's the point, in production).
+    // Give it a moment to land before backdating below, or this backdate
+    // can race it and be silently overwritten back to "now".
+    await new Promise((resolve) => setTimeout(resolve, 100));
+
+    await prisma.db.user.update({
+      where: { id: abandonedId },
+      data: { guestLastActiveAt: new Date(Date.now() - 8 * 86_400_000) }, // 8 days ago
+    });
+
+    // A still-active guest, touched moments ago — must survive the same purge.
+    const activeRes = await request(app.getHttpServer()).post('/auth/guest').send({}).expect(201);
+    const activeId = activeRes.body.user.id;
+    createdGuestIds.push(activeId);
+
+    const purged = await guestLifecycle.purgeInactiveGuests();
+    expect(purged).toBeGreaterThanOrEqual(1);
+
+    const abandonedUser = await prisma.db.user.findUnique({ where: { id: abandonedId } });
+    expect(abandonedUser).toBeNull();
+    const abandonedConversation = await prisma.db.aiConversation.findUnique({ where: { id: convoRes.body.id } });
+    expect(abandonedConversation).toBeNull(); // cascaded, not merely orphaned
+
+    const activeUser = await prisma.db.user.findUnique({ where: { id: activeId } });
+    expect(activeUser).not.toBeNull();
+    expect(activeUser?.isGuest).toBe(true);
+  });
+
+  it('never purges a claimed account, no matter how old guestLastActiveAt is', async () => {
+    const email = `survives-purge-${emailMarker}@example.test`;
+    const guestRes = await request(app.getHttpServer()).post('/auth/guest').send({}).expect(201);
+    const guestId = guestRes.body.user.id;
+    const guestToken = guestRes.body.tokens.accessToken;
+
+    await request(app.getHttpServer())
+      .post('/auth/claim')
+      .set('Authorization', `Bearer ${guestToken}`)
+      .send({ email, password: 'Str0ng!Passw0rd' })
+      .expect(200);
+
+    // isGuest is now false — this backdate should not matter at all.
+    await prisma.db.user.update({
+      where: { id: guestId },
+      data: { guestLastActiveAt: new Date(Date.now() - 365 * 86_400_000) },
+    });
+
+    await app.get(GuestLifecycleService).purgeInactiveGuests();
+
+    const claimedUser = await prisma.db.user.findUnique({ where: { id: guestId } });
+    expect(claimedUser).not.toBeNull();
+    expect(claimedUser?.isGuest).toBe(false);
   });
 });

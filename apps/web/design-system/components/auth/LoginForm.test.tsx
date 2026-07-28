@@ -19,7 +19,7 @@ describe('LoginForm', () => {
 
   it('signs in and redirects to /welcome on success', async () => {
     const login = jest.fn().mockResolvedValue(undefined);
-    mockedUseSession.mockReturnValue({ login });
+    mockedUseSession.mockReturnValue({ login, establishGuestSession: jest.fn() });
 
     render(<LoginForm />);
     await userEvent.type(screen.getByLabelText('Email', { exact: false }), 'member@example.com');
@@ -32,7 +32,7 @@ describe('LoginForm', () => {
 
   it('shows the backend error message on failed login without redirecting', async () => {
     const login = jest.fn().mockRejectedValue(new ApiError(401, 'Invalid email or password'));
-    mockedUseSession.mockReturnValue({ login });
+    mockedUseSession.mockReturnValue({ login, establishGuestSession: jest.fn() });
 
     render(<LoginForm />);
     await userEvent.type(screen.getByLabelText('Email', { exact: false }), 'member@example.com');
@@ -45,20 +45,33 @@ describe('LoginForm', () => {
   });
 
   it('shows a session-expired notice when instructed', () => {
-    mockedUseSession.mockReturnValue({ login: jest.fn() });
+    mockedUseSession.mockReturnValue({ login: jest.fn(), establishGuestSession: jest.fn() });
     render(<LoginForm sessionExpired />);
     expect(screen.getByText('Your session has ended')).toBeInTheDocument();
   });
 
   it('disables submission until both fields are filled', () => {
-    mockedUseSession.mockReturnValue({ login: jest.fn() });
+    mockedUseSession.mockReturnValue({ login: jest.fn(), establishGuestSession: jest.fn() });
     render(<LoginForm />);
     expect(screen.getByRole('button', { name: 'Sign in' })).toBeDisabled();
   });
 
   it('has no accessibility violations', async () => {
-    mockedUseSession.mockReturnValue({ login: jest.fn() });
+    mockedUseSession.mockReturnValue({ login: jest.fn(), establishGuestSession: jest.fn() });
     const { container } = render(<LoginForm />);
     expect(await axe(container)).toHaveNoViolations();
+  });
+
+  // ── Guest Steward mode: never a true dead end ──────────────────────────
+
+  it('offers a way to continue without an account, even here', async () => {
+    const establishGuestSession = jest.fn().mockResolvedValue(undefined);
+    mockedUseSession.mockReturnValue({ login: jest.fn(), establishGuestSession });
+
+    render(<LoginForm sessionExpired />);
+    await userEvent.click(screen.getByRole('button', { name: 'Continue without an account' }));
+
+    expect(establishGuestSession).toHaveBeenCalled();
+    expect(push).toHaveBeenCalledWith('/conversation');
   });
 });

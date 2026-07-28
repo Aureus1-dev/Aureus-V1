@@ -1,12 +1,14 @@
 import { join } from 'path';
 import { Logger, MiddlewareConsumer, Module, NestModule } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
-import { APP_GUARD } from '@nestjs/core';
+import { APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
+import { ScheduleModule } from '@nestjs/schedule';
 import { ThrottlerGuard, ThrottlerModule, ThrottlerModuleOptions } from '@nestjs/throttler';
 import { envValidationSchema } from './config/env.validation';
 import { RequestLoggingMiddleware } from './common/middleware/request-logging.middleware';
 import { V1ScopeMiddleware } from './common/middleware/v1-scope.middleware';
 import { RedisThrottlerStorageService } from './common/throttler/redis-throttler-storage.service';
+import { GuestActivityInterceptor } from './common/interceptors/guest-activity.interceptor';
 import { PrismaModule } from './prisma/prisma.module';
 import { AuthModule } from './auth/auth.module';
 import { UsersModule } from './users/users.module';
@@ -84,6 +86,10 @@ import { ConsentModule } from './consent/consent.module';
       },
     }),
 
+    // Guest Steward mode: powers GuestLifecycleService's scheduled purge
+    // (auth/guest-lifecycle.service.ts) — registered once, globally, here.
+    ScheduleModule.forRoot(),
+
     // ── Domain modules ──────────────────────────────────────────────────────
     PrismaModule,
     AuthModule,
@@ -113,6 +119,10 @@ import { ConsentModule } from './consent/consent.module';
   providers: [
     // Apply ThrottlerGuard globally to all routes
     { provide: APP_GUARD, useClass: ThrottlerGuard },
+    // Guest Steward mode privacy lifecycle (see the interceptor's own
+    // doc comment for why this is an interceptor and not folded into
+    // JwtStrategy) — a true no-op for every non-guest request.
+    { provide: APP_INTERCEPTOR, useClass: GuestActivityInterceptor },
   ],
 })
 export class AppModule implements NestModule {

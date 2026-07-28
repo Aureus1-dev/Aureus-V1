@@ -14,7 +14,11 @@
   color: var(--color-text-primary);
   font-family: var(--font-family-base);
   font-size: var(--font-size-sm);
-  max-width: 60ch;
+  max-width: 70ch;
+}
+
+.detail {
+  color: var(--color-text-secondary);
 }
 
 .actions {

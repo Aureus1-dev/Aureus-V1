@@ -109,6 +109,14 @@ model User {
   isGuest        Boolean   @default(false)
   guestClaimedAt DateTime?
 
+  // Privacy lifecycle: set at guest creation, touched on every
+  // authenticated request a guest makes (JwtStrategy — real activity,
+  // not silent token refresh). GuestLifecycleService's scheduled purge
+  // reads this to find abandoned guests; meaningless once isGuest is
+  // false (a claimed account is never purged), left in place rather
+  // than cleared so the claim moment's own history stays intact.
+  guestLastActiveAt DateTime?
+
   // TOTP multi-factor authentication (PD-001 Production Foundation). mfaSecret
   // holds the base32 TOTP secret once enrollment begins — set before
   // mfaEnabled flips true, so an in-progress (unconfirmed) enrollment never

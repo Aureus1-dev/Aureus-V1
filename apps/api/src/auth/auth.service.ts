@@ -90,6 +90,7 @@ export class AuthService {
       email,
       roles: [UserRole.MEMBER],
       isGuest: true,
+      guestLastActiveAt: new Date(),
     });
 
     const tokens = await this.issueTokenPair(user.id, user.email, user.roles, true);

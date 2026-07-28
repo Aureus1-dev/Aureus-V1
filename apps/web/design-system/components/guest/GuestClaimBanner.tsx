@@ -24,6 +24,14 @@ import styles from './GuestClaimBanner.module.css';
  * yet), and a single honest, always-visible offer serves all of them
  * without scattering near-duplicate copy and near-duplicate logic
  * across the app.
+ *
+ * Privacy philosophy: the second line is deliberately specific, not
+ * vague reassurance — a guest who never claims an account has their
+ * conversation, needs, and progress genuinely, permanently deleted once
+ * inactive (`GuestLifecycleService`), not held indefinitely on the
+ * chance they return. The offer is framed entirely around preserving
+ * that progress across time and devices, never around unlocking
+ * anything — nothing here is otherwise restricted to a guest.
  */
 export function GuestClaimBanner() {
   const { session } = useSession();
@@ -38,6 +46,12 @@ export function GuestClaimBanner() {
       <p className={styles.message}>
         It looks like we&apos;ve built something worth keeping. Would you like to create your
         free account so I can save everything we&apos;ve worked on?
+        {' '}
+        <span className={styles.detail}>
+          Without one, this conversation and everything in it stays only as long as you&apos;re
+          actively using it — it isn&apos;t kept forever, and it won&apos;t follow you to another
+          device.
+        </span>
       </p>
       <div className={styles.actions}>
         <Link href="/register">

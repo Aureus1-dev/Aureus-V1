@@ -38,6 +38,17 @@ export const envValidationSchema = Joi.object({
   JWT_ACCESS_EXPIRY:      Joi.string().default('15m'),
   JWT_REFRESH_EXPIRY_DAYS: Joi.number().default(30),
 
+  // ── Guest Steward mode privacy lifecycle ─────────────────────────────
+  // How long an abandoned guest account (no email/password ever added)
+  // may go without any activity before it, and everything it created —
+  // conversations, stated needs, goals — is permanently deleted, not
+  // merely soft-deleted. "Creating a free account is only to preserve
+  // progress" is the stated principle; a guest who never claims one
+  // should not have their story kept indefinitely by default. Well
+  // under JWT_REFRESH_EXPIRY_DAYS above, so a guest's data is gone
+  // before their own browser-held token would have expired anyway.
+  GUEST_SESSION_RETENTION_DAYS: Joi.number().default(7),
+
   // ── Email delivery (ADR-009, hardened PD-001) ────────────────────────────
   // TEMPORARY (v1 launch): SMTP_HOST was required once NODE_ENV=production
   // (see git history for the .when('NODE_ENV', ...) rule this replaced).

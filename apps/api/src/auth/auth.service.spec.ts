@@ -152,6 +152,9 @@ describe('AuthService', () => {
       expect(createCall.passwordHash).toBeUndefined();
       expect(createCall.email).toMatch(/^guest\+.+@guest\.aureus\.internal$/);
       expect(createCall.roles).toEqual([UserRole.MEMBER]);
+      // Privacy lifecycle: activity tracking starts at creation, not left
+      // null (which GuestLifecycleService would otherwise never purge).
+      expect(createCall.guestLastActiveAt).toBeInstanceOf(Date);
       // No verification email for a guest — there is no real inbox yet.
       expect(mockEmailService.sendEmailVerification).not.toHaveBeenCalled();
       expect(result.user.isGuest).toBe(true);
