@@ -5,6 +5,7 @@ import { SessionProvider, useSession } from '../../../state/session/SessionConte
 import { JourneyProvider } from '../../../state/journey/JourneyContext';
 import { OpportunitiesProvider } from '../../../state/opportunities/OpportunitiesContext';
 import { RecommendationsProvider } from '../../../state/recommendations/RecommendationsContext';
+import { ConversationProvider } from '../../../state/conversation/ConversationContext';
 import { ThemeProvider } from '../../theme';
 import { WelcomeFlow } from './WelcomeFlow';
 import * as goalsApi from '../../../lib/api/goals';
@@ -40,7 +41,9 @@ function renderFlow(forceNewMission?: boolean) {
         <JourneyProvider>
           <OpportunitiesProvider>
             <RecommendationsProvider>
-              <TestHarness forceNewMission={forceNewMission} />
+              <ConversationProvider>
+                <TestHarness forceNewMission={forceNewMission} />
+              </ConversationProvider>
             </RecommendationsProvider>
           </OpportunitiesProvider>
         </JourneyProvider>

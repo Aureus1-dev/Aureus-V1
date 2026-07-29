@@ -6,6 +6,7 @@ import { SessionProvider, useSession } from '../../../state/session/SessionConte
 import { JourneyProvider } from '../../../state/journey/JourneyContext';
 import { OpportunitiesProvider } from '../../../state/opportunities/OpportunitiesContext';
 import { RecommendationsProvider } from '../../../state/recommendations/RecommendationsContext';
+import { ConversationProvider } from '../../../state/conversation/ConversationContext';
 import { ThemeProvider } from '../../theme';
 import { FirstRunWelcome } from './FirstRunWelcome';
 import * as goalsApi from '../../../lib/api/goals';
@@ -16,7 +17,10 @@ import * as opportunitiesApi from '../../../lib/api/opportunities';
 import * as savedApi from '../../../lib/api/saved-opportunities';
 import * as recommendationsApi from '../../../lib/api/recommendations';
 import * as consentApi from '../../../lib/api/consent';
+import * as conversationsApi from '../../../lib/api/conversations';
 import { CURRENT_CONSENT_VERSION } from '../../../lib/config/consent';
+import { MEMBER_ARRIVAL_FLAGS } from '../../../lib/config/member-arrival-flags';
+import { CLARIFYING_QUESTION, OUTCOME_QUESTION } from './understanding-progress';
 import { NetworkError } from '../../../lib/api/errors';
 
 jest.mock('../../../lib/api/goals');
@@ -27,6 +31,7 @@ jest.mock('../../../lib/api/opportunities');
 jest.mock('../../../lib/api/saved-opportunities');
 jest.mock('../../../lib/api/recommendations');
 jest.mock('../../../lib/api/consent');
+jest.mock('../../../lib/api/conversations');
 
 const push = jest.fn();
 jest.mock('next/navigation', () => ({ useRouter: () => ({ push }) }));
@@ -39,6 +44,7 @@ const mockedOpportunities = opportunitiesApi as jest.Mocked<typeof opportunities
 const mockedSaved = savedApi as jest.Mocked<typeof savedApi>;
 const mockedRecommendations = recommendationsApi as jest.Mocked<typeof recommendationsApi>;
 const mockedConsent = consentApi as jest.Mocked<typeof consentApi>;
+const mockedConversations = conversationsApi as jest.Mocked<typeof conversationsApi>;
 
 const goal = { id: 'goal-1', title: 'Find a better job', status: 'ACTIVE' as const, userId: 'member-1', createdAt: 'x', updatedAt: 'x', deletedAt: null };
 const journeyDto = { id: 'journey-1', title: 'Find a better job', status: 'ACTIVE' as const, goalId: 'goal-1', createdAt: 'x', updatedAt: 'x', deletedAt: null };
@@ -80,9 +86,11 @@ function renderFlow() {
         <JourneyProvider>
           <OpportunitiesProvider>
             <RecommendationsProvider>
-              <SignedInAs>
-                <FirstRunWelcome />
-              </SignedInAs>
+              <ConversationProvider>
+                <SignedInAs>
+                  <FirstRunWelcome />
+                </SignedInAs>
+              </ConversationProvider>
             </RecommendationsProvider>
           </OpportunitiesProvider>
         </JourneyProvider>
@@ -357,5 +365,130 @@ describe('FirstRunWelcome — Domain Completion Rule end-to-end', () => {
     await user.click(screen.getByRole('button', { name: 'Try again' }));
 
     await waitFor(() => expect(screen.getByText('This matches your goal of finding a better job.')).toBeInTheDocument());
+  });
+});
+
+describe('FirstRunWelcome — Member Arrival: need understanding via ConversationsService.ask() (flag-gated)', () => {
+  const conversation = { id: 'conv-1', userId: 'member-1', title: null, createdAt: 'x', updatedAt: 'x' };
+
+  const assistantMessage = (content: string, id = `assistant-${Math.random()}`) => ({
+    id, conversationId: 'conv-1', role: 'ASSISTANT' as const, content, createdAt: 'x',
+  });
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    MEMBER_ARRIVAL_FLAGS.stewardExperience = true;
+    window.localStorage.setItem('aureus.arrival.step', 'immediate-need');
+    mockedConversations.createConversation.mockResolvedValue(conversation);
+    mockedGoals.createGoal.mockResolvedValue(goal);
+    mockedJourneys.createJourney.mockResolvedValue(journeyDto);
+    mockedMilestones.createMilestone.mockResolvedValue(milestone);
+    mockedTasks.createTask.mockResolvedValue(task);
+  });
+
+  afterEach(() => {
+    MEMBER_ARRIVAL_FLAGS.stewardExperience = false;
+  });
+
+  it('routes the first stated need through ask(), and reflects an already-clear outcome back instead of asking again', async () => {
+    mockedConversations.sendMessage.mockResolvedValueOnce(
+      assistantMessage('It sounds like finding a better job is what would help most right now.'),
+    );
+    renderFlow();
+    const user = userEvent.setup();
+
+    await waitFor(() => expect(screen.getByText('What brings you to Aureus today?')).toBeInTheDocument());
+    await user.type(screen.getByLabelText('Your immediate need', { exact: false }), 'Find a better job');
+    await user.click(screen.getByRole('button', { name: 'Continue' }));
+
+    await waitFor(() => expect(mockedConversations.sendMessage).toHaveBeenCalledWith('token-123', 'conv-1', 'Find a better job', undefined));
+    await waitFor(() => expect(screen.getByText("Here's what we understood")).toBeInTheDocument());
+    expect(screen.getByText('It sounds like finding a better job is what would help most right now.')).toBeInTheDocument();
+    expect(mockedGoals.createGoal).not.toHaveBeenCalled();
+
+    await user.click(screen.getByRole('button', { name: "That's right — continue" }));
+    await waitFor(() => expect(mockedGoals.createGoal).toHaveBeenCalledWith('token-123', 'Find a better job'));
+    await waitFor(() => expect(screen.getByText('Your first mission is set')).toBeInTheDocument());
+  });
+
+  it('asks the single outcome question when the desired result is not already clear, then proceeds once answered', async () => {
+    mockedConversations.sendMessage
+      .mockResolvedValueOnce(assistantMessage(OUTCOME_QUESTION))
+      .mockResolvedValueOnce(assistantMessage('Got it — staying housed is what matters most.'));
+    renderFlow();
+    const user = userEvent.setup();
+
+    await waitFor(() => expect(screen.getByText('What brings you to Aureus today?')).toBeInTheDocument());
+    await user.type(screen.getByLabelText('Your immediate need', { exact: false }), 'My landlord gave me an eviction notice');
+    await user.click(screen.getByRole('button', { name: 'Continue' }));
+
+    await waitFor(() => expect(screen.getByText('What would help most right now?')).toBeInTheDocument());
+    await user.type(screen.getByLabelText('What would help most', { exact: false }), 'I want to stay in my apartment');
+    await user.click(screen.getByRole('button', { name: 'Continue' }));
+
+    await waitFor(() =>
+      expect(mockedConversations.sendMessage).toHaveBeenLastCalledWith(
+        'token-123', 'conv-1', 'I want to stay in my apartment', undefined,
+      ),
+    );
+    await waitFor(() => expect(screen.getByText("Here's what we understood")).toBeInTheDocument());
+    expect(screen.getByText('Got it — staying housed is what matters most.')).toBeInTheDocument();
+  });
+
+  it('asks a clarifying question for an ambiguous first message, and never skips it to the outcome question', async () => {
+    mockedConversations.sendMessage
+      .mockResolvedValueOnce(assistantMessage(CLARIFYING_QUESTION))
+      .mockResolvedValueOnce(assistantMessage('Got it — housing help in Chester County.'));
+    renderFlow();
+    const user = userEvent.setup();
+
+    await waitFor(() => expect(screen.getByText('What brings you to Aureus today?')).toBeInTheDocument());
+    await user.type(screen.getByLabelText('Your immediate need', { exact: false }), 'help');
+    await user.click(screen.getByRole('button', { name: 'Continue' }));
+
+    await waitFor(() => expect(screen.getByText(CLARIFYING_QUESTION)).toBeInTheDocument());
+    expect(screen.getByText('What brings you to Aureus today?')).toBeInTheDocument();
+    await user.type(
+      screen.getByLabelText('Your immediate need', { exact: false }),
+      'I need help finding affordable housing in Chester County',
+    );
+    await user.click(screen.getByRole('button', { name: 'Continue' }));
+
+    await waitFor(() => expect(screen.getByText("Here's what we understood")).toBeInTheDocument());
+  });
+
+  it('shows real crisis resources instead of proceeding to a plan, and never auto-continues past it', async () => {
+    const crisisMessage = "If you're thinking about suicide or self-harm, call or text 988. I'm still here if you want to talk once you're safe.";
+    mockedConversations.sendMessage.mockResolvedValueOnce(assistantMessage(crisisMessage));
+    renderFlow();
+    const user = userEvent.setup();
+
+    await waitFor(() => expect(screen.getByText('What brings you to Aureus today?')).toBeInTheDocument());
+    await user.type(screen.getByLabelText('Your immediate need', { exact: false }), 'I want to end it all');
+    await user.click(screen.getByRole('button', { name: 'Continue' }));
+
+    await waitFor(() => expect(screen.getByText(crisisMessage)).toBeInTheDocument());
+    expect(screen.queryByText("Here's what we understood")).not.toBeInTheDocument();
+    expect(mockedGoals.createGoal).not.toHaveBeenCalled();
+    // The member can still keep talking — this is not a dead end.
+    expect(screen.getByText('What brings you to Aureus today?')).toBeInTheDocument();
+  });
+
+  it('lets the member correct a wrong reflection directly into the first mission, without a second AI round trip', async () => {
+    mockedConversations.sendMessage.mockResolvedValueOnce(assistantMessage('It sounds like a new job is what matters most.'));
+    renderFlow();
+    const user = userEvent.setup();
+
+    await waitFor(() => expect(screen.getByText('What brings you to Aureus today?')).toBeInTheDocument());
+    await user.type(screen.getByLabelText('Your immediate need', { exact: false }), 'I need a new job');
+    await user.click(screen.getByRole('button', { name: 'Continue' }));
+
+    await waitFor(() => expect(screen.getByText("Here's what we understood")).toBeInTheDocument());
+    await user.click(screen.getByRole('button', { name: 'Not quite' }));
+    await user.type(screen.getByLabelText('What would help most', { exact: false }), 'Actually I need childcare first');
+    await user.click(screen.getByRole('button', { name: 'Continue' }));
+
+    await waitFor(() => expect(mockedGoals.createGoal).toHaveBeenCalledWith('token-123', 'Actually I need childcare first'));
+    expect(mockedConversations.sendMessage).toHaveBeenCalledTimes(1);
   });
 });
