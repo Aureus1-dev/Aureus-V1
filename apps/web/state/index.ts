@@ -34,6 +34,12 @@ export {
   type PlanErrorKind,
 } from './plan/PlanContext';
 export {
+  MemoryProvider,
+  useMemory,
+  type MemoryError,
+  type MemoryErrorKind,
+} from './memory/MemoryContext';
+export {
   VoiceProvider,
   useVoice,
   type VoiceTurnState,

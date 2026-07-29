@@ -7,6 +7,7 @@ import { SkipLink } from '../accessibility';
 import { primarySurfaces } from '../navigation/surfaces';
 import { useSession } from '../../state';
 import { RoomTransition } from './RoomTransition';
+import { StewardPanel } from '../components/steward-panel';
 import styles from './AppShell.module.css';
 
 export interface AppShellProps {
@@ -34,6 +35,12 @@ function isActiveSurface(pathname: string | null, href: string): boolean {
  * it's an administrative tool, not a member experience, explicitly left
  * out of this redesign — so its nav entry is appended conditionally and
  * only ever renders for a Platform or System Administrator.
+ *
+ * `StewardPanel` (the docked right-hand context column — Current Goal,
+ * Desired Outcome, Today's Progress, Suggested Next Step, Relevant
+ * Journey, Recent Memory) renders alongside `<main>` on every screen;
+ * `AppShell.module.css` collapses it below the 1024px breakpoint rather
+ * than shrinking the conversation column on narrow viewports.
  */
 export function AppShell({ children }: AppShellProps) {
   const { session } = useSession();
@@ -98,6 +105,9 @@ export function AppShell({ children }: AppShellProps) {
       <main id="main-content" className={styles.main} tabIndex={-1}>
         <RoomTransition pathname={pathname}>{children}</RoomTransition>
       </main>
+      <div className={styles.panelRegion}>
+        <StewardPanel />
+      </div>
     </div>
   );
 }

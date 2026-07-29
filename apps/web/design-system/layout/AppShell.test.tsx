@@ -2,10 +2,25 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { axe } from 'jest-axe';
 import { SessionProvider, useSession } from '../../state/session/SessionContext';
+import { JourneyProvider } from '../../state/journey/JourneyContext';
+import { MemoryProvider } from '../../state/memory/MemoryContext';
+import { ConversationProvider } from '../../state/conversation/ConversationContext';
 import { AppShell } from './AppShell';
+import * as goalsApi from '../../lib/api/goals';
+import * as memoryApi from '../../lib/api/memory';
+
+jest.mock('../../lib/api/goals');
+jest.mock('../../lib/api/journeys');
+jest.mock('../../lib/api/milestones');
+jest.mock('../../lib/api/tasks');
+jest.mock('../../lib/api/memory');
+jest.mock('../../lib/api/conversations');
 
 let mockPathname = '/conversation';
 jest.mock('next/navigation', () => ({ usePathname: () => mockPathname }));
+
+const mockedGoals = goalsApi as jest.Mocked<typeof goalsApi>;
+const mockedMemory = memoryApi as jest.Mocked<typeof memoryApi>;
 
 function SignedInAs({ roles, children }: { roles: string[]; children: React.ReactNode }) {
   const { setSession, session } = useSession();
@@ -18,18 +33,30 @@ function SignedInAs({ roles, children }: { roles: string[]; children: React.Reac
 function renderShell(roles: string[] = []) {
   return render(
     <SessionProvider>
-      <SignedInAs roles={roles}>
-        <AppShell>
-          <p>Content</p>
-        </AppShell>
-      </SignedInAs>
+      <JourneyProvider>
+        <MemoryProvider>
+          <ConversationProvider>
+            <SignedInAs roles={roles}>
+              <AppShell>
+                <p>Content</p>
+              </AppShell>
+            </SignedInAs>
+          </ConversationProvider>
+        </MemoryProvider>
+      </JourneyProvider>
     </SessionProvider>,
   );
 }
 
 describe('AppShell', () => {
   beforeEach(() => {
+    jest.clearAllMocks();
     mockPathname = '/conversation';
+    mockedGoals.listGoals.mockResolvedValue({ data: [], total: 0, page: 1, limit: 20, totalPages: 0 });
+    mockedMemory.getMyMemory.mockResolvedValue({
+      goals: [], activeJourney: null, savedOpportunities: [], savedResources: [],
+      podMemberships: [], stewardshipRelationship: null, recentConversationSnippets: [],
+    });
   });
 
   it('always shows the 8 curated primary-tier surfaces', () => {
