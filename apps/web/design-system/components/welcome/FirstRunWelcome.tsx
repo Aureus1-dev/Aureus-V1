@@ -1,8 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { useConversation, useJourney, useOpportunities, usePlan, useRecommendations, useSession } from '../../../state';
+import { useConversation, useJourney, usePlan, useRecommendations, useSession } from '../../../state';
 import { useRecommendationSubjects } from '../recommendations';
 import { planItemKey } from '../plan/PlanCard';
 import type { PlanItemDto } from '../../../lib/api/plan';
@@ -10,7 +9,6 @@ import { getMyNeeds, offerResource, respondToOffer, type ResourceOfferResponseVa
 import { useTheme } from '../../theme';
 import { grantConsent } from '../../../lib/api/consent';
 import { CURRENT_CONSENT_VERSION } from '../../../lib/config/consent';
-import { MEMBER_ARRIVAL_FLAGS } from '../../../lib/config/member-arrival-flags';
 import { ConsentStep } from './steps/ConsentStep';
 import { PreferencesStep } from './steps/PreferencesStep';
 import { HospitalityStep } from './steps/HospitalityStep';
@@ -18,18 +16,20 @@ import { ImmediateNeedStep } from './steps/ImmediateNeedStep';
 import { OutcomeQuestionStep } from './steps/OutcomeQuestionStep';
 import { GoalReflectionStep } from './steps/GoalReflectionStep';
 import { FirstMissionStep } from './steps/FirstMissionStep';
-import { OpportunityDiscoveryStep } from './steps/OpportunityDiscoveryStep';
-import { ReviewApprovalStep } from './steps/ReviewApprovalStep';
 import { CoordinatedPlanStep } from './steps/CoordinatedPlanStep';
 import { StewardshipOfferStep } from './steps/StewardshipOfferStep';
 import { ExecutionStatusStep, type DecidedPlanItem, type PlanItemDecision } from './steps/ExecutionStatusStep';
-import { NextStepSummary } from './steps/NextStepSummary';
 import { classifyArrivalError, type ArrivalError } from './classify-arrival-error';
 import { clearArrivalStep, readArrivalStep, writeArrivalStep, type ArrivalStep } from './arrival-progress';
 import { deriveUnderstandingPhase } from './understanding-progress';
 import styles from './FirstRunWelcome.module.css';
 
 type Step = ArrivalStep;
+
+const KNOWN_STEPS = new Set<Step>([
+  'consent', 'preferences', 'hospitality', 'immediate-need', 'first-mission',
+  'coordinated-plan', 'stewardship-offer', 'next-step',
+]);
 
 /**
  * Consent Resequencing (Founder ruling): "Before the visitor submits
@@ -47,12 +47,17 @@ export interface FirstRunWelcomeProps {
 }
 
 /**
- * The guided first-run flow (FPB-015 Phase Three, as reordered by
- * Founder Decision: Welcome composes First Mission, Opportunity
- * Discovery, Review & Approval, and Journey Progress rather than being
- * built after them). Satisfies the Domain Completion Rule end to end:
- * welcomed -> immediate need -> first mission -> opportunities ->
- * review & approval -> understands next step.
+ * The Steward Experience — Aureus's guided first-run flow. Welcomed ->
+ * a brief privacy notice, never a consent wall -> immediate need,
+ * understood through the same `ConversationsService.ask()` pipeline
+ * every conversation uses (so crisis detection, clarification, and the
+ * single outcome question can never be bypassed) -> full persistence
+ * consent, immediately before the first Goal/Journey/Memory is ever
+ * written -> the Coordinated Plan (one Primary next step, genuinely
+ * useful Supporting steps, each with its own real approval mechanism) ->
+ * the Stewardship Offer (preserving progress is a separate decision from
+ * persistence consent, never bundled with it) -> execution status and a
+ * long-term stewardship close, never "anything else?".
  *
  * B6 (Gate B — The Gate): the current step is persisted (`arrival-
  * progress.ts`) and restored on mount, so a member who leaves mid-
@@ -60,13 +65,14 @@ export interface FirstRunWelcomeProps {
  * repeating completed steps or losing progress. `forceNewMission`
  * (a returning member deliberately starting over) ignores and clears
  * any stale persisted step, since that is an intentional fresh start.
+ * A step value left over from a previous release (or otherwise
+ * unrecognized) is never a dead end — it falls back to `preferences`
+ * rather than a blank screen.
  */
 export function FirstRunWelcome({ skipHospitality = false }: FirstRunWelcomeProps) {
-  const router = useRouter();
   const { session } = useSession();
   const { motionPreference, setMotionPreference } = useTheme();
   const journey = useJourney();
-  const opportunities = useOpportunities();
   const recommendations = useRecommendations();
   const conversation = useConversation();
   const plan = usePlan();
@@ -77,12 +83,7 @@ export function FirstRunWelcome({ skipHospitality = false }: FirstRunWelcomeProp
       return 'immediate-need';
     }
     const persisted = readArrivalStep();
-    if (persisted) return persisted;
-    // Consent Resequencing (Founder ruling): no full consent wall before
-    // help — the flag-on flow reaches full consent later, immediately
-    // before the first persistent write (createFirstMission). Flag off,
-    // this is unchanged: consent remains the very first step.
-    return MEMBER_ARRIVAL_FLAGS.stewardExperience ? 'preferences' : 'consent';
+    return persisted && KNOWN_STEPS.has(persisted) ? persisted : 'preferences';
   });
   const [isGrantingConsent, setIsGrantingConsent] = useState(false);
   const [consentError, setConsentError] = useState<ArrivalError | null>(null);
@@ -93,7 +94,6 @@ export function FirstRunWelcome({ skipHospitality = false }: FirstRunWelcomeProp
     Record<string, ResourceOfferResponseValue>
   >({});
   const [planItemDecisions, setPlanItemDecisions] = useState<Record<string, PlanItemDecision>>({});
-  const generatedRef = useRef(false);
   const planBuiltRef = useRef(false);
 
   const planRecommendations = useMemo(() => {
@@ -102,11 +102,9 @@ export function FirstRunWelcome({ skipHospitality = false }: FirstRunWelcomeProp
       .filter((item) => item.source === 'RECOMMENDATION')
       .map((item) => item.recommendation!);
   }, [plan.state.plan]);
-  const subjectsById = useRecommendationSubjects(recommendations.state.recommendations);
   const planSubjectsById = useRecommendationSubjects(planRecommendations);
 
   /**
-   * Member Arrival — Steward Experience migration, Phase 5 (flag-gated).
    * A plain read of what was actually decided on each plan item, keyed by
    * `planItemKey` and populated by `decidePlanItem` itself the moment
    * either real mechanism (RecommendationsContext.approve/dismiss, Gate
@@ -140,28 +138,25 @@ export function FirstRunWelcome({ skipHospitality = false }: FirstRunWelcomeProp
   }, []);
 
   /**
-   * Consent Resequencing (Founder ruling). Flag off, this is the arrival
-   * flow's very first decision and always leads to `preferences`, exactly
-   * as before this migration. Flag on, this same step is reached later —
-   * immediately before the first persistent write this flow makes
-   * (`createFirstMission`, i.e. Goal/Journey/Memory creation) — and
-   * granting consent is what actually triggers that write; persistence
+   * Consent Resequencing (Founder ruling): full consent is reached only
+   * once — immediately before the first persistent write this flow
+   * makes (`createFirstMission`, i.e. Goal/Journey/Memory creation) —
+   * and granting it is what actually triggers that write. Persistence
    * consent and account creation (`StewardshipOfferStep`) stay two
-   * separate decisions, never bundled into one.
+   * separate decisions, never bundled into one. `pendingMissionNeed` is
+   * only ever unset here if this step was reached with nothing pending
+   * (the `consent` case below falls back to restarting understanding in
+   * that situation, never reaching this handler).
    */
   const handleGrantConsent = useCallback(async () => {
-    if (!session.accessToken || !session.memberId) return;
+    if (!session.accessToken || !session.memberId || !pendingMissionNeed) return;
     setIsGrantingConsent(true);
     setConsentError(null);
     try {
       await grantConsent(session.accessToken, session.memberId, CURRENT_CONSENT_VERSION);
       setIsGrantingConsent(false);
-      if (MEMBER_ARRIVAL_FLAGS.stewardExperience && pendingMissionNeed) {
-        goToStep('first-mission');
-        void journey.createFirstMission(pendingMissionNeed);
-      } else {
-        goToStep('preferences');
-      }
+      goToStep('first-mission');
+      void journey.createFirstMission(pendingMissionNeed);
     } catch (error) {
       setIsGrantingConsent(false);
       setConsentError(classifyArrivalError(error));
@@ -174,10 +169,8 @@ export function FirstRunWelcome({ skipHospitality = false }: FirstRunWelcomeProp
       : null;
 
   /**
-   * Member Arrival — Steward Experience migration, Phase 2 (flag-gated).
-   * Behind `MEMBER_ARRIVAL_FLAGS.stewardExperience`, the member's stated
-   * need is routed through `ConversationsService.ask()` (via
-   * `conversation.sendMessage`) rather than straight to
+   * The member's stated need is routed through `ConversationsService.ask()`
+   * (via `conversation.sendMessage`) rather than straight to
    * `createFirstMission()`, so crisis detection, clarification, and the
    * single outcome question cannot be bypassed on this, the member's
    * first message (Founder ruling: "The arrival experience must route
@@ -185,19 +178,13 @@ export function FirstRunWelcome({ skipHospitality = false }: FirstRunWelcomeProp
    * handler also carries every follow-up reply in that exchange — a
    * clarifying answer, an outcome answer, or a reply after a crisis
    * redirect — since `sendMessage` continues the same conversation once
-   * one exists. Flag off, behavior is unchanged from before this
-   * migration.
+   * one exists.
    */
   const handleImmediateNeed = useCallback(
     (need: string) => {
-      if (MEMBER_ARRIVAL_FLAGS.stewardExperience) {
-        void conversation.sendMessage(undefined, need);
-        return;
-      }
-      goToStep('first-mission');
-      void journey.createFirstMission(need);
+      void conversation.sendMessage(undefined, need);
     },
-    [conversation, journey, goToStep],
+    [conversation],
   );
 
   /**
@@ -216,23 +203,16 @@ export function FirstRunWelcome({ skipHospitality = false }: FirstRunWelcomeProp
     [goToStep],
   );
 
-  useEffect(() => {
-    if (step !== 'review-approval' || generatedRef.current) return;
-    generatedRef.current = true;
-    void recommendations.generate('OPPORTUNITY');
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [step]);
-
   /**
-   * Member Arrival — Steward Experience migration, Phase 3 (flag-gated).
-   * Builds the one Coordinated Plan in place of Opportunity Discovery and
-   * Review & Approval (Founder ruling: "Remove the duplicated search-page
-   * behavior"). `NeedsService.capture()` on the backend is best-effort —
-   * this looks up the resulting StatedNeed by the arrival conversation's
-   * id, exactly as the AI Intelligence Engine's own e2e suite already
-   * does, and simply proceeds with no `needId` if none is found: the
-   * COORDINATED_PLAN goal still returns a real plan from the
-   * Recommendation categories alone in that case.
+   * Builds the one Coordinated Plan in place of the search-page-style
+   * discovery and review this migration replaced (Founder ruling:
+   * "Remove the duplicated search-page behavior"). `NeedsService.capture()`
+   * on the backend is best-effort — this looks up the resulting
+   * StatedNeed by the arrival conversation's id, exactly as the AI
+   * Intelligence Engine's own e2e suite already does, and simply
+   * proceeds with no `needId` if none is found: the COORDINATED_PLAN
+   * goal still returns a real plan from the Recommendation categories
+   * alone in that case.
    */
   useEffect(() => {
     if (step !== 'coordinated-plan' || planBuiltRef.current || !session.accessToken) return;
@@ -312,25 +292,14 @@ export function FirstRunWelcome({ skipHospitality = false }: FirstRunWelcomeProp
     [session.accessToken, recommendations, arrivalNeedId],
   );
 
-  const nextStepTitle = (() => {
-    if (!createdGoal) return null;
-    const journeyForGoal = journey.state.journeysByGoalId[createdGoal.id];
-    if (!journeyForGoal) return null;
-    const milestones = journey.state.milestonesByJourneyId[journeyForGoal.id] ?? [];
-    const firstMilestone = milestones[0];
-    if (!firstMilestone) return null;
-    const tasks = journey.state.tasksByMilestoneId[firstMilestone.id] ?? [];
-    return tasks[0]?.title ?? firstMilestone.title;
-  })();
-
   switch (step) {
     case 'consent':
-      // Flag on: this step is reached after understanding, immediately
-      // before the first persistent write. A resumed session can land
-      // here with the pending need lost to a reload (local component
-      // state, not persisted) — no dead end, restart understanding
-      // rather than granting consent for nothing to actually persist.
-      if (MEMBER_ARRIVAL_FLAGS.stewardExperience && !pendingMissionNeed) {
+      // Reached after understanding, immediately before the first
+      // persistent write. A resumed session can land here with the
+      // pending need lost to a reload (local component state, not
+      // persisted) — no dead end, restart understanding rather than
+      // granting consent for nothing to actually persist.
+      if (!pendingMissionNeed) {
         return <ImmediateNeedStep onSubmit={handleImmediateNeed} submitting={conversation.state.pendingResponse} />;
       }
       return (
@@ -355,10 +324,6 @@ export function FirstRunWelcome({ skipHospitality = false }: FirstRunWelcomeProp
       return <HospitalityStep onContinue={() => goToStep('immediate-need')} />;
 
     case 'immediate-need': {
-      if (!MEMBER_ARRIVAL_FLAGS.stewardExperience) {
-        return <ImmediateNeedStep onSubmit={handleImmediateNeed} submitting={journey.state.isCreatingFirstMission} />;
-      }
-
       const phase = deriveUnderstandingPhase(conversation.timeline);
 
       if (phase.kind === 'understood') {
@@ -407,7 +372,7 @@ export function FirstRunWelcome({ skipHospitality = false }: FirstRunWelcomeProp
           creating={journey.state.isCreatingFirstMission}
           error={journey.state.error}
           onRetry={() => void journey.retryFirstMission()}
-          onContinue={() => goToStep(MEMBER_ARRIVAL_FLAGS.stewardExperience ? 'coordinated-plan' : 'opportunities')}
+          onContinue={() => goToStep('coordinated-plan')}
         />
       );
 
@@ -433,43 +398,10 @@ export function FirstRunWelcome({ skipHospitality = false }: FirstRunWelcomeProp
       // about whether to preserve progress across sessions and devices.
       return <StewardshipOfferStep isGuest={session.isGuest} onContinue={() => goToStep('next-step')} />;
 
-    case 'opportunities':
-      return (
-        <OpportunityDiscoveryStep
-          searchHint={createdGoal?.title ?? ''}
-          results={opportunities.state.results}
-          searching={opportunities.state.isSearching}
-          error={opportunities.state.error}
-          onSearch={(q) => void opportunities.search({ q: q || undefined })}
-          isSaved={opportunities.isSaved}
-          onToggleSave={(id) => void opportunities.toggleSave(id)}
-          onOpenOpportunity={() => router.push('/opportunities')}
-          onContinue={() => goToStep('review-approval')}
-        />
-      );
-
-    case 'review-approval':
-      return (
-        <ReviewApprovalStep
-          recommendations={recommendations.state.recommendations}
-          subjectsById={subjectsById}
-          generating={recommendations.state.isGenerating}
-          error={recommendations.state.error}
-          isDeciding={recommendations.isDeciding}
-          onApprove={(id) => void recommendations.approve(id)}
-          onDismiss={(id) => void recommendations.dismiss(id)}
-          onRetry={() => void recommendations.generate('OPPORTUNITY')}
-          onContinue={() => goToStep('next-step')}
-        />
-      );
-
     case 'next-step':
       // Execution status narration + a long-term stewardship prompt
-      // (Founder ruling) replaces the old "anything else?" close.
-      if (MEMBER_ARRIVAL_FLAGS.stewardExperience) {
-        return <ExecutionStatusStep decisions={planDecisions} />;
-      }
-      return <NextStepSummary nextStepTitle={nextStepTitle} />;
+      // (Founder ruling) — never the old "anything else?" close.
+      return <ExecutionStatusStep decisions={planDecisions} />;
 
     default:
       return null;
