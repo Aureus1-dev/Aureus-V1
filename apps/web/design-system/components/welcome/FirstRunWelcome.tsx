@@ -21,6 +21,7 @@ import { FirstMissionStep } from './steps/FirstMissionStep';
 import { OpportunityDiscoveryStep } from './steps/OpportunityDiscoveryStep';
 import { ReviewApprovalStep } from './steps/ReviewApprovalStep';
 import { CoordinatedPlanStep } from './steps/CoordinatedPlanStep';
+import { StewardshipOfferStep } from './steps/StewardshipOfferStep';
 import { NextStepSummary } from './steps/NextStepSummary';
 import { classifyArrivalError, type ArrivalError } from './classify-arrival-error';
 import { clearArrivalStep, readArrivalStep, writeArrivalStep, type ArrivalStep } from './arrival-progress';
@@ -28,6 +29,16 @@ import { deriveUnderstandingPhase } from './understanding-progress';
 import styles from './FirstRunWelcome.module.css';
 
 type Step = ArrivalStep;
+
+/**
+ * Consent Resequencing (Founder ruling): "Before the visitor submits
+ * their first message, provide a brief and calm privacy notice
+ * explaining that Aureus will process what they share in order to
+ * respond." A notice, not a wall — shown inline, never blocking the
+ * member from typing.
+ */
+const PRIVACY_NOTICE =
+  'Aureus uses what you share here to understand how to help. Nothing you share is saved permanently or acted on beyond this conversation without your explicit approval.';
 
 export interface FirstRunWelcomeProps {
   /** Skip the hospitality intro for a returning member starting a new mission. */
@@ -64,10 +75,17 @@ export function FirstRunWelcome({ skipHospitality = false }: FirstRunWelcomeProp
       clearArrivalStep();
       return 'immediate-need';
     }
-    return readArrivalStep() ?? 'consent';
+    const persisted = readArrivalStep();
+    if (persisted) return persisted;
+    // Consent Resequencing (Founder ruling): no full consent wall before
+    // help — the flag-on flow reaches full consent later, immediately
+    // before the first persistent write (createFirstMission). Flag off,
+    // this is unchanged: consent remains the very first step.
+    return MEMBER_ARRIVAL_FLAGS.stewardExperience ? 'preferences' : 'consent';
   });
   const [isGrantingConsent, setIsGrantingConsent] = useState(false);
   const [consentError, setConsentError] = useState<ArrivalError | null>(null);
+  const [pendingMissionNeed, setPendingMissionNeed] = useState<string | null>(null);
   const [arrivalNeedId, setArrivalNeedId] = useState<string | undefined>(undefined);
   const [decidingPlanItemKeys, setDecidingPlanItemKeys] = useState<string[]>([]);
   const [offerResponseByCityResourceId, setOfferResponseByCityResourceId] = useState<
@@ -94,6 +112,16 @@ export function FirstRunWelcome({ skipHospitality = false }: FirstRunWelcomeProp
     }
   }, []);
 
+  /**
+   * Consent Resequencing (Founder ruling). Flag off, this is the arrival
+   * flow's very first decision and always leads to `preferences`, exactly
+   * as before this migration. Flag on, this same step is reached later —
+   * immediately before the first persistent write this flow makes
+   * (`createFirstMission`, i.e. Goal/Journey/Memory creation) — and
+   * granting consent is what actually triggers that write; persistence
+   * consent and account creation (`StewardshipOfferStep`) stay two
+   * separate decisions, never bundled into one.
+   */
   const handleGrantConsent = useCallback(async () => {
     if (!session.accessToken || !session.memberId) return;
     setIsGrantingConsent(true);
@@ -101,12 +129,17 @@ export function FirstRunWelcome({ skipHospitality = false }: FirstRunWelcomeProp
     try {
       await grantConsent(session.accessToken, session.memberId, CURRENT_CONSENT_VERSION);
       setIsGrantingConsent(false);
-      goToStep('preferences');
+      if (MEMBER_ARRIVAL_FLAGS.stewardExperience && pendingMissionNeed) {
+        goToStep('first-mission');
+        void journey.createFirstMission(pendingMissionNeed);
+      } else {
+        goToStep('preferences');
+      }
     } catch (error) {
       setIsGrantingConsent(false);
       setConsentError(classifyArrivalError(error));
     }
-  }, [session.accessToken, session.memberId, goToStep]);
+  }, [session.accessToken, session.memberId, pendingMissionNeed, journey, goToStep]);
 
   const createdGoal =
     !journey.state.isCreatingFirstMission && !journey.state.firstMissionDraft && !journey.state.error
@@ -140,12 +173,20 @@ export function FirstRunWelcome({ skipHospitality = false }: FirstRunWelcomeProp
     [conversation, journey, goToStep],
   );
 
+  /**
+   * Consent Resequencing (Founder ruling): "Do not invoke
+   * createFirstMission() or any other persistent storage until consent
+   * has been granted." Once the member confirms (or corrects) what
+   * Aureus understood, the need is held, not yet acted on — the actual
+   * `createFirstMission` call happens only from `handleGrantConsent`,
+   * once full consent is on record.
+   */
   const handleUnderstoodNeed = useCallback(
     (need: string) => {
-      goToStep('first-mission');
-      void journey.createFirstMission(need);
+      setPendingMissionNeed(need);
+      goToStep('consent');
     },
-    [journey, goToStep],
+    [goToStep],
   );
 
   useEffect(() => {
@@ -255,6 +296,14 @@ export function FirstRunWelcome({ skipHospitality = false }: FirstRunWelcomeProp
 
   switch (step) {
     case 'consent':
+      // Flag on: this step is reached after understanding, immediately
+      // before the first persistent write. A resumed session can land
+      // here with the pending need lost to a reload (local component
+      // state, not persisted) — no dead end, restart understanding
+      // rather than granting consent for nothing to actually persist.
+      if (MEMBER_ARRIVAL_FLAGS.stewardExperience && !pendingMissionNeed) {
+        return <ImmediateNeedStep onSubmit={handleImmediateNeed} submitting={conversation.state.pendingResponse} />;
+      }
       return (
         <ConsentStep
           granting={isGrantingConsent}
@@ -306,6 +355,7 @@ export function FirstRunWelcome({ skipHospitality = false }: FirstRunWelcomeProp
 
       return (
         <>
+          {phase.kind === 'collecting' ? <p className={styles.priorMessage}>{PRIVACY_NOTICE}</p> : null}
           {phase.kind === 'clarifying' || phase.kind === 'crisis' ? (
             <p className={styles.priorMessage}>{phase.priorMessage}</p>
           ) : null}
@@ -344,9 +394,15 @@ export function FirstRunWelcome({ skipHospitality = false }: FirstRunWelcomeProp
           onApprove={(item) => void decidePlanItem(item, true)}
           onDismiss={(item) => void decidePlanItem(item, false)}
           onRetry={() => void plan.buildPlan(arrivalNeedId)}
-          onContinue={() => goToStep('next-step')}
+          onContinue={() => goToStep('stewardship-offer')}
         />
       );
+
+    case 'stewardship-offer':
+      // A separate decision from persistence consent (already granted,
+      // earlier, before createFirstMission ever ran) — this is only ever
+      // about whether to preserve progress across sessions and devices.
+      return <StewardshipOfferStep isGuest={session.isGuest} onContinue={() => goToStep('next-step')} />;
 
     case 'opportunities':
       return (

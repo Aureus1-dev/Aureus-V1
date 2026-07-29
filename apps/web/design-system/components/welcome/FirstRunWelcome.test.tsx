@@ -74,11 +74,11 @@ const recommendation = {
   rationale: 'This matches your goal of finding a better job.', status: 'PENDING' as const, decidedAt: null, createdAt: 'x',
 };
 
-function SignedInAs({ children }: { children: React.ReactNode }) {
+function SignedInAs({ children, asGuest = false }: { children: React.ReactNode; asGuest?: boolean }) {
   const { setSession, session } = useSession();
   useEffect(() => {
     if (!session.isAuthenticated) {
-      setSession({ ...session, isAuthenticated: true, accessToken: 'token-123', memberId: 'member-1' });
+      setSession({ ...session, isAuthenticated: true, accessToken: 'token-123', memberId: 'member-1', isGuest: asGuest });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -96,6 +96,28 @@ function renderFlow() {
               <ConversationProvider>
                 <PlanProvider>
                   <SignedInAs>
+                    <FirstRunWelcome />
+                  </SignedInAs>
+                </PlanProvider>
+              </ConversationProvider>
+            </RecommendationsProvider>
+          </OpportunitiesProvider>
+        </JourneyProvider>
+      </SessionProvider>
+    </ThemeProvider>,
+  );
+}
+
+function renderFlowAsGuest() {
+  return render(
+    <ThemeProvider>
+      <SessionProvider>
+        <JourneyProvider>
+          <OpportunitiesProvider>
+            <RecommendationsProvider>
+              <ConversationProvider>
+                <PlanProvider>
+                  <SignedInAs asGuest>
                     <FirstRunWelcome />
                   </SignedInAs>
                 </PlanProvider>
@@ -393,6 +415,9 @@ describe('FirstRunWelcome — Member Arrival: need understanding via Conversatio
     mockedJourneys.createJourney.mockResolvedValue(journeyDto);
     mockedMilestones.createMilestone.mockResolvedValue(milestone);
     mockedTasks.createTask.mockResolvedValue(task);
+    mockedConsent.grantConsent.mockResolvedValue({
+      granted: true, isCurrentVersion: true, version: CURRENT_CONSENT_VERSION, grantedAt: 'x',
+    });
   });
 
   afterEach(() => {
@@ -416,6 +441,14 @@ describe('FirstRunWelcome — Member Arrival: need understanding via Conversatio
     expect(mockedGoals.createGoal).not.toHaveBeenCalled();
 
     await user.click(screen.getByRole('button', { name: "That's right — continue" }));
+
+    // Consent Resequencing: confirming what Aureus understood does not
+    // itself create the mission — full consent is required first,
+    // immediately before this flow's first persistent write.
+    await waitFor(() => expect(screen.getByText('Before we begin')).toBeInTheDocument());
+    expect(mockedGoals.createGoal).not.toHaveBeenCalled();
+    await user.click(screen.getByRole('button', { name: 'I understand — continue' }));
+
     await waitFor(() => expect(mockedGoals.createGoal).toHaveBeenCalledWith('token-123', 'Find a better job'));
     await waitFor(() => expect(screen.getByText('Your first mission is set')).toBeInTheDocument());
   });
@@ -483,7 +516,7 @@ describe('FirstRunWelcome — Member Arrival: need understanding via Conversatio
     expect(screen.getByText('What brings you to Aureus today?')).toBeInTheDocument();
   });
 
-  it('lets the member correct a wrong reflection directly into the first mission, without a second AI round trip', async () => {
+  it('lets the member correct a wrong reflection, still gated on consent before the mission is created, without a second AI round trip', async () => {
     mockedConversations.sendMessage.mockResolvedValueOnce(assistantMessage('It sounds like a new job is what matters most.'));
     renderFlow();
     const user = userEvent.setup();
@@ -496,6 +529,10 @@ describe('FirstRunWelcome — Member Arrival: need understanding via Conversatio
     await user.click(screen.getByRole('button', { name: 'Not quite' }));
     await user.type(screen.getByLabelText('What would help most', { exact: false }), 'Actually I need childcare first');
     await user.click(screen.getByRole('button', { name: 'Continue' }));
+
+    await waitFor(() => expect(screen.getByText('Before we begin')).toBeInTheDocument());
+    expect(mockedGoals.createGoal).not.toHaveBeenCalled();
+    await user.click(screen.getByRole('button', { name: 'I understand — continue' }));
 
     await waitFor(() => expect(mockedGoals.createGoal).toHaveBeenCalledWith('token-123', 'Actually I need childcare first'));
     expect(mockedConversations.sendMessage).toHaveBeenCalledTimes(1);
@@ -526,6 +563,9 @@ describe('FirstRunWelcome — Member Arrival: the Coordinated Plan replaces disc
     mockedJourneys.createJourney.mockResolvedValue(journeyDto);
     mockedMilestones.createMilestone.mockResolvedValue(milestone);
     mockedTasks.createTask.mockResolvedValue(task);
+    mockedConsent.grantConsent.mockResolvedValue({
+      granted: true, isCurrentVersion: true, version: CURRENT_CONSENT_VERSION, grantedAt: 'x',
+    });
   });
 
   afterEach(() => {
@@ -556,6 +596,13 @@ describe('FirstRunWelcome — Member Arrival: the Coordinated Plan replaces disc
     await waitFor(() => expect(mockedRecommendations.approveRecommendation).toHaveBeenCalledWith('token-123', 'rec-1'));
 
     await user.click(screen.getByRole('button', { name: 'Continue' }));
+
+    // The Stewardship Offer — a decision about preserving progress across
+    // sessions and devices, separate from the persistence consent already
+    // granted earlier in this flow.
+    await waitFor(() => expect(screen.getByText('What Aureus does, and what stays yours')).toBeInTheDocument());
+    await user.click(screen.getByRole('button', { name: 'Continue' }));
+
     await waitFor(() => expect(screen.getByText("You're ready to begin")).toBeInTheDocument());
   });
 
@@ -575,6 +622,8 @@ describe('FirstRunWelcome — Member Arrival: the Coordinated Plan replaces disc
     await user.click(screen.getByRole('button', { name: 'Continue' }));
     await waitFor(() => expect(screen.getByText("Here's what we understood")).toBeInTheDocument());
     await user.click(screen.getByRole('button', { name: "That's right — continue" }));
+    await waitFor(() => expect(screen.getByText('Before we begin')).toBeInTheDocument());
+    await user.click(screen.getByRole('button', { name: 'I understand — continue' }));
     await waitFor(() => expect(screen.getByText('Your first mission is set')).toBeInTheDocument());
 
     await user.click(screen.getByRole('button', { name: 'Continue' }));
@@ -620,6 +669,8 @@ describe('FirstRunWelcome — Member Arrival: the Coordinated Plan replaces disc
     await user.click(screen.getByRole('button', { name: 'Continue' }));
     await waitFor(() => expect(screen.getByText("Here's what we understood")).toBeInTheDocument());
     await user.click(screen.getByRole('button', { name: "That's right — continue" }));
+    await waitFor(() => expect(screen.getByText('Before we begin')).toBeInTheDocument());
+    await user.click(screen.getByRole('button', { name: 'I understand — continue' }));
     await waitFor(() => expect(screen.getByText('Your first mission is set')).toBeInTheDocument());
     await user.click(screen.getByRole('button', { name: 'Continue' }));
 
@@ -653,5 +704,113 @@ describe('FirstRunWelcome — Member Arrival: the Coordinated Plan replaces disc
     await user.click(screen.getByRole('button', { name: 'Try again' }));
 
     await waitFor(() => expect(screen.getByText("Here's what Aureus put together")).toBeInTheDocument());
+  });
+});
+
+describe('FirstRunWelcome — Member Arrival: Consent Resequencing (flag-gated)', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    window.localStorage.clear();
+    MEMBER_ARRIVAL_FLAGS.stewardExperience = true;
+    mockedGoals.createGoal.mockResolvedValue(goal);
+    mockedJourneys.createJourney.mockResolvedValue(journeyDto);
+    mockedMilestones.createMilestone.mockResolvedValue(milestone);
+    mockedTasks.createTask.mockResolvedValue(task);
+    mockedConsent.grantConsent.mockResolvedValue({
+      granted: true, isCurrentVersion: true, version: CURRENT_CONSENT_VERSION, grantedAt: 'x',
+    });
+    mockedConversations.createConversation.mockResolvedValue({ id: 'conv-1', userId: 'member-1', title: null, createdAt: 'x', updatedAt: 'x' });
+    mockedPlan.buildCoordinatedPlan.mockResolvedValue({
+      run: {
+        id: 'run-1', userId: 'member-1', goal: 'COORDINATED_PLAN' as const, capabilitiesInvoked: [],
+        outcome: 'no candidate action was available right now.', status: 'NO_ACTION' as const, latencyMs: 5, createdAt: 'x',
+      },
+    });
+  });
+
+  afterEach(() => {
+    MEMBER_ARRIVAL_FLAGS.stewardExperience = false;
+  });
+
+  it('never shows a full consent wall before help — the member reaches the first message immediately', async () => {
+    renderFlow();
+
+    // No "Before we begin" consent gate anywhere before the member has
+    // said what brings them here.
+    expect(screen.queryByText('Before we begin')).not.toBeInTheDocument();
+    await waitFor(() => expect(screen.getByText('Make this comfortable for you')).toBeInTheDocument());
+  });
+
+  it('shows a brief, calm privacy notice before the first message — never a blocking wall', async () => {
+    renderFlow();
+    const user = userEvent.setup();
+
+    await waitFor(() => expect(screen.getByText('Make this comfortable for you')).toBeInTheDocument());
+    await user.click(screen.getByRole('button', { name: 'Continue' }));
+    await waitFor(() => expect(screen.getByText('Welcome to Aureus')).toBeInTheDocument());
+    await user.click(screen.getByRole('button', { name: 'Get started' }));
+
+    await waitFor(() => expect(screen.getByText('What brings you to Aureus today?')).toBeInTheDocument());
+    expect(screen.getByText(/Aureus uses what you share here to understand how to help/)).toBeInTheDocument();
+    // Not a wall: the field is immediately usable, no consent action required first.
+    expect(screen.getByLabelText('Your immediate need', { exact: false })).toBeEnabled();
+  });
+
+  it('never invokes createFirstMission() or any other persistent write until consent is granted', async () => {
+    mockedConversations.sendMessage.mockResolvedValueOnce({
+      id: 'assistant-1', conversationId: 'conv-1', role: 'ASSISTANT', content: 'Got it — a better job.', createdAt: 'x',
+    });
+    renderFlow();
+    const user = userEvent.setup();
+
+    await waitFor(() => expect(screen.getByText('Make this comfortable for you')).toBeInTheDocument());
+    await user.click(screen.getByRole('button', { name: 'Continue' }));
+    await waitFor(() => expect(screen.getByText('Welcome to Aureus')).toBeInTheDocument());
+    await user.click(screen.getByRole('button', { name: 'Get started' }));
+    await user.type(screen.getByLabelText('Your immediate need', { exact: false }), 'Find a better job');
+    await user.click(screen.getByRole('button', { name: 'Continue' }));
+
+    await waitFor(() => expect(screen.getByText("Here's what we understood")).toBeInTheDocument());
+    expect(mockedGoals.createGoal).not.toHaveBeenCalled();
+    expect(mockedJourneys.createJourney).not.toHaveBeenCalled();
+
+    await user.click(screen.getByRole('button', { name: "That's right — continue" }));
+    await waitFor(() => expect(screen.getByText('Before we begin')).toBeInTheDocument());
+    expect(mockedGoals.createGoal).not.toHaveBeenCalled();
+
+    await user.click(screen.getByRole('button', { name: 'I understand — continue' }));
+    await waitFor(() => expect(mockedGoals.createGoal).toHaveBeenCalledWith('token-123', 'Find a better job'));
+  });
+
+  it('treats persistence consent and account creation as two separate decisions for a guest', async () => {
+    mockedConversations.sendMessage.mockResolvedValueOnce({
+      id: 'assistant-1', conversationId: 'conv-1', role: 'ASSISTANT', content: 'Got it — a better job.', createdAt: 'x',
+    });
+    renderFlowAsGuest();
+    const user = userEvent.setup();
+
+    await waitFor(() => expect(screen.getByText('Make this comfortable for you')).toBeInTheDocument());
+    await user.click(screen.getByRole('button', { name: 'Continue' }));
+    await waitFor(() => expect(screen.getByText('Welcome to Aureus')).toBeInTheDocument());
+    await user.click(screen.getByRole('button', { name: 'Get started' }));
+    await user.type(screen.getByLabelText('Your immediate need', { exact: false }), 'Find a better job');
+    await user.click(screen.getByRole('button', { name: 'Continue' }));
+    await waitFor(() => expect(screen.getByText("Here's what we understood")).toBeInTheDocument());
+    await user.click(screen.getByRole('button', { name: "That's right — continue" }));
+
+    // Decision 1: persistence consent — mentions nothing about accounts.
+    await waitFor(() => expect(screen.getByText('Before we begin')).toBeInTheDocument());
+    expect(screen.queryByRole('link', { name: 'Create free account' })).not.toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'I understand — continue' }));
+
+    await waitFor(() => expect(screen.getByText('Your first mission is set')).toBeInTheDocument());
+    await user.click(screen.getByRole('button', { name: 'Continue' }));
+    await waitFor(() => expect(mockedPlan.buildCoordinatedPlan).toHaveBeenCalled());
+    await user.click(screen.getByRole('button', { name: 'Continue' }));
+
+    // Decision 2: account creation — a separate step, reached only after
+    // persistence consent already happened, never bundled with it.
+    await waitFor(() => expect(screen.getByRole('link', { name: 'Create free account' })).toBeInTheDocument());
+    expect(screen.getByText(/only preserves your progress/)).toBeInTheDocument();
   });
 });

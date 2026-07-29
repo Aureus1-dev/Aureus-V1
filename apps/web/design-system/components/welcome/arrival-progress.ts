@@ -16,6 +16,7 @@ export type ArrivalStep =
   | 'opportunities'
   | 'review-approval'
   | 'coordinated-plan'
+  | 'stewardship-offer'
   | 'next-step';
 
 const STORAGE_KEY = 'aureus.arrival.step';
