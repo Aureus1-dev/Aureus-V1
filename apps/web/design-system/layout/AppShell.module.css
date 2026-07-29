@@ -30,12 +30,6 @@
   text-decoration: none;
 }
 
-.returnToConversation {
-  font-size: var(--font-size-sm);
-  color: var(--color-action-primary);
-  text-decoration: none;
-}
-
 .nav {
   grid-area: nav;
   background: var(--color-surface-primary);

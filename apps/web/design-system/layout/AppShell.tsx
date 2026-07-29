@@ -56,9 +56,6 @@ export function AppShell({ children }: AppShellProps) {
         <Link href="/welcome" className={styles.brand}>
           Aureus
         </Link>
-        <Link href="/conversation" className={styles.returnToConversation}>
-          Return to Conversation
-        </Link>
       </header>
       <nav className={styles.nav} aria-label="Primary">
         <ul className={styles.navList}>
