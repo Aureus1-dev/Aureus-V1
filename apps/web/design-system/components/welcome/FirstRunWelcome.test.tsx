@@ -7,6 +7,7 @@ import { JourneyProvider } from '../../../state/journey/JourneyContext';
 import { OpportunitiesProvider } from '../../../state/opportunities/OpportunitiesContext';
 import { RecommendationsProvider } from '../../../state/recommendations/RecommendationsContext';
 import { ConversationProvider } from '../../../state/conversation/ConversationContext';
+import { PlanProvider } from '../../../state/plan/PlanContext';
 import { ThemeProvider } from '../../theme';
 import { FirstRunWelcome } from './FirstRunWelcome';
 import * as goalsApi from '../../../lib/api/goals';
@@ -18,6 +19,8 @@ import * as savedApi from '../../../lib/api/saved-opportunities';
 import * as recommendationsApi from '../../../lib/api/recommendations';
 import * as consentApi from '../../../lib/api/consent';
 import * as conversationsApi from '../../../lib/api/conversations';
+import * as needsApi from '../../../lib/api/needs';
+import * as planApi from '../../../lib/api/plan';
 import { CURRENT_CONSENT_VERSION } from '../../../lib/config/consent';
 import { MEMBER_ARRIVAL_FLAGS } from '../../../lib/config/member-arrival-flags';
 import { CLARIFYING_QUESTION, OUTCOME_QUESTION } from './understanding-progress';
@@ -32,6 +35,8 @@ jest.mock('../../../lib/api/saved-opportunities');
 jest.mock('../../../lib/api/recommendations');
 jest.mock('../../../lib/api/consent');
 jest.mock('../../../lib/api/conversations');
+jest.mock('../../../lib/api/needs');
+jest.mock('../../../lib/api/plan');
 
 const push = jest.fn();
 jest.mock('next/navigation', () => ({ useRouter: () => ({ push }) }));
@@ -45,6 +50,8 @@ const mockedSaved = savedApi as jest.Mocked<typeof savedApi>;
 const mockedRecommendations = recommendationsApi as jest.Mocked<typeof recommendationsApi>;
 const mockedConsent = consentApi as jest.Mocked<typeof consentApi>;
 const mockedConversations = conversationsApi as jest.Mocked<typeof conversationsApi>;
+const mockedNeeds = needsApi as jest.Mocked<typeof needsApi>;
+const mockedPlan = planApi as jest.Mocked<typeof planApi>;
 
 const goal = { id: 'goal-1', title: 'Find a better job', status: 'ACTIVE' as const, userId: 'member-1', createdAt: 'x', updatedAt: 'x', deletedAt: null };
 const journeyDto = { id: 'journey-1', title: 'Find a better job', status: 'ACTIVE' as const, goalId: 'goal-1', createdAt: 'x', updatedAt: 'x', deletedAt: null };
@@ -87,9 +94,11 @@ function renderFlow() {
           <OpportunitiesProvider>
             <RecommendationsProvider>
               <ConversationProvider>
-                <SignedInAs>
-                  <FirstRunWelcome />
-                </SignedInAs>
+                <PlanProvider>
+                  <SignedInAs>
+                    <FirstRunWelcome />
+                  </SignedInAs>
+                </PlanProvider>
               </ConversationProvider>
             </RecommendationsProvider>
           </OpportunitiesProvider>
@@ -490,5 +499,159 @@ describe('FirstRunWelcome — Member Arrival: need understanding via Conversatio
 
     await waitFor(() => expect(mockedGoals.createGoal).toHaveBeenCalledWith('token-123', 'Actually I need childcare first'));
     expect(mockedConversations.sendMessage).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('FirstRunWelcome — Member Arrival: the Coordinated Plan replaces discovery + review (flag-gated)', () => {
+  const planRecommendation = {
+    id: 'rec-1', userId: 'member-1', opportunityId: 'opp-1', resourceId: null, courseId: null, podId: null,
+    rationale: 'This matches your goal of finding a better job.', status: 'PENDING' as const, decidedAt: null, createdAt: 'x',
+  };
+  const planRun = {
+    id: 'run-1', userId: 'member-1', goal: 'COORDINATED_PLAN' as const, capabilitiesInvoked: ['RECOMMENDATION'],
+    outcome: 'Built a coordinated plan.', status: 'SUCCESS' as const, latencyMs: 10, createdAt: 'x',
+  };
+  const cityResource = {
+    id: 'city-1', citySheetRef: 'AUR-CS-000001', organizationName: 'Chester County Food Bank',
+    category: 'FOOD_RESOURCE' as const, description: 'Free groceries weekly.', address: null, serviceArea: 'Chester County',
+    phone: null, website: null, hours: 'Mon-Fri 9am-5pm', eligibilityRequirements: null, languagesSupported: [],
+    accessibilityNotes: null, cost: null, requiredDocuments: [], referralRequired: false, isEmergencyService: false,
+    verificationStatus: 'VERIFIED' as const, isTestFixture: false,
+  };
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    MEMBER_ARRIVAL_FLAGS.stewardExperience = true;
+    mockedGoals.createGoal.mockResolvedValue(goal);
+    mockedJourneys.createJourney.mockResolvedValue(journeyDto);
+    mockedMilestones.createMilestone.mockResolvedValue(milestone);
+    mockedTasks.createTask.mockResolvedValue(task);
+  });
+
+  afterEach(() => {
+    MEMBER_ARRIVAL_FLAGS.stewardExperience = false;
+  });
+
+  it('replaces Opportunity Discovery and Review & Approval with one coordinated plan once the first mission is set', async () => {
+    window.localStorage.setItem('aureus.arrival.step', 'coordinated-plan');
+    mockedPlan.buildCoordinatedPlan.mockResolvedValue({
+      run: planRun,
+      plan: {
+        primary: { source: 'RECOMMENDATION', recommendation: planRecommendation, cityResource: null, categoryLabel: 'Opportunity' },
+        supporting: [],
+        combinedRationale: 'Opportunity is the strongest real option available right now.',
+        additionalPossibilitiesCount: 0,
+      },
+    });
+
+    renderFlow();
+    const user = userEvent.setup();
+
+    await waitFor(() => expect(mockedPlan.buildCoordinatedPlan).toHaveBeenCalledWith('token-123', undefined));
+    await waitFor(() => expect(screen.getByText("Here's what Aureus put together")).toBeInTheDocument());
+    expect(screen.queryByText('Opportunities that might help')).not.toBeInTheDocument();
+    expect(screen.getByText('This matches your goal of finding a better job.')).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Approve' }));
+    await waitFor(() => expect(mockedRecommendations.approveRecommendation).toHaveBeenCalledWith('token-123', 'rec-1'));
+
+    await user.click(screen.getByRole('button', { name: 'Continue' }));
+    await waitFor(() => expect(screen.getByText("You're ready to begin")).toBeInTheDocument());
+  });
+
+  it("the first mission's Continue leads to the coordinated plan, not the legacy discovery step", async () => {
+    window.localStorage.setItem('aureus.arrival.step', 'immediate-need');
+    mockedConversations.createConversation.mockResolvedValue({ id: 'conv-1', userId: 'member-1', title: null, createdAt: 'x', updatedAt: 'x' });
+    mockedConversations.sendMessage.mockResolvedValueOnce({
+      id: 'assistant-1', conversationId: 'conv-1', role: 'ASSISTANT', content: 'Got it — a better job.', createdAt: 'x',
+    });
+    mockedPlan.buildCoordinatedPlan.mockResolvedValue({ run: { ...planRun, status: 'NO_ACTION' } });
+
+    renderFlow();
+    const user = userEvent.setup();
+
+    await waitFor(() => expect(screen.getByText('What brings you to Aureus today?')).toBeInTheDocument());
+    await user.type(screen.getByLabelText('Your immediate need', { exact: false }), 'Find a better job');
+    await user.click(screen.getByRole('button', { name: 'Continue' }));
+    await waitFor(() => expect(screen.getByText("Here's what we understood")).toBeInTheDocument());
+    await user.click(screen.getByRole('button', { name: "That's right — continue" }));
+    await waitFor(() => expect(screen.getByText('Your first mission is set')).toBeInTheDocument());
+
+    await user.click(screen.getByRole('button', { name: 'Continue' }));
+
+    await waitFor(() => expect(mockedPlan.buildCoordinatedPlan).toHaveBeenCalled());
+    expect(screen.queryByText('Opportunities that might help')).not.toBeInTheDocument();
+  });
+
+  it('offers a verified City Sheet resource automatically, and records the member\'s accept through the same Gate C mechanism', async () => {
+    // The conversation (and its captured StatedNeed) is always established
+    // during the understanding step, strictly before the coordinated plan
+    // is ever built — this drives the whole realistic path rather than
+    // short-circuiting straight to 'coordinated-plan', since a plan that
+    // leads with a City Sheet match only ever exists once a needId is
+    // already known.
+    window.localStorage.setItem('aureus.arrival.step', 'immediate-need');
+    mockedConversations.createConversation.mockResolvedValue({ id: 'conv-1', userId: 'member-1', title: null, createdAt: 'x', updatedAt: 'x' });
+    mockedConversations.sendMessage.mockResolvedValueOnce({
+      id: 'assistant-1', conversationId: 'conv-1', role: 'ASSISTANT', content: 'Got it — food assistance.', createdAt: 'x',
+    });
+    mockedNeeds.getMyNeeds.mockResolvedValue([{ id: 'need-1', conversationId: 'conv-1', content: 'I need food', createdAt: 'x' }]);
+    mockedNeeds.offerResource.mockResolvedValue({
+      id: 'offer-1', statedNeedId: 'need-1', citySheetEntryId: 'city-1', response: 'PENDING', offeredAt: 'x', respondedAt: null,
+    });
+    mockedNeeds.respondToOffer.mockResolvedValue({
+      id: 'offer-1', statedNeedId: 'need-1', citySheetEntryId: 'city-1', response: 'ACCEPTED', offeredAt: 'x', respondedAt: 'x',
+    });
+    mockedPlan.buildCoordinatedPlan.mockResolvedValue({
+      run: planRun,
+      plan: {
+        primary: { source: 'CITY_RESOURCE', recommendation: null, cityResource, categoryLabel: 'Verified local resource' },
+        supporting: [],
+        combinedRationale: 'A verified local resource is the strongest option right now.',
+        additionalPossibilitiesCount: 0,
+      },
+    });
+
+    renderFlow();
+    const user = userEvent.setup();
+
+    await waitFor(() => expect(screen.getByText('What brings you to Aureus today?')).toBeInTheDocument());
+    await user.type(screen.getByLabelText('Your immediate need', { exact: false }), 'I need food for my family');
+    await user.click(screen.getByRole('button', { name: 'Continue' }));
+    await waitFor(() => expect(screen.getByText("Here's what we understood")).toBeInTheDocument());
+    await user.click(screen.getByRole('button', { name: "That's right — continue" }));
+    await waitFor(() => expect(screen.getByText('Your first mission is set')).toBeInTheDocument());
+    await user.click(screen.getByRole('button', { name: 'Continue' }));
+
+    await waitFor(() => expect(mockedPlan.buildCoordinatedPlan).toHaveBeenCalledWith('token-123', 'need-1'));
+    await waitFor(() => expect(mockedNeeds.offerResource).toHaveBeenCalledWith('token-123', 'need-1', 'city-1'));
+    await waitFor(() => expect(screen.getByText('Chester County Food Bank')).toBeInTheDocument());
+
+    await user.click(screen.getByRole('button', { name: 'Accept' }));
+    await waitFor(() => expect(mockedNeeds.respondToOffer).toHaveBeenCalledWith('token-123', 'need-1', 'city-1', true));
+    await waitFor(() => expect(screen.getByText('You accepted this resource.')).toBeInTheDocument());
+  });
+
+  it('recovers from a failed plan build with a retry', async () => {
+    window.localStorage.setItem('aureus.arrival.step', 'coordinated-plan');
+    mockedPlan.buildCoordinatedPlan.mockRejectedValueOnce(new NetworkError());
+
+    renderFlow();
+    const user = userEvent.setup();
+
+    await waitFor(() => expect(screen.getByText('Connection interrupted')).toBeInTheDocument());
+
+    mockedPlan.buildCoordinatedPlan.mockResolvedValueOnce({
+      run: planRun,
+      plan: {
+        primary: { source: 'RECOMMENDATION', recommendation: planRecommendation, cityResource: null, categoryLabel: 'Opportunity' },
+        supporting: [],
+        combinedRationale: 'Opportunity is the strongest real option available right now.',
+        additionalPossibilitiesCount: 0,
+      },
+    });
+    await user.click(screen.getByRole('button', { name: 'Try again' }));
+
+    await waitFor(() => expect(screen.getByText("Here's what Aureus put together")).toBeInTheDocument());
   });
 });

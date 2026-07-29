@@ -6,6 +6,7 @@ import { JourneyProvider } from '../../../state/journey/JourneyContext';
 import { OpportunitiesProvider } from '../../../state/opportunities/OpportunitiesContext';
 import { RecommendationsProvider } from '../../../state/recommendations/RecommendationsContext';
 import { ConversationProvider } from '../../../state/conversation/ConversationContext';
+import { PlanProvider } from '../../../state/plan/PlanContext';
 import { ThemeProvider } from '../../theme';
 import { WelcomeFlow } from './WelcomeFlow';
 import * as goalsApi from '../../../lib/api/goals';
@@ -42,7 +43,9 @@ function renderFlow(forceNewMission?: boolean) {
           <OpportunitiesProvider>
             <RecommendationsProvider>
               <ConversationProvider>
-                <TestHarness forceNewMission={forceNewMission} />
+                <PlanProvider>
+                  <TestHarness forceNewMission={forceNewMission} />
+                </PlanProvider>
               </ConversationProvider>
             </RecommendationsProvider>
           </OpportunitiesProvider>

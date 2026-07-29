@@ -1,9 +1,12 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { useConversation, useJourney, useOpportunities, useRecommendations, useSession } from '../../../state';
+import { useConversation, useJourney, useOpportunities, usePlan, useRecommendations, useSession } from '../../../state';
 import { useRecommendationSubjects } from '../recommendations';
+import { planItemKey } from '../plan/PlanCard';
+import type { PlanItemDto } from '../../../lib/api/plan';
+import { getMyNeeds, offerResource, respondToOffer, type ResourceOfferResponseValue } from '../../../lib/api/needs';
 import { useTheme } from '../../theme';
 import { grantConsent } from '../../../lib/api/consent';
 import { CURRENT_CONSENT_VERSION } from '../../../lib/config/consent';
@@ -17,6 +20,7 @@ import { GoalReflectionStep } from './steps/GoalReflectionStep';
 import { FirstMissionStep } from './steps/FirstMissionStep';
 import { OpportunityDiscoveryStep } from './steps/OpportunityDiscoveryStep';
 import { ReviewApprovalStep } from './steps/ReviewApprovalStep';
+import { CoordinatedPlanStep } from './steps/CoordinatedPlanStep';
 import { NextStepSummary } from './steps/NextStepSummary';
 import { classifyArrivalError, type ArrivalError } from './classify-arrival-error';
 import { clearArrivalStep, readArrivalStep, writeArrivalStep, type ArrivalStep } from './arrival-progress';
@@ -53,6 +57,7 @@ export function FirstRunWelcome({ skipHospitality = false }: FirstRunWelcomeProp
   const opportunities = useOpportunities();
   const recommendations = useRecommendations();
   const conversation = useConversation();
+  const plan = usePlan();
 
   const [step, setStepState] = useState<Step>(() => {
     if (skipHospitality) {
@@ -63,8 +68,22 @@ export function FirstRunWelcome({ skipHospitality = false }: FirstRunWelcomeProp
   });
   const [isGrantingConsent, setIsGrantingConsent] = useState(false);
   const [consentError, setConsentError] = useState<ArrivalError | null>(null);
-  const subjectsById = useRecommendationSubjects(recommendations.state.recommendations);
+  const [arrivalNeedId, setArrivalNeedId] = useState<string | undefined>(undefined);
+  const [decidingPlanItemKeys, setDecidingPlanItemKeys] = useState<string[]>([]);
+  const [offerResponseByCityResourceId, setOfferResponseByCityResourceId] = useState<
+    Record<string, ResourceOfferResponseValue>
+  >({});
   const generatedRef = useRef(false);
+  const planBuiltRef = useRef(false);
+
+  const planRecommendations = useMemo(() => {
+    if (!plan.state.plan) return [];
+    return [plan.state.plan.primary, ...plan.state.plan.supporting]
+      .filter((item) => item.source === 'RECOMMENDATION')
+      .map((item) => item.recommendation!);
+  }, [plan.state.plan]);
+  const subjectsById = useRecommendationSubjects(recommendations.state.recommendations);
+  const planSubjectsById = useRecommendationSubjects(planRecommendations);
 
   const goToStep = useCallback((next: Step) => {
     setStepState(next);
@@ -135,6 +154,93 @@ export function FirstRunWelcome({ skipHospitality = false }: FirstRunWelcomeProp
     void recommendations.generate('OPPORTUNITY');
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [step]);
+
+  /**
+   * Member Arrival — Steward Experience migration, Phase 3 (flag-gated).
+   * Builds the one Coordinated Plan in place of Opportunity Discovery and
+   * Review & Approval (Founder ruling: "Remove the duplicated search-page
+   * behavior"). `NeedsService.capture()` on the backend is best-effort —
+   * this looks up the resulting StatedNeed by the arrival conversation's
+   * id, exactly as the AI Intelligence Engine's own e2e suite already
+   * does, and simply proceeds with no `needId` if none is found: the
+   * COORDINATED_PLAN goal still returns a real plan from the
+   * Recommendation categories alone in that case.
+   */
+  useEffect(() => {
+    if (step !== 'coordinated-plan' || planBuiltRef.current || !session.accessToken) return;
+    planBuiltRef.current = true;
+    void (async () => {
+      let needId: string | undefined;
+      if (conversation.state.activeConversationId) {
+        try {
+          const needs = await getMyNeeds(session.accessToken!);
+          needId = needs.find((n) => n.conversationId === conversation.state.activeConversationId)?.id;
+        } catch {
+          // Best-effort lookup — a coordinated plan built without a needId
+          // is still a real, useful plan (Recommendation categories alone).
+        }
+      }
+      setArrivalNeedId(needId);
+      await plan.buildPlan(needId);
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [step]);
+
+  // Every City Sheet match in the plan is offered as soon as it's shown
+  // (mirroring Gate C's own NeedResourcesPage), so accept/decline is
+  // available immediately rather than requiring a separate step.
+  useEffect(() => {
+    if (!plan.state.plan || !arrivalNeedId || !session.accessToken) return;
+    const unoffered = [plan.state.plan.primary, ...plan.state.plan.supporting].filter(
+      (item): item is PlanItemDto & { cityResource: NonNullable<PlanItemDto['cityResource']> } =>
+        item.source === 'CITY_RESOURCE' && !(item.cityResource!.id in offerResponseByCityResourceId),
+    );
+    if (unoffered.length === 0) return;
+    let cancelled = false;
+    void Promise.all(
+      unoffered.map((item) => offerResource(session.accessToken!, arrivalNeedId, item.cityResource.id)),
+    ).then((offers) => {
+      if (cancelled) return;
+      setOfferResponseByCityResourceId((previous) => {
+        const next = { ...previous };
+        offers.forEach((offer) => {
+          next[offer.citySheetEntryId] = offer.response;
+        });
+        return next;
+      });
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [plan.state.plan, arrivalNeedId, session.accessToken, offerResponseByCityResourceId]);
+
+  /**
+   * Deciding on a Coordinated Plan item never re-implements approval — a
+   * RECOMMENDATION item still goes through the same
+   * RecommendationsContext.approve/dismiss Review & Approval already
+   * used; a CITY_RESOURCE item still goes through Gate C's own
+   * offer/respond. This only routes to whichever of those two real
+   * mechanisms the item's own `source` says applies.
+   */
+  const decidePlanItem = useCallback(
+    async (item: PlanItemDto, accepted: boolean) => {
+      if (!session.accessToken) return;
+      const key = planItemKey(item);
+      setDecidingPlanItemKeys((keys) => [...keys, key]);
+      try {
+        if (item.source === 'RECOMMENDATION') {
+          if (accepted) await recommendations.approve(item.recommendation!.id);
+          else await recommendations.dismiss(item.recommendation!.id);
+        } else if (arrivalNeedId) {
+          const updated = await respondToOffer(session.accessToken, arrivalNeedId, item.cityResource!.id, accepted);
+          setOfferResponseByCityResourceId((previous) => ({ ...previous, [updated.citySheetEntryId]: updated.response }));
+        }
+      } finally {
+        setDecidingPlanItemKeys((keys) => keys.filter((k) => k !== key));
+      }
+    },
+    [session.accessToken, recommendations, arrivalNeedId],
+  );
 
   const nextStepTitle = (() => {
     if (!createdGoal) return null;
@@ -222,7 +328,23 @@ export function FirstRunWelcome({ skipHospitality = false }: FirstRunWelcomeProp
           creating={journey.state.isCreatingFirstMission}
           error={journey.state.error}
           onRetry={() => void journey.retryFirstMission()}
-          onContinue={() => goToStep('opportunities')}
+          onContinue={() => goToStep(MEMBER_ARRIVAL_FLAGS.stewardExperience ? 'coordinated-plan' : 'opportunities')}
+        />
+      );
+
+    case 'coordinated-plan':
+      return (
+        <CoordinatedPlanStep
+          plan={plan.state.plan}
+          building={plan.state.isBuilding}
+          error={plan.state.error}
+          subjectsById={planSubjectsById}
+          offerResponseByCityResourceId={offerResponseByCityResourceId}
+          isDeciding={(item) => decidingPlanItemKeys.includes(planItemKey(item))}
+          onApprove={(item) => void decidePlanItem(item, true)}
+          onDismiss={(item) => void decidePlanItem(item, false)}
+          onRetry={() => void plan.buildPlan(arrivalNeedId)}
+          onContinue={() => goToStep('next-step')}
         />
       );
 
