@@ -11,6 +11,7 @@ import { AiRequestsService } from '../requests/ai-requests.service';
 import { NeedsService } from '../../needs/needs.service';
 import { CLARIFYING_QUESTION } from '../../needs/ambiguity.util';
 import { CRISIS_REDIRECT_MESSAGE } from '../../needs/crisis-detection.util';
+import { OUTCOME_QUESTION } from '../../needs/outcome.util';
 import type { AuthenticatedUser } from '../../auth/strategies/jwt.strategy';
 import type { AiConversation, AiMessage } from '@prisma/client';
 
@@ -196,6 +197,87 @@ describe('ConversationsService', () => {
 
         expect(mockAiRequests.runCompletion).toHaveBeenCalled();
         expect(result.content).toBe('Got it, thanks.');
+      });
+    });
+
+    describe('Member Arrival — Steward Experience: the outcome question', () => {
+      it('asks the approved outcome question once a stated need is understood but its result is unclear, without calling the AI', async () => {
+        mockConversationRepo.findById.mockResolvedValue(makeConversation());
+        mockMessageRepo.create
+          .mockResolvedValueOnce(makeMessage({ role: AiMessageRole.USER, content: 'My landlord gave me an eviction notice for Friday' }))
+          .mockResolvedValueOnce(makeMessage({ id: 'msg-002', role: AiMessageRole.ASSISTANT, content: OUTCOME_QUESTION }));
+        mockMessageRepo.findRecentByConversation.mockResolvedValue([
+          makeMessage({ role: AiMessageRole.USER, content: 'My landlord gave me an eviction notice for Friday' }),
+        ]);
+
+        const result = await service.ask('conv-001', { content: 'My landlord gave me an eviction notice for Friday' }, USER);
+
+        expect(result.content).toBe(OUTCOME_QUESTION);
+        expect(mockAiRequests.runCompletion).not.toHaveBeenCalled();
+        expect(mockConversationRepo.touch).toHaveBeenCalledWith('conv-001');
+      });
+
+      it('still captures the need before asking the outcome question', async () => {
+        mockConversationRepo.findById.mockResolvedValue(makeConversation());
+        mockMessageRepo.create
+          .mockResolvedValueOnce(makeMessage({ role: AiMessageRole.USER, content: 'My car broke down and I have no way to get to work' }))
+          .mockResolvedValueOnce(makeMessage({ id: 'msg-002', role: AiMessageRole.ASSISTANT, content: OUTCOME_QUESTION }));
+        mockMessageRepo.findRecentByConversation.mockResolvedValue([
+          makeMessage({ role: AiMessageRole.USER, content: 'My car broke down and I have no way to get to work' }),
+        ]);
+
+        await service.ask('conv-001', { content: 'My car broke down and I have no way to get to work' }, USER);
+
+        expect(mockNeeds.capture).toHaveBeenCalledWith(USER.id, 'conv-001', 'My car broke down and I have no way to get to work');
+      });
+
+      it('skips the outcome question and calls the AI directly when the result is already clear from the first message', async () => {
+        mockConversationRepo.findById.mockResolvedValue(makeConversation());
+        mockMessageRepo.create
+          .mockResolvedValueOnce(makeMessage({ role: AiMessageRole.USER, content: 'I need help finding emergency housing before Friday' }))
+          .mockResolvedValueOnce(makeMessage({ id: 'msg-002', role: AiMessageRole.ASSISTANT, content: 'Let me look into that.' }));
+        mockMessageRepo.findRecentByConversation.mockResolvedValue([
+          makeMessage({ role: AiMessageRole.USER, content: 'I need help finding emergency housing before Friday' }),
+        ]);
+        mockAiRequests.runCompletion.mockResolvedValue({ content: 'Let me look into that.', requestId: 'req-001' });
+
+        const result = await service.ask('conv-001', { content: 'I need help finding emergency housing before Friday' }, USER);
+
+        expect(mockAiRequests.runCompletion).toHaveBeenCalled();
+        expect(result.content).toBe('Let me look into that.');
+      });
+
+      it('never re-asks on the answer to the outcome question — the member answers in the same conversation, never restarting', async () => {
+        mockConversationRepo.findById.mockResolvedValue(makeConversation());
+        mockMessageRepo.create
+          .mockResolvedValueOnce(makeMessage({ role: AiMessageRole.USER, content: 'stay in my apartment' }))
+          .mockResolvedValueOnce(makeMessage({ id: 'msg-003', role: AiMessageRole.ASSISTANT, content: "Here's what I believe we're trying to accomplish." }));
+        mockMessageRepo.findRecentByConversation.mockResolvedValue([
+          makeMessage({ role: AiMessageRole.USER, content: 'My landlord gave me an eviction notice for Friday' }),
+          makeMessage({ id: 'msg-002', role: AiMessageRole.ASSISTANT, content: OUTCOME_QUESTION }),
+          makeMessage({ id: 'msg-003', role: AiMessageRole.USER, content: 'stay in my apartment' }),
+        ]);
+        mockAiRequests.runCompletion.mockResolvedValue({ content: "Here's what I believe we're trying to accomplish.", requestId: 'req-002' });
+
+        const result = await service.ask('conv-001', { content: 'stay in my apartment' }, USER);
+
+        expect(mockAiRequests.runCompletion).toHaveBeenCalled();
+        expect(result.content).toBe("Here's what I believe we're trying to accomplish.");
+      });
+
+      it('takes a back seat to C3 crisis detection — a crisis message never gets the outcome question instead', async () => {
+        mockConversationRepo.findById.mockResolvedValue(makeConversation());
+        mockMessageRepo.create
+          .mockResolvedValueOnce(makeMessage({ role: AiMessageRole.USER, content: 'I want to kill myself and lose my home' }))
+          .mockResolvedValueOnce(makeMessage({ id: 'msg-002', role: AiMessageRole.ASSISTANT, content: CRISIS_REDIRECT_MESSAGE }));
+        mockMessageRepo.findRecentByConversation.mockResolvedValue([
+          makeMessage({ role: AiMessageRole.USER, content: 'I want to kill myself and lose my home' }),
+        ]);
+
+        const result = await service.ask('conv-001', { content: 'I want to kill myself and lose my home' }, USER);
+
+        expect(result.content).toBe(CRISIS_REDIRECT_MESSAGE);
+        expect(result.content).not.toBe(OUTCOME_QUESTION);
       });
     });
 

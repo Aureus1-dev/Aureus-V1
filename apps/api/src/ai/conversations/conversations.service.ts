@@ -8,6 +8,7 @@ import { AiRequestsService } from '../requests/ai-requests.service';
 import { NeedsService } from '../../needs/needs.service';
 import { isAmbiguousNeed, CLARIFYING_QUESTION } from '../../needs/ambiguity.util';
 import { isCrisisLanguage, CRISIS_REDIRECT_MESSAGE } from '../../needs/crisis-detection.util';
+import { isOutcomeUnclear, OUTCOME_QUESTION } from '../../needs/outcome.util';
 import { CreateConversationDto } from './dto/create-conversation.dto';
 import { AskQuestionDto } from './dto/ask-question.dto';
 import { ListConversationsQueryDto } from './dto/list-conversations-query.dto';
@@ -118,6 +119,22 @@ export class ConversationsService {
       });
       await this.repo.touch(id);
       return MessageResponseDto.fromEntity(clarifyingMessage);
+    }
+
+    // Member Arrival — Steward Experience migration (Founder-approved,
+    // approved wording "What would help most right now?"). A need already
+    // specific enough to not be ambiguous can still never state the
+    // result the member actually wants — checked only on the first
+    // message, only once C2/C3 above have already passed, and never
+    // asked mechanically: when the outcome is already clear from the
+    // member's own words, this is skipped entirely and the normal AI
+    // reply below confirms it naturally instead of asking again.
+    if (history.length === 1 && isOutcomeUnclear(dto.content)) {
+      const outcomeMessage = await this.messageRepo.create({
+        conversationId: id, role: AiMessageRole.ASSISTANT, content: OUTCOME_QUESTION,
+      });
+      await this.repo.touch(id);
+      return MessageResponseDto.fromEntity(outcomeMessage);
     }
 
     const systemMessages: AiCompletionMessage[] = [{ role: 'system', content: PLATFORM_ASSISTANT_SYSTEM_PROMPT }];
