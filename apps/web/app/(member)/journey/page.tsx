@@ -8,6 +8,8 @@ import { EmptyState } from '../../../design-system/components/EmptyState/EmptySt
 import { ErrorState } from '../../../design-system/components/ErrorState/ErrorState';
 import { Button } from '../../../design-system/components/Button/Button';
 import { JourneyCard, MilestoneChecklist, ProgressIndicator } from '../../../design-system/components/journey';
+import { JourneyTimeline } from '../../../design-system/components/journey-timeline';
+import { Room } from '../../../design-system/components/room';
 import { domainErrorCopy } from '../../../design-system/components/domain-error-copy';
 import styles from './page.module.css';
 
@@ -35,33 +37,35 @@ export default function JourneyPage() {
     0,
   );
 
-  if (journey.state.isLoadingGoals) {
-    return <LoadingState label="Loading your journey" />;
-  }
-
-  if (journey.state.goals.length === 0) {
+  if (journey.state.goals.length === 0 && !journey.state.isLoadingGoals) {
     return (
-      <EmptyState
-        title="Your journey starts with a first mission"
-        description="Head back to Welcome to set your first goal."
-        action={
-          <Link href="/welcome">
-            <Button>Get started</Button>
-          </Link>
-        }
-      />
+      <Room title="Journey Review">
+        <EmptyState
+          title="Your journey starts with a first mission"
+          description="Head back to Welcome to set your first goal."
+          action={
+            <Link href="/welcome">
+              <Button>Get started</Button>
+            </Link>
+          }
+        />
+      </Room>
     );
   }
 
   return (
-    <div className={styles.page}>
-      <h1 className={styles.title}>Journey</h1>
-
-      {selectedGoal ? (
-        <div className={styles.detail}>
+    <Room
+      title="Journey Review"
+      headerAction={
+        selectedGoal ? (
           <button type="button" className={styles.back} onClick={() => setSelectedGoalId(null)}>
             ← All goals
           </button>
+        ) : undefined
+      }
+    >
+      {selectedGoal ? (
+        <div className={styles.detail}>
           <h2 className={styles.goalTitle}>{selectedGoal.title}</h2>
 
           {journey.state.isLoadingDetail ? <LoadingState label="Loading progress" /> : null}
@@ -90,12 +94,12 @@ export default function JourneyPage() {
           ) : null}
         </div>
       ) : (
-        <div className={styles.list}>
+        <JourneyTimeline loading={journey.state.isLoadingGoals} loadingLabel="Loading your journey">
           {journey.state.goals.map((goal) => (
             <JourneyCard key={goal.id} goal={goal} onOpen={() => openGoal(goal.id)} />
           ))}
-        </div>
+        </JourneyTimeline>
       )}
-    </div>
+    </Room>
   );
 }

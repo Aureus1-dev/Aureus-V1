@@ -3,11 +3,11 @@
 import { useState } from 'react';
 import { useSession } from '../../../state';
 import { EmptyState } from '../EmptyState/EmptyState';
+import { Room } from '../room';
 import { OpportunityTabs, type OpportunityTab } from './OpportunityTabs';
 import { SearchTab } from './SearchTab';
 import { SavedTab } from './SavedTab';
 import { RecommendedTab } from './RecommendedTab';
-import styles from './OpportunityCenter.module.css';
 
 type TabId = 'search' | 'saved' | 'recommended';
 
@@ -39,8 +39,7 @@ export function OpportunityCenter() {
   }
 
   return (
-    <div className={styles.center}>
-      <h1 className={styles.title}>Opportunities</h1>
+    <Room title="Opportunity Workspace">
       <OpportunityTabs tabs={TABS} activeId={activeTab} onChange={(id) => setActiveTab(id as TabId)} />
 
       <div
@@ -67,6 +66,6 @@ export function OpportunityCenter() {
       >
         <RecommendedTab />
       </div>
-    </div>
+    </Room>
   );
 }
