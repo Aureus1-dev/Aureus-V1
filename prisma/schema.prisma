@@ -1917,6 +1917,12 @@ enum AiOrchestrationGoal {
   JOURNEY_GUIDANCE
   STEWARD_ESCALATION
   EDUCATIONAL_RECOMMENDATION
+  // Member Arrival — Steward Experience migration (Founder-approved). Fans
+  // out to RecommendationsService.generate() across every relevant
+  // category plus NeedsService's City Sheet match, then ranks the combined
+  // candidate set into one Primary + Supporting plan — the one goal this
+  // orchestrator resolves to more than a single delegate capability.
+  COORDINATED_PLAN
 }
 
 enum AiOrchestrationStatus {
