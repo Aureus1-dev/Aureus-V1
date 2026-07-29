@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useJourney, useSession } from '../../../state';
 import { LoadingState } from '../LoadingState/LoadingState';
@@ -43,12 +43,31 @@ export interface WelcomeFlowProps {
  * An honest, retryable error is shown instead. `forceNewMission` is exempt:
  * the member already explicitly chose to start a new mission, so whether
  * their prior goals loaded is irrelevant to what they asked for.
+ *
+ * "Returning" is decided from a one-time snapshot taken when the initial
+ * `loadGoals()` call settles, not from the live `journey.state.goals`
+ * count — a first-time member's very first Goal is created by
+ * `FirstRunWelcome` itself, from within this same mount, partway through
+ * onboarding; reading the live count here would misidentify that as "a
+ * member who already had goals," redirecting them to Home mid-arrival,
+ * before they ever reach First Mission, the Coordinated Plan, or the
+ * Stewardship Offer — a real, confirmed defect this doc-comment exists to
+ * prevent regressing (found via a live dry run, not a unit test: nothing
+ * in the existing suite ever mounted `WelcomeFlow` through a full
+ * immediate-need-to-mission flow with a real `JourneyContext`).
  */
 export function WelcomeFlow({ forceNewMission = false }: WelcomeFlowProps) {
   const router = useRouter();
   const { session } = useSession();
   const journey = useJourney();
   const [hasIncompleteArrival] = useState(() => readArrivalStep() !== null);
+  const [hadGoalsAtLoad, setHadGoalsAtLoad] = useState<boolean | null>(null);
+  // `isLoadingGoals` starts `false` (no fetch is in flight yet at mount),
+  // so "not loading" is trivially true before `loadGoals()` has even been
+  // called — this ref distinguishes "genuinely settled" from "just
+  // hasn't started," so the snapshot below isn't taken prematurely.
+  const sawLoadingRef = useRef(false);
+  if (journey.state.isLoadingGoals) sawLoadingRef.current = true;
 
   useEffect(() => {
     if (session.isAuthenticated) {
@@ -57,7 +76,16 @@ export function WelcomeFlow({ forceNewMission = false }: WelcomeFlowProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [session.isAuthenticated]);
 
-  const isReturningMember = journey.state.goals.length > 0 && !hasIncompleteArrival;
+  // Layout effect, not a plain effect: this must resolve before the
+  // browser paints, or a genuinely returning member would flash the
+  // onboarding wizard for one frame before being redirected.
+  useLayoutEffect(() => {
+    if (hadGoalsAtLoad === null && sawLoadingRef.current && !journey.state.isLoadingGoals) {
+      setHadGoalsAtLoad(journey.state.goals.length > 0);
+    }
+  }, [hadGoalsAtLoad, journey.state.isLoadingGoals, journey.state.goals.length]);
+
+  const isReturningMember = Boolean(hadGoalsAtLoad) && !hasIncompleteArrival;
 
   useEffect(() => {
     if (!journey.state.isLoadingGoals && isReturningMember && !forceNewMission) {
