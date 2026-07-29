@@ -603,7 +603,12 @@ describe('FirstRunWelcome — Member Arrival: the Coordinated Plan replaces disc
     await waitFor(() => expect(screen.getByText('What Aureus does, and what stays yours')).toBeInTheDocument());
     await user.click(screen.getByRole('button', { name: 'Continue' }));
 
-    await waitFor(() => expect(screen.getByText("You're ready to begin")).toBeInTheDocument());
+    // Execution status narration + a long-term stewardship prompt
+    // (Founder ruling) closes the flow instead of the legacy "anything
+    // else?" NextStepSummary — narrating the approved item honestly.
+    await waitFor(() => expect(screen.getByText("Here's where things stand")).toBeInTheDocument());
+    expect(screen.queryByText("You're ready to begin")).not.toBeInTheDocument();
+    expect(screen.getByText(/noted on your Journey/)).toBeInTheDocument();
   });
 
   it("the first mission's Continue leads to the coordinated plan, not the legacy discovery step", async () => {

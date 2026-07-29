@@ -22,6 +22,7 @@ import { OpportunityDiscoveryStep } from './steps/OpportunityDiscoveryStep';
 import { ReviewApprovalStep } from './steps/ReviewApprovalStep';
 import { CoordinatedPlanStep } from './steps/CoordinatedPlanStep';
 import { StewardshipOfferStep } from './steps/StewardshipOfferStep';
+import { ExecutionStatusStep, type DecidedPlanItem, type PlanItemDecision } from './steps/ExecutionStatusStep';
 import { NextStepSummary } from './steps/NextStepSummary';
 import { classifyArrivalError, type ArrivalError } from './classify-arrival-error';
 import { clearArrivalStep, readArrivalStep, writeArrivalStep, type ArrivalStep } from './arrival-progress';
@@ -91,6 +92,7 @@ export function FirstRunWelcome({ skipHospitality = false }: FirstRunWelcomeProp
   const [offerResponseByCityResourceId, setOfferResponseByCityResourceId] = useState<
     Record<string, ResourceOfferResponseValue>
   >({});
+  const [planItemDecisions, setPlanItemDecisions] = useState<Record<string, PlanItemDecision>>({});
   const generatedRef = useRef(false);
   const planBuiltRef = useRef(false);
 
@@ -102,6 +104,31 @@ export function FirstRunWelcome({ skipHospitality = false }: FirstRunWelcomeProp
   }, [plan.state.plan]);
   const subjectsById = useRecommendationSubjects(recommendations.state.recommendations);
   const planSubjectsById = useRecommendationSubjects(planRecommendations);
+
+  /**
+   * Member Arrival — Steward Experience migration, Phase 5 (flag-gated).
+   * A plain read of what was actually decided on each plan item, keyed by
+   * `planItemKey` and populated by `decidePlanItem` itself the moment
+   * either real mechanism (RecommendationsContext.approve/dismiss, Gate
+   * C's own offer/respond) confirms a decision — not re-derived from
+   * either context's own state, since a plan-sourced recommendation was
+   * never added to RecommendationsContext's own list via `generate()`.
+   * An item left undecided (the member skipped it) is a valid,
+   * unpressured outcome, simply absent here — `ExecutionStatusStep` only
+   * narrates the ones actually decided.
+   */
+  const planDecisions = useMemo((): DecidedPlanItem[] => {
+    if (!plan.state.plan) return [];
+    return [plan.state.plan.primary, ...plan.state.plan.supporting].flatMap((item) => {
+      const decision = planItemDecisions[planItemKey(item)];
+      if (!decision) return [];
+      const title =
+        item.source === 'RECOMMENDATION'
+          ? (planSubjectsById[item.recommendation!.id]?.title ?? item.categoryLabel)
+          : item.cityResource!.organizationName;
+      return [{ title, categoryLabel: item.categoryLabel, decision }];
+    });
+  }, [plan.state.plan, planItemDecisions, planSubjectsById]);
 
   const goToStep = useCallback((next: Step) => {
     setStepState(next);
@@ -272,9 +299,11 @@ export function FirstRunWelcome({ skipHospitality = false }: FirstRunWelcomeProp
         if (item.source === 'RECOMMENDATION') {
           if (accepted) await recommendations.approve(item.recommendation!.id);
           else await recommendations.dismiss(item.recommendation!.id);
+          setPlanItemDecisions((previous) => ({ ...previous, [key]: accepted ? 'ACCEPTED' : 'DISMISSED' }));
         } else if (arrivalNeedId) {
           const updated = await respondToOffer(session.accessToken, arrivalNeedId, item.cityResource!.id, accepted);
           setOfferResponseByCityResourceId((previous) => ({ ...previous, [updated.citySheetEntryId]: updated.response }));
+          setPlanItemDecisions((previous) => ({ ...previous, [key]: updated.response as PlanItemDecision }));
         }
       } finally {
         setDecidingPlanItemKeys((keys) => keys.filter((k) => k !== key));
@@ -435,6 +464,11 @@ export function FirstRunWelcome({ skipHospitality = false }: FirstRunWelcomeProp
       );
 
     case 'next-step':
+      // Execution status narration + a long-term stewardship prompt
+      // (Founder ruling) replaces the old "anything else?" close.
+      if (MEMBER_ARRIVAL_FLAGS.stewardExperience) {
+        return <ExecutionStatusStep decisions={planDecisions} />;
+      }
       return <NextStepSummary nextStepTitle={nextStepTitle} />;
 
     default:
