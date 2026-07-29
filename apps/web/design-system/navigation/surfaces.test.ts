@@ -15,4 +15,17 @@ describe('primarySurfaces', () => {
       expect.arrayContaining(['welcome', 'conversation', 'home', 'journey', 'opportunities', 'steward']),
     );
   });
+
+  it('includes the new Plans surface for the Planning Table room', () => {
+    const plans = primarySurfaces.find((s) => s.id === 'plans');
+    expect(plans).toEqual({ id: 'plans', label: 'Plans', href: '/plans', tier: 'primary' });
+  });
+
+  it('curates the Steward Workspace nav to exactly the 8 quiet primary-tier surfaces, everything else secondary', () => {
+    const primaryTierIds = primarySurfaces.filter((s) => s.tier === 'primary').map((s) => s.id);
+    expect(primaryTierIds.sort()).toEqual(
+      ['calendar', 'community', 'conversation', 'documents', 'journey', 'opportunities', 'plans', 'settings'].sort(),
+    );
+    expect(primarySurfaces.every((s) => s.tier === 'primary' || s.tier === 'secondary')).toBe(true);
+  });
 });
