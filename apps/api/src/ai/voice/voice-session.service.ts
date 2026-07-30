@@ -32,7 +32,7 @@ import { VoiceSessionStatusResponseDto } from './dto/voice-session-status-respon
 import { MessageResponseDto } from '../conversations/dto/message-response.dto';
 
 const VOICE_MODEL_DEFAULT = 'gpt-4o-realtime-preview';
-const VOICE_NAME_DEFAULT = 'alloy';
+const VOICE_NAME_DEFAULT = 'marin';
 
 /**
  * Natural re-authorization checkpoint (Founder Decision 5/6): rather than a

@@ -5,11 +5,14 @@
  * shared package) apps/api/src/config/v1-feature-scope.ts — keep both in
  * sync by hand.
  *
- * Every flag defaults to false: the feature is fully built and stays in
- * the tree, but is unreachable until a Founder decision flips it back on.
+ * Academy and Pods stay off: fully built, but unreachable until a Founder
+ * decision flips them back on. Voice was reopened by Founder decision —
+ * the OpenAI Realtime provider (`OpenAiVoiceProvider`) is real and live
+ * once `OPENAI_API_KEY` is configured in the deployment environment;
+ * this flag only controls whether members can reach it.
  */
 export const V1_FEATURE_FLAGS = {
-  voice: false,
+  voice: true,
   academy: false,
   pods: false,
 } as const;
