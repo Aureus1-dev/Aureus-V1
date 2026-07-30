@@ -468,6 +468,40 @@ describe('AuthService', () => {
       expect(mockAuthRepo.revokeRefreshToken).toHaveBeenCalledWith('rt-001', expect.any(String));
     });
 
+    it('preserves isGuest on the reissued token — a guest refreshing is still a guest', async () => {
+      const stored: RefreshToken = {
+        id: 'rt-001', tokenHash: 'hash', userId: 'guest-1',
+        expiresAt: new Date(Date.now() + 60_000), revokedAt: null,
+        replacedByTokenHash: null, createdAt: NOW,
+      };
+      mockAuthRepo.findRefreshTokenByHash.mockResolvedValue(stored);
+      mockUserRepo.findById.mockResolvedValue(makeUser({ id: 'guest-1', isGuest: true }));
+      mockAuthRepo.revokeRefreshToken.mockResolvedValue(stored);
+
+      await service.refresh('some-plaintext-refresh-token');
+
+      expect(mockJwt.signAsync).toHaveBeenCalledWith(
+        expect.objectContaining({ sub: 'guest-1', isGuest: true }),
+        expect.anything(),
+      );
+    });
+
+    it('does not embed isGuest when refreshing a non-guest user\'s token', async () => {
+      const stored: RefreshToken = {
+        id: 'rt-001', tokenHash: 'hash', userId: 'u-001',
+        expiresAt: new Date(Date.now() + 60_000), revokedAt: null,
+        replacedByTokenHash: null, createdAt: NOW,
+      };
+      mockAuthRepo.findRefreshTokenByHash.mockResolvedValue(stored);
+      mockUserRepo.findById.mockResolvedValue(makeUser({ id: 'u-001', isGuest: false }));
+      mockAuthRepo.revokeRefreshToken.mockResolvedValue(stored);
+
+      await service.refresh('some-plaintext-refresh-token');
+
+      const payload = mockJwt.signAsync.mock.calls[0][0] as Record<string, unknown>;
+      expect(payload.isGuest).toBeUndefined();
+    });
+
     it('throws UnauthorizedException when the token is not found', async () => {
       mockAuthRepo.findRefreshTokenByHash.mockResolvedValue(null);
 

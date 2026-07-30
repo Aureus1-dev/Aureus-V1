@@ -264,7 +264,12 @@ export class AuthService {
       throw new UnauthorizedException('Invalid or expired refresh token');
     }
 
-    const tokens = await this.issueTokenPair(user.id, user.email, user.roles);
+    // isGuest must be re-read from the user row, not omitted: a still-guest
+    // member refreshing their session is still a guest, and dropping the
+    // claim here would silently end Guest Steward mode (GuestClaimBanner,
+    // the Home greeting's email-derived-name fallback, and anything else
+    // gated on it) on every session that outlives one access token.
+    const tokens = await this.issueTokenPair(user.id, user.email, user.roles, user.isGuest);
     await this.authRepo.revokeRefreshToken(stored.id, hashOpaqueToken(tokens.refreshToken));
     return tokens;
   }
