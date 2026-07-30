@@ -10,6 +10,7 @@ const logger = new Logger('AiPricingUtil');
  * per-installation reason to configure it differently.
  */
 const PRICING_PER_1K_TOKENS_USD: Record<string, { prompt: number; completion: number }> = {
+  'gpt-5-mini': { prompt: 0.00025, completion: 0.002 },
   'gpt-4o-mini': { prompt: 0.00015, completion: 0.0006 },
   'gpt-4o': { prompt: 0.0025, completion: 0.01 },
   'claude-3-5-haiku-20241022': { prompt: 0.0008, completion: 0.004 },

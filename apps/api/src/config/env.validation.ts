@@ -92,7 +92,7 @@ export const envValidationSchema = Joi.object({
   // resolution error at request time) rather than failing at boot.
   AI_PROVIDER: Joi.string().valid('openai', 'anthropic', 'stub').default('stub'),
   OPENAI_API_KEY: Joi.string().empty('').when('AI_PROVIDER', { is: 'openai', then: Joi.required() }),
-  OPENAI_MODEL:       Joi.string().empty('').default('gpt-4o-mini'),
+  OPENAI_MODEL:       Joi.string().empty('').default('gpt-5-mini'),
   ANTHROPIC_API_KEY: Joi.string().empty('').when('AI_PROVIDER', { is: 'anthropic', then: Joi.required() }),
   ANTHROPIC_MODEL:    Joi.string().empty('').default('claude-3-5-haiku-20241022'),
 
