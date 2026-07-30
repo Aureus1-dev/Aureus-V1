@@ -15,6 +15,14 @@
  * background distinct from `surfaceSecondary`'s existing "list item"
  * meaning, and `borderSubtle` is a low-contrast hairline for calm internal
  * dividers, leaving `border` for higher-contrast card/input boundaries.
+ *
+ * `emberCore`/`emberMid`/`emberTip` (Warm & Elemental identity direction,
+ * Founder-approved): a three-stop gradient for the Steward's own presence
+ * — the voice orb (`VoiceOrb.tsx`) — so it reads as a glow with real
+ * depth rather than a flat colored circle. `emberCore` deliberately
+ * matches `steward`/`actionPrimary` exactly rather than introducing a new
+ * hue: the orb's glow and the Steward's identity color are the same
+ * color, just given room to bloom.
  */
 export const colorTokens = {
   light: {
@@ -39,6 +47,9 @@ export const colorTokens = {
     journey: '#3f8f83',
     steward: '#a8481f',
     conversation: '#5c5245',
+    emberCore: '#a8481f',
+    emberMid: '#d97e3d',
+    emberTip: '#f5c98a',
   },
   dark: {
     surfacePrimary: '#1c1712',
@@ -62,6 +73,9 @@ export const colorTokens = {
     journey: '#5fb3a8',
     steward: '#e08a52',
     conversation: '#cbbfae',
+    emberCore: '#e08a52',
+    emberMid: '#eba377',
+    emberTip: '#ffd9ae',
   },
 } as const;
 
