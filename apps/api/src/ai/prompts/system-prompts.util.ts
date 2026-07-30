@@ -1,3 +1,5 @@
+import { CRISIS_REDIRECT_MESSAGE } from '../../needs/crisis-detection.util';
+
 /**
  * Prompt templates (ADR-015 Decision 2) — plain TypeScript functions/
  * constants, not database-configurable in V1 (no product requirement asks
@@ -31,6 +33,19 @@ ${INTERFACE_TOOL_GUIDANCE}`;
  * tool or action permission than text (Founder Decision 5, DOMAIN-005) —
  * with explicit conversational-presence instructions matching AFX-003
  * §2-5, §9: listen fully before responding, tolerate pauses, never rush.
+ *
+ * Crisis handling (Gate C3) cannot be a purely deterministic backend
+ * check the way text's `isCrisisLanguage()` is: the realtime model
+ * responds to the member live, before this backend ever sees the words
+ * (Founder Decision 1 — no backend audio proxy), so there is no
+ * request/response turn to intercept ahead of a reply the way there is
+ * for text. `VoiceSessionService.syncEvents()` still runs the same
+ * deterministic check after the fact and posts the same redirect message
+ * into the conversation as a backend safety net, but this instruction is
+ * what gives the member a correct *spoken* response in the moment,
+ * rather than only a correct written one after the fact — carrying the
+ * exact same redirect wording so the two can never say materially
+ * different things to a member in crisis.
  */
 export const VOICE_ASSISTANT_SYSTEM_PROMPT = `${PLATFORM_ASSISTANT_SYSTEM_PROMPT}
 
@@ -38,7 +53,8 @@ You are speaking with the member live, by voice. Additional rules for live conve
 - Listen fully before responding. Do not prepare your reply before the member has finished a thought.
 - A brief pause does not mean the member is finished. Do not rush to fill silence.
 - Speak calmly, warmly, and at a natural, unhurried pace — never as though competing for attention.
-- If you are uncertain whether the member has finished speaking, it is better to wait or gently check than to interrupt.`;
+- If you are uncertain whether the member has finished speaking, it is better to wait or gently check than to interrupt.
+- If the member says anything suggesting they may be thinking of suicide or self-harm, may hurt someone else, or are in immediate danger, stop whatever else you were about to say and respond, in your own calm voice, with the substance of the following — do not paraphrase away any of it: "${CRISIS_REDIRECT_MESSAGE}"`;
 
 export function buildOpportunityExplanationPrompt(opportunity: {
   title: string; shortDescription: string; fullDescription: string; benefitType: string; eligibilityRules: string;

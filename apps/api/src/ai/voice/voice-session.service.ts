@@ -9,6 +9,8 @@ import {
 import { ConfigService } from '@nestjs/config';
 import { AiCapability, AiMessageRole, AiRequestStatus, VoiceSessionEndReason } from '@prisma/client';
 import { AuthenticatedUser } from '../../auth/strategies/jwt.strategy';
+import { NeedsService } from '../../needs/needs.service';
+import { isCrisisLanguage, CRISIS_REDIRECT_MESSAGE } from '../../needs/crisis-detection.util';
 import { VOICE_ASSISTANT_SYSTEM_PROMPT } from '../prompts/system-prompts.util';
 import {
   AI_CONVERSATION_REPOSITORY,
@@ -55,6 +57,7 @@ export class VoiceSessionService {
     @Inject(AI_VOICE_SESSION_REPOSITORY) private readonly voiceSessionRepo: IAiVoiceSessionRepository,
     @Inject(AI_TURN_EVENT_REPOSITORY) private readonly turnEventRepo: IAiTurnEventRepository,
     private readonly config: ConfigService,
+    private readonly needs: NeedsService,
   ) {}
 
   /** POST /ai/voice/sessions — broker an ephemeral credential and open a session against the canonical conversation. */
@@ -136,10 +139,35 @@ export class VoiceSessionService {
     }
   }
 
-  /** POST /ai/voice/sessions/:id/events — sync finalized messages and Conversation Timing Layer evidence. */
+  /**
+   * POST /ai/voice/sessions/:id/events — sync finalized messages and
+   * Conversation Timing Layer evidence.
+   *
+   * Gate C parity with text (`ConversationsService.ask()`): the realtime
+   * model responds to the member live over WebRTC before this backend ever
+   * sees the words (Founder Decision 1 rules out a backend audio proxy),
+   * so C1 (need capture) and C3 (crisis redirect) cannot run *before* a
+   * response the way they do for text — there is no request/response
+   * turn to intercept. What this method can still guarantee, applied here
+   * as each member turn is finalized: C1 fires on the conversation's first
+   * member message exactly as it does in text, and C3's deterministic
+   * phrase match runs against every member message, posting the same
+   * fixed `CRISIS_REDIRECT_MESSAGE` into the canonical conversation (where
+   * it renders inline in the visible ConversationSurface alongside the
+   * live call) as a backend safety net — not a substitute for the model's
+   * own live judgment (reinforced separately in
+   * `VOICE_ASSISTANT_SYSTEM_PROMPT`), but a guarantee that does not depend
+   * on it.
+   */
   async syncEvents(id: string, dto: SyncVoiceEventsDto, caller: AuthenticatedUser): Promise<SyncVoiceEventsResponseDto> {
     const session = await this.getOwnedSessionOrThrow(id, caller);
     await this.assertWithinDurationLimit(session);
+
+    const existingMessages = await this.messageRepo.findByConversation(session.conversationId);
+    const existingProviderItemIds = new Set(
+      existingMessages.map((m) => m.providerItemId).filter((providerItemId): providerItemId is string => providerItemId !== null),
+    );
+    let hasExistingMemberMessage = existingMessages.some((m) => m.role === AiMessageRole.USER);
 
     const persistedTurnEvents: TurnEventResponseDto[] = [];
     for (const event of dto.turnEvents ?? []) {
@@ -161,6 +189,8 @@ export class VoiceSessionService {
 
     const persistedMessages: MessageResponseDto[] = [];
     for (const message of dto.messages ?? []) {
+      const isNewMessage = !existingProviderItemIds.has(message.providerItemId);
+
       if (message.role === 'USER') {
         // Conversation Timing Layer enforcement (AFX-003 §4): a member
         // turn can only be finalized on the strength of recorded timing
@@ -184,6 +214,42 @@ export class VoiceSessionService {
         providerItemId: message.providerItemId,
       });
       persistedMessages.push(MessageResponseDto.fromEntity(saved));
+
+      // Only act on a message actually new to this sync call — never
+      // re-fire need capture or a crisis redirect for a message replayed
+      // by a client reconnect/retry (createIfNotExists itself already
+      // de-duplicates the row; this guards the side effects around it).
+      if (message.role === 'USER' && isNewMessage) {
+        existingProviderItemIds.add(message.providerItemId);
+
+        // Gate C1 (Understanding): the conversation's first member turn is
+        // its stated need, exactly as ConversationsService.ask() captures
+        // it for text — checked here so a member whose very first Aureus
+        // interaction is by voice still gets one (e.g. City Sheet matching
+        // in the Conversation Room, which is grounded in a needId).
+        if (!hasExistingMemberMessage) {
+          hasExistingMemberMessage = true;
+          try {
+            await this.needs.capture(caller.id, session.conversationId, message.content);
+          } catch (error) {
+            this.logger.warn(`Failed to capture stated need for voice conversation ${session.conversationId}: ${error}`);
+          }
+        }
+
+        // Gate C3 (Urgency assessment): the same deterministic phrase
+        // match text uses, checked against every member turn — posted as
+        // a normal assistant message into the canonical conversation so
+        // it renders inline in the visible ConversationSurface without
+        // any bespoke voice-only UI.
+        if (isCrisisLanguage(message.content)) {
+          const redirect = await this.messageRepo.create({
+            conversationId: session.conversationId,
+            role: AiMessageRole.ASSISTANT,
+            content: CRISIS_REDIRECT_MESSAGE,
+          });
+          persistedMessages.push(MessageResponseDto.fromEntity(redirect));
+        }
+      }
     }
 
     if (persistedMessages.length > 0) {

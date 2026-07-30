@@ -12,6 +12,8 @@ import {
 } from '@prisma/client';
 import type { AiConversation, AiMessage, AiTurnEvent, AiVoiceSession } from '@prisma/client';
 import type { AuthenticatedUser } from '../../auth/strategies/jwt.strategy';
+import { NeedsService } from '../../needs/needs.service';
+import { CRISIS_REDIRECT_MESSAGE } from '../../needs/crisis-detection.util';
 import { VoiceSessionService } from './voice-session.service';
 import { VOICE_PROVIDER, IVoiceProvider } from './providers/voice-provider.interface';
 import { VOICE_TIMING_POLICY } from './voice-timing-policy';
@@ -102,6 +104,7 @@ const mockTurnEventRepo: jest.Mocked<IAiTurnEventRepository> = {
   createIfNotExists: jest.fn(), findByVoiceSession: jest.fn(), hasFinalizedTurn: jest.fn(),
 };
 const mockConfig = { get: jest.fn((_key: string, def?: unknown) => def) } as unknown as jest.Mocked<ConfigService>;
+const mockNeeds = { capture: jest.fn(), findMine: jest.fn() } as unknown as jest.Mocked<NeedsService>;
 
 describe('VoiceSessionService', () => {
   let service: VoiceSessionService;
@@ -117,12 +120,14 @@ describe('VoiceSessionService', () => {
         { provide: AI_VOICE_SESSION_REPOSITORY, useValue: mockVoiceSessionRepo },
         { provide: AI_TURN_EVENT_REPOSITORY, useValue: mockTurnEventRepo },
         { provide: ConfigService, useValue: mockConfig },
+        { provide: NeedsService, useValue: mockNeeds },
       ],
     }).compile();
     service = m.get(VoiceSessionService);
     jest.clearAllMocks();
     mockConfig.get.mockImplementation((_key: string, def?: unknown) => def);
     mockVoiceSessionRepo.findActiveByUser.mockResolvedValue(null);
+    mockMessageRepo.findByConversation.mockResolvedValue([]);
   });
 
   describe('startSession', () => {
@@ -316,6 +321,106 @@ describe('VoiceSessionService', () => {
       expect(mockTurnEventRepo.createIfNotExists).toHaveBeenCalledWith(expect.objectContaining({
         voiceSessionId: 'vs-001', type: AiTurnEventType.STEWARD_RESPONSE_STARTED,
       }));
+    });
+  });
+
+  describe('syncEvents — Gate C parity with text (ConversationsService.ask())', () => {
+    beforeEach(() => {
+      mockTurnEventRepo.hasFinalizedTurn.mockResolvedValue(true);
+      mockMessageRepo.createIfNotExists.mockImplementation(async (data) =>
+        makeMessage({
+          role: data.role, content: data.content, providerItemId: data.providerItemId, completionStatus: data.completionStatus,
+        }),
+      );
+    });
+
+    it('captures the conversation-first member voice message as a stated need, exactly as text does', async () => {
+      mockVoiceSessionRepo.findById.mockResolvedValue(makeVoiceSession());
+      mockMessageRepo.findByConversation.mockResolvedValue([]);
+
+      await service.syncEvents('vs-001', {
+        messages: [{ role: 'USER', content: 'I need help finding a job', providerItemId: 'item-001' }],
+      }, USER);
+
+      expect(mockNeeds.capture).toHaveBeenCalledWith(USER.id, 'conv-001', 'I need help finding a job');
+    });
+
+    it('does not re-capture a need for a later member message in an already-started conversation', async () => {
+      mockVoiceSessionRepo.findById.mockResolvedValue(makeVoiceSession());
+      mockMessageRepo.findByConversation.mockResolvedValue([makeMessage({ providerItemId: 'item-000' })]);
+
+      await service.syncEvents('vs-001', {
+        messages: [{ role: 'USER', content: 'What about opportunities near me?', providerItemId: 'item-001' }],
+      }, USER);
+
+      expect(mockNeeds.capture).not.toHaveBeenCalled();
+    });
+
+    it('does not re-capture a need when the same first message is replayed by a client retry', async () => {
+      mockVoiceSessionRepo.findById.mockResolvedValue(makeVoiceSession());
+      // The message already exists from an earlier sync call for this exact providerItemId.
+      mockMessageRepo.findByConversation.mockResolvedValue([
+        makeMessage({ role: 'USER' as AiMessage['role'], providerItemId: 'item-001', content: 'I need help finding a job' }),
+      ]);
+
+      await service.syncEvents('vs-001', {
+        messages: [{ role: 'USER', content: 'I need help finding a job', providerItemId: 'item-001' }],
+      }, USER);
+
+      expect(mockNeeds.capture).not.toHaveBeenCalled();
+    });
+
+    it('never lets a capture failure block message persistence', async () => {
+      mockVoiceSessionRepo.findById.mockResolvedValue(makeVoiceSession());
+      mockMessageRepo.findByConversation.mockResolvedValue([]);
+      mockNeeds.capture.mockRejectedValueOnce(new Error('db unavailable'));
+
+      const result = await service.syncEvents('vs-001', {
+        messages: [{ role: 'USER', content: 'I need help finding a job', providerItemId: 'item-001' }],
+      }, USER);
+
+      expect(result.messages).toHaveLength(1);
+    });
+
+    it('posts the same deterministic crisis redirect message text uses, as an assistant message in the canonical conversation', async () => {
+      mockVoiceSessionRepo.findById.mockResolvedValue(makeVoiceSession());
+      mockMessageRepo.findByConversation.mockResolvedValue([makeMessage({ providerItemId: 'item-000' })]);
+      mockMessageRepo.create.mockResolvedValue(
+        makeMessage({ role: 'ASSISTANT' as AiMessage['role'], content: CRISIS_REDIRECT_MESSAGE, providerItemId: undefined as unknown as string }),
+      );
+
+      const result = await service.syncEvents('vs-001', {
+        messages: [{ role: 'USER', content: 'I want to kill myself', providerItemId: 'item-001' }],
+      }, USER);
+
+      expect(mockMessageRepo.create).toHaveBeenCalledWith(expect.objectContaining({
+        conversationId: 'conv-001', role: 'ASSISTANT', content: CRISIS_REDIRECT_MESSAGE,
+      }));
+      expect(result.messages.some((m) => m.content === CRISIS_REDIRECT_MESSAGE)).toBe(true);
+    });
+
+    it('does not post a crisis redirect for an assistant message, even if its text happens to match the phrase list', async () => {
+      mockVoiceSessionRepo.findById.mockResolvedValue(makeVoiceSession());
+      mockMessageRepo.findByConversation.mockResolvedValue([makeMessage({ providerItemId: 'item-000' })]);
+
+      await service.syncEvents('vs-001', {
+        messages: [{ role: 'ASSISTANT', content: 'quoting back: kill myself', providerItemId: 'item-001' }],
+      }, USER);
+
+      expect(mockMessageRepo.create).not.toHaveBeenCalled();
+    });
+
+    it('does not re-post a crisis redirect when the same crisis message is replayed by a client retry', async () => {
+      mockVoiceSessionRepo.findById.mockResolvedValue(makeVoiceSession());
+      mockMessageRepo.findByConversation.mockResolvedValue([
+        makeMessage({ role: 'USER' as AiMessage['role'], providerItemId: 'item-001', content: 'I want to kill myself' }),
+      ]);
+
+      await service.syncEvents('vs-001', {
+        messages: [{ role: 'USER', content: 'I want to kill myself', providerItemId: 'item-001' }],
+      }, USER);
+
+      expect(mockMessageRepo.create).not.toHaveBeenCalled();
     });
   });
 
