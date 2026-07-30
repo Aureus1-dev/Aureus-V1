@@ -14,6 +14,7 @@ import type { AiConversation, AiMessage, AiTurnEvent, AiVoiceSession } from '@pr
 import type { AuthenticatedUser } from '../../auth/strategies/jwt.strategy';
 import { NeedsService } from '../../needs/needs.service';
 import { CRISIS_REDIRECT_MESSAGE } from '../../needs/crisis-detection.util';
+import { AiRequestsService } from '../requests/ai-requests.service';
 import { VoiceSessionService } from './voice-session.service';
 import { VOICE_PROVIDER, IVoiceProvider } from './providers/voice-provider.interface';
 import { VOICE_TIMING_POLICY } from './voice-timing-policy';
@@ -105,6 +106,7 @@ const mockTurnEventRepo: jest.Mocked<IAiTurnEventRepository> = {
 };
 const mockConfig = { get: jest.fn((_key: string, def?: unknown) => def) } as unknown as jest.Mocked<ConfigService>;
 const mockNeeds = { capture: jest.fn(), findMine: jest.fn() } as unknown as jest.Mocked<NeedsService>;
+const mockAiRequests = { assertWithinBudget: jest.fn() } as unknown as jest.Mocked<AiRequestsService>;
 
 describe('VoiceSessionService', () => {
   let service: VoiceSessionService;
@@ -121,6 +123,7 @@ describe('VoiceSessionService', () => {
         { provide: AI_TURN_EVENT_REPOSITORY, useValue: mockTurnEventRepo },
         { provide: ConfigService, useValue: mockConfig },
         { provide: NeedsService, useValue: mockNeeds },
+        { provide: AiRequestsService, useValue: mockAiRequests },
       ],
     }).compile();
     service = m.get(VoiceSessionService);
@@ -128,9 +131,18 @@ describe('VoiceSessionService', () => {
     mockConfig.get.mockImplementation((_key: string, def?: unknown) => def);
     mockVoiceSessionRepo.findActiveByUser.mockResolvedValue(null);
     mockMessageRepo.findByConversation.mockResolvedValue([]);
+    mockAiRequests.assertWithinBudget.mockResolvedValue(undefined);
   });
 
   describe('startSession', () => {
+    it('checks the same budget ceiling every text completion goes through, before brokering anything', async () => {
+      mockAiRequests.assertWithinBudget.mockRejectedValue(new ForbiddenException('quota reached'));
+
+      await expect(service.startSession({}, USER)).rejects.toThrow(ForbiddenException);
+      expect(mockVoiceProvider.brokerSession).not.toHaveBeenCalled();
+      expect(mockConversationRepo.create).not.toHaveBeenCalled();
+    });
+
     it('creates a new conversation when none is given, then brokers and persists a session', async () => {
       mockConversationRepo.create.mockResolvedValue(makeConversation());
       mockVoiceProvider.brokerSession.mockResolvedValue({
@@ -421,6 +433,67 @@ describe('VoiceSessionService', () => {
       }, USER);
 
       expect(mockMessageRepo.create).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('syncEvents — real cost tracking', () => {
+    it('prices a newly-reported usage entry and writes it as a real AiRequest, priced by the session\'s own model', async () => {
+      mockVoiceSessionRepo.findById.mockResolvedValue(makeVoiceSession({ model: 'gpt-realtime' }));
+      mockMessageRepo.findByConversation.mockResolvedValue([]);
+      mockRequestRepo.create.mockResolvedValue({} as never);
+
+      await service.syncEvents('vs-001', {
+        usage: [{
+          providerItemId: 'item-resp-1',
+          inputAudioTokens: 1000, inputTextTokens: 0, cachedAudioTokens: 0, cachedTextTokens: 0,
+          outputAudioTokens: 1000, outputTextTokens: 0,
+        }],
+      }, USER);
+
+      expect(mockRequestRepo.create).toHaveBeenCalledWith(expect.objectContaining({
+        userId: USER.id,
+        conversationId: 'conv-001',
+        capability: AiCapability.VOICE_CONVERSATION,
+        model: 'gpt-realtime',
+        promptTokens: 1000,
+        completionTokens: 1000,
+        status: AiRequestStatus.SUCCESS,
+      }));
+      const costUsd = mockRequestRepo.create.mock.calls[0][0].costUsd;
+      expect(costUsd).toBeCloseTo(0.032 + 0.064, 6);
+    });
+
+    it('does not double-bill a usage report replayed for a provider item already persisted from an earlier sync call', async () => {
+      mockVoiceSessionRepo.findById.mockResolvedValue(makeVoiceSession({ model: 'gpt-realtime' }));
+      mockMessageRepo.findByConversation.mockResolvedValue([
+        makeMessage({ role: 'ASSISTANT' as AiMessage['role'], providerItemId: 'item-resp-1' }),
+      ]);
+
+      await service.syncEvents('vs-001', {
+        usage: [{
+          providerItemId: 'item-resp-1',
+          inputAudioTokens: 1000, inputTextTokens: 0, cachedAudioTokens: 0, cachedTextTokens: 0,
+          outputAudioTokens: 1000, outputTextTokens: 0,
+        }],
+      }, USER);
+
+      expect(mockRequestRepo.create).not.toHaveBeenCalled();
+    });
+
+    it('never writes a negative or NaN cost for an unmapped model, matching the pricing util\'s own safe fallback', async () => {
+      mockVoiceSessionRepo.findById.mockResolvedValue(makeVoiceSession({ model: 'some-future-realtime-model' }));
+      mockMessageRepo.findByConversation.mockResolvedValue([]);
+      mockRequestRepo.create.mockResolvedValue({} as never);
+
+      await service.syncEvents('vs-001', {
+        usage: [{
+          providerItemId: 'item-resp-1',
+          inputAudioTokens: 1000, inputTextTokens: 0, cachedAudioTokens: 0, cachedTextTokens: 0,
+          outputAudioTokens: 1000, outputTextTokens: 0,
+        }],
+      }, USER);
+
+      expect(mockRequestRepo.create.mock.calls[0][0].costUsd).toBe(0);
     });
   });
 

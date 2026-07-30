@@ -14,14 +14,32 @@
  * never from a speech-stopped pause alone.
  */
 
+/**
+ * Real cost tracking (ADR-017 follow-up): the only token-usage figures
+ * for a voice turn exist on this client, briefly, on `response.done` —
+ * OpenAI never reports them to the backend directly (no backend audio
+ * proxy), so `VoiceContext` forwards this unchanged via `syncVoiceEvents`
+ * for the backend to price. Field names already match
+ * `VoiceUsageEventInput` (lib/api/voice.ts) so no further translation is
+ * needed downstream.
+ */
+export interface VoiceResponseUsage {
+  inputAudioTokens: number;
+  inputTextTokens: number;
+  cachedAudioTokens: number;
+  cachedTextTokens: number;
+  outputAudioTokens: number;
+  outputTextTokens: number;
+}
+
 export type NormalizedVoiceEvent =
   | { kind: 'member-speech-started'; occurredAt: string }
   | { kind: 'member-speech-stopped'; occurredAt: string }
   | { kind: 'member-turn-finalized'; itemId: string; transcript: string; occurredAt: string }
   | { kind: 'steward-response-started'; responseId: string; occurredAt: string }
   | { kind: 'steward-transcript-delta'; responseId: string; delta: string }
-  | { kind: 'steward-response-completed'; responseId: string; itemId: string | null; transcript: string; occurredAt: string }
-  | { kind: 'steward-response-interrupted'; responseId: string; itemId: string | null; transcript: string; occurredAt: string }
+  | { kind: 'steward-response-completed'; responseId: string; itemId: string | null; transcript: string; occurredAt: string; usage?: VoiceResponseUsage }
+  | { kind: 'steward-response-interrupted'; responseId: string; itemId: string | null; transcript: string; occurredAt: string; usage?: VoiceResponseUsage }
   | { kind: 'function-call-requested'; callId: string; name: string; arguments: string; occurredAt: string }
   | { kind: 'provider-error'; message: string };
 
@@ -87,9 +105,15 @@ export class RealtimeEventMapper {
 
       case 'response.done': {
         type OutputItem = { id?: string; type?: string; call_id?: string; name?: string; arguments?: string };
-        const response = raw.response as { id?: string; status?: string; output?: OutputItem[] } | undefined;
+        type ResponseUsage = {
+          input_token_details?: { text_tokens?: number; audio_tokens?: number; cached_tokens_details?: { text_tokens?: number; audio_tokens?: number } };
+          output_token_details?: { text_tokens?: number; audio_tokens?: number };
+        };
+        const response = raw.response as { id?: string; status?: string; output?: OutputItem[]; usage?: ResponseUsage } | undefined;
         const responseId = response?.id ?? '';
         if (!responseId) return [];
+
+        const usage = extractUsage(response?.usage);
 
         const occurredAt = this.nowIso();
         const output = response?.output ?? [];
@@ -123,9 +147,9 @@ export class RealtimeEventMapper {
         // 'speaking' and return to 'listening' regardless of what, if
         // anything, was said.
         if (response?.status === 'cancelled' || response?.status === 'incomplete') {
-          events.push({ kind: 'steward-response-interrupted', responseId, itemId, transcript, occurredAt });
+          events.push({ kind: 'steward-response-interrupted', responseId, itemId, transcript, occurredAt, ...(usage ? { usage } : {}) });
         } else {
-          events.push({ kind: 'steward-response-completed', responseId, itemId, transcript, occurredAt });
+          events.push({ kind: 'steward-response-completed', responseId, itemId, transcript, occurredAt, ...(usage ? { usage } : {}) });
         }
 
         return events;
@@ -153,4 +177,20 @@ export class RealtimeEventMapper {
 function extractResponseId(raw: RawRealtimeEvent): string | null {
   const response = raw.response as { id?: string } | undefined;
   return response?.id ?? null;
+}
+
+/** Returns null when `response.done` carried no usage at all, rather than a zeroed-out object — a real absence is not the same as a turn that genuinely used 0 tokens. */
+function extractUsage(usage: {
+  input_token_details?: { text_tokens?: number; audio_tokens?: number; cached_tokens_details?: { text_tokens?: number; audio_tokens?: number } };
+  output_token_details?: { text_tokens?: number; audio_tokens?: number };
+} | undefined): VoiceResponseUsage | null {
+  if (!usage) return null;
+  return {
+    inputAudioTokens: usage.input_token_details?.audio_tokens ?? 0,
+    inputTextTokens: usage.input_token_details?.text_tokens ?? 0,
+    cachedAudioTokens: usage.input_token_details?.cached_tokens_details?.audio_tokens ?? 0,
+    cachedTextTokens: usage.input_token_details?.cached_tokens_details?.text_tokens ?? 0,
+    outputAudioTokens: usage.output_token_details?.audio_tokens ?? 0,
+    outputTextTokens: usage.output_token_details?.text_tokens ?? 0,
+  };
 }
