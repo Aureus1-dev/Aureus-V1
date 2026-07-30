@@ -133,6 +133,6 @@ export const envValidationSchema = Joi.object({
   // Voice Domain (ADR-016). Reuses OPENAI_API_KEY above — no separate
   // credential. Optional in every environment: absent, VoiceSessionService
   // falls back to these same literal defaults itself.
-  VOICE_MODEL: Joi.string().empty('').default('gpt-4o-realtime-preview'),
-  VOICE_NAME:  Joi.string().empty('').default('alloy'),
+  VOICE_MODEL: Joi.string().empty('').default('gpt-realtime'),
+  VOICE_NAME:  Joi.string().empty('').default('marin'),
 });

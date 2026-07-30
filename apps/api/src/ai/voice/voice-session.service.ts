@@ -31,7 +31,7 @@ import { SyncVoiceEventsResponseDto, TurnEventResponseDto } from './dto/sync-voi
 import { VoiceSessionStatusResponseDto } from './dto/voice-session-status-response.dto';
 import { MessageResponseDto } from '../conversations/dto/message-response.dto';
 
-const VOICE_MODEL_DEFAULT = 'gpt-4o-realtime-preview';
+const VOICE_MODEL_DEFAULT = 'gpt-realtime';
 const VOICE_NAME_DEFAULT = 'marin';
 
 /**
