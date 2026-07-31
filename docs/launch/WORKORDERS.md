@@ -58,31 +58,7 @@ Operating interpretation: This is an internal ambition, not permission to bypass
 
 ---
 
-## Founder Pilot Exception
-
-**Founder Decision, approved 2026-07-27.** Verbatim direction: *"Treat the current phase as a founder-only pilot. The City Sheet is approved for founder-only testing. Do not block engineering work on human phone verification. Instead, update the launch documentation to record a Founder Pilot Exception that operational verification is deferred until public launch. Do not falsely claim that phone verification has already occurred."*
-
-**What this changes:** Nothing about A4's requirement is removed, weakened, or marked complete. Real, human phone/contact verification of every City Sheet candidate remains mandatory before any member other than the Founder — or the one trusted human steward commissioned under P3 — relies on that data. A4–A6 below are completely unchanged. What changes is *who may exercise the system, and on what honestly-labeled basis, before that verification completes.*
-
-**The exception, precisely:**
-
-1. **Scope of "founder-only pilot."** The Founder, and the P3 trusted human steward, may use the application — including features that read from the City Sheet — for real engineering verification, dry runs, and the Gate F walkthrough. This is not a "real member" in LAUNCH-001's sense: it does not count toward the 25-member cohort, and none of F3–F8 below are satisfied by it.
-2. **City Sheet data stays honestly labeled.** Every City Sheet entry a founder-only session encounters remains `UNVERIFIED` (or `isTestFixture`) in the data, and C5's `ResourceStatusBadge` must keep showing "Not yet verified" — never "Verified" — for all of it. This exception authorizes *using* unverified data for founder-only testing; it does not authorize *representing* it as verified anywhere: not in copy, not in UI state, not in a work-order status in this document.
-3. **A4 remains Not Started, and stays that way until a Human Steward actually does it.** Nothing below marks it complete or implies it occurred. What no longer waits on it is engineering work — building, testing, and dry-running the remainder of Gate C, Gate D, Gate E, and preparing Gate F. The phone calls themselves remain real-world work on a Human Steward's own timeline, exactly as `docs/launch/A4-Verification-Guide.md` already describes.
-4. **What still requires the full A4 → A5 → A6 chain, unexempted:** inviting any member who is not the Founder or the P3 steward (F3 onward), and any claim anywhere that the City Sheet is verified.
-5. **Re-verification before public launch is not optional.** Everything built and dry-run tested under the founder-only pilot must still hold once real, verified City Sheet data is in place. This exception defers *when* human verification happens relative to engineering work; it does not substitute founder-only testing for that verification.
-
-**Consequence for the work-order graph below** (per FOUNDATION-004 §11's merge/split discipline — original acceptance criteria preserved intact, not silently weakened):
-
-- **C9** splits into **C9a — Founder pilot verification** (the Founder and/or the P3 steward act as the tester against honestly-unverified City Sheet data; not blocked on A6) and **C9b — Public-launch verification** (unchanged from the original C9 in every respect: requires A6, real verified data, and gates F3).
-- **Gate D** and **Gate E**'s dependency on "Gate C" now reads as Gate C's founder-pilot scope (C1–C8, C9a) — their engineering work may begin now. Their own sign-off work orders (D7, E6) run against the Founder's and the P3 steward's own test accounts, consistent with LAUNCH-001's "test accounts" language.
-- **Gate F's F1** (Founder walkthrough) may proceed once Gates A(-founder-scope)–E are ready. **F3** (the first real invitation) still requires Gate A's full A4/A5/A6 sign-off and C9b, exactly as before — stated explicitly here so the dependency chain is never misread as silently exempting F3.
-
----
-
 ## Gate A — The Foundation
-
-*The Founder Pilot Exception above does not change this gate. A4, A5, and A6 remain Not Started below, exactly as they were; they are not satisfied by founder-only use of the City Sheet.*
 
 *Founder Decision: Gate A is renamed "The Foundation," superseding the earlier "The City Sheet" label. This is a naming change only — the scope, content, and status of A1–A6 below are unchanged. LAUNCH-001's own text still reads "Gate A — The city sheet"; per LAUNCH-001's protected, read-only status, that text is not edited. This is a deliberate, Founder-authorized divergence between LAUNCH-001's original wording and this execution track's naming, not an unresolved conflict — unlike the Gate B/Gate C situation this revision exists to fix.*
 
@@ -162,7 +138,7 @@ Operating interpretation: This is an internal ambition, not permission to bypass
 
 **Scope, as decided by the Founder:** Gate C begins when Aureus starts understanding the member's need. It owns: **understanding, clarification, urgency assessment, resource discovery, verified resource presentation, steward escalation, and safe failure.** The Production Execution Order supersedes the earlier assumption that the Clearing was "already built" — it is to be built to production standard.
 
-**Dependencies:** Gate B (B9) functional. Engineering may build interfaces, logic, fixtures, and tests before A4 is complete — **only public production verification with real members (C9b, below) requires verified City Sheet data (A6).** C1–C8 are not blocked by Gate A. Per the Founder Pilot Exception above, C9 is split into C9a (founder-pilot verification, not blocked on Gate A) and C9b (public-launch verification, unchanged, still blocked on A6).
+**Dependencies:** Gate B (B9) functional. Engineering may build interfaces, logic, fixtures, and tests before A4 is complete — **only production verification with real members (C9, below) requires verified City Sheet data (A6).** C1–C8 are not blocked by Gate A.
 
 **C1 implementation note (Understanding):** A research pass across the existing Conversation domain (`ConversationsService.ask()`), the AI Orchestrator, City Sheet, and Stewardship Escalations found the conversational plumbing itself already complete and reusable as-is (free-text in, free-text out, no menu navigation ever involved) — but no structured signal existed anywhere that a member's own words had been recognized as a stated need; that gap is what C1 closes, not new conversation UI. New `StatedNeed` model (`apps/api/src/needs/`, minimal — `userId`, `conversationId`, `content`, `createdAt`) and a small `NeedsService`/`NeedsController` (`GET /needs`, self-only, mirrors the `SavedOpportunities`/`Consent` auth pattern). `ConversationsService.ask()` now captures the very first message of a conversation as a stated need — detected via `history.length === 1` immediately after persisting the user's message and loading recent history — wrapped in try/catch so a capture failure can never block the actual AI response the member is waiting for; this is the concrete, testable "entry point from Gate B's hand-off" the acceptance criteria calls for. Deliberately minimal: no classification, urgency, or clarification logic here — those are C2/C3's job, reading from this same record. 3 new unit tests on `ConversationsService` (capture-on-first-message, no-recapture-on-later-messages, capture-failure-never-blocks-the-response), 2 new unit tests on `NeedsService`, 3 new e2e tests (real capture + retrieval, no re-capture on a second message, self-only visibility). Validation surfaced and worked around an unrelated environmental issue, not a regression: this sandbox's root `.env` carries a real `OPENAI_API_KEY`, and `AiProviderModule` prefers it over the stub provider whenever `AI_PROVIDER=openai`, but the sandbox's network egress blocks `api.openai.com` — so any AI-calling e2e test (not just the new ones) 503s unless the test run explicitly sets `AI_PROVIDER=stub`. With that override, full `apps/api` suite: 117/118 suites, 1156/1163 tests passing — the only remaining failures are the same pre-existing Voice Domain flakiness already noted in every prior work order's validation (unrelated to Gate C). No schema field or endpoint outside the new `needs` module was changed.
 
@@ -190,14 +166,13 @@ Operating interpretation: This is an internal ambition, not permission to bypass
 | C6 | Steward escalation | When a member's need exceeds automated resolution, a human steward (Founder or the trusted steward, per P3) is reachably paged, with honest, published on-call hours. Every escalation and its outcome is recorded; escalation is never triggered without the member's choice. | C3, C5, P3 | Engineering | Critical | **Done** | A test page reaches the on-duty steward within an agreed time bound; published hours match the real rotation exactly; an escalation and its outcome are recorded. |
 | C7 | Safe failure | When no verified resource is available and no steward is reachable, the member is told the truth, offered a real next step, and never left at a dead end. Unresolved need is recorded. | C5, C6 | Engineering | Critical | **Done** | Simulated no-resource/no-steward conditions always produce an honest message and a real next step; unresolved need is recorded and retrievable. |
 | C8 | Gate C build/test sign-off (fixtures) | C1–C7 pass end-to-end against explicitly labeled seed fixtures, without requiring verified City Sheet data. | C1–C7 | Engineering | Critical | **Done** | Full understanding-through-safe-failure flow passes against fixtures for a real test member. |
-| C9a | Gate C founder-pilot verification | Per the Founder Pilot Exception, the entire Clearing flow passes end-to-end for the Founder and/or the P3 trusted steward acting as the tester, against the current City Sheet data, honestly labeled `UNVERIFIED` throughout via C5's `ResourceStatusBadge` — never presented as verified. | C8 | Engineering + Founder | Critical | Not Started | Founder/P3-steward session completes the full Clearing flow; every City Sheet-sourced resource shown is visibly labeled "Not yet verified," never "Verified." |
-| C9b | Gate C public-launch verification (real members) | The entire Clearing flow passes with real (non-founder, non-P3-steward) members using only verified City Sheet data. Unchanged from the original C9; gates F3. | C9a, A6 | Engineering + Human Stewards | Critical | Blocked (needs Gate A) | Real-member session traces only to verified city sheet entries; no unverified or live-crawled content ever appears. Gate C sign-off for public launch. |
+| C9 | Gate C production verification (real members) | The entire Clearing flow passes with real members using only verified City Sheet data. This is the only Gate C item gated on Gate A. | C8, A6 | Engineering + Human Stewards | Critical | Blocked (needs Gate A) | Real-member session traces only to verified city sheet entries; no unverified or live-crawled content ever appears. Gate C sign-off. |
 
 ---
 
 ## Gate D — The Tending Run
 
-*Unchanged in content by this revision. Per the Founder Pilot Exception above, this gate's dependency is Gate C's founder-pilot scope (C1–C8, C9a) rather than all of Gate C — C9b (public-launch verification) is not required to begin Gate D. LAUNCH-001: "Seven consecutive days of the daily run producing truthful absence reports for test accounts, with the Hearthline never lying once."*
+*Unchanged by this revision, per Founder decision. LAUNCH-001: "Seven consecutive days of the daily run producing truthful absence reports for test accounts, with the Hearthline never lying once."*
 
 | ID | Title | Description | Dependencies | Owner | Priority | Status | Acceptance Criteria |
 |---|---|---|---|---|---|---|---|
@@ -213,7 +188,7 @@ Operating interpretation: This is an internal ambition, not permission to bypass
 
 ## Gate E — Memory Rights Live
 
-*Unchanged in content by this revision. Per the Founder Pilot Exception above, this gate's dependency is Gate C's founder-pilot scope (C1–C8, C9a) rather than all of Gate C — C9b (public-launch verification) is not required to begin Gate E. LAUNCH-001: "View, correct, forget, export — working, plain, two taps deep."*
+*Unchanged by this revision, per Founder decision. LAUNCH-001: "View, correct, forget, export — working, plain, two taps deep."*
 
 | ID | Title | Description | Dependencies | Owner | Priority | Status | Acceptance Criteria |
 |---|---|---|---|---|---|---|---|
@@ -228,15 +203,15 @@ Operating interpretation: This is an internal ambition, not permission to bypass
 
 ## Gate F — The Founding Review
 
-*Unchanged in content by this revision. LAUNCH-001: "You walk the entire member journey yourself, as a member, start to finish. Then the first invitation goes out — one member. Then five. Then twenty-five. Each expansion gated on the previous cohort's experience holding the canon's tests." Per the Founder Pilot Exception above, F1 (the Founder's own walkthrough) may proceed on the founder-pilot scope of Gates A–E (i.e., without C9b/A6). F3 (the first real invitation) is explicitly re-anchored to Gate A's full A4/A5/A6 sign-off and C9b below, since it is no longer covered transitively through F1's relaxed dependency.*
+*Unchanged by this revision, per Founder decision. LAUNCH-001: "You walk the entire member journey yourself, as a member, start to finish. Then the first invitation goes out — one member. Then five. Then twenty-five. Each expansion gated on the previous cohort's experience holding the canon's tests."*
 
-**Internal target (P4):** Gates A–E (founder-pilot scope) complete and the Founding Review begun within 30 calendar days of Founder approval (2026-07-22) — internal target date **2026-08-21**. This is an ambition, not a gate-bypass: F1's dependency and every acceptance criterion below still governs, including F3's unchanged requirement for full, real human verification (A6, C9b) before any real member is invited. If the target date is missed, the reason must be reported and the forecast revised rather than any acceptance criteria weakened.
+**Internal target (P4):** Gates A–E complete and the Founding Review begun within 30 calendar days of Founder approval (2026-07-22) — internal target date **2026-08-21**. This is an ambition, not a gate-bypass: F1's dependency ("Gates A–E complete") and every acceptance criterion below still governs. If the target date is missed, the reason must be reported and the forecast revised rather than any acceptance criteria weakened.
 
 | ID | Title | Description | Dependencies | Owner | Priority | Status | Acceptance Criteria |
 |---|---|---|---|---|---|---|---|
-| F1 | Founder full walkthrough | Founder completes the entire member journey, start to finish, as a member. | Gates A–E, founder-pilot scope (C9a not C9b) | Founder | Critical | Not Started | Walkthrough completed; issues logged. |
+| F1 | Founder full walkthrough | Founder completes the entire member journey, start to finish, as a member. | Gates A–E complete | Founder | Critical | Not Started | Walkthrough completed; issues logged. |
 | F2 | Resolve walkthrough issues | Fix anything found in F1. | F1 | Engineering | Critical | Not Started | All logged issues resolved or explicitly accepted by the Founder. |
-| F3 | Invite member one | Send the first invitation via direct Founder invitation (P2) — no partner relationship required. Per the Founder Pilot Exception, this is the point where full human City Sheet verification becomes mandatory again: this is a real, non-founder, non-P3-steward member. | F2, P2, P4, A6, C9b | Founder | Critical | Not Started | One member onboarded successfully; Gate A (A6) and C9b are confirmed complete before this work order starts. |
+| F3 | Invite member one | Send the first invitation via direct Founder invitation (P2) — no partner relationship required. | F2, P2, P4 | Founder | Critical | Not Started | One member onboarded successfully. |
 | F4 | Evaluate first-member experience | Assess member one's experience against LAUNCH-001's canon tests before expanding. | F3 | Founder + Human Stewards | Critical | Not Started | Experience holds the canon's tests; Founder approves expansion. |
 | F5 | Invite members two through five | Expand the cohort to five. | F4 | Founder | Critical | Not Started | Four more members onboarded successfully. |
 | F6 | Evaluate five-member cohort | Assess the five-member cohort's experience before expanding further. | F5 | Founder + Human Stewards | Critical | Not Started | Experience holds the canon's tests; Founder approves expansion. |
@@ -250,30 +225,17 @@ Operating interpretation: This is an internal ambition, not permission to bypass
 - Pre-Gate: 4 work orders (all Founder Approved — Complete)
 - Gate A — The Foundation: 7 work orders (unchanged)
 - Gate B — The Gate: 9 work orders (B1–B9 Done — Gate B fully complete)
-- Gate C — The Clearing: 10 work orders (C1–C8 Done; C9 split into C9a [not started, unblocked] / C9b [Blocked on Gate A])
-- Gate D — The Tending Run: 7 work orders (content unchanged; dependency rescoped to founder-pilot Gate C scope)
-- Gate E — Memory Rights Live: 6 work orders (content unchanged; dependency rescoped to founder-pilot Gate C scope)
-- Gate F — The Founding Review: 8 work orders (content unchanged; F3 dependency re-anchored to A6/C9b explicitly)
-- **Total: 51 work orders**
+- Gate C — The Clearing: 9 work orders (C1–C8 Done; C9 Blocked on Gate A)
+- Gate D — The Tending Run: 7 work orders (unchanged)
+- Gate E — Memory Rights Live: 6 work orders (unchanged)
+- Gate F — The Founding Review: 8 work orders (unchanged)
+- **Total: 50 work orders**
 
 ---
 
 ## Revision History
 
-### V3 — Founder Pilot Exception (this revision)
-
-**What changed and why:** The Founder directed that the current phase be treated as a founder-only pilot, that the City Sheet be approved for founder-only testing, and that engineering work not be blocked on human phone verification of City Sheet candidates (A4) — while explicitly prohibiting any claim that phone verification has occurred. See the "Founder Pilot Exception" section above for the full decision and its precise scope.
-
-**What the Founder decided:**
-1. The Founder and the P3 trusted human steward may use the application, including City Sheet-backed features, for real engineering verification and dry runs, honestly labeled as unverified throughout.
-2. C9 splits into C9a (founder-pilot verification, unblocked) and C9b (public-launch verification, unchanged from the original C9, still blocked on A6).
-3. Gate D and Gate E's dependency on Gate C is rescoped to the founder-pilot scope (C1–C8, C9a); their own engineering work may proceed now.
-4. Gate F's F1 (Founder walkthrough) may proceed on the founder-pilot scope; F3 (the first real invitation) is explicitly re-anchored to A6 and C9b, since it is no longer covered transitively through F1's relaxed dependency.
-5. A4, A5, and A6 (Gate A) are entirely unchanged — still Not Started, still real-world human work, never to be marked complete or implied complete by this or any other document.
-
-**Assumptions removed:** That Gate D, Gate E, and Gate F's Founder walkthrough must wait for real, human-verified City Sheet data (superseded for founder-only engineering and dry-run purposes only). That "founder-only pilot" use of the City Sheet constitutes verification, satisfies A4, or may ever be described as verified (explicitly rejected — see item 2 above and C9a's acceptance criteria).
-
-### V2 — Gate B / Gate C Reconciliation
+### V2 — Gate B / Gate C Reconciliation (this revision)
 
 **What changed and why:** V1 of this document decomposed Gate B and Gate C directly from `LAUNCH-001`'s original text before a later, more detailed Founder instruction (the Production Execution Order) corrected two assumptions in that text: that "the Gate" (first arrival) and "the Clearing" (crisis resource retrieval) were already built. A repository code inspection found neither existed as a built member-facing surface. The Production Execution Order reused the letters "Gate B" and "Gate C" for different content than V1's structure, without formally revising this document — creating two unreconciled, disagreeing definitions. This was flagged (not resolved) in V1's own "Naming note," escalated to the Founder as a formal Decision Brief, and is resolved by this revision per the Founder's approved decision.
 

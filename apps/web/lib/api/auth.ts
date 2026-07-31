@@ -16,7 +16,6 @@ export interface UserDto {
   createdAt: string;
   updatedAt: string;
   deletedAt: string | null;
-  isGuest: boolean;
 }
 
 export interface TokenPairDto {
@@ -35,34 +34,6 @@ export function register(email: string, password: string): Promise<AuthResponseD
   return apiRequest<AuthResponseDto>('/auth/register', {
     method: 'POST',
     body: { email, password },
-    retryOn401: false,
-  });
-}
-
-/** Guest Steward mode — starts an unauthenticated session, no email or password required. */
-export function guest(): Promise<AuthResponseDto> {
-  return apiRequest<AuthResponseDto>('/auth/guest', {
-    method: 'POST',
-    body: {},
-    retryOn401: false,
-  });
-}
-
-/**
- * Claims the caller's guest session by attaching a real email/password.
- * Same account id as the guest session — everything already built under
- * it (conversation, needs, goals) is preserved with no separate migration.
- * Requires the caller's current (guest) access token.
- */
-export function claimGuestAccount(
-  accessToken: string,
-  email: string,
-  password: string,
-): Promise<AuthResponseDto> {
-  return apiRequest<AuthResponseDto>('/auth/claim', {
-    method: 'POST',
-    body: { email, password },
-    accessToken,
     retryOn401: false,
   });
 }

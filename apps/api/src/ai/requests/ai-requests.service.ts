@@ -51,7 +51,7 @@ export class AiRequestsService {
   ) {}
 
   async runCompletion(params: RunCompletionParams): Promise<CompletionResult> {
-    await this.assertWithinBudget(params.userId);
+    await this.enforceSpendCeilings(params.userId);
     const startedAt = Date.now();
 
     try {
@@ -109,14 +109,8 @@ export class AiRequestsService {
    * DB-authoritative — see `AiOperationalConfigService`) rather than
    * `ConfigService` directly, so a Founder-facing toggle takes effect on
    * the very next request, no restart required.
-   *
-   * Public (not just runCompletion's internal helper) so VoiceSessionService
-   * can apply the exact same pre-flight ceiling check before brokering a
-   * voice session — `sumCostSince` reads AiRequest.costUsd across every
-   * capability, voice's own included, so the two paths already share one
-   * ledger; this just makes voice check it too, not only accrue into it.
    */
-  async assertWithinBudget(userId: string): Promise<void> {
+  private async enforceSpendCeilings(userId: string): Promise<void> {
     const opConfig = await this.operationalConfig.getEffective();
 
     if (opConfig.emergencyStop) {

@@ -6,7 +6,6 @@ import { EmailModule } from '../email/email.module';
 import { AuthGuardsModule } from './auth-guards.module';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
-import { GuestLifecycleService } from './guest-lifecycle.service';
 import { MfaController } from './mfa/mfa.controller';
 import { MfaService } from './mfa/mfa.service';
 import { PrismaAuthRepository } from './repositories/prisma-auth.repository';
@@ -33,7 +32,6 @@ import { AUTH_REPOSITORY } from './repositories/auth.repository.interface';
   providers: [
     AuthService,
     MfaService,
-    GuestLifecycleService,
     { provide: AUTH_REPOSITORY, useClass: PrismaAuthRepository },
   ],
 })

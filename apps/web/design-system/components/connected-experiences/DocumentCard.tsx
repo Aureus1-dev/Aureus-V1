@@ -1,7 +1,7 @@
 import type { DocumentDto } from '../../../lib/api/documents';
 import { Card } from '../Card/Card';
 import { Button } from '../Button/Button';
-import { DocumentSummaryHeader } from './DocumentSummaryHeader';
+import { formatBytes, formatEnumLabel } from './connected-experiences-format';
 import styles from './DocumentCard.module.css';
 
 export interface DocumentCardProps {
@@ -9,21 +9,35 @@ export interface DocumentCardProps {
   isSummarizing: boolean;
   onSummarize: (id: string) => void;
   onDelete: (id: string) => void;
-  /** Expands this document to its full text in place (`DocumentViewer`) — omitted where there is nothing to expand into (e.g. the Living Steward Workspace inline conversation card, which handles its own expand/collapse). */
-  onView?: (id: string) => void;
 }
 
-export function DocumentCard({ document, isSummarizing, onSummarize, onDelete, onView }: DocumentCardProps) {
+export function DocumentCard({ document, isSummarizing, onSummarize, onDelete }: DocumentCardProps) {
   return (
     <Card className={styles.card}>
-      <DocumentSummaryHeader document={document} />
+      <div className={styles.header}>
+        <div>
+          <span className={styles.category}>{formatEnumLabel(document.category)}</span>
+          <h2 className={styles.title}>{document.title}</h2>
+        </div>
+        {document.documentRef ? <span className={styles.ref}>{document.documentRef}</span> : null}
+      </div>
+
+      <p className={styles.meta}>
+        {document.originalFilename} · {formatBytes(document.sizeBytes)}
+      </p>
+
+      {document.aiSummary ? (
+        <div className={styles.summary}>
+          <p className={styles.summaryLabel}>Steward summary</p>
+          <p>{document.aiSummary}</p>
+        </div>
+      ) : document.extractedText ? (
+        <p className={styles.noSummary}>No summary yet — your Steward can summarize this document when you&apos;re ready.</p>
+      ) : (
+        <p className={styles.noSummary}>No text content yet — add document text to enable AI summarization.</p>
+      )}
 
       <div className={styles.actions}>
-        {onView ? (
-          <Button variant="secondary" onClick={() => onView(document.id)} disabled={!document.extractedText}>
-            View full text
-          </Button>
-        ) : null}
         <Button
           variant="secondary"
           onClick={() => onSummarize(document.id)}

@@ -5,11 +5,9 @@ import {
   IsDateString,
   IsEnum,
   IsIn,
-  IsInt,
   IsObject,
   IsOptional,
   IsString,
-  Min,
   MinLength,
   ValidateNested,
 } from 'class-validator';
@@ -57,42 +55,6 @@ export class VoiceTurnEventDto {
   metadata?: Record<string, unknown>;
 }
 
-/**
- * Real cost tracking (ADR-017 follow-up): OpenAI's `response.done` event
- * carries the actual token usage for that turn, but only the client ever
- * sees it — Founder Decision 1 rules out a backend audio proxy, so this
- * is the only way the backend learns real voice cost rather than
- * recording costUsd=0 forever. `providerItemId` mirrors the same field on
- * the assistant message this usage belongs to (itemId, falling back to
- * responseId for a pure tool-call turn with no spoken content) — reusing
- * that identifier, rather than inventing a parallel one, is what lets the
- * backend dedupe a replayed usage report the same way it already dedupes
- * a replayed message.
- */
-export class VoiceUsageEventDto {
-  @ApiProperty({ description: "The same providerItemId as this turn's assistant message" })
-  @IsString() @MinLength(1)
-  providerItemId: string;
-
-  @ApiProperty() @IsInt() @Min(0)
-  inputAudioTokens: number;
-
-  @ApiProperty() @IsInt() @Min(0)
-  inputTextTokens: number;
-
-  @ApiProperty() @IsInt() @Min(0)
-  cachedAudioTokens: number;
-
-  @ApiProperty() @IsInt() @Min(0)
-  cachedTextTokens: number;
-
-  @ApiProperty() @IsInt() @Min(0)
-  outputAudioTokens: number;
-
-  @ApiProperty() @IsInt() @Min(0)
-  outputTextTokens: number;
-}
-
 export class SyncVoiceEventsDto {
   @ApiPropertyOptional({ type: [VoiceMessageEventDto] })
   @IsOptional() @IsArray() @ValidateNested({ each: true }) @Type(() => VoiceMessageEventDto)
@@ -101,8 +63,4 @@ export class SyncVoiceEventsDto {
   @ApiPropertyOptional({ type: [VoiceTurnEventDto] })
   @IsOptional() @IsArray() @ValidateNested({ each: true }) @Type(() => VoiceTurnEventDto)
   turnEvents?: VoiceTurnEventDto[];
-
-  @ApiPropertyOptional({ type: [VoiceUsageEventDto] })
-  @IsOptional() @IsArray() @ValidateNested({ each: true }) @Type(() => VoiceUsageEventDto)
-  usage?: VoiceUsageEventDto[];
 }

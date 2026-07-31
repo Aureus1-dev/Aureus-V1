@@ -10,10 +10,8 @@ import { AppModule } from '../../app.module';
  * End-to-end proof that C2 — V1 Scope Lockdown actually closes the gated
  * domains through the real HTTP/guard stack, not just at the unit level
  * (see v1-scope.middleware.spec.ts for the unit coverage). Runs with the
- * default flags — Academy and Pods off (their own e2e suites flip their
- * flag on to keep proving the underlying domain still works); voice on
- * by default (reopened by Founder decision), so its case here proves the
- * opposite — the gate no longer blocks it.
+ * default flags (all off) — Academy's and Pods' own e2e suites flip
+ * their flag on to keep proving the underlying domain still works.
  */
 describe('C2 — V1 Scope Lockdown — E2E', () => {
   let app: INestApplication;
@@ -47,17 +45,12 @@ describe('C2 — V1 Scope Lockdown — E2E', () => {
       .expect(404);
   });
 
-  it('does not gate /ai/voice/sessions for an authenticated member — voice was reopened by Founder decision', async () => {
-    const res = await request(app.getHttpServer())
+  it('404s /ai/voice/sessions for an authenticated member', async () => {
+    await request(app.getHttpServer())
       .post('/ai/voice/sessions')
       .set('Authorization', `Bearer ${memberToken()}`)
-      .send({});
-
-    // A fabricated JWT `sub` has no backing user row, so this can't reach
-    // a real 200/201 — the point here is only that the V1 gate itself
-    // (a 404 that reads "Not Found" and never touches the real handler)
-    // no longer intercepts the request.
-    expect(res.status).not.toBe(404);
+      .send({})
+      .expect(404);
   });
 
   it('leaves an in-scope route reachable', async () => {

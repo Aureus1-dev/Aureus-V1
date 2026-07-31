@@ -38,17 +38,6 @@ export const envValidationSchema = Joi.object({
   JWT_ACCESS_EXPIRY:      Joi.string().default('15m'),
   JWT_REFRESH_EXPIRY_DAYS: Joi.number().default(30),
 
-  // ── Guest Steward mode privacy lifecycle ─────────────────────────────
-  // How long an abandoned guest account (no email/password ever added)
-  // may go without any activity before it, and everything it created —
-  // conversations, stated needs, goals — is permanently deleted, not
-  // merely soft-deleted. "Creating a free account is only to preserve
-  // progress" is the stated principle; a guest who never claims one
-  // should not have their story kept indefinitely by default. Well
-  // under JWT_REFRESH_EXPIRY_DAYS above, so a guest's data is gone
-  // before their own browser-held token would have expired anyway.
-  GUEST_SESSION_RETENTION_DAYS: Joi.number().default(7),
-
   // ── Email delivery (ADR-009, hardened PD-001) ────────────────────────────
   // TEMPORARY (v1 launch): SMTP_HOST was required once NODE_ENV=production
   // (see git history for the .when('NODE_ENV', ...) rule this replaced).
@@ -92,7 +81,7 @@ export const envValidationSchema = Joi.object({
   // resolution error at request time) rather than failing at boot.
   AI_PROVIDER: Joi.string().valid('openai', 'anthropic', 'stub').default('stub'),
   OPENAI_API_KEY: Joi.string().empty('').when('AI_PROVIDER', { is: 'openai', then: Joi.required() }),
-  OPENAI_MODEL:       Joi.string().empty('').default('gpt-5-mini'),
+  OPENAI_MODEL:       Joi.string().empty('').default('gpt-4o-mini'),
   ANTHROPIC_API_KEY: Joi.string().empty('').when('AI_PROVIDER', { is: 'anthropic', then: Joi.required() }),
   ANTHROPIC_MODEL:    Joi.string().empty('').default('claude-3-5-haiku-20241022'),
 
@@ -133,6 +122,6 @@ export const envValidationSchema = Joi.object({
   // Voice Domain (ADR-016). Reuses OPENAI_API_KEY above — no separate
   // credential. Optional in every environment: absent, VoiceSessionService
   // falls back to these same literal defaults itself.
-  VOICE_MODEL: Joi.string().empty('').default('gpt-realtime'),
-  VOICE_NAME:  Joi.string().empty('').default('marin'),
+  VOICE_MODEL: Joi.string().empty('').default('gpt-4o-realtime-preview'),
+  VOICE_NAME:  Joi.string().empty('').default('alloy'),
 });

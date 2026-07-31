@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useOpportunities } from '../../../state';
 import { LoadingState } from '../LoadingState/LoadingState';
+import { EmptyState } from '../EmptyState/EmptyState';
 import { ErrorState } from '../ErrorState/ErrorState';
 import { Button } from '../Button/Button';
 import { VisuallyHidden } from '../../accessibility';
@@ -13,7 +14,6 @@ import {
   sortOptionToParams,
   type OpportunityFiltersValue,
 } from '../opportunities';
-import { OpportunityStack } from '../opportunity-stack';
 import { domainErrorCopy } from '../domain-error-copy';
 import styles from './SearchTab.module.css';
 
@@ -65,12 +65,24 @@ export function SearchTab() {
         </div>
       ) : (
         <>
-          {!opportunities.state.isSearching && !opportunities.state.error ? (
-            <OpportunityStack
-              isEmpty={opportunities.state.results.length === 0}
-              emptyTitle="No opportunities found"
-              emptyDescription="Try a different search, or check back soon — new opportunities are added regularly."
-            >
+          {opportunities.state.isSearching ? <LoadingState label="Searching opportunities" /> : null}
+
+          {opportunities.state.error ? (
+            <ErrorState
+              title={domainErrorCopy(opportunities.state.error.kind).title}
+              description={domainErrorCopy(opportunities.state.error.kind).description}
+            />
+          ) : null}
+
+          {!opportunities.state.isSearching && !opportunities.state.error && opportunities.state.results.length === 0 ? (
+            <EmptyState
+              title="No opportunities found"
+              description="Try a different search, or check back soon — new opportunities are added regularly."
+            />
+          ) : null}
+
+          {opportunities.state.results.length > 0 ? (
+            <div className={styles.results}>
               {opportunities.state.results.map((opportunity) => (
                 <OpportunityCard
                   key={opportunity.id}
@@ -80,16 +92,7 @@ export function SearchTab() {
                   onOpen={() => setSelectedId(opportunity.id)}
                 />
               ))}
-            </OpportunityStack>
-          ) : null}
-
-          {opportunities.state.isSearching ? <LoadingState label="Searching opportunities" /> : null}
-
-          {opportunities.state.error ? (
-            <ErrorState
-              title={domainErrorCopy(opportunities.state.error.kind).title}
-              description={domainErrorCopy(opportunities.state.error.kind).description}
-            />
+            </div>
           ) : null}
 
           {canLoadMore ? (

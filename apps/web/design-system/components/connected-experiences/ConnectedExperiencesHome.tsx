@@ -3,11 +3,11 @@
 import { useState } from 'react';
 import { useSession } from '../../../state';
 import { EmptyState } from '../EmptyState/EmptyState';
-import { Room } from '../room';
 import { ConnectedExperiencesTabs, type ConnectedExperiencesTab } from './ConnectedExperiencesTabs';
 import { ConnectedAccountsTab } from './ConnectedAccountsTab';
 import { DocumentsTab } from './DocumentsTab';
 import { ActivityTab } from './ActivityTab';
+import styles from './ConnectedExperiencesHome.module.css';
 
 type TabId = 'accounts' | 'documents' | 'activity';
 
@@ -43,10 +43,11 @@ export function ConnectedExperiencesHome({ initialTab = 'accounts' }: ConnectedE
   }
 
   return (
-    <Room
-      title={initialTab === 'documents' ? 'Document Review' : 'Connected Experiences'}
-      description="Your Steward never assumes access. Every connection here is opt-in, revocable, and explained plainly."
-    >
+    <div className={styles.home}>
+      <h1 className={styles.title}>Connected Experiences</h1>
+      <p className={styles.subtitle}>
+        Your Steward never assumes access. Every connection here is opt-in, revocable, and explained plainly.
+      </p>
       <ConnectedExperiencesTabs tabs={TABS} activeId={activeTab} onChange={(id) => setActiveTab(id as TabId)} />
 
       <div
@@ -73,6 +74,6 @@ export function ConnectedExperiencesHome({ initialTab = 'accounts' }: ConnectedE
       >
         <ActivityTab />
       </div>
-    </Room>
+    </div>
   );
 }

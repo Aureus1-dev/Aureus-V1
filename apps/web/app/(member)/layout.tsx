@@ -8,7 +8,6 @@ import {
   GlobalActionPalette,
 } from '../../design-system/components/steward';
 import { UrgentHelpAffordance } from '../../design-system/components/urgent-help';
-import { GuestClaimBanner } from '../../design-system/components/guest';
 import { V1_FEATURE_FLAGS } from '../../lib/config/v1-feature-scope';
 
 /**
@@ -41,18 +40,10 @@ import { V1_FEATURE_FLAGS } from '../../lib/config/v1-feature-scope';
  * rule above (that rule is about two agent presences) — it coexists with
  * `StewardWorkspace` (bottom-right) and `GlobalActionPalette` (top-right)
  * in the one corner they leave free.
- *
- * Progressive account creation (Part 3): `GuestClaimBanner` renders
- * in-flow above `AppShell`, not as another fixed corner widget — it
- * carries a full sentence of copy a small floating badge couldn't, and
- * a guest session is exactly the state every visitor starts in now, so
- * it needs to be legible, not squeezed into a corner. It renders nothing
- * for an already-claimed member session.
  */
 export default function MemberLayout({ children }: { children: React.ReactNode }) {
   return (
     <AuthGate>
-      <GuestClaimBanner />
       <AppShell>{children}</AppShell>
       <SurfaceTracker />
       {V1_FEATURE_FLAGS.voice ? <VoiceOrchestrator /> : null}

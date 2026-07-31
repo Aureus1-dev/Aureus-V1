@@ -1,12 +1,11 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { useConnectedExperiences } from '../../../state';
 import { LoadingState } from '../LoadingState/LoadingState';
 import { EmptyState } from '../EmptyState/EmptyState';
 import { ErrorState } from '../ErrorState/ErrorState';
 import { domainErrorCopy } from '../domain-error-copy';
-import { DocumentViewer } from '../document-viewer';
 import { UploadDocumentForm } from './UploadDocumentForm';
 import { DocumentCard } from './DocumentCard';
 import styles from './DocumentsTab.module.css';
@@ -14,15 +13,11 @@ import styles from './DocumentsTab.module.css';
 /**
  * Documents — fully real, no third party required (DOMAIN-008 Founder
  * Decision 2). Reuses the state module's optimistic upsert/removal so the
- * list reflects an upload, summary, or deletion immediately. "View full
- * text" expands a document into `DocumentViewer` in place rather than
- * navigating away (Living Steward Workspace redesign) — the same
- * component the conversation timeline's inline document card uses.
+ * list reflects an upload, summary, or deletion immediately.
  */
 export function DocumentsTab() {
   const connectedExperiences = useConnectedExperiences();
   const { state } = connectedExperiences;
-  const [expandedId, setExpandedId] = useState<string | null>(null);
 
   useEffect(() => {
     void connectedExperiences.loadDocuments();
@@ -53,20 +48,15 @@ export function DocumentsTab() {
 
       {state.documents.length > 0 ? (
         <div className={styles.list}>
-          {state.documents.map((document) =>
-            expandedId === document.id ? (
-              <DocumentViewer key={document.id} document={document} onClose={() => setExpandedId(null)} />
-            ) : (
-              <DocumentCard
-                key={document.id}
-                document={document}
-                isSummarizing={state.summarizingDocumentId === document.id}
-                onSummarize={(id) => void connectedExperiences.summarizeDocument(id)}
-                onDelete={(id) => void connectedExperiences.deleteDocument(id)}
-                onView={(id) => setExpandedId(id)}
-              />
-            ),
-          )}
+          {state.documents.map((document) => (
+            <DocumentCard
+              key={document.id}
+              document={document}
+              isSummarizing={state.summarizingDocumentId === document.id}
+              onSummarize={(id) => void connectedExperiences.summarizeDocument(id)}
+              onDelete={(id) => void connectedExperiences.deleteDocument(id)}
+            />
+          ))}
         </div>
       ) : null}
     </div>

@@ -5,13 +5,11 @@
  * shared package) by apps/web/lib/config/v1-feature-scope.ts — keep both
  * in sync by hand.
  *
- * Academy and Pods are cut for V1 entirely (LAUNCH-001: "No Pods, no
- * Academy"), with no bypass for any role — fully built, unreachable until
- * a Founder decision flips them back on. Voice was reopened by a later
- * Founder decision: `VoiceProviderModule` already selects the real
- * `OpenAiVoiceProvider` over the stub whenever `OPENAI_API_KEY` is
- * configured, so this flag now only gates member reachability, not
- * provider selection.
+ * Every flag defaults to false: the feature is fully built and stays in
+ * the tree, but is unreachable until a Founder decision flips it back on.
+ * There is no bypass for any role — Academy, Pods, and voice are cut for
+ * V1 entirely (LAUNCH-001: "No Pods, no Academy... voice entirely"), not
+ * merely hidden from members.
  */
 export type V1FeatureKey = 'voice' | 'academy' | 'pods';
 
@@ -24,7 +22,7 @@ export type V1FeatureKey = 'voice' | 'academy' | 'pods';
  * suite runs.
  */
 export const V1_FEATURE_FLAGS: Record<V1FeatureKey, boolean> = {
-  voice: true,
+  voice: false,
   academy: false,
   pods: false,
 };

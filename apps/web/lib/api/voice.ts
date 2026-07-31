@@ -52,27 +52,9 @@ export interface VoiceTurnEventInput {
   metadata?: Record<string, unknown>;
 }
 
-/**
- * Real cost tracking (ADR-017 follow-up) — the token usage OpenAI reports
- * on `response.done`, forwarded as-is since the backend has no other way
- * to see it (no backend audio proxy). `providerItemId` must be the same
- * id as the corresponding assistant message in this same sync call (or an
- * earlier one) so the backend can price a turn exactly once.
- */
-export interface VoiceUsageEventInput {
-  providerItemId: string;
-  inputAudioTokens: number;
-  inputTextTokens: number;
-  cachedAudioTokens: number;
-  cachedTextTokens: number;
-  outputAudioTokens: number;
-  outputTextTokens: number;
-}
-
 export interface SyncVoiceEventsInput {
   messages?: VoiceMessageEventInput[];
   turnEvents?: VoiceTurnEventInput[];
-  usage?: VoiceUsageEventInput[];
 }
 
 export interface TurnEventDto {

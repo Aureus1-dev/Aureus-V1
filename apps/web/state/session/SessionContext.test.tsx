@@ -51,7 +51,7 @@ describe('SessionContext', () => {
 
   it('logs in, storing the access token and decoding member identity from it', async () => {
     mockedAuthApi.login.mockResolvedValue({
-      user: { id: 'member-1', email: 'member@example.com', emailVerified: true, roles: ['MEMBER'], status: 'ACTIVE', createdAt: 'x', updatedAt: 'x', deletedAt: null, isGuest: false },
+      user: { id: 'member-1', email: 'member@example.com', emailVerified: true, roles: ['MEMBER'], status: 'ACTIVE', createdAt: 'x', updatedAt: 'x', deletedAt: null },
       tokens: {
         accessToken: fakeAccessToken({ sub: 'member-1', email: 'member@example.com', roles: ['MEMBER'] }),
         refreshToken: 'refresh-1',
@@ -96,7 +96,7 @@ describe('SessionContext', () => {
 
   it('logs out, clearing local session state and best-effort revoking server-side', async () => {
     mockedAuthApi.login.mockResolvedValue({
-      user: { id: 'member-1', email: 'member@example.com', emailVerified: true, roles: ['MEMBER'], status: 'ACTIVE', createdAt: 'x', updatedAt: 'x', deletedAt: null, isGuest: false },
+      user: { id: 'member-1', email: 'member@example.com', emailVerified: true, roles: ['MEMBER'], status: 'ACTIVE', createdAt: 'x', updatedAt: 'x', deletedAt: null },
       tokens: {
         accessToken: fakeAccessToken({ sub: 'member-1', email: 'member@example.com', roles: ['MEMBER'] }),
         refreshToken: 'refresh-1',

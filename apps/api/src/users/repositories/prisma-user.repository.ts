@@ -63,11 +63,4 @@ export class PrismaUserRepository implements IUserRepository {
 
     return { data, total, page, limit };
   }
-
-  async deleteInactiveGuests(cutoff: Date): Promise<number> {
-    const { count } = await this.prisma.db.user.deleteMany({
-      where: { isGuest: true, guestLastActiveAt: { lt: cutoff } },
-    });
-    return count;
-  }
 }

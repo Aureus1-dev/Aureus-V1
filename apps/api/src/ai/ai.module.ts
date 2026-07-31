@@ -41,7 +41,6 @@ import { PodInsightsController } from './pod-insights/pod-insights.controller';
 import { PodInsightsService } from './pod-insights/pod-insights.service';
 
 import { InstitutionalMemoryService } from './memory/institutional-memory.service';
-import { InstitutionalMemoryController } from './memory/institutional-memory.controller';
 
 import { AiOrchestratorController } from './orchestrator/ai-orchestrator.controller';
 import { AiOrchestratorService } from './orchestrator/ai-orchestrator.service';
@@ -90,7 +89,6 @@ import { AI_TURN_EVENT_REPOSITORY } from './voice/repositories/ai-turn-event.rep
     PodInsightsController,
     VoiceController,
     AiOrchestratorController,
-    InstitutionalMemoryController,
   ],
   providers: [
     AiRequestsService,

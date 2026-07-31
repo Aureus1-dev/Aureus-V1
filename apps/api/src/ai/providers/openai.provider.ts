@@ -34,7 +34,7 @@ export class OpenAiProvider implements IAiProvider {
 
   async complete(input: AiCompletionInput): Promise<AiCompletionOutput> {
     const apiKey = this.config.get<string>('OPENAI_API_KEY');
-    const model = this.config.get<string>('OPENAI_MODEL', 'gpt-5-mini');
+    const model = this.config.get<string>('OPENAI_MODEL', 'gpt-4o-mini');
 
     const res = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',

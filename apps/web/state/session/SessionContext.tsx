@@ -25,13 +25,6 @@ export interface SessionState {
   permissions: string[];
   connectedServices: string[];
   activeWorkflowId: string | null;
-  /**
-   * Guest Steward mode. True for a session started by `establishGuestSession`
-   * (no account, no password) — read straight from the access token's own
-   * claims (see `decodeAccessToken`), never re-derived elsewhere, so it can
-   * never drift from what the backend actually issued.
-   */
-  isGuest: boolean;
 }
 
 interface SessionContextValue {
@@ -45,19 +38,6 @@ interface SessionContextValue {
   login: (email: string, password: string) => Promise<void>;
   register: (email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
-  /**
-   * Guest Steward mode: starts an unauthenticated session with no email or
-   * password. The first Aureus experience must never require an account —
-   * this is what the guest landing surface calls before it ever shows
-   * "How can we help?".
-   */
-  establishGuestSession: () => Promise<void>;
-  /**
-   * Claims the current guest session by attaching a real email/password to
-   * the SAME account — same id, so every conversation, need, and goal the
-   * guest already built is preserved with no separate migration step.
-   */
-  claimAccount: (email: string, password: string) => Promise<void>;
 }
 
 const initialSessionState: SessionState = {
@@ -69,21 +49,12 @@ const initialSessionState: SessionState = {
   permissions: [],
   connectedServices: [],
   activeWorkflowId: null,
-  isGuest: false,
 };
 
 function withTokenSnapshot(previous: SessionState): SessionState {
   const { accessToken } = getTokenSnapshot();
   if (!accessToken) {
-    return {
-      ...previous,
-      isAuthenticated: false,
-      accessToken: null,
-      memberId: null,
-      email: null,
-      roles: [],
-      isGuest: false,
-    };
+    return { ...previous, isAuthenticated: false, accessToken: null, memberId: null, email: null, roles: [] };
   }
   const claims = decodeAccessToken(accessToken);
   return {
@@ -93,7 +64,6 @@ function withTokenSnapshot(previous: SessionState): SessionState {
     memberId: claims?.sub ?? null,
     email: claims?.email ?? null,
     roles: claims?.roles ?? [],
-    isGuest: claims?.isGuest === true,
   };
 }
 
@@ -153,22 +123,6 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     setSessionExpired(false);
   }, []);
 
-  const establishGuestSession = useCallback(async () => {
-    const { tokens } = await authApi.guest();
-    setTokens(tokens);
-    setSessionExpired(false);
-  }, []);
-
-  const claimAccount = useCallback(async (email: string, password: string) => {
-    const { accessToken } = getTokenSnapshot();
-    if (!accessToken) {
-      throw new Error('No active session to claim');
-    }
-    const { tokens } = await authApi.claimGuestAccount(accessToken, email, password);
-    setTokens(tokens);
-    setSessionExpired(false);
-  }, []);
-
   const logout = useCallback(async () => {
     const { refreshToken } = getTokenSnapshot();
     clearTokens();
@@ -184,29 +138,8 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
   const dismissSessionExpired = useCallback(() => setSessionExpired(false), []);
 
   const value = useMemo(
-    () => ({
-      session,
-      setSession,
-      isRestoring,
-      sessionExpired,
-      dismissSessionExpired,
-      login,
-      register,
-      logout,
-      establishGuestSession,
-      claimAccount,
-    }),
-    [
-      session,
-      isRestoring,
-      sessionExpired,
-      dismissSessionExpired,
-      login,
-      register,
-      logout,
-      establishGuestSession,
-      claimAccount,
-    ],
+    () => ({ session, setSession, isRestoring, sessionExpired, dismissSessionExpired, login, register, logout }),
+    [session, isRestoring, sessionExpired, dismissSessionExpired, login, register, logout],
   );
 
   return <SessionContext.Provider value={value}>{children}</SessionContext.Provider>;

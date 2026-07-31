@@ -10,9 +10,10 @@ export interface NextStep {
  * The single next actionable task across a Journey's milestones, in
  * milestone-position then task-position order (AFX-001 §6 "One
  * Meaningful Next Step"). Completed and skipped items are never
- * surfaced as "next" — generalized here for a journey that may have
- * many milestones/tasks rather than the single starter pair First
- * Mission creates.
+ * surfaced as "next" — this mirrors the computation already used once
+ * in `FirstRunWelcome`'s `NextStepSummary`, generalized here for a
+ * journey that may have many milestones/tasks rather than the single
+ * starter pair First Mission creates.
  */
 export function computeNextStep(
   milestones: MilestoneDto[],

@@ -4,20 +4,14 @@ import { SessionProvider, useSession } from '../../../state/session/SessionConte
 import { useRecommendationSubjects } from './useRecommendationSubjects';
 import * as opportunitiesApi from '../../../lib/api/opportunities';
 import * as academyApi from '../../../lib/api/academy';
-import * as resourcesApi from '../../../lib/api/resources';
-import * as podsApi from '../../../lib/api/pods';
 import type { RecommendationDto } from '../../../lib/api/recommendations';
 import type { RecommendationSubject } from './RecommendationCard';
 
 jest.mock('../../../lib/api/opportunities');
 jest.mock('../../../lib/api/academy');
-jest.mock('../../../lib/api/resources');
-jest.mock('../../../lib/api/pods');
 
 const mockedOpportunities = opportunitiesApi as jest.Mocked<typeof opportunitiesApi>;
 const mockedAcademy = academyApi as jest.Mocked<typeof academyApi>;
-const mockedResources = resourcesApi as jest.Mocked<typeof resourcesApi>;
-const mockedPods = podsApi as jest.Mocked<typeof podsApi>;
 
 function makeRecommendation(o: Partial<RecommendationDto>): RecommendationDto {
   return {
@@ -86,15 +80,13 @@ describe('useRecommendationSubjects', () => {
     expect(getApi().subjectsById['rec-1']).toEqual({ title: 'Community Grant', description: 'A grant.' });
   });
 
-  it('never fetches for a recommendation with no resolvable target (e.g. a Steward escalation)', async () => {
-    const { getApi } = renderHarness([makeRecommendation({ id: 'rec-1', opportunityId: null })]);
+  it('never fetches for recommendations with no opportunity or course target', async () => {
+    const { getApi } = renderHarness([makeRecommendation({ id: 'rec-1', opportunityId: null, resourceId: 'res-1' })]);
     await act(async () => getApi().setToken('token-123'));
     await act(async () => Promise.resolve());
 
     expect(mockedOpportunities.getOpportunity).not.toHaveBeenCalled();
     expect(mockedAcademy.getCourse).not.toHaveBeenCalled();
-    expect(mockedResources.getResource).not.toHaveBeenCalled();
-    expect(mockedPods.getPod).not.toHaveBeenCalled();
   });
 
   it('resolves each course-linked recommendation to its title and short description, keyed by recommendation id', async () => {
@@ -112,41 +104,5 @@ describe('useRecommendationSubjects', () => {
 
     expect(mockedAcademy.getCourse).toHaveBeenCalledWith('token-123', 'course-1');
     expect(getApi().subjectsById['rec-1']).toEqual({ title: 'Financial Foundations', description: 'Build good money habits.' });
-  });
-
-  it('resolves each resource-linked recommendation to its title and short description, keyed by recommendation id', async () => {
-    mockedResources.getResource.mockResolvedValue({
-      id: 'res-1', resourceRef: null, title: 'Chester County Food Bank', shortDescription: 'Free groceries weekly.',
-      fullDescription: 'x', category: 'NONPROFIT_ORGANIZATION', resourceType: 'ORGANIZATION', tags: [],
-      organizationName: 'Chester County Food Bank', officialSourceUrl: 'https://example.com', contactName: null,
-      contactEmail: null, contactPhone: null, location: null, country: null, state: null, city: null,
-      isRemote: false, eligibilityNotes: null, status: 'ACTIVE', verificationStatus: 'VERIFIED', rejectionReason: null,
-      confidenceScore: 90, freshnessScore: 90, datePublished: null, dateLastVerified: null, sourceName: 'City Hall',
-      sourceUrl: null, sourceType: 'ADMIN_ENTRY', ownerId: 'admin-1', submittedById: 'admin-1', createdById: 'admin-1',
-      lastUpdatedById: 'admin-1', createdAt: 'x', updatedAt: 'x', deletedAt: null,
-    });
-
-    const { getApi } = renderHarness([makeRecommendation({ id: 'rec-1', opportunityId: null, resourceId: 'res-1' })]);
-    await act(async () => getApi().setToken('token-123'));
-    await act(async () => Promise.resolve());
-
-    expect(mockedResources.getResource).toHaveBeenCalledWith('token-123', 'res-1');
-    expect(getApi().subjectsById['rec-1']).toEqual({ title: 'Chester County Food Bank', description: 'Free groceries weekly.' });
-  });
-
-  it('resolves each Pod-linked recommendation to its name and short description, keyed by recommendation id', async () => {
-    mockedPods.getPod.mockResolvedValue({
-      id: 'pod-1', podRef: null, name: 'Job Seekers Circle', shortDescription: 'Peer support finding stable work.',
-      fullDescription: 'x', type: 'INTEREST', status: 'ACTIVE', capacity: 12, primaryLanguage: null,
-      city: null, region: null, stateProvince: null, country: null, dormancyThresholdDays: 30,
-      parentPodId: null, createdById: 'steward-1', createdAt: 'x', updatedAt: 'x',
-    });
-
-    const { getApi } = renderHarness([makeRecommendation({ id: 'rec-1', opportunityId: null, podId: 'pod-1' })]);
-    await act(async () => getApi().setToken('token-123'));
-    await act(async () => Promise.resolve());
-
-    expect(mockedPods.getPod).toHaveBeenCalledWith('token-123', 'pod-1');
-    expect(getApi().subjectsById['rec-1']).toEqual({ title: 'Job Seekers Circle', description: 'Peer support finding stable work.' });
   });
 });

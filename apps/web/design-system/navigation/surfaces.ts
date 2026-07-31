@@ -1,47 +1,38 @@
 import { V1_FEATURE_FLAGS } from '../../lib/config/v1-feature-scope';
 
 /**
- * The 21 primary experience surfaces (FPB-002 §3, extended by the Living
- * Steward Workspace redesign). This is the single source of truth for both
- * navigation and the routing scaffold — a surface is added here once, not
- * duplicated across the nav and the route tree.
- *
- * `tier` drives the curated Steward Workspace nav (AppShell): `'primary'`
- * surfaces (Conversation, Journey, Plans, Opportunities, Documents,
- * Community, Calendar, Settings — the calm, quiet core) are always visible;
- * `'secondary'` surfaces are collapsed behind a disclosure rather than
- * removed — every route stays fully reachable, only the visual weight
- * changes (no functionality was cut).
+ * The 20 primary experience surfaces (FPB-002 §3). This is the single
+ * source of truth for both primary navigation and the routing scaffold —
+ * a surface is added here once, not duplicated across the nav and the
+ * route tree.
  */
 export interface SurfaceDefinition {
   id: string;
   label: string;
   href: string;
-  tier: 'primary' | 'secondary';
 }
 
 const ALL_SURFACES: SurfaceDefinition[] = [
-  { id: 'welcome', label: 'Welcome', href: '/welcome', tier: 'secondary' },
-  { id: 'conversation', label: 'Conversation', href: '/conversation', tier: 'primary' },
-  { id: 'home', label: 'Home', href: '/home', tier: 'secondary' },
-  { id: 'journey', label: 'Journey', href: '/journey', tier: 'primary' },
-  { id: 'plans', label: 'Plans', href: '/plans', tier: 'primary' },
-  { id: 'opportunities', label: 'Opportunities', href: '/opportunities', tier: 'primary' },
-  { id: 'academy', label: 'Academy', href: '/academy', tier: 'secondary' },
-  { id: 'community', label: 'Community', href: '/community', tier: 'primary' },
-  { id: 'pods', label: 'Pods', href: '/pods', tier: 'secondary' },
-  { id: 'steward', label: 'Steward', href: '/steward', tier: 'secondary' },
-  { id: 'documents', label: 'Documents', href: '/documents', tier: 'primary' },
-  { id: 'tasks', label: 'Tasks', href: '/tasks', tier: 'secondary' },
-  { id: 'calendar', label: 'Calendar', href: '/calendar', tier: 'primary' },
-  { id: 'notifications', label: 'Notifications', href: '/notifications', tier: 'secondary' },
-  { id: 'messages', label: 'Messages', href: '/messages', tier: 'secondary' },
-  { id: 'resources', label: 'Resources', href: '/resources', tier: 'secondary' },
-  { id: 'profile', label: 'Profile', href: '/profile', tier: 'secondary' },
-  { id: 'settings', label: 'Settings', href: '/settings', tier: 'primary' },
-  { id: 'permissions', label: 'Connected Experiences', href: '/permissions', tier: 'secondary' },
-  { id: 'search', label: 'Search', href: '/search', tier: 'secondary' },
-  { id: 'help', label: 'Help & Support', href: '/help', tier: 'secondary' },
+  { id: 'welcome', label: 'Welcome', href: '/welcome' },
+  { id: 'conversation', label: 'Conversation', href: '/conversation' },
+  { id: 'home', label: 'Home', href: '/home' },
+  { id: 'journey', label: 'Journey', href: '/journey' },
+  { id: 'opportunities', label: 'Opportunities', href: '/opportunities' },
+  { id: 'academy', label: 'Academy', href: '/academy' },
+  { id: 'community', label: 'Community', href: '/community' },
+  { id: 'pods', label: 'Pods', href: '/pods' },
+  { id: 'steward', label: 'Steward', href: '/steward' },
+  { id: 'documents', label: 'Documents', href: '/documents' },
+  { id: 'tasks', label: 'Tasks', href: '/tasks' },
+  { id: 'calendar', label: 'Calendar', href: '/calendar' },
+  { id: 'notifications', label: 'Notifications', href: '/notifications' },
+  { id: 'messages', label: 'Messages', href: '/messages' },
+  { id: 'resources', label: 'Resources', href: '/resources' },
+  { id: 'profile', label: 'Profile', href: '/profile' },
+  { id: 'settings', label: 'Settings', href: '/settings' },
+  { id: 'permissions', label: 'Connected Experiences', href: '/permissions' },
+  { id: 'search', label: 'Search', href: '/search' },
+  { id: 'help', label: 'Help & Support', href: '/help' },
 ];
 
 /**

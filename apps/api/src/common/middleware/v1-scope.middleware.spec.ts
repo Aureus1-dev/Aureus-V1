@@ -14,7 +14,7 @@ function makeReqRes(path: string) {
 describe('V1ScopeMiddleware', () => {
   const middleware = new V1ScopeMiddleware();
 
-  it.each(['/academy/courses', '/pods'])(
+  it.each(['/ai/voice/sessions', '/academy/courses', '/pods'])(
     '404s a gated prefix (%s) while its flag is off',
     (path) => {
       const { req, res, next, status, json } = makeReqRes(path);
@@ -26,15 +26,6 @@ describe('V1ScopeMiddleware', () => {
       expect(next).not.toHaveBeenCalled();
     },
   );
-
-  it('lets /ai/voice/sessions through — voice was reopened by Founder decision', () => {
-    const { req, res, next, status } = makeReqRes('/ai/voice/sessions');
-
-    middleware.use(req, res, next);
-
-    expect(status).not.toHaveBeenCalled();
-    expect(next).toHaveBeenCalled();
-  });
 
   it('does not gate a path that merely starts with a gated word but not the prefix boundary', () => {
     const { req, res, next, status } = makeReqRes('/academymembers');
@@ -63,8 +54,8 @@ describe('V1ScopeMiddleware', () => {
     expect(next).toHaveBeenCalled();
   });
 
-  it('Academy and Pods stay off; voice was reopened by Founder decision (C2)', () => {
-    expect(V1_FEATURE_FLAGS.voice).toBe(true);
+  it('every gated flag currently defaults to off (C2 requires this until a Founder decision reopens one)', () => {
+    expect(V1_FEATURE_FLAGS.voice).toBe(false);
     expect(V1_FEATURE_FLAGS.academy).toBe(false);
     expect(V1_FEATURE_FLAGS.pods).toBe(false);
   });

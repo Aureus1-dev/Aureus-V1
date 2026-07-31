@@ -113,7 +113,6 @@ describe('VoiceContext', () => {
     expect(mockedApi.syncVoiceEvents).toHaveBeenCalledWith('token-123', 'vs-1', {
       turnEvents: [expect.objectContaining({ type: 'MEMBER_TURN_FINALIZED', providerItemId: 'item-1' })],
       messages: [{ role: 'USER', content: 'What is a Journey?', providerItemId: 'item-1' }],
-      usage: [],
     });
   });
 
@@ -138,45 +137,6 @@ describe('VoiceContext', () => {
     expect(mockedApi.syncVoiceEvents).toHaveBeenCalledWith('token-123', 'vs-1', expect.objectContaining({
       messages: [expect.objectContaining({ providerItemId: 'item-2', completionStatus: 'COMPLETE' })],
     }));
-  });
-
-  it('forwards response.usage from a completed response to the backend for real cost tracking', async () => {
-    await signedInAndConnected();
-    const callbacks = lastCallbacks();
-
-    act(() => callbacks.onDataChannelMessage({ type: 'response.created', response: { id: 'resp-1' } }));
-    act(() => callbacks.onDataChannelMessage({
-      type: 'response.done',
-      response: {
-        id: 'resp-1', status: 'completed', output: [{ id: 'item-2' }],
-        usage: {
-          input_token_details: { text_tokens: 0, audio_tokens: 100 },
-          output_token_details: { text_tokens: 0, audio_tokens: 200 },
-        },
-      },
-    }));
-    await act(async () => {});
-
-    expect(mockedApi.syncVoiceEvents).toHaveBeenCalledWith('token-123', 'vs-1', expect.objectContaining({
-      usage: [{
-        providerItemId: 'item-2',
-        inputAudioTokens: 100, inputTextTokens: 0, cachedAudioTokens: 0, cachedTextTokens: 0,
-        outputAudioTokens: 200, outputTextTokens: 0,
-      }],
-    }));
-  });
-
-  it('does not report usage at all when a response carries none, rather than a zeroed entry', async () => {
-    await signedInAndConnected();
-    const callbacks = lastCallbacks();
-
-    act(() => callbacks.onDataChannelMessage({ type: 'response.created', response: { id: 'resp-1' } }));
-    act(() => callbacks.onDataChannelMessage({
-      type: 'response.done', response: { id: 'resp-1', status: 'completed', output: [{ id: 'item-2' }] },
-    }));
-    await act(async () => {});
-
-    expect(mockedApi.syncVoiceEvents).toHaveBeenCalledWith('token-123', 'vs-1', expect.objectContaining({ usage: [] }));
   });
 
   it('marks a barge-in response as interrupted, not complete, and syncs INTERRUPTED accurately', async () => {

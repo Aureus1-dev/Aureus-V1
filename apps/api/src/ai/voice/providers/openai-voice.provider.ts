@@ -7,10 +7,9 @@ import {
   VoiceSessionBrokerOutput,
 } from './voice-provider.interface';
 
-interface OpenAiRealtimeClientSecretResponse {
-  value: string;
-  expires_at: number;
-  session?: { id?: string };
+interface OpenAiRealtimeSessionResponse {
+  id: string;
+  client_secret: { value: string; expires_at: number };
 }
 
 /**
@@ -22,15 +21,6 @@ interface OpenAiRealtimeClientSecretResponse {
  * class's job ends at issuing it; no audio is proxied through this server.
  * Only ever instantiated when OPENAI_API_KEY is configured
  * (voice-provider.module.ts), matching OpenAiProvider's assumption.
- *
- * Targets the GA `/v1/realtime/client_secrets` endpoint (the beta
- * `/v1/realtime/sessions` shape — flat `model`/`voice`/`turn_detection` at
- * the request's top level, `{id, client_secret: {...}}` in the response —
- * is deprecated). GA nests everything the beta sent flat under a `session`
- * object, and moves `voice`/`turn_detection` under `session.audio.output`/
- * `session.audio.input` respectively; the client secret itself is now the
- * top-level `value`/`expires_at`, with the echoed session's own id (if
- * present) available at `session.id`.
  */
 @Injectable()
 export class OpenAiVoiceProvider implements IVoiceProvider {
@@ -42,24 +32,19 @@ export class OpenAiVoiceProvider implements IVoiceProvider {
   async brokerSession(input: VoiceSessionBrokerInput): Promise<VoiceSessionBrokerOutput> {
     const apiKey = this.config.get<string>('OPENAI_API_KEY');
 
-    const res = await fetch('https://api.openai.com/v1/realtime/client_secrets', {
+    const res = await fetch('https://api.openai.com/v1/realtime/sessions', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         Authorization: `Bearer ${apiKey}`,
       },
       body: JSON.stringify({
-        session: {
-          type: 'realtime',
-          model: input.model,
-          instructions: input.instructions,
-          audio: {
-            input: { turn_detection: input.turnDetectionConfig },
-            output: { voice: input.voice },
-          },
-          tools: input.tools,
-          tool_choice: 'auto',
-        },
+        model: input.model,
+        voice: input.voice,
+        instructions: input.instructions,
+        turn_detection: input.turnDetectionConfig,
+        tools: input.tools,
+        tool_choice: 'auto',
       }),
     });
 
@@ -69,11 +54,11 @@ export class OpenAiVoiceProvider implements IVoiceProvider {
       throw new Error(`OpenAI realtime session broker failed with status ${res.status}`);
     }
 
-    const data = (await res.json()) as OpenAiRealtimeClientSecretResponse;
+    const data = (await res.json()) as OpenAiRealtimeSessionResponse;
     return {
-      clientSecret: data.value,
-      expiresAt: new Date(data.expires_at * 1000),
-      providerSessionRef: data.session?.id ?? null,
+      clientSecret: data.client_secret.value,
+      expiresAt: new Date(data.client_secret.expires_at * 1000),
+      providerSessionRef: data.id ?? null,
     };
   }
 }

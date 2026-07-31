@@ -9,8 +9,6 @@ import {
 import { ConfigService } from '@nestjs/config';
 import { AiCapability, AiMessageRole, AiRequestStatus, VoiceSessionEndReason } from '@prisma/client';
 import { AuthenticatedUser } from '../../auth/strategies/jwt.strategy';
-import { NeedsService } from '../../needs/needs.service';
-import { isCrisisLanguage, CRISIS_REDIRECT_MESSAGE } from '../../needs/crisis-detection.util';
 import { VOICE_ASSISTANT_SYSTEM_PROMPT } from '../prompts/system-prompts.util';
 import {
   AI_CONVERSATION_REPOSITORY,
@@ -18,8 +16,6 @@ import {
 } from '../conversations/repositories/ai-conversation.repository.interface';
 import { AI_MESSAGE_REPOSITORY, IAiMessageRepository } from '../conversations/repositories/ai-message.repository.interface';
 import { AI_REQUEST_REPOSITORY, IAiRequestRepository } from '../requests/repositories/ai-request.repository.interface';
-import { AiRequestsService } from '../requests/ai-requests.service';
-import { computeVoiceCostUsd } from '../requests/ai-pricing.util';
 import { VOICE_PROVIDER, IVoiceProvider } from './providers/voice-provider.interface';
 import { VOICE_TIMING_POLICY } from './voice-timing-policy';
 import { VOICE_TOOLS } from './voice-tools';
@@ -35,8 +31,8 @@ import { SyncVoiceEventsResponseDto, TurnEventResponseDto } from './dto/sync-voi
 import { VoiceSessionStatusResponseDto } from './dto/voice-session-status-response.dto';
 import { MessageResponseDto } from '../conversations/dto/message-response.dto';
 
-const VOICE_MODEL_DEFAULT = 'gpt-realtime';
-const VOICE_NAME_DEFAULT = 'marin';
+const VOICE_MODEL_DEFAULT = 'gpt-4o-realtime-preview';
+const VOICE_NAME_DEFAULT = 'alloy';
 
 /**
  * Natural re-authorization checkpoint (Founder Decision 5/6): rather than a
@@ -59,18 +55,10 @@ export class VoiceSessionService {
     @Inject(AI_VOICE_SESSION_REPOSITORY) private readonly voiceSessionRepo: IAiVoiceSessionRepository,
     @Inject(AI_TURN_EVENT_REPOSITORY) private readonly turnEventRepo: IAiTurnEventRepository,
     private readonly config: ConfigService,
-    private readonly needs: NeedsService,
-    private readonly aiRequests: AiRequestsService,
   ) {}
 
   /** POST /ai/voice/sessions — broker an ephemeral credential and open a session against the canonical conversation. */
   async startSession(dto: StartVoiceSessionDto, caller: AuthenticatedUser): Promise<VoiceSessionResponseDto> {
-    // Same pre-flight budget ceiling every text completion already goes
-    // through (AiRequestsService.runCompletion) — voice previously had no
-    // check here at all, only ever contributing to the ledger, never
-    // reading it back before granting a session.
-    await this.aiRequests.assertWithinBudget(caller.id);
-
     const conversation = dto.conversationId
       ? await this.getOwnedConversationOrThrow(dto.conversationId, caller)
       : await this.conversationRepo.create({ userId: caller.id });
@@ -148,35 +136,10 @@ export class VoiceSessionService {
     }
   }
 
-  /**
-   * POST /ai/voice/sessions/:id/events — sync finalized messages and
-   * Conversation Timing Layer evidence.
-   *
-   * Gate C parity with text (`ConversationsService.ask()`): the realtime
-   * model responds to the member live over WebRTC before this backend ever
-   * sees the words (Founder Decision 1 rules out a backend audio proxy),
-   * so C1 (need capture) and C3 (crisis redirect) cannot run *before* a
-   * response the way they do for text — there is no request/response
-   * turn to intercept. What this method can still guarantee, applied here
-   * as each member turn is finalized: C1 fires on the conversation's first
-   * member message exactly as it does in text, and C3's deterministic
-   * phrase match runs against every member message, posting the same
-   * fixed `CRISIS_REDIRECT_MESSAGE` into the canonical conversation (where
-   * it renders inline in the visible ConversationSurface alongside the
-   * live call) as a backend safety net — not a substitute for the model's
-   * own live judgment (reinforced separately in
-   * `VOICE_ASSISTANT_SYSTEM_PROMPT`), but a guarantee that does not depend
-   * on it.
-   */
+  /** POST /ai/voice/sessions/:id/events — sync finalized messages and Conversation Timing Layer evidence. */
   async syncEvents(id: string, dto: SyncVoiceEventsDto, caller: AuthenticatedUser): Promise<SyncVoiceEventsResponseDto> {
     const session = await this.getOwnedSessionOrThrow(id, caller);
     await this.assertWithinDurationLimit(session);
-
-    const existingMessages = await this.messageRepo.findByConversation(session.conversationId);
-    const existingProviderItemIds = new Set(
-      existingMessages.map((m) => m.providerItemId).filter((providerItemId): providerItemId is string => providerItemId !== null),
-    );
-    let hasExistingMemberMessage = existingMessages.some((m) => m.role === AiMessageRole.USER);
 
     const persistedTurnEvents: TurnEventResponseDto[] = [];
     for (const event of dto.turnEvents ?? []) {
@@ -198,8 +161,6 @@ export class VoiceSessionService {
 
     const persistedMessages: MessageResponseDto[] = [];
     for (const message of dto.messages ?? []) {
-      const isNewMessage = !existingProviderItemIds.has(message.providerItemId);
-
       if (message.role === 'USER') {
         // Conversation Timing Layer enforcement (AFX-003 §4): a member
         // turn can only be finalized on the strength of recorded timing
@@ -223,82 +184,6 @@ export class VoiceSessionService {
         providerItemId: message.providerItemId,
       });
       persistedMessages.push(MessageResponseDto.fromEntity(saved));
-
-      // Only act on a message actually new to this sync call — never
-      // re-fire need capture or a crisis redirect for a message replayed
-      // by a client reconnect/retry (createIfNotExists itself already
-      // de-duplicates the row; this guards the side effects around it).
-      // existingProviderItemIds is deliberately never mutated here — it
-      // stays a frozen snapshot of pre-call state for the whole method, so
-      // the usage-billing loop below can independently ask "was this
-      // provider item already persisted before this call?" for the exact
-      // same providerItemId a message in this same call may also use.
-      if (message.role === 'USER' && isNewMessage) {
-        // Gate C1 (Understanding): the conversation's first member turn is
-        // its stated need, exactly as ConversationsService.ask() captures
-        // it for text — checked here so a member whose very first Aureus
-        // interaction is by voice still gets one (e.g. City Sheet matching
-        // in the Conversation Room, which is grounded in a needId).
-        if (!hasExistingMemberMessage) {
-          hasExistingMemberMessage = true;
-          try {
-            await this.needs.capture(caller.id, session.conversationId, message.content);
-          } catch (error) {
-            this.logger.warn(`Failed to capture stated need for voice conversation ${session.conversationId}: ${error}`);
-          }
-        }
-
-        // Gate C3 (Urgency assessment): the same deterministic phrase
-        // match text uses, checked against every member turn — posted as
-        // a normal assistant message into the canonical conversation so
-        // it renders inline in the visible ConversationSurface without
-        // any bespoke voice-only UI.
-        if (isCrisisLanguage(message.content)) {
-          const redirect = await this.messageRepo.create({
-            conversationId: session.conversationId,
-            role: AiMessageRole.ASSISTANT,
-            content: CRISIS_REDIRECT_MESSAGE,
-          });
-          persistedMessages.push(MessageResponseDto.fromEntity(redirect));
-        }
-      }
-    }
-
-    // Real cost tracking: one AiRequest row per steward turn actually
-    // billed by OpenAI, mirroring how AiRequestsService.runCompletion()
-    // writes one row per text completion — voice previously always wrote
-    // costUsd: 0 here (see startSession's own audit row above, which
-    // remains an audit/authorization event, not a token meter). Gated on
-    // the same pre-call snapshot as messages above, so a usage report
-    // replayed alongside an already-persisted message is never billed
-    // twice.
-    for (const usage of dto.usage ?? []) {
-      if (existingProviderItemIds.has(usage.providerItemId)) continue;
-
-      const costUsd = computeVoiceCostUsd(session.model, {
-        inputAudioTokens: usage.inputAudioTokens,
-        inputTextTokens: usage.inputTextTokens,
-        cachedAudioTokens: usage.cachedAudioTokens,
-        cachedTextTokens: usage.cachedTextTokens,
-        outputAudioTokens: usage.outputAudioTokens,
-        outputTextTokens: usage.outputTextTokens,
-      });
-
-      await this.requestRepo.create({
-        userId: caller.id,
-        conversationId: session.conversationId,
-        capability: AiCapability.VOICE_CONVERSATION,
-        provider: this.voiceProvider.provider,
-        model: session.model,
-        promptTokens: usage.inputAudioTokens + usage.inputTextTokens,
-        completionTokens: usage.outputAudioTokens + usage.outputTextTokens,
-        costUsd,
-        // No backend-observed latency for a turn that happened live,
-        // client-to-provider, over WebRTC — this row exists to price and
-        // audit the turn, not to time it.
-        latencyMs: 0,
-        status: AiRequestStatus.SUCCESS,
-      });
     }
 
     if (persistedMessages.length > 0) {

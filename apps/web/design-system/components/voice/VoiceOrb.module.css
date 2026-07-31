@@ -16,15 +16,69 @@
 }
 
 .orb {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
+  width: 4.5rem;
+  height: 4.5rem;
+  border-radius: var(--radius-full);
+  background: var(--color-text-tertiary);
+  transition: background var(--motion-duration-slow) var(--motion-easing-standard),
+    transform var(--motion-duration-slow) var(--motion-easing-standard);
+}
+
+.idle {
+  background: var(--color-text-tertiary);
+  opacity: 0.5;
+}
+
+.connecting {
+  background: var(--color-text-tertiary);
+  animation: breathe 1.6s var(--motion-easing-standard) infinite;
+}
+
+.listening {
+  background: var(--color-conversation);
+  animation: breathe 2.4s var(--motion-easing-standard) infinite;
+}
+
+.thinking {
+  background: var(--color-steward);
+  animation: breathe 1.2s var(--motion-easing-standard) infinite;
+}
+
+.speaking {
+  background: var(--color-steward);
+  animation: breathe 0.9s var(--motion-easing-standard) infinite;
+}
+
+@keyframes breathe {
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 0.85;
+  }
+  50% {
+    transform: scale(1.12);
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .connecting,
+  .listening,
+  .thinking,
+  .speaking {
+    animation: none;
+    opacity: 1;
+  }
 }
 
 @media (min-width: 1024px) {
   .wrapper {
     width: 9rem;
     height: 9rem;
+  }
+
+  .orb {
+    width: 6rem;
+    height: 6rem;
   }
 }

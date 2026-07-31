@@ -11,11 +11,6 @@ import { useSession } from '../../../state';
  * member has a Profile record yet, and `displayName` is optional even
  * when one exists: displayName -> email-derived name -> null (the
  * caller falls back to generic copy).
- *
- * The email-derived tier is skipped entirely for a guest session: a
- * guest's email is a synthetic `guest+<uuid>@...` address with no
- * human-readable local part (auth.service.ts), so splitting on `@`
- * would greet a guest by their own raw internal id.
  */
 export function useGreetingName(): string | null {
   const { session } = useSession();
@@ -32,7 +27,7 @@ export function useGreetingName(): string | null {
       const displayName = profile?.displayName?.trim();
       if (displayName) {
         setName(displayName);
-      } else if (session.email && !session.isGuest) {
+      } else if (session.email) {
         setName(session.email.split('@')[0]);
       }
     });
@@ -40,7 +35,7 @@ export function useGreetingName(): string | null {
     return () => {
       cancelled = true;
     };
-  }, [session.accessToken, session.memberId, session.email, session.isGuest]);
+  }, [session.accessToken, session.memberId, session.email]);
 
   return name;
 }

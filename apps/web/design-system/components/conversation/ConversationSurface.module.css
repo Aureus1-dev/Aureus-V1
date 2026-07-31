@@ -1,20 +1,11 @@
-/*
- * Fills its `AppShell` main column edge to edge — combined with the shell's
- * `240px | minmax(0,1fr) | 320px` grid (Phase 2/4), this is what actually
- * gives the conversation its ~70-80% share of the screen at typical
- * desktop widths; no fixed max-width is applied here on purpose, since
- * that would work against the same goal on wide viewports. Individual
- * message bubbles (`Message.module.css`) still cap their own width for
- * comfortable reading, independent of the surface's own width.
- */
 .surface {
   display: flex;
   flex-direction: column;
   height: 100%;
   min-height: 60vh;
-  border: 1px solid var(--color-border-subtle);
-  border-radius: var(--radius-xl);
-  background: var(--color-surface-sunken);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface-secondary);
   overflow: hidden;
 }
 
