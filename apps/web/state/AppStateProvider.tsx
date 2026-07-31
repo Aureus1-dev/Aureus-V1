@@ -7,6 +7,8 @@ import { ConversationProvider } from './conversation/ConversationContext';
 import { JourneyProvider } from './journey/JourneyContext';
 import { OpportunitiesProvider } from './opportunities/OpportunitiesContext';
 import { RecommendationsProvider } from './recommendations/RecommendationsContext';
+import { PlanProvider } from './plan/PlanContext';
+import { MemoryProvider } from './memory/MemoryContext';
 import { VoiceProvider } from './voice/VoiceContext';
 import { NotificationsProvider } from './notifications/NotificationsContext';
 import { HighlightRegistryProvider } from './highlight/HighlightRegistryContext';
@@ -48,31 +50,35 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
                 <JourneyProvider>
                   <OpportunitiesProvider>
                     <RecommendationsProvider>
-                      <NotificationsProvider>
-                        <AcademyProvider>
-                          <ConnectedExperiencesProvider>
-                            <ProfileProvider>
-                              <TasksProvider>
-                                <PodsProvider>
-                                  <ResourcesProvider>
-                                    <MessagesProvider>
-                                      <FounderProvider>
-                                        <ReviewQueueProvider>
-                                          <CitySheetProvider>
-                                            <StewardshipOversightProvider>
-                                              <AnnouncementsProvider>{children}</AnnouncementsProvider>
-                                            </StewardshipOversightProvider>
-                                          </CitySheetProvider>
-                                        </ReviewQueueProvider>
-                                      </FounderProvider>
-                                    </MessagesProvider>
-                                  </ResourcesProvider>
-                                </PodsProvider>
-                              </TasksProvider>
-                            </ProfileProvider>
-                          </ConnectedExperiencesProvider>
-                        </AcademyProvider>
-                      </NotificationsProvider>
+                      <PlanProvider>
+                        <MemoryProvider>
+                          <NotificationsProvider>
+                            <AcademyProvider>
+                              <ConnectedExperiencesProvider>
+                                <ProfileProvider>
+                                  <TasksProvider>
+                                    <PodsProvider>
+                                      <ResourcesProvider>
+                                        <MessagesProvider>
+                                          <FounderProvider>
+                                            <ReviewQueueProvider>
+                                              <CitySheetProvider>
+                                                <StewardshipOversightProvider>
+                                                  <AnnouncementsProvider>{children}</AnnouncementsProvider>
+                                                </StewardshipOversightProvider>
+                                              </CitySheetProvider>
+                                            </ReviewQueueProvider>
+                                          </FounderProvider>
+                                        </MessagesProvider>
+                                      </ResourcesProvider>
+                                    </PodsProvider>
+                                  </TasksProvider>
+                                </ProfileProvider>
+                              </ConnectedExperiencesProvider>
+                            </AcademyProvider>
+                          </NotificationsProvider>
+                        </MemoryProvider>
+                      </PlanProvider>
                     </RecommendationsProvider>
                   </OpportunitiesProvider>
                 </JourneyProvider>

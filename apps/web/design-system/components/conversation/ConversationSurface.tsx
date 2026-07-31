@@ -1,7 +1,11 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { useConversation, useSession } from '../../../state';
+import { useEffect, useRef, useState } from 'react';
+import { useConnectedExperiences, useConversation, useJourney, usePlan, useRecommendations, useSession } from '../../../state';
+import { useRecommendationSubjects } from '../recommendations';
+import { getMyNeeds, offerResource, respondToOffer, type ResourceOfferResponseValue } from '../../../lib/api/needs';
+import type { PlanItemDto } from '../../../lib/api/plan';
+import { planItemKey } from '../plan/PlanCard';
 import { EmptyState } from '../EmptyState/EmptyState';
 import { ErrorState } from '../ErrorState/ErrorState';
 import { Button } from '../Button/Button';
@@ -10,6 +14,7 @@ import { ConversationHistory } from './ConversationHistory';
 import { ConversationTimeline } from './ConversationTimeline';
 import { MessageComposer } from './MessageComposer';
 import { conversationErrorCopy } from './conversation-error-copy';
+import { buildVirtualTimeline, type BuiltPlan } from './build-virtual-timeline';
 import styles from './ConversationSurface.module.css';
 
 export interface ConversationSurfaceProps {
@@ -18,10 +23,21 @@ export interface ConversationSurfaceProps {
 }
 
 /**
- * The Conversation Core surface (FPB-015 Phase Two). Conversation
- * remains the primary interface (AFX-001 §3); this component composes
- * history, timeline, composer, and recovery presentation around the
- * existing `/ai/conversations` backend contract.
+ * The Conversation Room (Living Steward Workspace redesign) — the primary
+ * surface, sized to occupy ~70-80% of the workspace (`ConversationSurface.
+ * module.css`, combined with `AppShell`'s `240px | 1fr | 320px` grid).
+ * Composes history, timeline, composer, and recovery presentation around
+ * the existing `/ai/conversations` backend contract, unchanged (FPB-015
+ * Phase Two, AFX-001 §3). A plan/journey-update/document that arose during
+ * the active conversation now renders inline via `buildVirtualTimeline`
+ * (a frontend-only composition — the backend has no message↔plan/goal/
+ * document correlation) rather than requiring a separate page visit.
+ * Deciding on a plan item still goes through that item's own real,
+ * unmodified approval mechanism — `recommendations.approve/dismiss` for a
+ * RECOMMENDATION item, `offerResource`/`respondToOffer` for a
+ * CITY_RESOURCE item, grounded by the same `getMyNeeds()` lookup
+ * `FirstRunWelcome` already uses to find the StatedNeed tied to this
+ * conversation.
  */
 export function ConversationSurface({ initialMode = 'text' }: ConversationSurfaceProps) {
   const { session } = useSession();
@@ -35,14 +51,113 @@ export function ConversationSurface({ initialMode = 'text' }: ConversationSurfac
     sendMessage,
     clearError,
   } = useConversation();
+  const plan = usePlan();
+  const journey = useJourney();
+  const connectedExperiences = useConnectedExperiences();
+  const recommendations = useRecommendations();
   const [mode, setMode] = useState<'text' | 'voice'>(initialMode);
+
+  const [needId, setNeedId] = useState<string | undefined>(undefined);
+  const [planBuiltAt, setPlanBuiltAt] = useState<string | null>(null);
+  const previousPlanRef = useRef(plan.state.plan);
+  const [decidingKeys, setDecidingKeys] = useState<string[]>([]);
+  const [offerResponseByCityResourceId, setOfferResponseByCityResourceId] = useState<
+    Record<string, ResourceOfferResponseValue>
+  >({});
 
   useEffect(() => {
     if (session.isAuthenticated) {
       void loadConversations();
+      void journey.loadGoals();
+      void connectedExperiences.loadDocuments();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [session.isAuthenticated]);
+
+  // Grounds an in-conversation plan in the StatedNeed captured for this
+  // specific conversation, mirroring FirstRunWelcome's own lookup — a
+  // plan built without a needId is still shown, just without any
+  // CITY_RESOURCE items to auto-offer.
+  useEffect(() => {
+    if (!session.accessToken || !state.activeConversationId) {
+      setNeedId(undefined);
+      return;
+    }
+    let cancelled = false;
+    void (async () => {
+      try {
+        const needs = await getMyNeeds(session.accessToken!);
+        const match = needs.find((n) => n.conversationId === state.activeConversationId)?.id;
+        if (!cancelled) setNeedId(match);
+      } catch {
+        // Best-effort lookup — a plan with no matching StatedNeed simply has no CITY_RESOURCE items to auto-offer.
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [session.accessToken, state.activeConversationId]);
+
+  useEffect(() => {
+    if (plan.state.plan && plan.state.plan !== previousPlanRef.current) {
+      setPlanBuiltAt(new Date().toISOString());
+    }
+    previousPlanRef.current = plan.state.plan;
+  }, [plan.state.plan]);
+
+  // Every City Sheet match in a newly-built plan is offered as soon as it
+  // appears (mirroring Gate C's own NeedResourcesPage and FirstRunWelcome),
+  // so accept/decline is available immediately.
+  useEffect(() => {
+    if (!plan.state.plan || !needId || !session.accessToken) return;
+    const unoffered = [plan.state.plan.primary, ...plan.state.plan.supporting].filter(
+      (item): item is PlanItemDto & { cityResource: NonNullable<PlanItemDto['cityResource']> } =>
+        item.source === 'CITY_RESOURCE' && !(item.cityResource!.id in offerResponseByCityResourceId),
+    );
+    if (unoffered.length === 0) return;
+    let cancelled = false;
+    void Promise.all(unoffered.map((item) => offerResource(session.accessToken!, needId, item.cityResource.id))).then(
+      (offers) => {
+        if (cancelled) return;
+        setOfferResponseByCityResourceId((previous) => {
+          const next = { ...previous };
+          offers.forEach((offer) => {
+            next[offer.citySheetEntryId] = offer.response;
+          });
+          return next;
+        });
+      },
+    );
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [plan.state.plan, needId, session.accessToken]);
+
+  const builtPlan: BuiltPlan | null = plan.state.plan && planBuiltAt ? { plan: plan.state.plan, builtAt: planBuiltAt } : null;
+  const planRecommendations = plan.state.plan
+    ? [plan.state.plan.primary, ...plan.state.plan.supporting]
+        .filter((item) => item.source === 'RECOMMENDATION')
+        .map((item) => item.recommendation!)
+    : [];
+  const planSubjectsById = useRecommendationSubjects(planRecommendations);
+
+  const decidePlanItem = async (item: PlanItemDto, accepted: boolean) => {
+    if (!session.accessToken) return;
+    const key = planItemKey(item);
+    setDecidingKeys((keys) => [...keys, key]);
+    try {
+      if (item.source === 'RECOMMENDATION') {
+        if (accepted) await recommendations.approve(item.recommendation!.id);
+        else await recommendations.dismiss(item.recommendation!.id);
+      } else if (needId) {
+        const updated = await respondToOffer(session.accessToken, needId, item.cityResource!.id, accepted);
+        setOfferResponseByCityResourceId((previous) => ({ ...previous, [updated.citySheetEntryId]: updated.response }));
+      }
+    } finally {
+      setDecidingKeys((keys) => keys.filter((k) => k !== key));
+    }
+  };
 
   if (!session.isAuthenticated) {
     return (
@@ -54,6 +169,7 @@ export function ConversationSurface({ initialMode = 'text' }: ConversationSurfac
   }
 
   const errorCopy = state.error ? conversationErrorCopy(state.error.kind) : null;
+  const entries = buildVirtualTimeline(timeline, builtPlan, journey.state.goals, connectedExperiences.state.documents);
 
   return (
     <div className={styles.surface}>
@@ -87,13 +203,21 @@ export function ConversationSurface({ initialMode = 'text' }: ConversationSurfac
         <VoiceSurface conversationId={state.activeConversationId ?? undefined} onClose={() => setMode('text')} />
       ) : (
         <>
-          {timeline.length === 0 && !state.pendingResponse ? (
+          {entries.length === 0 && !state.pendingResponse ? (
             <EmptyState
               title="Share what's on your mind"
               description="Your steward is listening. There's no wrong way to begin."
             />
           ) : (
-            <ConversationTimeline messages={timeline} pendingResponse={state.pendingResponse} />
+            <ConversationTimeline
+              entries={entries}
+              pendingResponse={state.pendingResponse}
+              planSubjectsById={planSubjectsById}
+              planOfferResponseByCityResourceId={offerResponseByCityResourceId}
+              isDecidingPlanItem={(item) => decidingKeys.includes(planItemKey(item))}
+              onApprovePlanItem={(item) => void decidePlanItem(item, true)}
+              onDismissPlanItem={(item) => void decidePlanItem(item, false)}
+            />
           )}
 
           {errorCopy ? (

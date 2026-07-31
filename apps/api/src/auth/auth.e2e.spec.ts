@@ -9,6 +9,7 @@ import { AppModule } from '../app.module';
 import { AllExceptionsFilter } from '../common/filters/all-exceptions.filter';
 import { PrismaService } from '../prisma/prisma.service';
 import { EMAIL_SERVICE, IEmailService } from '../email/email.service.interface';
+import { GuestLifecycleService } from './guest-lifecycle.service';
 
 /**
  * End-to-end test for the auth module's email-dependent flows — originally
@@ -77,8 +78,18 @@ describe('Auth — Email Delivery E2E', () => {
     jest.clearAllMocks();
   });
 
+  // Guest-created User rows carry a synthetic `guest.aureus.internal`
+  // email, not `emailMarker` — tracked by id here instead, so cleanup
+  // never risks touching another suite's real rows under this codebase's
+  // shared-database parallel e2e architecture (the same cross-suite-
+  // isolation care C6/C7's tests already document).
+  const createdGuestIds: string[] = [];
+
   afterAll(async () => {
     await prisma.db.user.deleteMany({ where: { email: { contains: emailMarker } } });
+    if (createdGuestIds.length > 0) {
+      await prisma.db.user.deleteMany({ where: { id: { in: createdGuestIds } } });
+    }
     await app.close();
   });
 
@@ -286,4 +297,179 @@ describe('Auth — Email Delivery E2E', () => {
       .send({ email, password: 'Str0ng!Passw0rd' })
       .expect(200);
   }, 15_000);
+
+  // ── Guest Steward mode (Production Execution Order) ───────────────────
+
+  it('starts a guest session with no email or password, usable against a real self-only endpoint', async () => {
+    const guestRes = await request(app.getHttpServer()).post('/auth/guest').send({}).expect(201);
+    createdGuestIds.push(guestRes.body.user.id);
+
+    expect(guestRes.body.user.isGuest).toBe(true);
+    expect(guestRes.body.tokens.accessToken).toEqual(expect.any(String));
+
+    // A real, already-built self-only endpoint — no change was made to
+    // it for Guest Steward mode; a valid JWT is all it has ever required.
+    await request(app.getHttpServer())
+      .get('/needs')
+      .set('Authorization', `Bearer ${guestRes.body.tokens.accessToken}`)
+      .expect(200);
+  });
+
+  it('claiming a guest account preserves everything created under the guest session', async () => {
+    const email = `claimed-${emailMarker}@example.test`;
+    const guestRes = await request(app.getHttpServer()).post('/auth/guest').send({}).expect(201);
+    const guestId = guestRes.body.user.id;
+    createdGuestIds.push(guestId);
+    const guestToken = guestRes.body.tokens.accessToken;
+
+    // Build real context as a guest — a conversation, exactly what a
+    // visitor does before ever being asked for an account.
+    const convoRes = await request(app.getHttpServer())
+      .post('/ai/conversations')
+      .set('Authorization', `Bearer ${guestToken}`)
+      .send({})
+      .expect(201);
+    expect(convoRes.body.userId).toBe(guestId);
+
+    const claimRes = await request(app.getHttpServer())
+      .post('/auth/claim')
+      .set('Authorization', `Bearer ${guestToken}`)
+      .send({ email, password: 'Str0ng!Passw0rd' })
+      .expect(200);
+
+    // Same id, same row — this is what makes "lose nothing" true by
+    // construction rather than by a separate migration step.
+    expect(claimRes.body.user.id).toBe(guestId);
+    expect(claimRes.body.user.isGuest).toBe(false);
+    expect(claimRes.body.user.email).toBe(email);
+
+    const listRes = await request(app.getHttpServer())
+      .get('/ai/conversations')
+      .set('Authorization', `Bearer ${claimRes.body.tokens.accessToken}`)
+      .expect(200);
+    expect(listRes.body.data.map((c: { id: string }) => c.id)).toContain(convoRes.body.id);
+
+    // Claiming is held to the same standard as a fresh register(): a
+    // verification email goes out, and it works.
+    const [, verificationToken] = mockEmailService.sendEmailVerification.mock.calls.at(-1)!;
+    await request(app.getHttpServer())
+      .post('/auth/verify-email')
+      .send({ token: verificationToken })
+      .expect(204);
+    await request(app.getHttpServer())
+      .post('/auth/login')
+      .send({ email, password: 'Str0ng!Passw0rd' })
+      .expect(200);
+  });
+
+  it('rejects claiming an already-claimed account, and rejects claiming with an email already in use', async () => {
+    const email = `already-claimed-${emailMarker}@example.test`;
+    const guestRes = await request(app.getHttpServer()).post('/auth/guest').send({}).expect(201);
+    createdGuestIds.push(guestRes.body.user.id);
+    const guestToken = guestRes.body.tokens.accessToken;
+
+    const claimRes = await request(app.getHttpServer())
+      .post('/auth/claim')
+      .set('Authorization', `Bearer ${guestToken}`)
+      .send({ email, password: 'Str0ng!Passw0rd' })
+      .expect(200);
+
+    await request(app.getHttpServer())
+      .post('/auth/claim')
+      .set('Authorization', `Bearer ${claimRes.body.tokens.accessToken}`)
+      .send({ email: `other-${emailMarker}@example.test`, password: 'Str0ng!Passw0rd' })
+      .expect(409);
+
+    const secondGuestRes = await request(app.getHttpServer()).post('/auth/guest').send({}).expect(201);
+    createdGuestIds.push(secondGuestRes.body.user.id);
+    await request(app.getHttpServer())
+      .post('/auth/claim')
+      .set('Authorization', `Bearer ${secondGuestRes.body.tokens.accessToken}`)
+      .send({ email, password: 'Str0ng!Passw0rd' }) // already claimed by the first guest above
+      .expect(409);
+  });
+
+  it('rejects an unauthenticated claim attempt', async () => {
+    await request(app.getHttpServer())
+      .post('/auth/claim')
+      .send({ email: `no-auth-${emailMarker}@example.test`, password: 'Str0ng!Passw0rd' })
+      .expect(401);
+  });
+
+  // ── Guest Steward mode privacy lifecycle ───────────────────────────────
+  // Proves the actual, real-database behavior the privacy principle
+  // depends on: an abandoned guest is genuinely gone, and so is
+  // everything they created — not merely hidden, not asserted from the
+  // schema alone.
+
+  it('permanently deletes an inactive guest and cascades to everything they created; an active guest survives the same pass', async () => {
+    const guestLifecycle = app.get(GuestLifecycleService);
+
+    // An abandoned guest: real conversation, then backdated past the
+    // retention window (the interceptor normally does this touch live;
+    // here it's simulated directly against the database, exactly like a
+    // guest who never returned would look).
+    const abandonedRes = await request(app.getHttpServer()).post('/auth/guest').send({}).expect(201);
+    const abandonedId = abandonedRes.body.user.id;
+    const abandonedToken = abandonedRes.body.tokens.accessToken;
+    const convoRes = await request(app.getHttpServer())
+      .post('/ai/conversations')
+      .set('Authorization', `Bearer ${abandonedToken}`)
+      .send({})
+      .expect(201);
+
+    // The request above just triggered GuestActivityInterceptor's own
+    // fire-and-forget `guestLastActiveAt` touch — deliberately not
+    // awaited by the request itself (that's the point, in production).
+    // Give it a moment to land before backdating below, or this backdate
+    // can race it and be silently overwritten back to "now".
+    await new Promise((resolve) => setTimeout(resolve, 100));
+
+    await prisma.db.user.update({
+      where: { id: abandonedId },
+      data: { guestLastActiveAt: new Date(Date.now() - 8 * 86_400_000) }, // 8 days ago
+    });
+
+    // A still-active guest, touched moments ago — must survive the same purge.
+    const activeRes = await request(app.getHttpServer()).post('/auth/guest').send({}).expect(201);
+    const activeId = activeRes.body.user.id;
+    createdGuestIds.push(activeId);
+
+    const purged = await guestLifecycle.purgeInactiveGuests();
+    expect(purged).toBeGreaterThanOrEqual(1);
+
+    const abandonedUser = await prisma.db.user.findUnique({ where: { id: abandonedId } });
+    expect(abandonedUser).toBeNull();
+    const abandonedConversation = await prisma.db.aiConversation.findUnique({ where: { id: convoRes.body.id } });
+    expect(abandonedConversation).toBeNull(); // cascaded, not merely orphaned
+
+    const activeUser = await prisma.db.user.findUnique({ where: { id: activeId } });
+    expect(activeUser).not.toBeNull();
+    expect(activeUser?.isGuest).toBe(true);
+  });
+
+  it('never purges a claimed account, no matter how old guestLastActiveAt is', async () => {
+    const email = `survives-purge-${emailMarker}@example.test`;
+    const guestRes = await request(app.getHttpServer()).post('/auth/guest').send({}).expect(201);
+    const guestId = guestRes.body.user.id;
+    const guestToken = guestRes.body.tokens.accessToken;
+
+    await request(app.getHttpServer())
+      .post('/auth/claim')
+      .set('Authorization', `Bearer ${guestToken}`)
+      .send({ email, password: 'Str0ng!Passw0rd' })
+      .expect(200);
+
+    // isGuest is now false — this backdate should not matter at all.
+    await prisma.db.user.update({
+      where: { id: guestId },
+      data: { guestLastActiveAt: new Date(Date.now() - 365 * 86_400_000) },
+    });
+
+    await app.get(GuestLifecycleService).purgeInactiveGuests();
+
+    const claimedUser = await prisma.db.user.findUnique({ where: { id: guestId } });
+    expect(claimedUser).not.toBeNull();
+    expect(claimedUser?.isGuest).toBe(false);
+  });
 });

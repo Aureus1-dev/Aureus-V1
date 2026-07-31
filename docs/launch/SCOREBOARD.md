@@ -2,19 +2,19 @@
 
 Living dashboard for the First Members launch. Source of truth for scope and sequencing is `LAUNCH-001-First-Members.md`; the task breakdown is `WORKORDERS.md`. This file reflects status only — it does not decide anything.
 
-**Last updated:** 2026-07-24
+**Last updated:** 2026-07-27
 
 ---
 
 ## Overall Progress
 
-**48% (24 of 50 work orders complete).**
+**47% (24 of 51 work orders complete).** The total grew from 50 to 51 because the Founder Pilot Exception (approved 2026-07-27, see "Governance" below) splits C9 into C9a (founder-pilot verification) and C9b (public-launch verification) — no work order was completed or skipped by this split, it only makes explicit what was previously bundled under one C9 line.
 
 All four Pre-Gate Founder decisions (P1–P4) are complete. Gate A's schema (A1), storage (A2), candidate list (A3), and verification-workflow tooling (A4-PREP) are done — A4's human phone/contact check is still untouched. Gate B is now **fully complete** (B1–B9: V1 Scope Lockdown; arrival screen; consent captured; accessibility/communication preferences captured and applied; authenticated/unauthenticated behavior verified correct; arrival safely interruptible and resumable; steward visibility into arrival state; arrival fails safely; outcome sign-off). Gate C's engineering scope is now **fully complete** (C1–C8: Understanding; Clarification — an ambiguous need reliably gets a clarifying question, answered in the same conversation; Urgency assessment — crisis/urgent language reliably redirects to real, honest emergency help instead of an AI reply; Resource discovery — a stated need's own words are deterministically matched to City Sheet candidates; Verified resource presentation — verified/unverified/test/unavailable resources are visibly and honestly distinguished, every offer and response recorded; Steward escalation — a member can page a real human steward, with honestly published on-call hours and every escalation/outcome recorded; Safe failure — a member with no verified resource and no reachable steward is told the truth, given a real next step, and the unresolved need is recorded; and build/test sign-off — the full understanding-through-safe-failure flow proven end-to-end for one real test member against fixtures alone). Only C9 (real-member production verification) remains, gated on Gate A's A6 sign-off. Progress is calculated as completed work orders ÷ total work orders across Pre-Gate and Gates A–F (24/50).
 
 ## Overall Launch Readiness
 
-**Not ready overall (Gate A still in progress on human verification; Gates D–F not started). Gate B is complete: 9/9 work orders done. Gate C's engineering scope is complete: 8/9 work orders done, only real-member production verification (C9) remains, blocked on Gate A.**
+**Not ready for public launch (Gate A still in progress on human verification; F3 and C9b remain blocked on it; Gates D–F not started). Not blocked for the founder-only pilot: per the Founder Pilot Exception, C9a, Gate D, and Gate E may now proceed. Gate B is complete: 9/9 work orders done. Gate C's fixture-based engineering scope is complete: 8/10 work orders done — C9a (founder-pilot verification) is next and unblocked; C9b (public-launch verification) remains blocked on Gate A.**
 
 The Pre-Gate blocker is cleared; the city sheet's data schema (A1), storage/query layer (A2), initial candidate list (A3), and verification-workflow tooling (A4-PREP) are all done. B1 (V1 Scope Lockdown), B2 (arrival screen, three-second return, persistent Urgent-help affordance), B3 (consent and expectations captured, retrievable later), B4 (accessibility/communication preferences captured and applied — reduced motion), B5 (authenticated/unauthenticated arrival behavior verified correct, no leakage), B6 (arrival is safely interruptible and resumable), B7 (human stewards have appropriate visibility into arrival state), B8 (arrival fails safely), and B9 (Gate B outcome sign-off — the full arrival-to-handoff flow verified for a real test member under two accessibility conditions) are all done, completing Gate B in full — voice, Academy, and Pods are closed to members; a member reaches a working arrival screen with an always-available Urgent-help affordance; a member cannot proceed past arrival without granting consent, and their preferences observably change their experience from that point on. Per a Founder Decision approved 2026-07-24 (see "Governance" below), Gate B and Gate C were substantially rescoped and renamed; Gate B now owns everything from first arrival through a working "How can we help?" hand-off, and does **not** depend on Gate A — Gate B is now fully done. Gate C — The Clearing (understanding through safe failure) is now also fully built and self-tested (C1–C8): a member's need is captured, clarified when ambiguous, checked for urgency, matched against City Sheet resources, honestly labeled by verification status, escalatable to a real steward, and never left at a dead end when nothing else is available — all proven end-to-end against explicitly labeled fixtures for a real test member. **No candidate referral may be used by the Clearing in production until a Human Steward actually verifies it via the A4-PREP tooling — building and testing the workflow against fixtures is not the same as using it on real data, and this readiness note is not a claim that the city sheet is trustworthy yet; that is exactly what C9 (blocked on A4/A6) will confirm.** The Urgent-help affordance added in B2 deliberately shows only static, universal safety information (911, 988, Crisis Text Line) as a backstop that never depends on any of this newly built machinery.
 
@@ -30,28 +30,37 @@ A Founder Decision approved 2026-07-24 reconciled a naming/scope conflict betwee
 
 The old V1 Gate B/C work orders are preserved as a superseded historical record in `WORKORDERS.md`, not deleted.
 
+**Founder Pilot Exception — approved 2026-07-27.** The current phase is a founder-only pilot. The Founder directed that the City Sheet be approved for founder-only testing and that engineering work not be blocked on human phone verification of City Sheet candidates (A4) — while explicitly prohibiting any claim that phone verification has occurred. Full decision recorded in `WORKORDERS.md`'s "Founder Pilot Exception" section and V3 Revision History entry. In brief:
+
+- A4/A5/A6 are **completely unchanged** — still Not Started, still real human phone/contact work, never to be marked or implied complete by this exception.
+- The Founder and the P3 trusted steward may use City Sheet-backed features for real engineering verification and dry runs; every City Sheet entry they encounter stays honestly labeled `UNVERIFIED` (C5's `ResourceStatusBadge` shows "Not yet verified," never "Verified").
+- **C9 splits**: C9a (founder-pilot verification, not blocked on Gate A) and C9b (public-launch verification, unchanged from the original C9, still blocked on A6).
+- **Gate D and Gate E** may now begin — their dependency is Gate C's founder-pilot scope (C1–C8, C9a), not all of Gate C.
+- **Gate F's F1** (Founder walkthrough) may proceed on the founder-pilot scope. **F3** (the first real invitation) explicitly still requires A6 and C9b — this exception does not touch the real-launch verification requirement.
+
 ## Current Gate
 
-**Gate A — The Foundation** (in progress, human-verification-blocked) and **Gate C — The Clearing** (engineering scope fully complete, 8/9 — only C9 remains, blocked on Gate A). **Gate B — The Gate is fully complete (9/9).**
+**Gate A — The Foundation** (in progress, human-verification-blocked, unaffected by the Founder Pilot Exception) and **Gate C — The Clearing** (C1–C8 done; C9a — founder-pilot verification — is next and is not blocked; C9b — public-launch verification — remains blocked on Gate A). **Gate B — The Gate is fully complete (9/9).** Per the Founder Pilot Exception (approved 2026-07-27), Gate D and Gate E are now unblocked to begin engineering work once C9a completes.
 
 ## Current Work Order
 
-**A4 — Human-verify every referral** is now the only work remaining anywhere in Gate A or Gate C that isn't blocked — and, as of this week, its engineering side is fully closed: a real UI (`/city-sheet`, Steward/Platform Administrator only) now exists for exactly this work, replacing raw API calls as the only way to do it. A1, A2, A3, and A4-PREP (including its frontend addendum) are all done; A4's dependencies are fully satisfied — what's left is real-world phone/contact verification work for a Human Steward, not an engineering task. 8 candidates are waiting, one of which (Media Food Bank) is flagged lower-confidence and should be checked especially carefully. The full runbook is `docs/launch/A4-Verification-Guide.md`. Gate C's engineering scope (C1–C8) is now fully done; C9 (real-member production verification) is Gate C's only remaining work order, and it cannot start until A4 and A6 (Gate A sign-off) complete.
+**C9a — Gate C founder-pilot verification** is the next work order: running the full Clearing flow end-to-end with the Founder (and/or the P3 trusted steward) as the tester, against the current City Sheet data, confirming every City Sheet-sourced resource is honestly labeled "Not yet verified" throughout (never "Verified"). This does not require A4/A5/A6. **A4 — Human-verify every referral** remains real-world work for a Human Steward, on their own timeline, unaffected by the exception — its engineering side (the `/city-sheet` UI) has been done since the prior update. 8 candidates still await A4; "Media Food Bank" is flagged lower-confidence and should be checked especially carefully whenever A4 proceeds. The full runbook is `docs/launch/A4-Verification-Guide.md`. Once C9a completes, Gate D (The Tending Run) and Gate E (Memory Rights Live) engineering work begins.
 
 ## Current Focus
 
-The Gate B/Gate C naming conflict previously flagged here has been resolved by Founder decision (see "Governance" above) and reflected in `WORKORDERS.md` V2. Gate B (B1–B9) is fully done. Gate C's engineering scope (C1–C8) is now fully done — the entire understanding-through-safe-failure flow has been proven end-to-end for one real test member against fixtures alone. A4's engineering side is now also fully done (the `/city-sheet` verification UI). The only work left anywhere in this Production Execution Order's reachable scope is now entirely human: A4 itself (a Human Steward actually phone-verifying all 8 candidates through the new UI, unblocking A5/A6) and, once A6 completes, C9 (the same Clearing flow re-verified against real, human-verified City Sheet data instead of fixtures).
+The Gate B/Gate C naming conflict previously flagged here was resolved by Founder decision (see "Governance" above) and reflected in `WORKORDERS.md` V2. Gate B (B1–B9) is fully done. Gate C's fixture-based engineering scope (C1–C8) is fully done. The Founder Pilot Exception (V3, see "Governance" above) now unblocks the remainder of this Production Execution Order's engineering work without waiting on A4: C9a (founder-pilot verification), then Gate D and Gate E, then preparing Gate F. A4 itself, A5, and A6 remain entirely human, real-world work, deferred to before public launch (specifically before F3, the first real invitation) — never marked or implied complete by any of this engineering work.
 
 ## Blocked Items
 
 | Item | Blocked By | Effect |
 |---|---|---|
-| C9 – Gate C production verification (real members) | Gate A (A6, not complete) | Cannot start |
-| Gate D (all work orders) | Gate C | Not started |
-| Gate E (all work orders) | Gate C | Not started |
-| Gate F (all work orders) | Gates A–E | Not started |
+| C9b – Gate C public-launch verification (real members) | Gate A (A6, not complete) | Cannot start |
+| F3 – Invite member one (first real, non-founder member) | A6, C9b | Cannot start |
+| Gate D (all work orders) | C9a (not yet complete, but unblocked) | Not started |
+| Gate E (all work orders) | C9a (not yet complete, but unblocked) | Not started |
+| Gate F — F1 (Founder walkthrough) | Gates A–E, founder-pilot scope | Not started |
 
-P1–P4, A1, A2, A4-PREP, and all of Gate B (B1–B9) no longer appear as blockers. A3 no longer blocks A4 (one of its three dependencies) — but A3's candidates themselves remain UNVERIFIED and must not be treated as trustworthy until A4 completes. Gate C's build/fixture work (C1–C8) is now fully done and was never blocked on Gate A, per the Founder's Gate B/Gate C Reconciliation decision — only C9 (real-member production verification) is Gate-A-blocked, listed above.
+P1–P4, A1, A2, A4-PREP, and all of Gate B (B1–B9) no longer appear as blockers. A3 no longer blocks A4 (one of its three dependencies) — but A3's candidates themselves remain UNVERIFIED and must not be treated as trustworthy until A4 completes. Gate C's build/fixture work (C1–C8) is fully done. Per the Founder Pilot Exception, C9a, Gate D, and Gate E are no longer Gate-A-blocked — only C9b and F3 (public-launch verification and the first real invitation) remain blocked on Gate A, listed above.
 
 ## Completed This Week
 
@@ -82,7 +91,12 @@ P1–P4, A1, A2, A4-PREP, and all of Gate B (B1–B9) no longer appear as blocke
 
 ## Next Recommended Task
 
-**A4 — Human-verify every referral** (Human Stewards) is now the single remaining task standing between here and Gate A sign-off, and — once A6 follows it — Gate C's final work order (C9). Pull the queue (`GET /city-sheet?verificationStatus=UNVERIFIED`), fetch each candidate's `verification-guide`, make the call, record the outcome via `verify`/`reject`/`flag-for-review` with a confidence level. Start with the two crisis lines; treat "Media Food Bank" as needing extra care. No further engineering work is available to start until A4 (human-owned) progresses — Gate C's entire engineering scope (C1–C8) is now done, and Gate D/E/F all depend on Gate C's full completion (C9 included).
+Two independent tracks are now open, per the Founder Pilot Exception:
+
+- **Engineering: C9a — Gate C founder-pilot verification**, then **Gate D — The Tending Run**, then **Gate E — Memory Rights Live**. None of these require A4/A5/A6. This is the active engineering track.
+- **Human: A4 — Human-verify every referral** (Human Stewards), on its own timeline, still required before Gate A can sign off and before C9b/F3 (public launch and the first real invitation) can proceed. Pull the queue (`GET /city-sheet?verificationStatus=UNVERIFIED`), fetch each candidate's `verification-guide`, make the call, record the outcome via `verify`/`reject`/`flag-for-review` with a confidence level. Start with the two crisis lines; treat "Media Food Bank" as needing extra care.
+
+These two tracks are independent and may proceed in parallel; neither blocks the other.
 
 ## Repository Health
 
@@ -96,9 +110,9 @@ No regression. The A4-PREP frontend addendum added a new `apps/web/app/(member)/
 |---|---|---|---|---|---|
 | A | The Foundation | **In Progress** | 57% (4/7 work orders) | Stewards + Founder | P1 (satisfied) |
 | B | The Gate | **Done** | 100% (9/9 work orders) | Engineering | None — complete |
-| C | The Clearing | **In Progress** | 89% (8/9 work orders) | Engineering | Gate B (B9) functional; C1–C8 not blocked by Gate A (all now Done), C9 requires Gate A |
-| D | The Tending Run | Not Started | 0% (0/7 work orders) | Engineering + Stewards | Gate C |
-| E | Memory rights live | Not Started | 0% (0/6 work orders) | Engineering | Gate C |
-| F | The Founding Review | Not Started | 0% (0/8 work orders) | Founder | Gates A–E, P2 (satisfied), P4 (satisfied, target 2026-08-21) |
+| C | The Clearing | **In Progress** | 80% (8/10 work orders) | Engineering | Gate B (B9) functional; C1–C8 Done; C9a not blocked (founder-pilot); C9b requires Gate A |
+| D | The Tending Run | Not Started | 0% (0/7 work orders) | Engineering + Stewards | Gate C, founder-pilot scope (C1–C8, C9a) — not blocked on Gate A |
+| E | Memory rights live | Not Started | 0% (0/6 work orders) | Engineering | Gate C, founder-pilot scope (C1–C8, C9a) — not blocked on Gate A |
+| F | The Founding Review | Not Started | 0% (0/8 work orders) | Founder | F1: Gates A–E founder-pilot scope. F3: A6, C9b (public-launch verification), P2 (satisfied), P4 (satisfied, target 2026-08-21) |
 
-Nothing in Gates A–F may begin ahead of its listed dependency, per LAUNCH-001's execution order ("each blocking the next") and WORKORDERS.md's per-item Dependencies column, except where a Founder decision has explicitly authorized parallel work: Gate B (B1–B9, proceeded in parallel with A4, now fully complete), and Gate C's fixture-based work (C1–C8), per the Gate B/Gate C Reconciliation decision.
+Nothing in Gates A–F may begin ahead of its listed dependency, per LAUNCH-001's execution order ("each blocking the next") and WORKORDERS.md's per-item Dependencies column, except where a Founder decision has explicitly authorized parallel work: Gate B (B1–B9, proceeded in parallel with A4, now fully complete), Gate C's fixture-based work (C1–C8) per the Gate B/Gate C Reconciliation decision, and — per the Founder Pilot Exception (V3, approved 2026-07-27) — C9a, Gate D, and Gate E, which no longer wait on Gate A's human phone verification (A4–A6). Only C9b and F3 remain gated on real, human-verified City Sheet data.

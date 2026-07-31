@@ -7,6 +7,7 @@ import {
   endVoiceSession,
   type VoiceMessageEventInput,
   type VoiceTurnEventInput,
+  type VoiceUsageEventInput,
 } from '../../lib/api/voice';
 import { ApiError, NetworkError } from '../../lib/api/errors';
 import { VoiceWebRtcClient } from '../../lib/voice/webrtc-client';
@@ -166,10 +167,11 @@ function classifyError(error: unknown): VoiceError {
 interface PendingSync {
   turnEvents: VoiceTurnEventInput[];
   messages: VoiceMessageEventInput[];
+  usage: VoiceUsageEventInput[];
 }
 
 function emptyPending(): PendingSync {
-  return { turnEvents: [], messages: [] };
+  return { turnEvents: [], messages: [], usage: [] };
 }
 
 interface VoiceContextValue {
@@ -202,7 +204,7 @@ export function VoiceProvider({ children }: { children: React.ReactNode }) {
     const accessToken = session.accessToken;
     const sessionId = sessionIdRef.current;
     const pending = pendingRef.current;
-    if (!accessToken || !sessionId || (pending.turnEvents.length === 0 && pending.messages.length === 0)) {
+    if (!accessToken || !sessionId || (pending.turnEvents.length === 0 && pending.messages.length === 0 && pending.usage.length === 0)) {
       return;
     }
     pendingRef.current = emptyPending();
@@ -247,6 +249,9 @@ export function VoiceProvider({ children }: { children: React.ReactNode }) {
           pendingRef.current.messages.push({
             role: 'ASSISTANT', content: event.transcript, providerItemId, completionStatus: 'COMPLETE',
           });
+          if (event.usage) {
+            pendingRef.current.usage.push({ providerItemId, ...event.usage });
+          }
           dispatch({ type: 'transcript/steward-resolved', responseId: event.responseId, transcript: event.transcript, interrupted: false });
           void flush();
           break;
@@ -257,6 +262,9 @@ export function VoiceProvider({ children }: { children: React.ReactNode }) {
           pendingRef.current.messages.push({
             role: 'ASSISTANT', content: event.transcript, providerItemId, completionStatus: 'INTERRUPTED',
           });
+          if (event.usage) {
+            pendingRef.current.usage.push({ providerItemId, ...event.usage });
+          }
           dispatch({ type: 'transcript/steward-resolved', responseId: event.responseId, transcript: event.transcript, interrupted: true });
           void flush();
           break;

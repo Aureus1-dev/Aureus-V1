@@ -1,0 +1,1 @@
+export { MemorySidebar } from './MemorySidebar';

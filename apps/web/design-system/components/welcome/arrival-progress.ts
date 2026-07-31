@@ -13,8 +13,8 @@ export type ArrivalStep =
   | 'hospitality'
   | 'immediate-need'
   | 'first-mission'
-  | 'opportunities'
-  | 'review-approval'
+  | 'coordinated-plan'
+  | 'stewardship-offer'
   | 'next-step';
 
 const STORAGE_KEY = 'aureus.arrival.step';

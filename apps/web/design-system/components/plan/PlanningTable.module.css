@@ -1,0 +1,25 @@
+.planSection {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.rationale {
+  margin: 0;
+  color: var(--color-text-secondary);
+}
+
+.otherSection {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--color-border-subtle);
+}
+
+.otherTitle {
+  margin: 0;
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+}

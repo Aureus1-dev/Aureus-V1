@@ -10,8 +10,11 @@ import { InstitutionalMemoryService, InstitutionalMemoryContext } from '../memor
 import { InsightsService } from '../insights/insights.service';
 import { RecommendationsService } from '../recommendations/recommendations.service';
 import { RecommendationCategory } from '../recommendations/dto/request-recommendations.dto';
+import { NeedsService } from '../../needs/needs.service';
+import { PlanItemSource } from './dto/coordinated-plan-response.dto';
 import type { AuthenticatedUser } from '../../auth/strategies/jwt.strategy';
 import type { AiOrchestrationRun } from '@prisma/client';
+import type { MatchedResourceDto } from '../../needs/dto/matched-resource.dto';
 
 const NOW = new Date('2026-01-01T00:00:00.000Z');
 const USER: AuthenticatedUser = { id: 'user-001', email: 'user@example.com', roles: [UserRole.MEMBER] };
@@ -28,6 +31,16 @@ const mockRepo: jest.Mocked<IAiOrchestrationRunRepository> = {
 const mockMemory = { assembleContext: jest.fn() } as unknown as jest.Mocked<InstitutionalMemoryService>;
 const mockInsightsService = { journeyGuidance: jest.fn() } as unknown as jest.Mocked<InsightsService>;
 const mockRecommendationsService = { generate: jest.fn() } as unknown as jest.Mocked<RecommendationsService>;
+const mockNeedsService = { findMatchingResources: jest.fn() } as unknown as jest.Mocked<NeedsService>;
+
+const makeCityResource = (o: Partial<MatchedResourceDto> = {}): MatchedResourceDto => ({
+  id: 'city-001', citySheetRef: 'AUR-CS-000001', organizationName: 'Chester County Food Bank',
+  category: 'FOOD_RESOURCE' as never, description: 'Food pantry', address: null, serviceArea: 'Chester County',
+  phone: '610-555-0100', website: null, hours: 'Mon-Fri 9-5', eligibilityRequirements: null,
+  languagesSupported: [], accessibilityNotes: null, cost: null, requiredDocuments: [],
+  referralRequired: false, isEmergencyService: false, verificationStatus: 'VERIFIED' as never,
+  isTestFixture: false, ...o,
+});
 
 const makeRun = (o: Partial<AiOrchestrationRun> = {}): AiOrchestrationRun => ({
   id: 'run-001', userId: USER.id, goal: AiOrchestrationGoal.OPPORTUNITY_SUGGESTION,
@@ -46,11 +59,14 @@ describe('AiOrchestratorService', () => {
         { provide: InstitutionalMemoryService, useValue: mockMemory },
         { provide: InsightsService, useValue: mockInsightsService },
         { provide: RecommendationsService, useValue: mockRecommendationsService },
+        { provide: NeedsService, useValue: mockNeedsService },
       ],
     }).compile();
     service = m.get(AiOrchestratorService);
     jest.clearAllMocks();
     mockRepo.create.mockResolvedValue(makeRun());
+    mockNeedsService.findMatchingResources.mockResolvedValue([]);
+    mockRecommendationsService.generate.mockResolvedValue([]);
   });
 
   describe('orchestrate — direct delegation goals', () => {
@@ -173,6 +189,139 @@ describe('AiOrchestratorService', () => {
 
       expect(mockRepo.create).toHaveBeenCalledWith(expect.objectContaining({
         status: AiOrchestrationStatus.NO_ACTION, capabilitiesInvoked: [AiCapability.NEXT_BEST_ACTION],
+      }));
+    });
+  });
+
+  describe('orchestrate — COORDINATED_PLAN', () => {
+    it('calls RecommendationsService once per category, in the documented priority order, in parallel', async () => {
+      mockRecommendationsService.generate.mockResolvedValue([{ id: 'rec-001' } as never]);
+
+      await service.orchestrate({ goal: AiOrchestrationGoal.COORDINATED_PLAN }, USER);
+
+      expect(mockRecommendationsService.generate.mock.calls.map((c) => c[0])).toEqual([
+        { category: RecommendationCategory.OPPORTUNITY },
+        { category: RecommendationCategory.RESOURCE },
+        { category: RecommendationCategory.COURSE },
+        { category: RecommendationCategory.POD },
+      ]);
+    });
+
+    it('does not call NeedsService when no needId is given', async () => {
+      mockRecommendationsService.generate.mockResolvedValue([{ id: 'rec-001' } as never]);
+
+      await service.orchestrate({ goal: AiOrchestrationGoal.COORDINATED_PLAN }, USER);
+
+      expect(mockNeedsService.findMatchingResources).not.toHaveBeenCalled();
+    });
+
+    it('calls NeedsService.findMatchingResources with the given needId, scoped to the caller', async () => {
+      mockRecommendationsService.generate.mockResolvedValue([{ id: 'rec-001' } as never]);
+
+      await service.orchestrate({ goal: AiOrchestrationGoal.COORDINATED_PLAN, needId: 'need-001' }, USER);
+
+      expect(mockNeedsService.findMatchingResources).toHaveBeenCalledWith('need-001', USER.id);
+    });
+
+    it('records NO_ACTION when no real candidates exist anywhere', async () => {
+      const result = await service.orchestrate({ goal: AiOrchestrationGoal.COORDINATED_PLAN, needId: 'need-001' }, USER);
+
+      expect(mockRepo.create).toHaveBeenCalledWith(expect.objectContaining({ status: AiOrchestrationStatus.NO_ACTION }));
+      expect(result.plan).toBeUndefined();
+    });
+
+    it('a real City Sheet match leads the plan as primary, ahead of any recommendation category', async () => {
+      mockNeedsService.findMatchingResources.mockResolvedValue([makeCityResource()]);
+      mockRecommendationsService.generate.mockImplementation((dto: never) =>
+        Promise.resolve([{ id: `rec-${(dto as { category: string }).category}` } as never]),
+      );
+
+      const result = await service.orchestrate({ goal: AiOrchestrationGoal.COORDINATED_PLAN, needId: 'need-001' }, USER);
+
+      expect(result.plan!.primary.source).toBe(PlanItemSource.CITY_RESOURCE);
+      expect(result.plan!.primary.cityResource!.organizationName).toBe('Chester County Food Bank');
+      // Opportunity (highest-priority non-empty category) becomes supporting.
+      expect(result.plan!.supporting[0].source).toBe(PlanItemSource.RECOMMENDATION);
+      expect(result.plan!.supporting[0].recommendation!.id).toBe('rec-OPPORTUNITY');
+    });
+
+    it('falls back to the highest-priority non-empty recommendation category as primary when there is no City Sheet match', async () => {
+      mockRecommendationsService.generate.mockImplementation((dto: never) => {
+        const category = (dto as { category: string }).category;
+        if (category === RecommendationCategory.RESOURCE) return Promise.resolve([{ id: 'rec-resource' } as never]);
+        return Promise.resolve([]);
+      });
+
+      const result = await service.orchestrate({ goal: AiOrchestrationGoal.COORDINATED_PLAN }, USER);
+
+      expect(result.plan!.primary.source).toBe(PlanItemSource.RECOMMENDATION);
+      expect(result.plan!.primary.recommendation!.id).toBe('rec-resource');
+      expect(result.plan!.supporting).toHaveLength(0);
+    });
+
+    it('caps supporting steps at two, never padding to a fixed count, and counts the rest as held in reserve', async () => {
+      mockRecommendationsService.generate.mockImplementation((dto: never) => {
+        const category = (dto as { category: string }).category;
+        if (category === RecommendationCategory.OPPORTUNITY) {
+          return Promise.resolve([{ id: 'opp-1' }, { id: 'opp-2' }, { id: 'opp-3' }] as never);
+        }
+        if (category === RecommendationCategory.RESOURCE) return Promise.resolve([{ id: 'res-1' }] as never);
+        return Promise.resolve([]);
+      });
+
+      const result = await service.orchestrate({ goal: AiOrchestrationGoal.COORDINATED_PLAN }, USER);
+
+      // 4 real candidates total (opp-1/2/3, res-1); primary=opp-1, supporting=[opp-2, opp-3] (capped at 2), res-1 held in reserve.
+      expect(result.plan!.primary.recommendation!.id).toBe('opp-1');
+      expect(result.plan!.supporting.map((s) => s.recommendation!.id)).toEqual(['opp-2', 'opp-3']);
+      expect(result.plan!.additionalPossibilitiesCount).toBe(1);
+    });
+
+    it('counts every City Sheet match beyond the one surfaced as an additional possibility', async () => {
+      mockNeedsService.findMatchingResources.mockResolvedValue([makeCityResource(), makeCityResource({ id: 'city-002' }), makeCityResource({ id: 'city-003' })]);
+
+      const result = await service.orchestrate({ goal: AiOrchestrationGoal.COORDINATED_PLAN, needId: 'need-001' }, USER);
+
+      expect(result.plan!.primary.source).toBe(PlanItemSource.CITY_RESOURCE);
+      expect(result.plan!.additionalPossibilitiesCount).toBe(2);
+    });
+
+    it('produces a non-empty combined rationale that changes based on whether supporting steps exist', async () => {
+      mockRecommendationsService.generate.mockImplementation((dto: never) => {
+        const category = (dto as { category: string }).category;
+        if (category === RecommendationCategory.OPPORTUNITY) return Promise.resolve([{ id: 'opp-1' }] as never);
+        return Promise.resolve([]);
+      });
+
+      const soloResult = await service.orchestrate({ goal: AiOrchestrationGoal.COORDINATED_PLAN }, USER);
+      expect(soloResult.plan!.combinedRationale.length).toBeGreaterThan(0);
+      expect(soloResult.plan!.combinedRationale).toContain('strongest real option');
+
+      mockRecommendationsService.generate.mockImplementation((dto: never) => {
+        const category = (dto as { category: string }).category;
+        if (category === RecommendationCategory.OPPORTUNITY) return Promise.resolve([{ id: 'opp-1' }] as never);
+        if (category === RecommendationCategory.COURSE) return Promise.resolve([{ id: 'course-1' }] as never);
+        return Promise.resolve([]);
+      });
+      const pairedResult = await service.orchestrate({ goal: AiOrchestrationGoal.COORDINATED_PLAN }, USER);
+      expect(pairedResult.plan!.combinedRationale).not.toContain('strongest real option');
+      expect(pairedResult.plan!.combinedRationale).toContain('Opportunity');
+      expect(pairedResult.plan!.combinedRationale).toContain('Training');
+    });
+
+    it('tags the run with the RECOMMENDATION capability and records a SUCCESS status', async () => {
+      mockRecommendationsService.generate.mockImplementation((dto: never) => {
+        const category = (dto as { category: string }).category;
+        if (category === RecommendationCategory.OPPORTUNITY) return Promise.resolve([{ id: 'opp-1' }] as never);
+        return Promise.resolve([]);
+      });
+
+      await service.orchestrate({ goal: AiOrchestrationGoal.COORDINATED_PLAN }, USER);
+
+      expect(mockRepo.create).toHaveBeenCalledWith(expect.objectContaining({
+        goal: AiOrchestrationGoal.COORDINATED_PLAN,
+        status: AiOrchestrationStatus.SUCCESS,
+        capabilitiesInvoked: [AiCapability.RECOMMENDATION],
       }));
     });
   });

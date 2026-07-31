@@ -53,12 +53,11 @@ describe('AI Intelligence Engine — E2E', () => {
   let journeyId: string;
 
   beforeAll(async () => {
-    // C2 — V1 Scope Lockdown gates /ai/voice and /academy off by default
-    // (LAUNCH-001: "no Pods, no Academy... voice entirely"). This suite
-    // uses an Academy course as an AI-guidance fixture and exercises the
-    // voice session endpoints directly, so both are flipped on for this
-    // suite only — restored in afterAll so no other suite observes it.
-    V1_FEATURE_FLAGS.voice = true;
+    // C2 — V1 Scope Lockdown gates /academy off by default (LAUNCH-001:
+    // "no Pods, no Academy"); voice defaults on (reopened by Founder
+    // decision). This suite uses an Academy course as an AI-guidance
+    // fixture, so academy is flipped on for this suite only — restored
+    // in afterAll so no other suite observes it.
     V1_FEATURE_FLAGS.academy = true;
 
     const moduleRef: TestingModule = await Test.createTestingModule({ imports: [AppModule] }).compile();
@@ -201,7 +200,6 @@ describe('AI Intelligence Engine — E2E', () => {
     await prisma.db.goal.deleteMany({ where: { title: { startsWith: markerTitlePrefix } } });
     await prisma.db.user.deleteMany({ where: { email: { contains: emailMarker } } });
     await app.close();
-    V1_FEATURE_FLAGS.voice = false;
     V1_FEATURE_FLAGS.academy = false;
   });
 

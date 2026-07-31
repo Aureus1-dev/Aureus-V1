@@ -30,6 +30,9 @@ export class UserResponseDto {
   @ApiPropertyOptional({ example: null, nullable: true })
   deletedAt: Date | null;
 
+  @ApiProperty({ example: false, description: 'Guest Steward mode — true until this account is claimed (email/password added)' })
+  isGuest: boolean;
+
   static fromEntity(user: User): UserResponseDto {
     const dto = new UserResponseDto();
     dto.id = user.id;
@@ -41,6 +44,7 @@ export class UserResponseDto {
     dto.createdAt = user.createdAt;
     dto.updatedAt = user.updatedAt;
     dto.deletedAt = user.deletedAt;
+    dto.isGuest = user.isGuest;
     return dto;
   }
 }

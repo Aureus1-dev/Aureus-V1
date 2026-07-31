@@ -181,4 +181,62 @@ describe('RealtimeEventMapper', () => {
     const completed = done.find((e) => e.kind === 'steward-response-completed');
     expect(completed).toMatchObject({ itemId: 'item-msg-1', transcript: 'Here is your journey.' });
   });
+
+  it('extracts response.usage into the flat shape the backend expects, on a completed response', () => {
+    const mapper = new RealtimeEventMapper(() => new Date('2026-01-01T00:00:00.000Z'));
+    mapper.map({ type: 'response.created', response: { id: 'resp-7' } });
+
+    const done = mapper.map({
+      type: 'response.done',
+      response: {
+        id: 'resp-7',
+        status: 'completed',
+        output: [],
+        usage: {
+          input_token_details: { text_tokens: 119, audio_tokens: 13, cached_tokens_details: { text_tokens: 64, audio_tokens: 0 } },
+          output_token_details: { text_tokens: 30, audio_tokens: 91 },
+        },
+      },
+    });
+
+    expect(done[0]).toMatchObject({
+      kind: 'steward-response-completed',
+      usage: {
+        inputAudioTokens: 13, inputTextTokens: 119, cachedAudioTokens: 0, cachedTextTokens: 64,
+        outputAudioTokens: 91, outputTextTokens: 30,
+      },
+    });
+  });
+
+  it('extracts response.usage on an interrupted response too, so a barge-in still gets billed accurately', () => {
+    const mapper = new RealtimeEventMapper(() => new Date('2026-01-01T00:00:00.000Z'));
+    mapper.map({ type: 'response.created', response: { id: 'resp-8' } });
+
+    const done = mapper.map({
+      type: 'response.done',
+      response: {
+        id: 'resp-8',
+        status: 'cancelled',
+        output: [],
+        usage: {
+          input_token_details: { text_tokens: 0, audio_tokens: 10 },
+          output_token_details: { text_tokens: 0, audio_tokens: 5 },
+        },
+      },
+    });
+
+    expect(done[0]).toMatchObject({
+      kind: 'steward-response-interrupted',
+      usage: { inputAudioTokens: 10, inputTextTokens: 0, cachedAudioTokens: 0, cachedTextTokens: 0, outputAudioTokens: 5, outputTextTokens: 0 },
+    });
+  });
+
+  it('omits usage entirely (not a zeroed object) when response.done carries none', () => {
+    const mapper = new RealtimeEventMapper(() => new Date('2026-01-01T00:00:00.000Z'));
+    mapper.map({ type: 'response.created', response: { id: 'resp-9' } });
+
+    const done = mapper.map({ type: 'response.done', response: { id: 'resp-9', status: 'completed', output: [] } });
+
+    expect(done[0]).not.toHaveProperty('usage');
+  });
 });

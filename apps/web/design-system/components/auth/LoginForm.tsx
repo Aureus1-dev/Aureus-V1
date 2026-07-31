@@ -16,11 +16,12 @@ export interface LoginFormProps {
 
 export function LoginForm({ sessionExpired = false }: LoginFormProps) {
   const router = useRouter();
-  const { login } = useSession();
+  const { login, establishGuestSession } = useSession();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [continuingAsGuest, setContinuingAsGuest] = useState(false);
 
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
@@ -36,6 +37,21 @@ export function LoginForm({ sessionExpired = false }: LoginFormProps) {
     }
   }
 
+  // Guest Steward mode: nothing here should be a true dead end,
+  // including for a guest whose own session already lapsed (a guest has
+  // no password to sign back in with). This is the same "How can we
+  // help?" first-touch experience the root landing page offers, reached
+  // from wherever a visitor happened to land on a login wall instead.
+  async function handleContinueAsGuest() {
+    setContinuingAsGuest(true);
+    try {
+      await establishGuestSession();
+      router.push('/conversation');
+    } catch {
+      setContinuingAsGuest(false);
+    }
+  }
+
   return (
     <AuthLayout
       title="Welcome back"
@@ -47,6 +63,11 @@ export function LoginForm({ sessionExpired = false }: LoginFormProps) {
           </p>
           <p>
             New to Aureus? <Link href="/register">Create an account</Link>
+          </p>
+          <p>
+            <button type="button" onClick={() => void handleContinueAsGuest()} disabled={continuingAsGuest}>
+              {continuingAsGuest ? 'One moment…' : 'Continue without an account'}
+            </button>
           </p>
         </>
       }

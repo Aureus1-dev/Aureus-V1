@@ -13,6 +13,8 @@ export interface CreateUserInput {
   status?: UserStatus;
   passwordHash?: string;
   roles?: UserRole[];
+  isGuest?: boolean;
+  guestLastActiveAt?: Date;
 }
 
 export interface UpdateUserInput {
@@ -26,6 +28,9 @@ export interface UpdateUserInput {
   mfaEnabled?: boolean;
   mfaSecret?: string | null;
   mfaRecoveryCodes?: string[];
+  isGuest?: boolean;
+  guestClaimedAt?: Date | null;
+  guestLastActiveAt?: Date;
 }
 
 export interface PaginationParams {
@@ -67,4 +72,16 @@ export interface IUserRepository {
    * Soft-deleted records are always excluded.
    */
   findAll(params: PaginationParams): Promise<PaginatedResult<User>>;
+
+  /**
+   * Permanently deletes every never-claimed guest account (isGuest: true)
+   * whose last real activity is older than `cutoff` — a genuine hard
+   * delete, unlike `softDelete` above, deliberately: "creating a free
+   * account is only to preserve progress," so a guest who never claims
+   * one should not have their conversations, needs, or goals kept
+   * indefinitely. Every relation to `User` cascades (see schema.prisma),
+   * so this is the single point that removes all of it. Returns the
+   * number of accounts removed.
+   */
+  deleteInactiveGuests(cutoff: Date): Promise<number>;
 }

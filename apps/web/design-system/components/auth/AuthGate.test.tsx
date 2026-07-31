@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import { AuthGate } from './AuthGate';
 import { useSession } from '../../../state';
 
@@ -15,7 +15,12 @@ describe('AuthGate', () => {
   });
 
   it('shows a loading state and does not redirect while restoring', () => {
-    mockedUseSession.mockReturnValue({ session: { isAuthenticated: false }, isRestoring: true, sessionExpired: false });
+    mockedUseSession.mockReturnValue({
+      session: { isAuthenticated: false },
+      isRestoring: true,
+      sessionExpired: false,
+      establishGuestSession: jest.fn(),
+    });
 
     render(
       <AuthGate>
@@ -29,7 +34,12 @@ describe('AuthGate', () => {
   });
 
   it('renders protected content once authenticated', () => {
-    mockedUseSession.mockReturnValue({ session: { isAuthenticated: true }, isRestoring: false, sessionExpired: false });
+    mockedUseSession.mockReturnValue({
+      session: { isAuthenticated: true },
+      isRestoring: false,
+      sessionExpired: false,
+      establishGuestSession: jest.fn(),
+    });
 
     render(
       <AuthGate>
@@ -41,8 +51,18 @@ describe('AuthGate', () => {
     expect(replace).not.toHaveBeenCalled();
   });
 
-  it('redirects to /login once restoration completes and the member is unauthenticated', () => {
-    mockedUseSession.mockReturnValue({ session: { isAuthenticated: false }, isRestoring: false, sessionExpired: false });
+  // Guest Steward mode: a visitor with no session at all (a direct link
+  // to /opportunities, /journey, /resources, ... — not only the root
+  // page) must never dead-end at a login wall. AuthGate now silently
+  // establishes a guest session here instead of redirecting.
+  it('silently establishes a guest session for a visitor with no session, instead of redirecting to /login', async () => {
+    const establishGuestSession = jest.fn().mockResolvedValue(undefined);
+    mockedUseSession.mockReturnValue({
+      session: { isAuthenticated: false },
+      isRestoring: false,
+      sessionExpired: false,
+      establishGuestSession,
+    });
 
     render(
       <AuthGate>
@@ -50,12 +70,41 @@ describe('AuthGate', () => {
       </AuthGate>,
     );
 
-    expect(replace).toHaveBeenCalledWith('/login');
+    await waitFor(() => expect(establishGuestSession).toHaveBeenCalled());
+    expect(replace).not.toHaveBeenCalledWith('/login');
     expect(screen.queryByText('Protected content')).not.toBeInTheDocument();
   });
 
-  it('redirects to /login?expired=1 when the session could not be silently restored', () => {
-    mockedUseSession.mockReturnValue({ session: { isAuthenticated: false }, isRestoring: false, sessionExpired: true });
+  it('falls back to /login only if guest session establishment itself fails', async () => {
+    const establishGuestSession = jest.fn().mockRejectedValue(new Error('network down'));
+    mockedUseSession.mockReturnValue({
+      session: { isAuthenticated: false },
+      isRestoring: false,
+      sessionExpired: false,
+      establishGuestSession,
+    });
+
+    render(
+      <AuthGate>
+        <div>Protected content</div>
+      </AuthGate>,
+    );
+
+    await waitFor(() => expect(replace).toHaveBeenCalledWith('/login'));
+  });
+
+  // A session that existed and failed to refresh is deliberately NOT
+  // silently re-guested — that would quietly drop a real member into
+  // anonymous browsing instead of prompting them back into their own
+  // account. This path is unchanged from before Guest Steward mode.
+  it('redirects to /login?expired=1 when the session could not be silently restored, without attempting a guest session', () => {
+    const establishGuestSession = jest.fn();
+    mockedUseSession.mockReturnValue({
+      session: { isAuthenticated: false },
+      isRestoring: false,
+      sessionExpired: true,
+      establishGuestSession,
+    });
 
     render(
       <AuthGate>
@@ -64,10 +113,16 @@ describe('AuthGate', () => {
     );
 
     expect(replace).toHaveBeenCalledWith('/login?expired=1');
+    expect(establishGuestSession).not.toHaveBeenCalled();
   });
 
   it('B5: no leakage across the transition — protected content stops rendering the instant a mid-session flips to unauthenticated', () => {
-    mockedUseSession.mockReturnValue({ session: { isAuthenticated: true }, isRestoring: false, sessionExpired: false });
+    mockedUseSession.mockReturnValue({
+      session: { isAuthenticated: true },
+      isRestoring: false,
+      sessionExpired: false,
+      establishGuestSession: jest.fn(),
+    });
 
     const { rerender } = render(
       <AuthGate>
@@ -78,7 +133,12 @@ describe('AuthGate', () => {
 
     // A session expiring mid-arrival (e.g. a 401 that couldn't be silently
     // refreshed) flips isAuthenticated to false without a page reload.
-    mockedUseSession.mockReturnValue({ session: { isAuthenticated: false }, isRestoring: false, sessionExpired: true });
+    mockedUseSession.mockReturnValue({
+      session: { isAuthenticated: false },
+      isRestoring: false,
+      sessionExpired: true,
+      establishGuestSession: jest.fn(),
+    });
     rerender(
       <AuthGate>
         <div>Protected content</div>
@@ -89,18 +149,29 @@ describe('AuthGate', () => {
     expect(replace).toHaveBeenCalledWith('/login?expired=1');
   });
 
-  it('B5: no leakage across the transition — the unauthenticated redirect never fires again once a login completes', () => {
-    mockedUseSession.mockReturnValue({ session: { isAuthenticated: false }, isRestoring: false, sessionExpired: false });
+  it('B5: no leakage across the transition — no redirect fires once a login (or guest session) completes', () => {
+    const establishGuestSession = jest.fn().mockResolvedValue(undefined);
+    mockedUseSession.mockReturnValue({
+      session: { isAuthenticated: false },
+      isRestoring: false,
+      sessionExpired: false,
+      establishGuestSession,
+    });
 
     const { rerender } = render(
       <AuthGate>
         <div>Protected content</div>
       </AuthGate>,
     );
-    expect(replace).toHaveBeenCalledWith('/login');
+    expect(establishGuestSession).toHaveBeenCalled();
     replace.mockClear();
 
-    mockedUseSession.mockReturnValue({ session: { isAuthenticated: true }, isRestoring: false, sessionExpired: false });
+    mockedUseSession.mockReturnValue({
+      session: { isAuthenticated: true },
+      isRestoring: false,
+      sessionExpired: false,
+      establishGuestSession,
+    });
     rerender(
       <AuthGate>
         <div>Protected content</div>

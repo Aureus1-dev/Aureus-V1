@@ -19,8 +19,14 @@
   color: var(--color-text-secondary);
 }
 
-.results {
+.supportingList {
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
+}
+
+.more {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
 }

@@ -94,6 +94,29 @@ model User {
   updatedAt     DateTime   @updatedAt
   deletedAt     DateTime?
 
+  // Guest Steward mode (Production Execution Order — unauthenticated first
+  // experience). A guest is an ordinary User row — real id, real JWTs,
+  // every existing self-only endpoint works unchanged — created with a
+  // synthetic, unique, never-shown `email` (already possible without a
+  // schema change: `email` only needed to stay unique, and `passwordHash`
+  // was already nullable for exactly this "no credential yet" case) plus
+  // `isGuest: true` so the app can tell a guest session from a real one.
+  // Claiming an account (AuthService.claimGuestAccount) flips this to
+  // false and stamps `guestClaimedAt` in the same UPDATE that sets the
+  // real email/passwordHash — same row, same id, so every existing
+  // relation (conversations, needs, goals, ...) is preserved with zero
+  // migration of its own.
+  isGuest        Boolean   @default(false)
+  guestClaimedAt DateTime?
+
+  // Privacy lifecycle: set at guest creation, touched on every
+  // authenticated request a guest makes (JwtStrategy — real activity,
+  // not silent token refresh). GuestLifecycleService's scheduled purge
+  // reads this to find abandoned guests; meaningless once isGuest is
+  // false (a claimed account is never purged), left in place rather
+  // than cleared so the claim moment's own history stays intact.
+  guestLastActiveAt DateTime?
+
   // TOTP multi-factor authentication (PD-001 Production Foundation). mfaSecret
   // holds the base32 TOTP secret once enrollment begins — set before
   // mfaEnabled flips true, so an in-progress (unconfirmed) enrollment never
@@ -1894,6 +1917,12 @@ enum AiOrchestrationGoal {
   JOURNEY_GUIDANCE
   STEWARD_ESCALATION
   EDUCATIONAL_RECOMMENDATION
+  // Member Arrival — Steward Experience migration (Founder-approved). Fans
+  // out to RecommendationsService.generate() across every relevant
+  // category plus NeedsService's City Sheet match, then ranks the combined
+  // candidate set into one Primary + Supporting plan — the one goal this
+  // orchestrator resolves to more than a single delegate capability.
+  COORDINATED_PLAN
 }
 
 enum AiOrchestrationStatus {
