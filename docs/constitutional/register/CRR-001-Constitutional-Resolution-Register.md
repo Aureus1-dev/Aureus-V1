@@ -37,15 +37,17 @@ Recorded in full, with authority analysis, at `docs/constitutional-record/002-ra
 
 ---
 
-## Recommended Sequencing for Remaining Items (non-binding)
+## Sequencing for Remaining Items
 
-The five items below remain **Open — pending ruling**. This section is analysis, not a decision — it recommends an order and explains why, but rules on nothing. Order to present for Founder decision:
+The five items below remain **Open — pending ruling**. The order below is the Founder-endorsed sequence for presenting them for decision — it is a sequencing preference, not a ruling on any item's substance; none of the five is decided by this ordering.
 
-1. **CRR-001-004 — Status of `ALC-002`–`013`.** Recommended first among the remaining five. It's the broadest open question (12 files) and several other items read differently depending on its outcome — e.g., whether the Academy documents (`CRR-001-002`) are evaluated against a constitutional tier that still includes ALC-track material, or one that doesn't.
-2. **CRR-001-002 — Status of the Academy documents.** Recommended second, immediately after `CRR-001-004`, for the reason above — its answer benefits from knowing what the ALC track's status is, and it in turn gates `CRR-001-003`.
-3. **CRR-001-003 — Duplicate `OAS-ACA-007` identifier.** Recommended third. This is a narrow, mechanical renumbering question, but renumbering a document before its constitutional status is settled risks having to renumber it again — it should follow `CRR-001-002`, not precede it.
-4. **CRR-001-001 — Location of `OAS-001`.** Recommended fourth. Purely administrative (the content is already ratified and not in question), and independent of the other four — it could technically be decided at any point, but placing it after the status questions keeps all of the "what is this document" decisions together before the "where does it live" decisions begin.
-5. **CRR-001-006 — Dual `CAP-011` numbering.** Recommended last. Also independent of the others, but lowest urgency — it affects only a cross-reference citation inside already-ratified text, not any document's status or location, and correcting it doesn't unblock or get blocked by anything else in this register.
+1. **CRR-001-004 — Status of `ALC-002`–`013`.** Broadest open question (12 files); several other items read differently depending on its outcome.
+2. **CRR-001-002 — Status of the Academy documents.** Follows `CRR-001-004` — benefits from knowing the ALC track's status first.
+3. **CRR-001-001 — Location of `OAS-001`.** Founder-adjusted position (originally proposed fourth): once the Academy documents' status and the Constitution's permanent location are both known, any renumbering below can happen in its final home rather than a provisional one.
+4. **CRR-001-003 — Duplicate `OAS-ACA-007` identifier.** Follows `CRR-001-001` for the reason above — renumbering happens in the Constitution's settled, permanent location.
+5. **CRR-001-006 — Dual `CAP-011` numbering.** Last — independent of the others, and lowest urgency: it affects only a cross-reference citation inside already-ratified text, not any document's status or location.
+
+*(Originally proposed order placed `CRR-001-001` fourth and `CRR-001-003` third; the Founder moved `CRR-001-001` ahead of `CRR-001-003`, reasoning above.)*
 
 ---
 
@@ -54,6 +56,14 @@ The five items below remain **Open — pending ruling**. This section is analysi
 - **Open — pending ruling**: Item recorded; no Founder decision has been made. The underlying document(s) are unchanged and their status remains exactly as described in the current-state inventory.
 - **Ruled — pending implementation**: Founder has ruled; the ruling is recorded below under the entry; the corresponding repository change has not yet been made.
 - **Resolved**: Repository has been updated to reflect the ruling, and (where applicable) a Constitutional Record entry has been created recording it.
+
+---
+
+## Planned Milestone — Certification of Constitutional State
+
+Per Founder direction (2026-07-31): once all five remaining items in this register are ruled on and their repository changes implemented, a further Constitutional Record entry — **"Certification of Constitutional State"** — is to be produced. Its purpose, as directed: state that all Founder rulings through this register have been implemented, that all ratified constitutional documents are identified, and that all known constitutional ambiguities have either been resolved or explicitly recorded as open — establishing a certified constitutional baseline. Only once that certification exists would a constitutional freeze be appropriate to discuss.
+
+This entry does not yet exist and is not created by this note. It is recorded here so the expectation isn't lost, and is contingent on `CRR-001-001` through `CRR-001-004` and `CRR-001-006` all reaching **Resolved** status first.
 
 ---
 
