@@ -7,9 +7,9 @@ import { LoadingState } from '../LoadingState/LoadingState';
 import { ErrorState } from '../ErrorState/ErrorState';
 import { Button } from '../Button/Button';
 import { domainErrorCopy } from '../domain-error-copy';
+import { ArrivalRoom, ArrivalStage } from '../arrival';
 import { FirstRunWelcome } from './FirstRunWelcome';
 import { readArrivalStep } from './arrival-progress';
-import styles from './WelcomeFlow.module.css';
 
 export interface WelcomeFlowProps {
   /** From `?newMission=true` — the escape hatch a returning member's "Start a new mission" action uses to reach the guided flow again without being redirected to Home first. */
@@ -93,30 +93,39 @@ export function WelcomeFlow({ forceNewMission = false }: WelcomeFlowProps) {
     }
   }, [journey.state.isLoadingGoals, isReturningMember, forceNewMission, router]);
 
-  if (journey.state.isLoadingGoals || (isReturningMember && !forceNewMission)) {
-    return (
-      <div className={styles.loading}>
-        <LoadingState label="Preparing your welcome" />
-      </div>
-    );
+  function stage() {
+    if (journey.state.isLoadingGoals || (isReturningMember && !forceNewMission)) {
+      return (
+        <ArrivalStage stepKey="preparing">
+          <LoadingState label="Preparing your welcome" />
+        </ArrivalStage>
+      );
+    }
+
+    if (journey.state.error && !forceNewMission) {
+      const copy = domainErrorCopy(journey.state.error.kind);
+      return (
+        <ArrivalStage stepKey="error">
+          <ErrorState
+            title={copy.title}
+            description={copy.description}
+            action={
+              journey.state.error.retryable ? (
+                <Button onClick={() => void journey.loadGoals()}>Try again</Button>
+              ) : undefined
+            }
+          />
+        </ArrivalStage>
+      );
+    }
+
+    return <FirstRunWelcome skipHospitality={forceNewMission} />;
   }
 
-  if (journey.state.error && !forceNewMission) {
-    const copy = domainErrorCopy(journey.state.error.kind);
-    return (
-      <div className={styles.loading}>
-        <ErrorState
-          title={copy.title}
-          description={copy.description}
-          action={
-            journey.state.error.retryable ? (
-              <Button onClick={() => void journey.loadGoals()}>Try again</Button>
-            ) : undefined
-          }
-        />
-      </div>
-    );
-  }
-
-  return <FirstRunWelcome skipHospitality={forceNewMission} />;
+  // The Hall is the constant. Waiting for a journey to load, recovering
+  // from a failure, and working through arrival are all things that
+  // happen *inside* it, on its stage — the room is never torn down and
+  // rebuilt between them, so a member never watches Aureus swap one
+  // onboarding screen for another.
+  return <ArrivalRoom>{stage()}</ArrivalRoom>;
 }
