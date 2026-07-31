@@ -1,0 +1,139 @@
+/*
+ * The Opening Sequence is a deliberate cinematic moment, not a themed
+ * surface — it stays a fixed warm-dark palette regardless of the
+ * member's light/dark preference (there is no "light theme" arrival;
+ * the canon's beats are literally "Darkness" and "Gentle light"). Ember
+ * tokens are still used for the Mark and the Steward's line since both
+ * read as a glowing accent on a dark background in either theme variant.
+ */
+.scene {
+  position: relative;
+  display: flex;
+  min-height: 100vh;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-6);
+  padding: var(--space-8) var(--space-4);
+  overflow: hidden;
+  text-align: center;
+  background-color: #0b0806;
+  transition: background-color 900ms var(--motion-easing-decelerate);
+}
+
+.scene.hall {
+  background-color: #241a12;
+}
+
+.mark {
+  width: 88px;
+  height: 88px;
+  border-radius: var(--radius-full);
+  opacity: 0;
+  transform: scale(0.6);
+  background: radial-gradient(
+    circle at 35% 30%,
+    var(--color-ember-tip),
+    var(--color-ember-mid) 45%,
+    var(--color-ember-core) 100%
+  );
+  box-shadow: 0 0 60px 12px rgba(224, 138, 82, 0.35);
+  transition:
+    opacity 700ms var(--motion-easing-decelerate),
+    transform 900ms var(--motion-easing-decelerate);
+}
+
+.markLit {
+  opacity: 0.55;
+  transform: scale(0.85);
+}
+
+.markFormed {
+  opacity: 1;
+  transform: scale(1);
+  animation: arrival-breathe 4200ms ease-in-out infinite;
+}
+
+@keyframes arrival-breathe {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.06);
+  }
+}
+
+.copy {
+  display: flex;
+  max-width: 30rem;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.wordmark,
+.tagline,
+.invitation,
+.stewardLine {
+  margin: 0;
+  opacity: 0;
+  transform: translateY(6px);
+  transition:
+    opacity 900ms var(--motion-easing-decelerate),
+    transform 900ms var(--motion-easing-decelerate);
+}
+
+.visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.wordmark {
+  color: #f3ece1;
+  font-size: var(--font-size-3xl);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: var(--letter-spacing-wide);
+}
+
+.tagline {
+  color: #cbbfae;
+  font-size: var(--font-size-lg);
+}
+
+.invitation {
+  color: #9c8f7c;
+  font-size: var(--font-size-md);
+}
+
+.stewardLine {
+  margin-top: var(--space-4);
+  color: var(--color-ember-tip);
+  font-size: var(--font-size-xl);
+  font-style: italic;
+}
+
+.stewardLine::before {
+  content: '\201C';
+}
+
+.stewardLine::after {
+  content: '\201D';
+}
+
+.skip {
+  position: absolute;
+  right: var(--space-4);
+  bottom: var(--space-4);
+  border: none;
+  border-radius: var(--radius-md);
+  background: none;
+  color: #9c8f7c;
+  cursor: pointer;
+  font-size: var(--font-size-sm);
+  padding: var(--space-2) var(--space-3);
+}
+
+.skip:hover,
+.skip:focus-visible {
+  color: #cbbfae;
+}
