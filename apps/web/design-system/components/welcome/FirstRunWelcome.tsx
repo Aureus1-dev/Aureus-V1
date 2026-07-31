@@ -19,7 +19,7 @@ import { FirstMissionStep } from './steps/FirstMissionStep';
 import { CoordinatedPlanStep } from './steps/CoordinatedPlanStep';
 import { StewardshipOfferStep } from './steps/StewardshipOfferStep';
 import { ExecutionStatusStep, type DecidedPlanItem, type PlanItemDecision } from './steps/ExecutionStatusStep';
-import { ArrivalRoom } from '../arrival';
+import { ArrivalStage } from '../arrival';
 import { classifyArrivalError, type ArrivalError } from './classify-arrival-error';
 import { clearArrivalStep, readArrivalStep, writeArrivalStep, type ArrivalStep } from './arrival-progress';
 import { deriveUnderstandingPhase } from './understanding-progress';
@@ -416,9 +416,11 @@ export function FirstRunWelcome({ skipHospitality = false }: FirstRunWelcomeProp
     }
   }
 
-  // The Hall this arrival takes place inside (AUREUS-003, AUREUS-006).
-  // Purely environmental: it wraps the step above without taking any
-  // part in choosing it, so every decision this flow makes stays
-  // exactly where it was.
-  return <ArrivalRoom stepKey={step}>{renderStep()}</ArrivalRoom>;
+  // Each step takes the stage of the Hall that `WelcomeFlow` already
+  // mounted (AUREUS-003, AUREUS-006) — this flow arrives into a room
+  // that is already lit rather than bringing its own. Purely
+  // presentational: it wraps the step above without taking any part in
+  // choosing it, so every decision this flow makes stays exactly where
+  // it was.
+  return <ArrivalStage stepKey={step}>{renderStep()}</ArrivalStage>;
 }

@@ -20,8 +20,6 @@ export function daylightAt(date: Date): Daylight {
 }
 
 export interface ArrivalRoomProps {
-  /** The current arrival step. Changing it plays the room's step transition — one continuous space, not a page swap. */
-  stepKey: string;
   children: ReactNode;
 }
 
@@ -44,7 +42,12 @@ export interface ArrivalRoomProps {
  *   the Mark and the Steward's presence are one and the same light, so
  *   the member is met by something they already recognize. Presence
  *   before instruction (AUREUS-003 §THE ROLE OF THE STEWARD).
- * - The stage: where the member's current step actually lives.
+ *
+ * Whatever the member is currently doing goes inside, on an
+ * `ArrivalStage` — restoring their session, waiting on their journey,
+ * recovering from an error, or working through a step of arrival. All
+ * of it happens in this one room, so arrival never feels like a series
+ * of onboarding screens handing off to each other.
  *
  * Every environmental layer is `aria-hidden` and carries no information
  * of its own — atmosphere only. A member using a screen reader, or one
@@ -53,11 +56,22 @@ export interface ArrivalRoomProps {
  * prefer reduced motion should receive an equally complete experience").
  *
  * This component deliberately contains no arrival logic. It renders
- * whatever step `FirstRunWelcome` decides to show and never influences
- * that decision — the experiential layer wraps the flow, it does not
- * participate in it.
+ * whatever it is given and never influences it — the experiential layer
+ * wraps the flow, it does not participate in it.
+ *
+ * The room itself has no entrance animation, deliberately. It is
+ * rendered in three places along one arrival — the route's `loading`
+ * segment, `AuthGate`'s session-restore fallback, and `WelcomeFlow` —
+ * and React necessarily unmounts one to mount the next, since they sit
+ * on opposite sides of the auth boundary. Anything that faded in would
+ * therefore fade in several times and announce those boundaries as
+ * repeated arrivals, which is precisely the seam this architecture
+ * exists to remove. The Hall does not arrive; it is simply already
+ * there, and only what stands on its stage ever changes. The cinematic
+ * reveal of the Hall belongs to the opening sequence (`ArrivalScene`),
+ * which plays once, before any of this.
  */
-export function ArrivalRoom({ stepKey, children }: ArrivalRoomProps) {
+export function ArrivalRoom({ children }: ArrivalRoomProps) {
   // Resolved after mount, never during render: the server and the
   // member's browser can sit in different hours, and reading the clock
   // while rendering would make the markup they produce disagree. Until
@@ -72,12 +86,7 @@ export function ArrivalRoom({ stepKey, children }: ArrivalRoomProps) {
     <div className={styles.room} data-daylight={daylight ?? undefined}>
       <div className={styles.lightField} aria-hidden="true" />
       <div className={styles.hearth} aria-hidden="true" />
-      {/* Keyed on the step so each new step enters the room rather than
-          replacing it — continuity, not interruption (AUREUS-005 §MOTION).
-          The room, its light, and the hearth stay mounted throughout. */}
-      <div key={stepKey} className={styles.stage}>
-        {children}
-      </div>
+      {children}
     </div>
   );
 }

@@ -9,6 +9,7 @@ import {
 } from '../../design-system/components/steward';
 import { UrgentHelpAffordance } from '../../design-system/components/urgent-help';
 import { GuestClaimBanner } from '../../design-system/components/guest';
+import { ArrivalSessionFallback } from '../../design-system/components/arrival';
 import { V1_FEATURE_FLAGS } from '../../lib/config/v1-feature-scope';
 
 /**
@@ -51,7 +52,7 @@ import { V1_FEATURE_FLAGS } from '../../lib/config/v1-feature-scope';
  */
 export default function MemberLayout({ children }: { children: React.ReactNode }) {
   return (
-    <AuthGate>
+    <AuthGate fallback={<ArrivalSessionFallback />}>
       <GuestClaimBanner />
       <AppShell>{children}</AppShell>
       <SurfaceTracker />

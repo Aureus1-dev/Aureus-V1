@@ -1,6 +1,7 @@
 import { render, screen } from '@testing-library/react';
 import { axe } from 'jest-axe';
 import { ArrivalRoom, daylightAt } from './ArrivalRoom';
+import { ArrivalStage } from './ArrivalStage';
 
 describe('daylightAt', () => {
   it.each([
@@ -19,9 +20,9 @@ describe('daylightAt', () => {
 });
 
 describe('ArrivalRoom', () => {
-  it('renders the step it is given, unchanged', () => {
+  it('renders whatever it is given, unchanged', () => {
     render(
-      <ArrivalRoom stepKey="hospitality">
+      <ArrivalRoom>
         <h1>Welcome to Aureus</h1>
       </ArrivalRoom>,
     );
@@ -30,11 +31,10 @@ describe('ArrivalRoom', () => {
 
   it('keeps every environmental layer out of the accessibility tree — atmosphere carries no information', () => {
     const { container } = render(
-      <ArrivalRoom stepKey="hospitality">
+      <ArrivalRoom>
         <p>step</p>
       </ArrivalRoom>,
     );
-    // The room's own decorative layers are the only non-content children.
     const decorative = container.querySelectorAll('[aria-hidden="true"]');
     expect(decorative.length).toBeGreaterThanOrEqual(2);
     decorative.forEach((layer) => expect(layer).toBeEmptyDOMElement());
@@ -42,42 +42,83 @@ describe('ArrivalRoom', () => {
 
   it('resolves the daylight after mount rather than during render, so server and browser markup cannot disagree', () => {
     const { container } = render(
-      <ArrivalRoom stepKey="hospitality">
+      <ArrivalRoom>
         <p>step</p>
       </ArrivalRoom>,
     );
-    // Whatever hour the test runs at, a value is present after mount and
-    // is one of the four the canon defines.
-    const room = container.firstElementChild;
     expect(['morning', 'afternoon', 'evening', 'night']).toContain(
-      room?.getAttribute('data-daylight'),
+      container.firstElementChild?.getAttribute('data-daylight'),
     );
   });
 
-  it('remounts only the stage when the step changes, leaving the room and its light in place', () => {
-    const { container, rerender } = render(
-      <ArrivalRoom stepKey="hospitality">
-        <p>first</p>
+  it('renders identically on every mount, so crossing the auth boundary cannot read as a second arrival', () => {
+    const first = render(
+      <ArrivalRoom>
+        <p>above the gate</p>
       </ArrivalRoom>,
     );
-    const roomBefore = container.firstElementChild;
+    const firstRoomClass = first.container.firstElementChild?.className;
+    first.unmount();
 
-    rerender(
-      <ArrivalRoom stepKey="immediate-need">
-        <p>second</p>
+    const second = render(
+      <ArrivalRoom>
+        <p>below the gate</p>
       </ArrivalRoom>,
     );
-
-    expect(container.firstElementChild).toBe(roomBefore);
-    expect(screen.getByText('second')).toBeInTheDocument();
+    expect(second.container.firstElementChild?.className).toBe(firstRoomClass);
   });
 
   it('has no accessibility violations', async () => {
     const { container } = render(
-      <ArrivalRoom stepKey="hospitality">
-        <h1>Welcome to Aureus</h1>
+      <ArrivalRoom>
+        <ArrivalStage stepKey="hospitality">
+          <h1>Welcome to Aureus</h1>
+        </ArrivalStage>
       </ArrivalRoom>,
     );
     expect(await axe(container)).toHaveNoViolations();
+  });
+});
+
+describe('ArrivalStage', () => {
+  it('remounts only the stage when the step changes, leaving the room and its light in place', () => {
+    function Scene({ stepKey, label }: { stepKey: string; label: string }) {
+      return (
+        <ArrivalRoom>
+          <ArrivalStage stepKey={stepKey}>
+            <p>{label}</p>
+          </ArrivalStage>
+        </ArrivalRoom>
+      );
+    }
+
+    const { container, rerender } = render(<Scene stepKey="hospitality" label="first" />);
+    const roomBefore = container.firstElementChild;
+    const hearthBefore = container.querySelectorAll('[aria-hidden="true"]')[1];
+
+    rerender(<Scene stepKey="immediate-need" label="second" />);
+
+    expect(container.firstElementChild).toBe(roomBefore);
+    expect(container.querySelectorAll('[aria-hidden="true"]')[1]).toBe(hearthBefore);
+    expect(screen.getByText('second')).toBeInTheDocument();
+  });
+
+  it('leaves the stage in place across a re-render that keeps the same step', () => {
+    function Scene({ label }: { label: string }) {
+      return (
+        <ArrivalRoom>
+          <ArrivalStage stepKey="immediate-need">
+            <p>{label}</p>
+          </ArrivalStage>
+        </ArrivalRoom>
+      );
+    }
+
+    const { container, rerender } = render(<Scene label="typing" />);
+    const stageBefore = container.querySelector('[aria-hidden="true"] ~ div');
+
+    rerender(<Scene label="still typing" />);
+
+    expect(container.querySelector('[aria-hidden="true"] ~ div')).toBe(stageBefore);
   });
 });

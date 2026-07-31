@@ -31,8 +31,6 @@
   padding: var(--space-12) var(--space-6);
   border-radius: var(--radius-xl);
   background: var(--color-surface-sunken);
-  /* The Hall reveal — the room settles into place once, on arrival. */
-  animation: hall-reveal 1400ms var(--motion-easing-decelerate) both;
 }
 
 /*
@@ -146,18 +144,6 @@
   animation: step-enter var(--motion-duration-slow) var(--motion-easing-decelerate);
 }
 
-@keyframes hall-reveal {
-  from {
-    opacity: 0;
-    transform: scale(0.99);
-  }
-
-  to {
-    opacity: 1;
-    transform: scale(1);
-  }
-}
-
 @keyframes light-drift {
   from {
     transform: translate3d(-1.5%, -1%, 0) scale(1);
@@ -200,14 +186,12 @@
  * preference wins over the OS setting in both directions.
  */
 @media (prefers-reduced-motion: reduce) {
-  :root:not([data-reduced-motion='false']) .room,
   :root:not([data-reduced-motion='false']) .lightField,
   :root:not([data-reduced-motion='false']) .hearth {
     animation: none;
   }
 }
 
-[data-reduced-motion='true'] .room,
 [data-reduced-motion='true'] .lightField,
 [data-reduced-motion='true'] .hearth {
   animation: none;

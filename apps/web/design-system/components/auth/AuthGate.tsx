@@ -6,8 +6,30 @@ import { useSession } from '../../../state';
 import { LoadingState } from '../LoadingState/LoadingState';
 import styles from './AuthGate.module.css';
 
+/**
+ * What a member sees while their session is being restored, on every
+ * surface that does not supply something of its own. Exported so a
+ * surface that *does* supply one can still fall back to exactly this
+ * for the routes it does not cover, rather than reproducing it.
+ */
+export function SessionRestoringNotice() {
+  return (
+    <div className={styles.wrapper}>
+      <LoadingState label="Preparing your session" />
+    </div>
+  );
+}
+
 export interface AuthGateProps {
   children: ReactNode;
+  /**
+   * What to show while the session is being restored or a guest session
+   * established. Optional and defaulted to the plain loading state every
+   * surface has always shown, so nothing that omits it changes behavior;
+   * `/welcome` supplies the Hall, so arrival is a place before it is a
+   * page.
+   */
+  fallback?: ReactNode;
 }
 
 /**
@@ -31,7 +53,7 @@ export interface AuthGateProps {
  * `/login?expired=1`, unchanged — `LoginForm` itself offers a "Continue
  * without an account" way back in for the guest edge of that path.
  */
-export function AuthGate({ children }: AuthGateProps) {
+export function AuthGate({ children, fallback }: AuthGateProps) {
   const router = useRouter();
   const { session, isRestoring, sessionExpired, establishGuestSession } = useSession();
   const attemptedGuest = useRef(false);
@@ -57,11 +79,7 @@ export function AuthGate({ children }: AuthGateProps) {
   }, [isRestoring, session.isAuthenticated, sessionExpired, establishGuestSession, router]);
 
   if (isRestoring || (!session.isAuthenticated && !sessionExpired)) {
-    return (
-      <div className={styles.wrapper}>
-        <LoadingState label="Preparing your session" />
-      </div>
-    );
+    return fallback ?? <SessionRestoringNotice />;
   }
 
   if (!session.isAuthenticated) {
