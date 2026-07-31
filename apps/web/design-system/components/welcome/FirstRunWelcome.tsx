@@ -19,6 +19,7 @@ import { FirstMissionStep } from './steps/FirstMissionStep';
 import { CoordinatedPlanStep } from './steps/CoordinatedPlanStep';
 import { StewardshipOfferStep } from './steps/StewardshipOfferStep';
 import { ExecutionStatusStep, type DecidedPlanItem, type PlanItemDecision } from './steps/ExecutionStatusStep';
+import { ArrivalRoom } from '../arrival';
 import { classifyArrivalError, type ArrivalError } from './classify-arrival-error';
 import { clearArrivalStep, readArrivalStep, writeArrivalStep, type ArrivalStep } from './arrival-progress';
 import { deriveUnderstandingPhase } from './understanding-progress';
@@ -292,118 +293,132 @@ export function FirstRunWelcome({ skipHospitality = false }: FirstRunWelcomeProp
     [session.accessToken, recommendations, arrivalNeedId],
   );
 
-  switch (step) {
-    case 'consent':
-      // Reached after understanding, immediately before the first
-      // persistent write. A resumed session can land here with the
-      // pending need lost to a reload (local component state, not
-      // persisted) — no dead end, restart understanding rather than
-      // granting consent for nothing to actually persist.
-      if (!pendingMissionNeed) {
-        return <ImmediateNeedStep onSubmit={handleImmediateNeed} submitting={conversation.state.pendingResponse} />;
-      }
-      return (
-        <ConsentStep
-          granting={isGrantingConsent}
-          error={consentError}
-          onGrant={() => void handleGrantConsent()}
-          onRetry={() => void handleGrantConsent()}
-        />
-      );
-
-    case 'preferences':
-      return (
-        <PreferencesStep
-          reducedMotion={motionPreference === 'reduced'}
-          onReducedMotionChange={(reducedMotion) => setMotionPreference(reducedMotion ? 'reduced' : 'system')}
-          onContinue={() => goToStep('hospitality')}
-        />
-      );
-
-    case 'hospitality':
-      return <HospitalityStep onContinue={() => goToStep('immediate-need')} />;
-
-    case 'immediate-need': {
-      const phase = deriveUnderstandingPhase(conversation.timeline);
-
-      if (phase.kind === 'understood') {
+  /**
+   * Which step to show — the arrival logic exactly as it was, moved
+   * intact into a function purely so the environmental shell below can
+   * wrap whatever it returns. `ArrivalRoom` renders this result; it
+   * never influences it.
+   */
+  function renderStep() {
+    switch (step) {
+      case 'consent':
+        // Reached after understanding, immediately before the first
+        // persistent write. A resumed session can land here with the
+        // pending need lost to a reload (local component state, not
+        // persisted) — no dead end, restart understanding rather than
+        // granting consent for nothing to actually persist.
+        if (!pendingMissionNeed) {
+          return <ImmediateNeedStep onSubmit={handleImmediateNeed} submitting={conversation.state.pendingResponse} />;
+        }
         return (
-          <GoalReflectionStep
-            reflection={phase.reflection}
-            onConfirm={() => handleUnderstoodNeed(phase.originalNeed)}
-            onAdjust={(revised) => handleUnderstoodNeed(revised)}
+          <ConsentStep
+            granting={isGrantingConsent}
+            error={consentError}
+            onGrant={() => void handleGrantConsent()}
+            onRetry={() => void handleGrantConsent()}
           />
+        );
+
+      case 'preferences':
+        return (
+          <PreferencesStep
+            reducedMotion={motionPreference === 'reduced'}
+            onReducedMotionChange={(reducedMotion) => setMotionPreference(reducedMotion ? 'reduced' : 'system')}
+            onContinue={() => goToStep('hospitality')}
+          />
+        );
+
+      case 'hospitality':
+        return <HospitalityStep onContinue={() => goToStep('immediate-need')} />;
+
+      case 'immediate-need': {
+        const phase = deriveUnderstandingPhase(conversation.timeline);
+
+        if (phase.kind === 'understood') {
+          return (
+            <GoalReflectionStep
+              reflection={phase.reflection}
+              onConfirm={() => handleUnderstoodNeed(phase.originalNeed)}
+              onAdjust={(revised) => handleUnderstoodNeed(revised)}
+            />
+          );
+        }
+
+        if (phase.kind === 'outcome-question') {
+          return (
+            <OutcomeQuestionStep
+              onSubmit={handleImmediateNeed}
+              submitting={conversation.state.pendingResponse}
+              error={conversation.state.error}
+              onRetry={conversation.clearError}
+            />
+          );
+        }
+
+        return (
+          <>
+            {phase.kind === 'collecting' ? <p className={styles.priorMessage}>{PRIVACY_NOTICE}</p> : null}
+            {phase.kind === 'clarifying' || phase.kind === 'crisis' ? (
+              <p className={styles.priorMessage}>{phase.priorMessage}</p>
+            ) : null}
+            <ImmediateNeedStep onSubmit={handleImmediateNeed} submitting={conversation.state.pendingResponse} />
+          </>
         );
       }
 
-      if (phase.kind === 'outcome-question') {
+      case 'first-mission':
+        // A resumed session can land here with no in-flight creation and no
+        // created goal (e.g. the member reloaded before submission ever
+        // completed) — fall back to immediate-need rather than showing a
+        // stuck blank screen (B6: "without being stuck").
+        if (!createdGoal && !journey.state.isCreatingFirstMission && !journey.state.error) {
+          return <ImmediateNeedStep onSubmit={handleImmediateNeed} submitting={false} />;
+        }
         return (
-          <OutcomeQuestionStep
-            onSubmit={handleImmediateNeed}
-            submitting={conversation.state.pendingResponse}
-            error={conversation.state.error}
-            onRetry={conversation.clearError}
+          <FirstMissionStep
+            goal={createdGoal}
+            creating={journey.state.isCreatingFirstMission}
+            error={journey.state.error}
+            onRetry={() => void journey.retryFirstMission()}
+            onContinue={() => goToStep('coordinated-plan')}
           />
         );
-      }
 
-      return (
-        <>
-          {phase.kind === 'collecting' ? <p className={styles.priorMessage}>{PRIVACY_NOTICE}</p> : null}
-          {phase.kind === 'clarifying' || phase.kind === 'crisis' ? (
-            <p className={styles.priorMessage}>{phase.priorMessage}</p>
-          ) : null}
-          <ImmediateNeedStep onSubmit={handleImmediateNeed} submitting={conversation.state.pendingResponse} />
-        </>
-      );
+      case 'coordinated-plan':
+        return (
+          <CoordinatedPlanStep
+            plan={plan.state.plan}
+            building={plan.state.isBuilding}
+            error={plan.state.error}
+            subjectsById={planSubjectsById}
+            offerResponseByCityResourceId={offerResponseByCityResourceId}
+            isDeciding={(item) => decidingPlanItemKeys.includes(planItemKey(item))}
+            onApprove={(item) => void decidePlanItem(item, true)}
+            onDismiss={(item) => void decidePlanItem(item, false)}
+            onRetry={() => void plan.buildPlan(arrivalNeedId)}
+            onContinue={() => goToStep('stewardship-offer')}
+          />
+        );
+
+      case 'stewardship-offer':
+        // A separate decision from persistence consent (already granted,
+        // earlier, before createFirstMission ever ran) — this is only ever
+        // about whether to preserve progress across sessions and devices.
+        return <StewardshipOfferStep isGuest={session.isGuest} onContinue={() => goToStep('next-step')} />;
+
+      case 'next-step':
+        // Execution status narration + a long-term stewardship prompt
+        // (Founder ruling) — never the old "anything else?" close.
+        return <ExecutionStatusStep decisions={planDecisions} />;
+
+      default:
+        return null;
     }
-
-    case 'first-mission':
-      // A resumed session can land here with no in-flight creation and no
-      // created goal (e.g. the member reloaded before submission ever
-      // completed) — fall back to immediate-need rather than showing a
-      // stuck blank screen (B6: "without being stuck").
-      if (!createdGoal && !journey.state.isCreatingFirstMission && !journey.state.error) {
-        return <ImmediateNeedStep onSubmit={handleImmediateNeed} submitting={false} />;
-      }
-      return (
-        <FirstMissionStep
-          goal={createdGoal}
-          creating={journey.state.isCreatingFirstMission}
-          error={journey.state.error}
-          onRetry={() => void journey.retryFirstMission()}
-          onContinue={() => goToStep('coordinated-plan')}
-        />
-      );
-
-    case 'coordinated-plan':
-      return (
-        <CoordinatedPlanStep
-          plan={plan.state.plan}
-          building={plan.state.isBuilding}
-          error={plan.state.error}
-          subjectsById={planSubjectsById}
-          offerResponseByCityResourceId={offerResponseByCityResourceId}
-          isDeciding={(item) => decidingPlanItemKeys.includes(planItemKey(item))}
-          onApprove={(item) => void decidePlanItem(item, true)}
-          onDismiss={(item) => void decidePlanItem(item, false)}
-          onRetry={() => void plan.buildPlan(arrivalNeedId)}
-          onContinue={() => goToStep('stewardship-offer')}
-        />
-      );
-
-    case 'stewardship-offer':
-      // A separate decision from persistence consent (already granted,
-      // earlier, before createFirstMission ever ran) — this is only ever
-      // about whether to preserve progress across sessions and devices.
-      return <StewardshipOfferStep isGuest={session.isGuest} onContinue={() => goToStep('next-step')} />;
-
-    case 'next-step':
-      // Execution status narration + a long-term stewardship prompt
-      // (Founder ruling) — never the old "anything else?" close.
-      return <ExecutionStatusStep decisions={planDecisions} />;
-
-    default:
-      return null;
   }
+
+  // The Hall this arrival takes place inside (AUREUS-003, AUREUS-006).
+  // Purely environmental: it wraps the step above without taking any
+  // part in choosing it, so every decision this flow makes stays
+  // exactly where it was.
+  return <ArrivalRoom stepKey={step}>{renderStep()}</ArrivalRoom>;
 }

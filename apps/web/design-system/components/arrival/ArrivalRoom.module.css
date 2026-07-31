@@ -1,0 +1,222 @@
+/*
+ * The Hall's environmental shell. Every color here resolves from a
+ * design token — `color-mix` is used to derive translucency from those
+ * tokens rather than introducing literal color values (FPB-006 §1), so
+ * light/dark theme and any future brand palette apply with no changes
+ * to this file.
+ *
+ * Ambient motion (the drifting light, the breathing hearth) is measured
+ * in tens of seconds, far beyond the `--motion-duration-*` scale, which
+ * tops out at 320ms for interface transitions. Those tokens are
+ * therefore not usable here, and because reduced motion works by zeroing
+ * those same tokens, the ambient layers need their own explicit
+ * reduced-motion guards at the bottom of this file. The step transition,
+ * which is an interface transition, does use the tokens and so is
+ * covered for free.
+ */
+
+.room {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  /* Centered, so a short step rests in the room's light rather than
+     clinging to the ceiling above an empty floor — spacious without
+     feeling empty (AUREUS-003 §ARCHITECTURE). */
+  justify-content: center;
+  gap: var(--space-8);
+  min-height: 60vh;
+  padding: var(--space-12) var(--space-6);
+  border-radius: var(--radius-xl);
+  background: var(--color-surface-sunken);
+  /* The Hall reveal — the room settles into place once, on arrival. */
+  animation: hall-reveal 1400ms var(--motion-easing-decelerate) both;
+}
+
+/*
+ * Daylight enters from above and slightly off-center, the way light
+ * enters a real room, and drifts over the course of a minute. Two
+ * offset pools rather than one flat wash, so the room has depth and a
+ * direction to its light.
+ */
+.lightField {
+  position: absolute;
+  z-index: -1;
+  inset: -25%;
+  pointer-events: none;
+  background:
+    radial-gradient(
+      circle at 32% 12%,
+      color-mix(in srgb, var(--color-ember-tip) 22%, transparent),
+      transparent 58%
+    ),
+    radial-gradient(
+      circle at 78% 88%,
+      color-mix(in srgb, var(--color-ember-mid) 12%, transparent),
+      transparent 55%
+    );
+  animation: light-drift 54s ease-in-out infinite alternate;
+}
+
+/* Morning is hopeful: higher, brighter, cooler-edged light. */
+.room[data-daylight='morning'] .lightField {
+  background:
+    radial-gradient(
+      circle at 28% 6%,
+      color-mix(in srgb, var(--color-ember-tip) 30%, transparent),
+      transparent 60%
+    ),
+    radial-gradient(
+      circle at 82% 84%,
+      color-mix(in srgb, var(--color-information) 9%, transparent),
+      transparent 55%
+    );
+}
+
+/* Afternoon is productive: even, steady, overhead light. */
+.room[data-daylight='afternoon'] .lightField {
+  background:
+    radial-gradient(
+      circle at 50% 4%,
+      color-mix(in srgb, var(--color-ember-tip) 24%, transparent),
+      transparent 62%
+    ),
+    radial-gradient(
+      circle at 70% 90%,
+      color-mix(in srgb, var(--color-ember-mid) 10%, transparent),
+      transparent 52%
+    );
+}
+
+/* Evening is peaceful: low, warm, long light. */
+.room[data-daylight='evening'] .lightField {
+  background:
+    radial-gradient(
+      circle at 14% 78%,
+      color-mix(in srgb, var(--color-ember-mid) 26%, transparent),
+      transparent 60%
+    ),
+    radial-gradient(
+      circle at 88% 22%,
+      color-mix(in srgb, var(--color-ember-core) 14%, transparent),
+      transparent 50%
+    );
+}
+
+/* Night is still: the hearth carries the room, the daylight recedes. */
+.room[data-daylight='night'] .lightField {
+  background: radial-gradient(
+    circle at 50% 46%,
+    color-mix(in srgb, var(--color-ember-core) 18%, transparent),
+    transparent 52%
+  );
+}
+
+/*
+ * The Aureus Mark at rest at the architectural center of the Hall — the
+ * same ember the opening sequence formed, now simply present with the
+ * member. It breathes, because it is alive, not because it wants
+ * attention (AUREUS-006 §MOTION).
+ */
+.hearth {
+  flex: none;
+  width: 56px;
+  height: 56px;
+  border-radius: var(--radius-full);
+  background: radial-gradient(
+    circle at 35% 30%,
+    var(--color-ember-tip),
+    var(--color-ember-mid) 45%,
+    var(--color-ember-core) 100%
+  );
+  box-shadow: 0 0 44px 6px color-mix(in srgb, var(--color-ember-mid) 32%, transparent);
+  animation: hearth-breathe 6400ms ease-in-out infinite;
+}
+
+/*
+ * The member's actual step. Enters on each step change while the room
+ * around it stays put, so moving through arrival feels like moving
+ * within one place.
+ */
+.stage {
+  width: 100%;
+  max-width: 34rem;
+  animation: step-enter var(--motion-duration-slow) var(--motion-easing-decelerate);
+}
+
+@keyframes hall-reveal {
+  from {
+    opacity: 0;
+    transform: scale(0.99);
+  }
+
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes light-drift {
+  from {
+    transform: translate3d(-1.5%, -1%, 0) scale(1);
+  }
+
+  to {
+    transform: translate3d(1.5%, 1%, 0) scale(1.04);
+  }
+}
+
+@keyframes hearth-breathe {
+  0%,
+  100% {
+    transform: scale(1);
+    box-shadow: 0 0 44px 6px color-mix(in srgb, var(--color-ember-mid) 32%, transparent);
+  }
+
+  50% {
+    transform: scale(1.045);
+    box-shadow: 0 0 56px 10px color-mix(in srgb, var(--color-ember-mid) 40%, transparent);
+  }
+}
+
+@keyframes step-enter {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/*
+ * Reduced motion: the room, its light, and the hearth are all still
+ * present and fully lit — only their movement stops. Mirrors
+ * build-theme-css.ts's own precedence, where an explicit member
+ * preference wins over the OS setting in both directions.
+ */
+@media (prefers-reduced-motion: reduce) {
+  :root:not([data-reduced-motion='false']) .room,
+  :root:not([data-reduced-motion='false']) .lightField,
+  :root:not([data-reduced-motion='false']) .hearth {
+    animation: none;
+  }
+}
+
+[data-reduced-motion='true'] .room,
+[data-reduced-motion='true'] .lightField,
+[data-reduced-motion='true'] .hearth {
+  animation: none;
+}
+
+@media (max-width: 640px) {
+  .room {
+    gap: var(--space-6);
+    padding: var(--space-8) var(--space-4);
+    border-radius: var(--radius-lg);
+  }
+}
