@@ -1,12 +1,11 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import Link from 'next/link';
 import { useJourney } from '../../../state';
 import { LoadingState } from '../../../design-system/components/LoadingState/LoadingState';
 import { EmptyState } from '../../../design-system/components/EmptyState/EmptyState';
 import { ErrorState } from '../../../design-system/components/ErrorState/ErrorState';
-import { Button } from '../../../design-system/components/Button/Button';
+import { LinkButton } from '../../../design-system/components/Button/LinkButton';
 import { JourneyCard, MilestoneChecklist, ProgressIndicator } from '../../../design-system/components/journey';
 import { JourneyTimeline } from '../../../design-system/components/journey-timeline';
 import { Room } from '../../../design-system/components/room';
@@ -44,9 +43,7 @@ export default function JourneyPage() {
           title="Your journey starts with a first mission"
           description="Head back to Welcome to set your first goal."
           action={
-            <Link href="/welcome">
-              <Button>Get started</Button>
-            </Link>
+            <LinkButton href="/welcome">Get started</LinkButton>
           }
         />
       </Room>

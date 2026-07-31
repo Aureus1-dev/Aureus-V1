@@ -76,6 +76,13 @@ jobs:
       - name: Test (API unit, integration, and e2e tests)
         run: pnpm --filter @aureus-v1/api run test --coverage
 
+      # The web suite was never run here, so every frontend test in the repo
+      # could fail without CI noticing. Kept as its own step rather than
+      # folded into `pnpm run test` so the API's --coverage run above stays
+      # exactly as it was, and so a web failure is legible on its own.
+      - name: Test (web)
+        run: pnpm --filter @aureus-v1/web run test
+
       - name: Build
         run: pnpm run build
 

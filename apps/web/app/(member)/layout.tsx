@@ -1,4 +1,5 @@
 import { AppShell } from '../../design-system/layout';
+import { SkipLink } from '../../design-system/accessibility';
 import { AuthGate } from '../../design-system/components/auth';
 import { VoiceOrchestrator } from '../../design-system/components/voice';
 import {
@@ -43,6 +44,12 @@ import { V1_FEATURE_FLAGS } from '../../lib/config/v1-feature-scope';
  * `StewardWorkspace` (bottom-right) and `GlobalActionPalette` (top-right)
  * in the one corner they leave free.
  *
+ * `SkipLink` is the first child, above `GuestClaimBanner`, so it is the
+ * very first thing a keyboard or screen-reader member reaches. It used to
+ * live inside `AppShell`, which put it *after* the guest banner's own
+ * "Create free account" and "Not now" controls — a skip link that three
+ * other controls come before does not do its job.
+ *
  * Progressive account creation (Part 3): `GuestClaimBanner` renders
  * in-flow above `AppShell`, not as another fixed corner widget — it
  * carries a full sentence of copy a small floating badge couldn't, and
@@ -53,6 +60,7 @@ import { V1_FEATURE_FLAGS } from '../../lib/config/v1-feature-scope';
 export default function MemberLayout({ children }: { children: React.ReactNode }) {
   return (
     <AuthGate fallback={<ArrivalSessionFallback />}>
+      <SkipLink targetId="main-content" />
       <GuestClaimBanner />
       <AppShell>{children}</AppShell>
       <SurfaceTracker />

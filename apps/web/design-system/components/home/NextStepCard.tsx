@@ -1,6 +1,5 @@
-import Link from 'next/link';
 import { Card } from '../Card/Card';
-import { Button } from '../Button/Button';
+import { LinkButton } from '../Button/LinkButton';
 import { useRegisterHighlightTarget } from '../../../state';
 import type { NextStep } from './compute-next-step';
 import styles from './NextStepCard.module.css';
@@ -38,9 +37,7 @@ export function NextStepCard({ nextStep, hasGoal }: NextStepCardProps) {
             {hasGoal ? 'Your next step is ready whenever you are.' : 'Start your first mission to see your next step here.'}
           </p>
         )}
-        <Link href="/journey">
-          <Button>View my journey</Button>
-        </Link>
+        <LinkButton href="/journey">View my journey</LinkButton>
       </Card>
     </div>
   );

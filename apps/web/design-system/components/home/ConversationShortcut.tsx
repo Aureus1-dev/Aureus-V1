@@ -1,10 +1,9 @@
 'use client';
 
 import { useEffect } from 'react';
-import Link from 'next/link';
 import { useConversation } from '../../../state';
 import { Card } from '../Card/Card';
-import { Button } from '../Button/Button';
+import { LinkButton } from '../Button/LinkButton';
 import styles from './ConversationShortcut.module.css';
 
 /**
@@ -35,12 +34,8 @@ export function ConversationShortcut() {
           : "There's no wrong way to begin a conversation."}
       </p>
       <div className={styles.actions}>
-        <Link href="/conversation">
-          <Button>Continue the conversation</Button>
-        </Link>
-        <Link href="/conversation?mode=voice">
-          <Button variant="secondary">Talk out loud instead</Button>
-        </Link>
+        <LinkButton href="/conversation">Continue the conversation</LinkButton>
+        <LinkButton href="/conversation?mode=voice" variant="secondary">Talk out loud instead</LinkButton>
       </div>
     </Card>
   );
