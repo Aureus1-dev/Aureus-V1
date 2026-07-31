@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import { HallArchitecture, HallHearth, HallThresholds } from '../environment';
 import styles from './ArrivalScene.module.css';
 
 export interface ArrivalSceneProps {
@@ -103,11 +104,40 @@ export function ArrivalScene({ onFinished }: ArrivalSceneProps) {
   const reached = (stage: Stage) => stageIndex >= STAGE_ORDER.indexOf(stage);
 
   return (
-    <section className={joinClasses(styles.scene, reached('hall') && styles.hall)} aria-label="Welcome to Aureus">
+    <section
+      className={joinClasses(styles.scene, reached('hall') && styles.hall)}
+      data-time="evening"
+      aria-label="Welcome to Aureus"
+    >
+      {/*
+        The Hall itself, revealed around the light rather than cut to.
+        These are the same components the Hall is built from, so when the
+        sequence finishes there is nothing to swap: the member is already
+        looking at the room they are about to be standing in.
+      */}
       <div
-        className={joinClasses(styles.mark, reached('light') && styles.markLit, reached('mark') && styles.markFormed)}
+        className={joinClasses(styles.environment, reached('hall') && styles.environmentVisible)}
         aria-hidden="true"
-      />
+      >
+        <HallArchitecture />
+        <HallThresholds />
+      </div>
+
+      {/*
+        The light that forms during the sequence *is* the hearth. Same
+        component, same geometry, same position — it simply gains the
+        room around it. That is what makes the transition one continuous
+        transformation instead of a cinematic followed by an interface.
+      */}
+      <div
+        className={joinClasses(
+          styles.hearthWrap,
+          reached('light') && styles.hearthLit,
+          reached('mark') && styles.hearthFormed,
+        )}
+      >
+        <HallHearth />
+      </div>
 
       <div className={styles.copy}>
         <p className={joinClasses(styles.wordmark, reached('wordmark') && styles.visible)}>Aureus.</p>

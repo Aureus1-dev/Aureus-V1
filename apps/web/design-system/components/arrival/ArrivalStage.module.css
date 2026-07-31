@@ -1,0 +1,29 @@
+/*
+ * Where the current interaction rests inside the Hall.
+ *
+ * The room around it stays mounted; only this changes. The entrance is a
+ * short, calm settle rather than a slide or a fade from nothing, because
+ * a member moving between arrival steps has not gone anywhere — they are
+ * still standing in the same place, and the motion should say so
+ * (AUREUS-005 §MOTION: transitions "communicate continuity rather than
+ * interruption").
+ *
+ * Built from the motion tokens, so an explicit reduced-motion preference
+ * or the OS setting collapses it to 0ms at the token layer with no
+ * separate branch here.
+ */
+.stage {
+  width: 100%;
+  animation: stage-settle var(--motion-duration-slow) var(--motion-easing-decelerate);
+}
+
+@keyframes stage-settle {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}

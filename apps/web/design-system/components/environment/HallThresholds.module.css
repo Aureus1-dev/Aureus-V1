@@ -1,0 +1,81 @@
+/*
+ * Peripheral openings. Two, not six — the point is that the house
+ * continues, not that a member should start choosing between rooms
+ * before anyone has asked what they need.
+ *
+ * Each is a shallow arch of slightly warmer light set into the rear
+ * wall, well away from the centre and well below the hearth in
+ * contrast. At a glance they read as "there is more that way". Looked at
+ * directly, they are almost nothing, which is correct for this phase.
+ */
+
+.thresholds {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+}
+
+.threshold {
+  position: absolute;
+  top: 34%;
+  width: clamp(2rem, 4vw, 3.5rem);
+  height: 26%;
+}
+
+.left { left: 9%; }
+.right { right: 9%; }
+
+.opening {
+  position: absolute;
+  inset: 0;
+  border-radius: 50% 50% 0 0 / 30% 30% 0 0;
+  background: linear-gradient(
+    to bottom,
+    color-mix(in srgb, var(--color-surface-sunken) 88%, var(--color-text-primary)),
+    color-mix(in srgb, var(--color-ember-core) 12%, var(--color-surface-sunken))
+  );
+  box-shadow:
+    inset 0 0.2rem 1rem color-mix(in srgb, var(--color-text-primary) 30%, transparent),
+    0 0 2.5rem color-mix(in srgb, var(--color-ember-core) 10%, transparent);
+  opacity: 0.28;
+}
+
+/* A hint of light from whatever lies beyond, low in the opening. */
+.opening::after {
+  content: '';
+  position: absolute;
+  left: 20%;
+  right: 20%;
+  bottom: 0;
+  height: 22%;
+  background: linear-gradient(
+    to top,
+    color-mix(in srgb, var(--color-ember-tip) 26%, transparent),
+    transparent
+  );
+}
+
+/* Evening and night: the rooms beyond are lit, so the openings read a
+   little warmer — the house is occupied. */
+:global([data-time='evening']) .opening { opacity: 0.4; }
+:global([data-time='night']) .opening { opacity: 0.36; }
+
+/*
+ * Narrow viewports drop the thresholds entirely. AUREUS-006 asks that
+ * beauty always serve stewardship: on a phone the peripheral detail is
+ * the first thing to go, so the room keeps its centre and the member
+ * keeps their reading width. The Hall still reads as a room — floor,
+ * wall, frame, hearth — without them.
+ */
+@media (max-width: 900px) {
+  .thresholds {
+    display: none;
+  }
+}
+
+@media (forced-colors: active) {
+  .thresholds {
+    display: none;
+  }
+}

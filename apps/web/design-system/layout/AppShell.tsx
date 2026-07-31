@@ -16,6 +16,13 @@ export interface AppShellProps {
 
 const FOUNDER_ROLES = ['PLATFORM_ADMINISTRATOR', 'SYSTEM_ADMINISTRATOR'];
 
+/** Routes whose content *is* the environment and must run to the shell's edges. */
+const ARRIVAL_SURFACES = ['/welcome'];
+
+function isArrivalSurface(pathname: string | null): boolean {
+  return ARRIVAL_SURFACES.some((path) => pathname === path || pathname?.startsWith(`${path}/`));
+}
+
 function isActiveSurface(pathname: string | null, href: string): boolean {
   if (!pathname) return false;
   return pathname === href || pathname.startsWith(`${href}/`);
@@ -99,7 +106,20 @@ export function AppShell({ children }: AppShellProps) {
           </ul>
         </details>
       </nav>
-      <main id="main-content" className={styles.main} tabIndex={-1}>
+      {/*
+        The Hall is the environment, not a panel inside one. On the
+        arrival route `<main>` therefore gives up its padding entirely,
+        so the room reaches the edges of the shell and no generic page
+        shows behind it. Every other surface keeps the padding it has
+        always had — this is a full-bleed exception for one route, not a
+        change to how the shell lays out screens.
+      */}
+      <main
+        id="main-content"
+        className={styles.main}
+        data-surface={isArrivalSurface(pathname) ? 'arrival' : undefined}
+        tabIndex={-1}
+      >
         <RoomTransition pathname={pathname}>{children}</RoomTransition>
       </main>
       <div className={styles.panelRegion}>

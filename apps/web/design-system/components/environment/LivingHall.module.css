@@ -1,0 +1,138 @@
+/*
+ * The Hall occupies the experience. It is not a card inside a page.
+ *
+ * `100dvw`/`100dvh` rather than `vw`/`vh` so mobile browser chrome
+ * appearing and disappearing does not leave a strip of generic page
+ * showing beneath the room, and so a virtual keyboard shrinks the room
+ * rather than pushing the content behind the fold.
+ */
+
+.hall {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  width: 100%;
+  min-height: 100dvh;
+  /* Safe areas: never let the notch or the home indicator crop the room's
+     content, while the architecture itself still runs to the edge. */
+  padding:
+    max(var(--space-8), env(safe-area-inset-top))
+    max(var(--space-6), env(safe-area-inset-right))
+    max(var(--space-8), env(safe-area-inset-bottom))
+    max(var(--space-6), env(safe-area-inset-left));
+  background: var(--color-surface-sunken);
+}
+
+/*
+ * The centre of the room: the hearth, and the member's business directly
+ * beneath it. Kept as one column so the eye lands on the hearth, drops to
+ * the content, and understands the relationship without being told.
+ */
+.centre {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-6);
+  width: 100%;
+  max-width: 40rem;
+}
+
+/*
+ * Where the current interaction rests.
+ *
+ * Not a floating card: no border, no drop shadow, no filled panel by
+ * default. The content sits directly in the room, grounded by the light
+ * the hearth is already throwing. A very faint scrim sits behind it —
+ * just enough to guarantee text contrast over the floor, far too little
+ * to read as a surface of its own.
+ */
+.stageRegion {
+  position: relative;
+  width: 100%;
+}
+
+.stageRegion::before {
+  content: '';
+  position: absolute;
+  inset: calc(var(--space-6) * -1) calc(var(--space-8) * -1);
+  z-index: -1;
+  border-radius: var(--radius-xl);
+  background: radial-gradient(
+    ellipse at 50% 40%,
+    color-mix(in srgb, var(--color-surface-primary) 78%, transparent) 0%,
+    color-mix(in srgb, var(--color-surface-primary) 52%, transparent) 48%,
+    transparent 78%
+  );
+}
+
+/* Long-form content (the Coordinated Plan, the stewardship offer) needs
+   more room than a single question does. The stage widens rather than
+   scrolling inside a fixed box. */
+@media (min-width: 900px) {
+  .centre {
+    max-width: 44rem;
+  }
+}
+
+/*
+ * Narrow viewports: recomposed, not shrunk.
+ *
+ * The room stays a room — the architecture recomposes vertically in its
+ * own stylesheet — but the centre column takes the full reading width,
+ * the gap tightens, and the hearth sits above the content rather than
+ * competing with it for vertical space. Height is never fixed, so a
+ * virtual keyboard simply reduces the room.
+ */
+@media (max-width: 640px) {
+  .hall {
+    justify-content: flex-start;
+    padding:
+      max(var(--space-10), env(safe-area-inset-top))
+      max(var(--space-4), env(safe-area-inset-right))
+      max(var(--space-8), env(safe-area-inset-bottom))
+      max(var(--space-4), env(safe-area-inset-left));
+  }
+
+  .centre {
+    gap: var(--space-5);
+    max-width: none;
+  }
+
+  .stageRegion::before {
+    inset: calc(var(--space-4) * -1) calc(var(--space-4) * -1);
+  }
+}
+
+/*
+ * Short viewports (a landscape phone, or a desktop window with the
+ * keyboard open) — the room must not force the content off-screen.
+ */
+@media (max-height: 620px) {
+  .hall {
+    justify-content: flex-start;
+    min-height: 100dvh;
+    padding-top: var(--space-6);
+  }
+}
+
+/*
+ * Forced colours: the architecture and hearth remove themselves, so the
+ * Hall becomes a plain, fully legible surface rather than a half-drawn
+ * room fighting the user agent's palette.
+ */
+@media (forced-colors: active) {
+  .hall {
+    background: Canvas;
+    color: CanvasText;
+  }
+
+  .stageRegion::before {
+    display: none;
+  }
+}

@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import styles from './ArrivalRoom.module.css';
+import styles from './ArrivalStage.module.css';
 
 export interface ArrivalStageProps {
   /**

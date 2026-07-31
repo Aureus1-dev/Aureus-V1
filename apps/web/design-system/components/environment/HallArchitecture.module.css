@@ -1,0 +1,285 @@
+/*
+ * The Hall's built fabric.
+ *
+ * Materials are suggested, never photographed (AUREUS-006 §MATERIALS:
+ * warm wood, stone, plaster, bronze, living greenery). Every colour
+ * derives from a design token through `color-mix`, so light and dark
+ * theme both work and a future brand palette applies without touching
+ * this file.
+ *
+ * Time of day is inherited from `[data-time]` on the LivingHall root.
+ * The base rules below are the neutral afternoon composition the server
+ * renders — complete and deliberate on its own — and each time period
+ * adjusts light direction, warmth and intensity across every plane
+ * rather than tinting a single gradient.
+ */
+
+.architecture {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+/* ── Background: plaster rear wall ─────────────────────────────────── */
+.rearWall {
+  position: absolute;
+  inset: 0 0 32% 0;
+  background:
+    linear-gradient(
+      to bottom,
+      color-mix(in srgb, var(--color-surface-tertiary) 92%, var(--color-text-primary) 8%),
+      color-mix(in srgb, var(--color-surface-tertiary) 74%, var(--color-surface-sunken))
+    );
+}
+
+/* Limewash: a broad, very low-contrast mottling so the wall reads as a
+   hand-finished surface rather than a flat fill. Two offset radial
+   washes, no image, no noise texture. */
+.rearWall::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(60% 50% at 22% 30%, color-mix(in srgb, var(--color-surface-primary) 42%, transparent), transparent 70%),
+    radial-gradient(50% 45% at 78% 55%, color-mix(in srgb, var(--color-surface-sunken) 34%, transparent), transparent 72%);
+}
+
+/* ── The aperture: the room's daylight source ──────────────────────── */
+.aperture {
+  position: absolute;
+  top: 9%;
+  right: 7%;
+  width: min(17%, 13rem);
+  height: 38%;
+  border-radius: var(--radius-lg) var(--radius-lg) var(--radius-sm) var(--radius-sm);
+  overflow: hidden;
+  /* Bronze reveal around the opening. */
+  border: 1px solid color-mix(in srgb, var(--color-ember-core) 26%, transparent);
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--color-surface-primary) 40%, transparent),
+    0 2rem 5rem -1rem color-mix(in srgb, var(--color-ember-tip) 22%, transparent);
+}
+
+.apertureLight {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    to bottom,
+    color-mix(in srgb, var(--color-ember-tip) 72%, white),
+    color-mix(in srgb, var(--color-ember-tip) 46%, var(--color-surface-primary))
+  );
+  box-shadow: 0 0 4rem 1rem color-mix(in srgb, var(--color-ember-tip) 40%, transparent);
+}
+
+/* Living greenery beyond the opening (AUREUS-006 §NATURE), read as soft
+   masses rather than drawn plants. */
+.foliage {
+  position: absolute;
+  inset: 38% -4% -6% -4%;
+  background:
+    radial-gradient(42% 60% at 22% 100%, color-mix(in srgb, var(--color-journey) 52%, transparent), transparent 72%),
+    radial-gradient(38% 52% at 62% 100%, color-mix(in srgb, var(--color-journey) 40%, transparent), transparent 74%),
+    radial-gradient(30% 44% at 88% 100%, color-mix(in srgb, var(--color-journey) 32%, transparent), transparent 76%);
+  filter: blur(1px);
+}
+
+/* ── Middle ground: horizon and floor ──────────────────────────────── */
+.horizon {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 32%;
+  height: 1px;
+  background: linear-gradient(
+    to right,
+    transparent,
+    color-mix(in srgb, var(--color-text-primary) 34%, transparent) 14%,
+    color-mix(in srgb, var(--color-text-primary) 34%, transparent) 86%,
+    transparent
+  );
+}
+
+.floor {
+  position: absolute;
+  inset: 68% 0 0 0;
+  background:
+    /* the pool of light the aperture casts across the stone */
+    radial-gradient(
+      70% 120% at 72% 0%,
+      color-mix(in srgb, var(--color-ember-tip) 20%, transparent),
+      transparent 70%
+    ),
+    linear-gradient(
+      to bottom,
+      color-mix(in srgb, var(--color-surface-sunken) 62%, var(--color-text-primary)),
+      color-mix(in srgb, var(--color-surface-sunken) 78%, var(--color-text-primary))
+    );
+}
+
+/* Stone joints: a few wide, very faint bands receding toward the
+   horizon. Enough to establish a ground plane, not a tiled pattern. */
+.floor::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(
+    to bottom,
+    transparent 0 2.5rem,
+    color-mix(in srgb, var(--color-text-primary) 4%, transparent) 2.5rem calc(2.5rem + 1px)
+  );
+  mask-image: linear-gradient(to bottom, transparent, black 55%);
+  -webkit-mask-image: linear-gradient(to bottom, transparent, black 55%);
+}
+
+/* ── Foreground: timber frame ──────────────────────────────────────── */
+.frame {
+  position: absolute;
+  inset: 0;
+}
+
+.postLeft,
+.postRight {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: clamp(0.5rem, 1.6vw, 1.25rem);
+  background: linear-gradient(
+    to right,
+    color-mix(in srgb, var(--color-ember-core) 46%, var(--color-text-primary) 32%),
+    color-mix(in srgb, var(--color-ember-core) 30%, var(--color-text-primary) 22%)
+  );
+  box-shadow: 0 0 4rem color-mix(in srgb, var(--color-text-primary) 30%, transparent);
+}
+
+.postLeft { left: 4%; }
+.postRight { right: 4%; }
+
+.beam {
+  position: absolute;
+  top: 0;
+  left: 4%;
+  right: 4%;
+  height: clamp(0.5rem, 1.4vw, 1.1rem);
+  background: linear-gradient(
+    to bottom,
+    color-mix(in srgb, var(--color-ember-core) 48%, var(--color-text-primary) 34%),
+    color-mix(in srgb, var(--color-ember-core) 28%, var(--color-text-primary) 20%)
+  );
+}
+
+.ceilingWash {
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 26%;
+  background: linear-gradient(
+    to bottom,
+    color-mix(in srgb, var(--color-text-primary) 12%, transparent),
+    transparent
+  );
+}
+
+/* ── Time of day, across the whole environment ─────────────────────── */
+
+/* Morning: hopeful. High, clean light entering from the aperture side. */
+:global([data-time='morning']) .apertureLight {
+  background: linear-gradient(
+    to bottom,
+    color-mix(in srgb, var(--color-surface-primary) 92%, var(--color-information)),
+    color-mix(in srgb, var(--color-ember-tip) 30%, var(--color-surface-primary))
+  );
+}
+:global([data-time='morning']) .floor {
+  background:
+    radial-gradient(64% 120% at 74% 0%, color-mix(in srgb, var(--color-ember-tip) 26%, transparent), transparent 68%),
+    linear-gradient(to bottom, color-mix(in srgb, var(--color-surface-sunken) 88%, var(--color-surface-primary)), var(--color-surface-sunken));
+}
+:global([data-time='morning']) .ceilingWash { height: 20%; }
+
+/* Afternoon: capable and even. This is the base composition above. */
+
+/* Evening: warm and low. Light rakes in from the side, long across the floor. */
+:global([data-time='evening']) .apertureLight {
+  background: linear-gradient(
+    to bottom,
+    color-mix(in srgb, var(--color-ember-mid) 52%, var(--color-surface-primary)),
+    color-mix(in srgb, var(--color-ember-core) 30%, var(--color-surface-sunken))
+  );
+}
+:global([data-time='evening']) .floor {
+  background:
+    radial-gradient(90% 140% at 86% 6%, color-mix(in srgb, var(--color-ember-mid) 24%, transparent), transparent 72%),
+    linear-gradient(to bottom, color-mix(in srgb, var(--color-surface-sunken) 94%, var(--color-text-primary)), var(--color-surface-sunken));
+}
+:global([data-time='evening']) .rearWall::after {
+  background:
+    radial-gradient(58% 48% at 74% 34%, color-mix(in srgb, var(--color-ember-mid) 20%, transparent), transparent 72%),
+    radial-gradient(50% 45% at 20% 60%, color-mix(in srgb, var(--color-surface-sunken) 40%, transparent), transparent 74%);
+}
+:global([data-time='evening']) .ceilingWash { height: 32%; }
+
+/* Night: still and safe. The daylight has gone; the hearth carries the
+   room. Never ominous — the walls stay warm and the floor stays legible,
+   because a member arriving at 2am is often the one who most needs the
+   place to feel safe. */
+:global([data-time='night']) .apertureLight {
+  background: linear-gradient(
+    to bottom,
+    color-mix(in srgb, var(--color-surface-sunken) 86%, var(--color-text-primary)),
+    color-mix(in srgb, var(--color-ember-core) 18%, var(--color-surface-sunken))
+  );
+}
+:global([data-time='night']) .foliage { opacity: 0.45; }
+:global([data-time='night']) .floor {
+  background:
+    radial-gradient(58% 100% at 50% 0%, color-mix(in srgb, var(--color-ember-core) 20%, transparent), transparent 70%),
+    linear-gradient(to bottom, color-mix(in srgb, var(--color-surface-sunken) 88%, var(--color-text-primary)), var(--color-surface-sunken));
+}
+:global([data-time='night']) .rearWall {
+  background: linear-gradient(
+    to bottom,
+    color-mix(in srgb, var(--color-surface-sunken) 82%, var(--color-text-primary)),
+    color-mix(in srgb, var(--color-surface-secondary) 76%, var(--color-surface-sunken))
+  );
+}
+:global([data-time='night']) .ceilingWash { height: 36%; }
+
+/* ── Narrow viewports ──────────────────────────────────────────────── */
+/*
+ * The room is recomposed vertically rather than scaled down: the frame's
+ * uprights would sit inside the reading width on a phone, so they step
+ * out to the very edge, the aperture moves up and widens into a band of
+ * daylight across the top, and the horizon rises so the floor still
+ * reads beneath the content.
+ */
+@media (max-width: 640px) {
+  .postLeft { left: 0; }
+  .postRight { right: 0; }
+  .beam { left: 0; right: 0; }
+
+  .aperture {
+    top: 6%;
+    right: 6%;
+    left: 6%;
+    width: auto;
+    height: 22%;
+  }
+
+  .rearWall { inset: 0 0 26% 0; }
+  .horizon { bottom: 26%; }
+  .floor { inset: 74% 0 0 0; }
+}
+
+/* ── Forced colours ────────────────────────────────────────────────── */
+/*
+ * In forced-colors mode the member has asked the operating system to
+ * take over colour entirely. The architecture carries no information, so
+ * the honest response is to step out of the way rather than fight the
+ * user agent for control of a decorative surface.
+ */
+@media (forced-colors: active) {
+  .architecture {
+    display: none;
+  }
+}
