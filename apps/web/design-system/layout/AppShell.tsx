@@ -3,7 +3,6 @@
 import type { ReactNode } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { SkipLink } from '../accessibility';
 import { primarySurfaces } from '../navigation/surfaces';
 import { useSession } from '../../state';
 import { RoomTransition } from './RoomTransition';
@@ -36,6 +35,12 @@ function isActiveSurface(pathname: string | null, href: string): boolean {
  * out of this redesign — so its nav entry is appended conditionally and
  * only ever renders for a Platform or System Administrator.
  *
+ * The skip link is deliberately *not* rendered here. It lives in the
+ * member layout, above `GuestClaimBanner`, because a skip link is only
+ * useful if it is the first thing a keyboard or screen-reader member
+ * reaches — rendered here, inside the shell, it came fourth, after the
+ * guest banner's own controls, which is the opposite of its purpose.
+ *
  * `StewardPanel` (the docked right-hand context column — Current Goal,
  * Desired Outcome, Today's Progress, Suggested Next Step, Relevant
  * Journey, Recent Memory) renders alongside `<main>` on every screen;
@@ -51,7 +56,6 @@ export function AppShell({ children }: AppShellProps) {
 
   return (
     <div className={styles.shell}>
-      <SkipLink targetId="main-content" />
       <header className={styles.header}>
         <Link href="/welcome" className={styles.brand}>
           Aureus

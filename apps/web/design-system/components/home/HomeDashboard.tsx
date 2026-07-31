@@ -1,11 +1,10 @@
 'use client';
 
 import { useEffect } from 'react';
-import Link from 'next/link';
 import { useJourney, useSession } from '../../../state';
 import { EmptyState } from '../EmptyState/EmptyState';
 import { LoadingState } from '../LoadingState/LoadingState';
-import { Button } from '../Button/Button';
+import { LinkButton } from '../Button/LinkButton';
 import { Greeting } from './Greeting';
 import { QuickActions } from './QuickActions';
 import { JourneySection } from './JourneySection';
@@ -35,6 +34,7 @@ export function HomeDashboard() {
   if (!session.isAuthenticated) {
     return (
       <EmptyState
+        titleAs="h1"
         title="Sign in to see your Home"
         description="Home is where your Aureus journey picks up each time you return."
       />
@@ -52,12 +52,11 @@ export function HomeDashboard() {
   if (journeyState.goals.length === 0) {
     return (
       <EmptyState
+        titleAs="h1"
         title="Let's get started"
         description="You don't have a mission yet — begin at Welcome to set your first goal."
         action={
-          <Link href="/welcome">
-            <Button>Go to Welcome</Button>
-          </Link>
+          <LinkButton href="/welcome">Go to Welcome</LinkButton>
         }
       />
     );

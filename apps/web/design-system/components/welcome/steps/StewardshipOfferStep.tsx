@@ -1,7 +1,7 @@
 'use client';
 
-import Link from 'next/link';
 import { Button } from '../../Button/Button';
+import { LinkButton } from '../../Button/LinkButton';
 import styles from './StewardshipOfferStep.module.css';
 
 export interface StewardshipOfferStepProps {
@@ -53,9 +53,7 @@ export function StewardshipOfferStep({ isGuest, onContinue }: StewardshipOfferSt
             actively using it.
           </p>
           <div className={styles.actions}>
-            <Link href="/register">
-              <Button type="button">Create free account</Button>
-            </Link>
+            <LinkButton href="/register">Create free account</LinkButton>
             <Button type="button" variant="secondary" onClick={onContinue}>
               Continue without an account
             </Button>
