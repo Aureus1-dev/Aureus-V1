@@ -49,9 +49,23 @@ export interface IAiRequestRepository {
 
   /**
    * Sum of costUsd across successful requests created at or after `since`,
-   * optionally scoped to one user. Backs the AI spend ceilings (PR-002).
+   * optionally scoped to one user and/or one capability. Backs the AI
+   * spend ceilings (PR-002 platform-wide/per-user; PD-009's per-capability
+   * ceiling adds the optional `capability` scope, an additive parameter —
+   * every existing call site that omits it is unaffected).
    */
-  sumCostSince(since: Date, userId?: string): Promise<number>;
+  sumCostSince(since: Date, userId?: string, capability?: AiCapability): Promise<number>;
+
+  /**
+   * Count of requests created at or after `since`, optionally scoped to
+   * one capability — PD-009's per-capability request-count ceiling. A
+   * request-count ceiling exists as a sibling to the dollar-based one
+   * above because at least one capability (Voice) always logs
+   * `costUsd: 0` by architectural design (ADR-017 Decision 6: realtime
+   * usage happens directly between client and provider, invisible to this
+   * backend), so a dollar ceiling could never be meaningful for it.
+   */
+  countSince(since: Date, capability?: AiCapability): Promise<number>;
 
   /**
    * Cost, request count, and failure count since `since`, optionally scoped

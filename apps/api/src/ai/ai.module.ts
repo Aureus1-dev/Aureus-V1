@@ -13,6 +13,8 @@ import { StewardshipModule } from '../stewardship/stewardship.module';
 import { NeedsModule } from '../needs/needs.module';
 import { AiProviderModule } from './providers/ai-provider.module';
 
+import { ModerationService } from './moderation/moderation.service';
+
 import { AiRequestsController } from './requests/ai-requests.controller';
 import { AiRequestsService } from './requests/ai-requests.service';
 import { PrismaAiRequestRepository } from './requests/repositories/prisma-ai-request.repository';
@@ -21,6 +23,8 @@ import { AiOperationalConfigController } from './requests/ai-operational-config.
 import { AiOperationalConfigService } from './requests/ai-operational-config.service';
 import { PrismaAiOperationalConfigRepository } from './requests/repositories/prisma-ai-operational-config.repository';
 import { AI_OPERATIONAL_CONFIG_REPOSITORY } from './requests/repositories/ai-operational-config.repository.interface';
+import { PrismaAiCapabilityBudgetRepository } from './requests/repositories/prisma-ai-capability-budget.repository';
+import { AI_CAPABILITY_BUDGET_REPOSITORY } from './requests/repositories/ai-capability-budget.repository.interface';
 
 import { ConversationsController } from './conversations/conversations.controller';
 import { ConversationsService } from './conversations/conversations.service';
@@ -92,9 +96,11 @@ import { AI_TURN_EVENT_REPOSITORY } from './voice/repositories/ai-turn-event.rep
   ],
   providers: [
     AiRequestsService,
+    ModerationService,
     { provide: AI_REQUEST_REPOSITORY, useClass: PrismaAiRequestRepository },
     AiOperationalConfigService,
     { provide: AI_OPERATIONAL_CONFIG_REPOSITORY, useClass: PrismaAiOperationalConfigRepository },
+    { provide: AI_CAPABILITY_BUDGET_REPOSITORY, useClass: PrismaAiCapabilityBudgetRepository },
     ConversationsService,
     { provide: AI_CONVERSATION_REPOSITORY, useClass: PrismaAiConversationRepository },
     { provide: AI_MESSAGE_REPOSITORY, useClass: PrismaAiMessageRepository },

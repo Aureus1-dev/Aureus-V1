@@ -1,6 +1,7 @@
 import { ConflictException, Inject, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { PodStatus } from '@prisma/client';
 import { AuthenticatedUser } from '../auth/strategies/jwt.strategy';
+import { sanitizePlainText } from '../common/utils/sanitize-text';
 import { CreatePodDto } from './dto/create-pod.dto';
 import { UpdatePodDto } from './dto/update-pod.dto';
 import { ListPodsQueryDto } from './dto/list-pods-query.dto';
@@ -22,7 +23,13 @@ export class PodsService {
   async create(dto: CreatePodDto, caller: AuthenticatedUser): Promise<PodResponseDto> {
     if (dto.parentPodId) await this.getOrThrow(dto.parentPodId);
 
-    const pod = await this.repo.create({ ...dto, createdById: caller.id });
+    const pod = await this.repo.create({
+      ...dto,
+      name: sanitizePlainText(dto.name),
+      shortDescription: sanitizePlainText(dto.shortDescription),
+      fullDescription: sanitizePlainText(dto.fullDescription),
+      createdById: caller.id,
+    });
     const podRef = `AUR-POD-${pod.sequenceNumber.toString().padStart(6, '0')}`;
     const updated = await this.repo.setRef(pod.id, podRef);
 
@@ -55,7 +62,12 @@ export class PodsService {
   async update(id: string, dto: UpdatePodDto, caller: AuthenticatedUser): Promise<PodResponseDto> {
     await this.getOrThrow(id);
     await this.auth.assertStewardOrAdmin(id, caller);
-    const updated = await this.repo.update(id, dto);
+    const updated = await this.repo.update(id, {
+      ...dto,
+      name: dto.name !== undefined ? sanitizePlainText(dto.name) : undefined,
+      shortDescription: dto.shortDescription !== undefined ? sanitizePlainText(dto.shortDescription) : undefined,
+      fullDescription: dto.fullDescription !== undefined ? sanitizePlainText(dto.fullDescription) : undefined,
+    });
     this.logger.log(`Pod updated: ${updated.podRef ?? id} by ${caller.id}`);
     return PodResponseDto.fromEntity(updated);
   }

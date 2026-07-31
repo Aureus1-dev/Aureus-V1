@@ -22,6 +22,7 @@ import {
 } from '../conversations/repositories/ai-conversation.repository.interface';
 import { AI_MESSAGE_REPOSITORY, IAiMessageRepository } from '../conversations/repositories/ai-message.repository.interface';
 import { AI_REQUEST_REPOSITORY, IAiRequestRepository } from '../requests/repositories/ai-request.repository.interface';
+import { AiRequestsService } from '../requests/ai-requests.service';
 import {
   AI_VOICE_SESSION_REPOSITORY,
   IAiVoiceSessionRepository,
@@ -102,6 +103,9 @@ const mockTurnEventRepo: jest.Mocked<IAiTurnEventRepository> = {
   createIfNotExists: jest.fn(), findByVoiceSession: jest.fn(), hasFinalizedTurn: jest.fn(),
 };
 const mockConfig = { get: jest.fn((_key: string, def?: unknown) => def) } as unknown as jest.Mocked<ConfigService>;
+const mockAiRequestsService = {
+  enforceSpendCeilings: jest.fn().mockResolvedValue(undefined),
+} as unknown as jest.Mocked<AiRequestsService>;
 
 describe('VoiceSessionService', () => {
   let service: VoiceSessionService;
@@ -117,12 +121,14 @@ describe('VoiceSessionService', () => {
         { provide: AI_VOICE_SESSION_REPOSITORY, useValue: mockVoiceSessionRepo },
         { provide: AI_TURN_EVENT_REPOSITORY, useValue: mockTurnEventRepo },
         { provide: ConfigService, useValue: mockConfig },
+        { provide: AiRequestsService, useValue: mockAiRequestsService },
       ],
     }).compile();
     service = m.get(VoiceSessionService);
     jest.clearAllMocks();
     mockConfig.get.mockImplementation((_key: string, def?: unknown) => def);
     mockVoiceSessionRepo.findActiveByUser.mockResolvedValue(null);
+    mockAiRequestsService.enforceSpendCeilings.mockResolvedValue(undefined);
   });
 
   describe('startSession', () => {

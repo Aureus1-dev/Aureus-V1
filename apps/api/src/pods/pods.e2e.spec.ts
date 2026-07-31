@@ -318,6 +318,69 @@ describe('Pods — E2E', () => {
         .set('Authorization', `Bearer ${outsiderToken}`)
         .expect(403);
     });
+
+    describe('PD-008 — Steward/Admin message moderation', () => {
+      let messageId: string;
+
+      it('member2 posts a message to the Pod conversation', async () => {
+        const convo = await request(app.getHttpServer())
+          .post(`/pods/${podId}/conversation`)
+          .set('Authorization', `Bearer ${member2Token}`)
+          .expect(201);
+        const sent = await request(app.getHttpServer())
+          .post(`/communications/conversations/${convo.body.id}/messages`)
+          .set('Authorization', `Bearer ${member2Token}`)
+          .send({ body: 'Something that will get reported' })
+          .expect(201);
+        messageId = sent.body.id;
+      });
+
+      it('an ordinary member (not this Pod\'s Steward) cannot remove another member\'s message', async () => {
+        await request(app.getHttpServer())
+          .delete(`/pods/${podId}/conversation/messages/${messageId}`)
+          .set('Authorization', `Bearer ${outsiderToken}`)
+          .expect(403);
+      });
+
+      it('this Pod\'s Steward can remove any message in the Pod conversation', async () => {
+        const deleted = await request(app.getHttpServer())
+          .delete(`/pods/${podId}/conversation/messages/${messageId}`)
+          .set('Authorization', `Bearer ${member1Token}`)
+          .expect(200);
+        expect(deleted.body.deleted).toBe(true);
+      });
+
+      it('a report raised on a Pod message appears in this Pod\'s reported-content queue for the Steward', async () => {
+        const convo = await request(app.getHttpServer())
+          .post(`/pods/${podId}/conversation`)
+          .set('Authorization', `Bearer ${member2Token}`)
+          .expect(201);
+        const sent = await request(app.getHttpServer())
+          .post(`/communications/conversations/${convo.body.id}/messages`)
+          .set('Authorization', `Bearer ${member2Token}`)
+          .send({ body: 'A second concerning message' })
+          .expect(201);
+
+        await request(app.getHttpServer())
+          .post(`/communications/conversations/${convo.body.id}/messages/${sent.body.id}/report`)
+          .set('Authorization', `Bearer ${member1Token}`)
+          .send({ reason: 'Inappropriate for this community' })
+          .expect(201);
+
+        const queue = await request(app.getHttpServer())
+          .get(`/pods/${podId}/conversation/reports`)
+          .set('Authorization', `Bearer ${member1Token}`)
+          .expect(200);
+        expect(queue.body.some((r: { messageId: string }) => r.messageId === sent.body.id)).toBe(true);
+      });
+
+      it('an ordinary member (not this Pod\'s Steward) cannot view the reported-content queue', async () => {
+        await request(app.getHttpServer())
+          .get(`/pods/${podId}/conversation/reports`)
+          .set('Authorization', `Bearer ${member2Token}`)
+          .expect(403);
+      });
+    });
   });
 
   describe('AI Match Suggestion — never assigns (Founder Decision #1)', () => {

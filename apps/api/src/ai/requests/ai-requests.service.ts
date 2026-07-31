@@ -2,7 +2,10 @@ import { ForbiddenException, Inject, Injectable, Logger, NotFoundException, Serv
 import { AiCapability, AiRequestStatus } from '@prisma/client';
 import { AuthenticatedUser } from '../../auth/strategies/jwt.strategy';
 import { hasRole } from '../../auth/utils/has-role.util';
+import { CRISIS_REDIRECT_MESSAGE } from '../../needs/crisis-detection.util';
 import { PLATFORM_ADMIN_ROLES } from '../common/ai-roles.util';
+import { ModerationService } from '../moderation/moderation.service';
+import { wrapUntrustedUserContent } from '../moderation/prompt-injection.util';
 import { AI_PROVIDER, AiCompletionMessage, AiToolCallRequest, AiToolDefinition, IAiProvider } from '../providers/ai-provider.interface';
 import { computeCostUsd } from './ai-pricing.util';
 import { AiOperationalConfigService } from './ai-operational-config.service';
@@ -12,6 +15,15 @@ import { AiCapabilitySpendResponseDto } from './dto/ai-capability-spend-response
 import { ListAiRequestsQueryDto } from './dto/list-ai-requests-query.dto';
 import { PaginatedAiRequestsResponseDto } from './dto/paginated-ai-requests-response.dto';
 import { AI_REQUEST_REPOSITORY, IAiRequestRepository } from './repositories/ai-request.repository.interface';
+
+/**
+ * PD-007 (AI Safety). A generic, honest refusal for moderation categories
+ * that are not self-harm-specific — self-harm-flagged content instead
+ * reuses `CRISIS_REDIRECT_MESSAGE` verbatim, per this repository's own
+ * established convention (Gate C, C3/C7) of never restating crisis-safety
+ * copy differently in different places.
+ */
+const MODERATION_REFUSAL_MESSAGE = "I'm not able to help with that. If you'd like, tell me more about what you're actually trying to get done, and I'll do my best to help with that instead.";
 
 export interface RunCompletionParams {
   userId: string;
@@ -48,15 +60,29 @@ export class AiRequestsService {
     @Inject(AI_PROVIDER) private readonly provider: IAiProvider,
     @Inject(AI_REQUEST_REPOSITORY) private readonly repo: IAiRequestRepository,
     private readonly operationalConfig: AiOperationalConfigService,
+    private readonly moderation: ModerationService,
   ) {}
 
   async runCompletion(params: RunCompletionParams): Promise<CompletionResult> {
-    await this.enforceSpendCeilings(params.userId);
+    await this.enforceSpendCeilings(params.userId, params.capability);
+
+    const moderationResult = await this.moderation.checkMessages(params.messages);
+    if (moderationResult.flagged) {
+      return this.recordModerationBlock(params, moderationResult.categories);
+    }
+
     const startedAt = Date.now();
 
     try {
+      // PD-007 item 3 (PII-handling policy): member content is never
+      // scrubbed for PII before this call — retention/deletion of that
+      // data is PD-010's scope, not this method's. Prompt-injection
+      // mitigation (delimiting + neutralizing override phrases) is applied
+      // here, immediately before the provider call, so it can never be
+      // accidentally skipped by a capability that forgets to apply it.
+      const safeMessages = wrapUntrustedUserContent(params.messages);
       const output = await this.provider.complete({
-        messages: params.messages,
+        messages: safeMessages,
         maxTokens: params.maxTokens,
         temperature: params.temperature,
         tools: params.tools,
@@ -101,16 +127,59 @@ export class AiRequestsService {
   }
 
   /**
-   * AI spend limits, quotas, and emergency budget controls (PR-002, made
-   * live-editable in PR-003). Checked before every provider call so an
-   * over-budget request is refused up front — no provider call is made and
-   * no additional cost is incurred. Reads the DB-backed
-   * `AiOperationalConfig` singleton (env-var-seeded on first read, then
-   * DB-authoritative — see `AiOperationalConfigService`) rather than
-   * `ConfigService` directly, so a Founder-facing toggle takes effect on
-   * the very next request, no restart required.
+   * PD-007 — the provider is never called for flagged content. Returns a
+   * normal `CompletionResult` (never throws) so every existing call site
+   * (Conversations, Insights, Recommendations, Orchestrator, Pod Insights)
+   * handles a moderation block exactly like a successful reply, with no
+   * special-case exception handling required anywhere upstream. Logged as
+   * its own distinct `AiRequestStatus.MODERATION_BLOCKED` row — never
+   * merged into a normal SUCCESS or FAILED entry — so the audit log/cost
+   * dashboard can always distinguish "a member was refused by moderation"
+   * from "the AI service actually replied" or "the provider errored."
    */
-  private async enforceSpendCeilings(userId: string): Promise<void> {
+  private async recordModerationBlock(
+    params: RunCompletionParams, categories: string[],
+  ): Promise<CompletionResult> {
+    const request = await this.repo.create({
+      userId: params.userId,
+      conversationId: params.conversationId,
+      capability: params.capability,
+      provider: this.provider.provider,
+      model: 'moderation-block',
+      promptTokens: 0,
+      completionTokens: 0,
+      costUsd: 0,
+      latencyMs: 0,
+      status: AiRequestStatus.MODERATION_BLOCKED,
+      errorMessage: `Blocked by content moderation: ${categories.join(', ') || 'unspecified'}`,
+    });
+
+    this.logger.warn(`AI request blocked by moderation for capability ${params.capability}: ${categories.join(', ')}`);
+
+    const isSelfHarm = categories.includes('self-harm');
+    return { content: isSelfHarm ? CRISIS_REDIRECT_MESSAGE : MODERATION_REFUSAL_MESSAGE, requestId: request.id };
+  }
+
+  /**
+   * AI spend limits, quotas, and emergency budget controls (PR-002, made
+   * live-editable in PR-003; per-capability ceiling added by PD-009).
+   * Checked before every provider call so an over-budget request is
+   * refused up front — no provider call is made and no additional cost is
+   * incurred. Reads the DB-backed `AiOperationalConfig` singleton
+   * (env-var-seeded on first read, then DB-authoritative — see
+   * `AiOperationalConfigService`) rather than `ConfigService` directly, so
+   * a Founder-facing toggle takes effect on the very next request, no
+   * restart required.
+   */
+  /**
+   * Not private: `VoiceSessionService` calls this directly before brokering
+   * a session (PD-009) — Voice cannot route through `runCompletion()`
+   * itself (a different architecture; see the Voice Safety Integration
+   * Plan for the full reasoning), but cost governance is not specific to
+   * completions, so this one check is reused as-is rather than
+   * reimplemented, keeping exactly one authority for spend enforcement.
+   */
+  async enforceSpendCeilings(userId: string, capability: AiCapability): Promise<void> {
     const opConfig = await this.operationalConfig.getEffective();
 
     if (opConfig.emergencyStop) {
@@ -133,6 +202,43 @@ export class AiRequestsService {
     if (userSpend >= opConfig.userDailyBudgetUsd) {
       this.logger.warn(`User AI daily quota reached for ${userId}: $${userSpend.toFixed(4)} >= $${opConfig.userDailyBudgetUsd}`);
       throw new ForbiddenException('You have reached your daily AI usage quota. Please try again tomorrow.');
+    }
+
+    await this.enforceCapabilityCeiling(capability, since);
+  }
+
+  /**
+   * PD-009 — a per-capability ceiling refuses further requests for that
+   * one capability specifically while every other capability continues to
+   * function, since the check is scoped only to `capability`'s own sum/
+   * count (never the platform-wide totals checked above). Two independent
+   * levers, checked in order: a dollar ceiling (meaningful for any
+   * capability with an observable per-token cost) and a request-count
+   * ceiling (the only lever that is real for Voice, which always logs
+   * `costUsd: 0` — see `AiCapabilityBudget`'s own schema comment).
+   */
+  private async enforceCapabilityCeiling(capability: AiCapability, since: Date): Promise<void> {
+    const budget = await this.operationalConfig.getCapabilityBudget(capability);
+    if (!budget) return;
+
+    if (budget.dailyBudgetUsd != null) {
+      const spend = await this.repo.sumCostSince(since, undefined, capability);
+      if (spend >= budget.dailyBudgetUsd) {
+        this.logger.warn(`AI capability daily budget reached for ${capability}: $${spend.toFixed(4)} >= $${budget.dailyBudgetUsd}`);
+        throw new ServiceUnavailableException(
+          `The daily AI budget for this feature has been reached. Please try again tomorrow.`,
+        );
+      }
+    }
+
+    if (budget.dailyRequestLimit != null) {
+      const count = await this.repo.countSince(since, capability);
+      if (count >= budget.dailyRequestLimit) {
+        this.logger.warn(`AI capability daily request limit reached for ${capability}: ${count} >= ${budget.dailyRequestLimit}`);
+        throw new ServiceUnavailableException(
+          `The daily usage limit for this feature has been reached. Please try again tomorrow.`,
+        );
+      }
     }
   }
 

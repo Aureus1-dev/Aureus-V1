@@ -119,6 +119,17 @@ export const envValidationSchema = Joi.object({
   AI_GLOBAL_DAILY_BUDGET_USD: Joi.number().empty('').default(50),
   AI_USER_DAILY_BUDGET_USD:   Joi.number().empty('').default(2),
 
+  // AI Provider Resilience (PD-009). Read directly by OpenAiProvider/
+  // AnthropicProvider on every call (not DB-seeded like the spend controls
+  // above), but still not boot-fatal if absent — each provider falls back
+  // to the same literal defaults itself. Present here so a typo fails
+  // loudly at boot rather than silently.
+  AI_PROVIDER_TIMEOUT_MS:                 Joi.number().empty('').default(30_000),
+  AI_PROVIDER_MAX_ATTEMPTS:               Joi.number().empty('').default(3),
+  AI_PROVIDER_RETRY_BASE_DELAY_MS:        Joi.number().empty('').default(500),
+  AI_CIRCUIT_BREAKER_FAILURE_THRESHOLD:   Joi.number().empty('').default(3),
+  AI_CIRCUIT_BREAKER_COOLDOWN_MS:         Joi.number().empty('').default(30_000),
+
   // Voice Domain (ADR-016). Reuses OPENAI_API_KEY above — no separate
   // credential. Optional in every environment: absent, VoiceSessionService
   // falls back to these same literal defaults itself.

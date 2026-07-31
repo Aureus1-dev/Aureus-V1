@@ -16,6 +16,7 @@ import {
 } from '../conversations/repositories/ai-conversation.repository.interface';
 import { AI_MESSAGE_REPOSITORY, IAiMessageRepository } from '../conversations/repositories/ai-message.repository.interface';
 import { AI_REQUEST_REPOSITORY, IAiRequestRepository } from '../requests/repositories/ai-request.repository.interface';
+import { AiRequestsService } from '../requests/ai-requests.service';
 import { VOICE_PROVIDER, IVoiceProvider } from './providers/voice-provider.interface';
 import { VOICE_TIMING_POLICY } from './voice-timing-policy';
 import { VOICE_TOOLS } from './voice-tools';
@@ -55,10 +56,22 @@ export class VoiceSessionService {
     @Inject(AI_VOICE_SESSION_REPOSITORY) private readonly voiceSessionRepo: IAiVoiceSessionRepository,
     @Inject(AI_TURN_EVENT_REPOSITORY) private readonly turnEventRepo: IAiTurnEventRepository,
     private readonly config: ConfigService,
+    private readonly aiRequests: AiRequestsService,
   ) {}
 
   /** POST /ai/voice/sessions — broker an ephemeral credential and open a session against the canonical conversation. */
   async startSession(dto: StartVoiceSessionDto, caller: AuthenticatedUser): Promise<VoiceSessionResponseDto> {
+    // PD-009 (AI Provider Resilience/Cost Governance) — Voice does not
+    // route through AiRequestsService.runCompletion() (a different
+    // architecture; see the Voice Safety Integration Plan), so without
+    // this call Voice silently ignored the emergency stop and every
+    // budget ceiling entirely. Reuses the exact same check `runCompletion`
+    // itself calls, so there is exactly one authority for spend
+    // enforcement, not two that could drift — checked before brokering,
+    // matching "no provider call is made and no additional cost is
+    // incurred" on a ceiling hit, same as the text pipeline.
+    await this.aiRequests.enforceSpendCeilings(caller.id, AiCapability.VOICE_CONVERSATION);
+
     const conversation = dto.conversationId
       ? await this.getOwnedConversationOrThrow(dto.conversationId, caller)
       : await this.conversationRepo.create({ userId: caller.id });

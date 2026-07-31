@@ -21,4 +21,12 @@ export class PrismaMessageRepository implements IMessageRepository {
     ]);
     return { data, total, page, limit };
   }
+
+  async findById(id: string): Promise<Message | null> {
+    return this.prisma.db.message.findUnique({ where: { id } });
+  }
+
+  async softDelete(id: string, deletedById: string): Promise<Message> {
+    return this.prisma.db.message.update({ where: { id }, data: { deletedAt: new Date(), deletedById } });
+  }
 }

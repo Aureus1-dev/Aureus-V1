@@ -69,6 +69,13 @@ describe('StewardshipEscalationsService', () => {
       mockRelationshipRepo.findById.mockResolvedValue(makeRelationship());
       await expect(service.create('rel-001', { title: 'x', description: 'y' }, MEMBER)).rejects.toThrow(ForbiddenException);
     });
+
+    it('strips markup from title/description before persisting (PD-008)', async () => {
+      mockRelationshipRepo.findById.mockResolvedValue(makeRelationship());
+      mockRepo.create.mockResolvedValue(makeEscalation());
+      await service.create('rel-001', { title: '<script>alert(1)</script>Issue', description: '<b>Description</b> here' }, STEWARD);
+      expect(mockRepo.create).toHaveBeenCalledWith(expect.objectContaining({ title: 'Issue', description: 'Description here' }));
+    });
   });
 
   describe('findByRelationship', () => {

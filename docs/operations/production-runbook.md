@@ -63,6 +63,11 @@ Recommended in production (defaulted, but the defaults are dev-shaped):
 | `AI_EMERGENCY_STOP` | `false` | Set to `true` to immediately halt all AI features platform-wide — a kill switch, no restart required (PR-002) |
 | `AI_GLOBAL_DAILY_BUDGET_USD` | `50` | Platform-wide AI spend ceiling, rolling 24h window; further requests are refused with 503 once reached (PR-002) |
 | `AI_USER_DAILY_BUDGET_USD` | `2` | Per-member AI spend ceiling, rolling 24h window; further requests are refused with 403 once reached (PR-002) |
+| `AI_PROVIDER_TIMEOUT_MS` | `30000` | Per-attempt timeout for an OpenAI/Anthropic call before it's aborted and (if retryable) retried (PD-009) |
+| `AI_PROVIDER_MAX_ATTEMPTS` | `3` | Total attempts per call, including the first, for transient failures only (timeout/network error/429/5xx — never a 4xx) (PD-009) |
+| `AI_PROVIDER_RETRY_BASE_DELAY_MS` | `500` | Base delay for the exponential backoff between retries (plus jitter) (PD-009) |
+| `AI_CIRCUIT_BREAKER_FAILURE_THRESHOLD` | `3` | Consecutive provider failures before its circuit breaker opens and starts failing fast (PD-009) |
+| `AI_CIRCUIT_BREAKER_COOLDOWN_MS` | `30000` | Time an open circuit waits before trying the provider again (half-open) (PD-009) |
 | `REDIS_URL` | unset → in-memory rate-limit storage | Set once running more than one API replica (PD-002) — see §3 |
 | `DATABASE_POOL_MAX` / `DATABASE_POOL_MIN` | `10` / `0` (the `pg` driver's own defaults) | Size against your Postgres host's `max_connections` (or a pooler in front of it) once running more than one replica (PD-002) |
 | `SENTRY_DSN` | unset → 5xx errors log to stdout only | Set to a real Sentry DSN to also report uncaught 5xx exceptions and fatal bootstrap failures there (Production Stability) |
@@ -138,6 +143,7 @@ Notes on the images:
 
 - **`GET /health/live`** — is the process up at all? No external dependency checks. This is what the Dockerfile's own `HEALTHCHECK` and `docker-compose.yml`'s `api`/`redis`/`postgres` healthchecks use — a slow/unreachable database shouldn't make an orchestrator kill and restart an otherwise-healthy container.
 - **`GET /health/ready`** — can this instance actually serve traffic? Checks database connectivity. Point a load balancer's or Kubernetes' readiness probe here, not at `/health/live`.
+- **`GET /health/ai`** (PD-009) — diagnostic only, reports each *configured* AI provider's circuit-breaker state (`closed`/`half_open`/`open`); returns non-200 only when a configured provider's circuit is open. Deliberately **not** part of `/health/ready` — most member-facing routes don't depend on AI at all, so a transient AI provider outage (exactly what PD-009's retry/circuit-breaker machinery exists to survive) must never pull the whole app out of a load balancer's rotation. Point monitoring/alerting here if you want visibility into AI provider health specifically, not the readiness probe.
 
 ### Rate limiting at scale — Redis (PD-002)
 
@@ -204,6 +210,9 @@ There is no CD pipeline yet — this is a manual procedure until one is built. R
 **AI budget-related incidents (PR-002):** a spike in AI costs or an unmapped-model pricing gap surfaces as a `WARN`-level log line (`AiPricingUtil`: "No pricing entry for model..." or `AiRequestsService`: "...budget reached"/"...quota reached") before it becomes a bill — grep container logs for these first.
 - To halt AI spend immediately without a deploy: set `AI_EMERGENCY_STOP=true` in the running environment and restart the API container (env var is read at request time via `ConfigService`, so a container restart is sufficient — no rebuild).
 - To raise or lower the ceilings: adjust `AI_GLOBAL_DAILY_BUDGET_USD` / `AI_USER_DAILY_BUDGET_USD` and restart.
+- Per-capability ceilings (PD-009 — e.g. a separate daily dollar or request-count limit for Voice specifically) are Founder Operating System-editable, live, no restart required: `GET/PATCH /ai/operational-config/capability-budgets` and `DELETE /ai/operational-config/capability-budgets/:capability`.
+
+**AI provider outage incidents (PD-009):** an OpenAI/Anthropic outage or degradation surfaces as a `WARN`-level log line (`OpenAiProvider`/`AnthropicProvider`: "...attempt N/M failed... — retrying") followed, if it persists, by the circuit breaker opening for that provider — check `GET /health/ai` for live `open`/`half_open`/`closed` state per configured provider. A single failing provider does not require operator action: a bounded retry-with-backoff already covers transient blips, the circuit breaker already fails fast once a provider is confirmed down (avoiding a pileup of slow, doomed requests), and — if both `OPENAI_API_KEY` and `ANTHROPIC_API_KEY` are configured — `FallbackAiProvider` already fails over to the secondary automatically. If `GET /health/ai` shows the *only* configured provider open for an extended period, that is a real user-facing AI outage; the retry/circuit-breaker tuning env vars above (`AI_PROVIDER_TIMEOUT_MS` etc.) can be adjusted and the API restarted if the defaults are proving too aggressive or too lenient for the incident at hand.
 
 **Account lockout incidents (PR-002):** a member locked out after 5 failed logins waits 15 minutes for `lockedUntil` to clear automatically (see `AuthService.registerFailedLoginAttempt`) — there is no manual unlock endpoint yet. To unlock a specific account sooner, an operator must clear `failedLoginAttempts`/`lockedUntil` directly via `npx prisma studio` or a direct `UPDATE "User" SET "lockedUntil" = NULL, "failedLoginAttempts" = 0 WHERE email = '...'` against the production database — treat this as a privileged, logged, one-off action, not routine tooling.
 
