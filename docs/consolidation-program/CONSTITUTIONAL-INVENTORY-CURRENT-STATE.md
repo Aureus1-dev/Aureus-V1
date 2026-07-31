@@ -32,7 +32,11 @@ Per `docs/constitutional-record/001-ratification-of-the-unified-constitution.md`
 
 `OAS-001` Art. I §3 states the Charter "derives its authority from, and remains subordinate to, FOUNDATION-001... the sole highest governing authority of Aureus, which this Charter may never contradict." The ratification record independently confirms this: "`FOUNDATION-001` remains the supreme governing authority of Aureus... This ratification does not alter, qualify, or condition that relationship in any respect."
 
-`FOUNDATION-001`, `FOUNDATION-002` (The Great Purification Charter), and `FOUNDATION-003` (Canon Hierarchy) live at `docs/00-foundation/`. None carries a dated ratification record of its own — Phase 1 flagged this ("functionally treated as binding, no ratification record") and that remains accurate; the OAS-series ratification did not create one for the Foundation tier. This is not a new problem, but it is still an open one.
+`FOUNDATION-001`, `FOUNDATION-002` (The Great Purification Charter), and `FOUNDATION-003` (Canon Hierarchy) live at `docs/00-foundation/`. When this document was first written, none carried a dated ratification record of its own — Phase 1 had flagged this ("functionally treated as binding, no ratification record"), and the OAS-series ratification had not created one for the Foundation tier.
+
+> **ADMINISTRATIVE NOTICE — added after the fact; not part of the original analysis above.**
+>
+> This gap was resolved the same day. The Founder formally affirmed all three Foundation documents as the constitutional foundation of Aureus, effective 2026-07-31, with no substantive change to their text. See Constitutional Record Entry 002 (`docs/constitutional-record/002-ratification-of-the-foundation-documents.md`) and the resolved entry `CRR-001-005` in `docs/constitutional/register/CRR-001-Constitutional-Resolution-Register.md`. The paragraph above is preserved unaltered as originally written, describing the gap as it stood before this ruling.
 
 ## 3. `ALC-001` — resolved, not canonical
 
@@ -74,7 +78,7 @@ One inconsistency carried forward from Phase 1 and confirmed still present: seve
 4. Eighteen files in `docs/constitution/` (`ALC-002`–`013`, five `OAS-ACA-*` files, `ACR-001`) have no stated relationship to the ratified eleven, one way or the other.
 5. `ALC-011` has a documented internal duplication/gap (Phase 1 finding, not re-verified today); `ALC-009`/`ALC-013` end without closing declarations.
 6. `ACR-001`, the constitutional definitions register, defines no terms and points to four sibling documents that don't exist.
-7. The Foundation tier (`FOUNDATION-001/002/003`) has no ratification record of its own, despite functioning as the supreme authority the Constitution is subordinate to.
+7. ~~The Foundation tier (`FOUNDATION-001/002/003`) has no ratification record of its own, despite functioning as the supreme authority the Constitution is subordinate to.~~ **Resolved 2026-07-31** — see Constitutional Record Entry 002 and `CRR-001-005`. Struck through rather than removed, so this document continues to show the finding as originally made.
 8. Two incompatible numbering universes both use the label "CAP-011."
 
 None of these require urgent action to describe — they require a Founder decision on disposition, which this document deliberately does not make.
