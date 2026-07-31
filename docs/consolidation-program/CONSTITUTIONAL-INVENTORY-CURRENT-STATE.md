@@ -1,3 +1,7 @@
+> **ADMINISTRATIVE NOTICE — added after the fact; not part of the original analysis below.**
+>
+> As of 2026-07-31, `docs/constitution/AUREUS-000/` — which this document (written the same day) states does not exist anywhere in the repository — has been designated the canonical constitutional source, superseding the eleven-document `OAS`-series this inventory describes as "what is actually in force." See Constitutional Record Entry 003 (`docs/constitutional-record/003-designation-of-canonical-sources.md`). The analysis below is preserved unaltered as originally written; it remains an accurate historical record of the `OAS`/`ALC` corpus's state at the time, but no longer describes the operative constitutional canon.
+
 # Constitutional Inventory — Current State
 
 **As of:** 2026-07-31

@@ -1,5 +1,9 @@
 # Constitutional Resolution Register
 
+> **ADMINISTRATIVE NOTICE — added after the fact; not part of the original register.**
+>
+> As of 2026-07-31, `docs/constitution/AUREUS-000/` has been designated the canonical constitutional source, superseding the `OAS`/`ALC` corpus this register tracks. See Constitutional Record Entry 003 (`docs/constitutional-record/003-designation-of-canonical-sources.md`). Resolving the items below is no longer a prerequisite for any current constitutional work; they remain open here only as a historical record of the prior corpus's internal state. This register is preserved unaltered below, as originally written.
+
 ## Purpose
 
 This register tracks constitutional anomalies identified during the post-ratification inventory (`docs/consolidation-program/CONSTITUTIONAL-INVENTORY-CURRENT-STATE.md`, 2026-07-31) and holds the formal Founder ruling on each, once made. It exists so that governance flows in one direction only:

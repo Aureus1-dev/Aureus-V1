@@ -1,3 +1,7 @@
+> **ADMINISTRATIVE NOTICE — added after the fact; not part of the original document.**
+>
+> As of 2026-07-31, `docs/100-experience/` has been designated the canonical Experience Canon. This document is retained for historical and reference purposes only; it is no longer authoritative for UX, UI, or member-experience decisions. See Constitutional Record Entry 003 (`docs/constitutional-record/003-designation-of-canonical-sources.md`). The document below is preserved unaltered as originally written.
+
 # AEX-000 — EXPERIENCE CONSTITUTION
 
 **Document ID:** AEX-000  
