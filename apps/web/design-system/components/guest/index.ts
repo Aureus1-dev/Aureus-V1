@@ -1,1 +1,0 @@
-export { GuestClaimBanner } from './GuestClaimBanner';
