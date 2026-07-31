@@ -101,7 +101,7 @@ export function CoordinatedPlanStep({
 
   return (
     <div className={styles.step}>
-      <h2 className={styles.title}>Here&apos;s what Aureus put together</h2>
+      <h1 className={styles.title}>Here&apos;s what Aureus put together</h1>
       <p className={styles.body}>{plan.combinedRationale}</p>
 
       <PlanCard

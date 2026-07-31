@@ -1,7 +1,7 @@
 'use client';
 
-import { useState } from 'react';
-import { useSession } from '../../../state';
+import { useEffect, useState } from 'react';
+import { useJourney, useSession } from '../../../state';
 import { LinkButton } from '../Button/LinkButton';
 import styles from './GuestClaimBanner.module.css';
 
@@ -34,9 +34,28 @@ import styles from './GuestClaimBanner.module.css';
  */
 export function GuestClaimBanner() {
   const { session } = useSession();
+  const journey = useJourney();
   const [dismissed, setDismissed] = useState(false);
 
-  if (!session.isGuest || dismissed) {
+  // "It looks like we've built something worth keeping" has to be true
+  // when it is said. Shown on arrival it was addressed to someone who had
+  // done nothing yet — the first sentence of the product describing work
+  // that did not exist. The offer waits until there is something real to
+  // preserve: the member's first goal. Until then Aureus asks for
+  // nothing, which is also what Guest Steward mode promises.
+  // Loaded here rather than relied upon from elsewhere: this banner
+  // renders on every member surface, and most of them never call
+  // loadGoals(), so depending on another component having done it would
+  // mean the offer silently never appears. JourneyContext de-duplicates,
+  // so this costs nothing where a surface already loads them.
+  useEffect(() => {
+    if (session.isAuthenticated) void journey.loadGoals();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [session.isAuthenticated]);
+
+  const hasSomethingWorthKeeping = journey.state.goals.length > 0;
+
+  if (!session.isGuest || dismissed || !hasSomethingWorthKeeping) {
     return null;
   }
 

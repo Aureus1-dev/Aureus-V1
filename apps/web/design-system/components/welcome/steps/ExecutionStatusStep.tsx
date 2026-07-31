@@ -35,7 +35,7 @@ export function ExecutionStatusStep({ decisions }: ExecutionStatusStepProps) {
 
   return (
     <div className={styles.step}>
-      <h2 className={styles.title}>Here&apos;s where things stand</h2>
+      <h1 className={styles.title}>Here&apos;s where things stand</h1>
 
       {accepted.length > 0 ? (
         <ul className={styles.decisionList}>

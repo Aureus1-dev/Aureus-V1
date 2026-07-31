@@ -23,11 +23,11 @@ export interface StewardshipOfferStepProps {
 export function StewardshipOfferStep({ isGuest, onContinue }: StewardshipOfferStepProps) {
   return (
     <div className={styles.step}>
-      <h2 className={styles.title}>What Aureus does, and what stays yours</h2>
+      <h1 className={styles.title}>What Aureus does, and what stays yours</h1>
 
       <div className={styles.columns}>
         <div className={styles.column}>
-          <h3 className={styles.columnTitle}>Aureus can</h3>
+          <h2 className={styles.columnTitle}>Aureus can</h2>
           <ul className={styles.list}>
             <li>Search across opportunities, resources, training, and community for what fits</li>
             <li>Prepare a plan and explain why each step was chosen</li>
@@ -36,7 +36,7 @@ export function StewardshipOfferStep({ isGuest, onContinue }: StewardshipOfferSt
           </ul>
         </div>
         <div className={styles.column}>
-          <h3 className={styles.columnTitle}>Only you can</h3>
+          <h2 className={styles.columnTitle}>Only you can</h2>
           <ul className={styles.list}>
             <li>Decide what to approve — nothing happens until you say yes</li>
             <li>Submit an application, sign a document, or attend an appointment</li>

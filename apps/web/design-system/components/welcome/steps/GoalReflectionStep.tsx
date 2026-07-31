@@ -34,7 +34,7 @@ export function GoalReflectionStep({ reflection, onConfirm, onAdjust }: GoalRefl
   if (isAdjusting) {
     return (
       <div className={styles.step}>
-        <h2 className={styles.title}>What would help most, in your own words?</h2>
+        <h1 className={styles.title}>What would help most, in your own words?</h1>
         <form onSubmit={handleAdjustSubmit} noValidate>
           <FormField id="goal-reflection-adjust" label="What would help most" value={revised} onChange={setRevised} required />
           <Button type="submit" disabled={!revised.trim()}>
@@ -47,7 +47,7 @@ export function GoalReflectionStep({ reflection, onConfirm, onAdjust }: GoalRefl
 
   return (
     <div className={styles.step}>
-      <h2 className={styles.title}>Here&apos;s what we understood</h2>
+      <h1 className={styles.title}>Here&apos;s what we understood</h1>
       <p className={styles.body}>{reflection}</p>
       <div className={styles.actions}>
         <Button onClick={onConfirm}>That&apos;s right — continue</Button>

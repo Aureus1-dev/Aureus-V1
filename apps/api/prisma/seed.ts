@@ -3,6 +3,7 @@ import { PrismaPg } from '@prisma/adapter-pg';
 import { Pool } from 'pg';
 import { bootstrapAdmin } from '../src/scripts/bootstrap-admin';
 import { seedCitySheetCandidates } from '../src/scripts/seed-city-sheet-candidates';
+import { seedPilotData } from '../src/scripts/seed-pilot-data';
 import { seedCitySheetChecklistItems } from '../src/scripts/seed-city-sheet-checklist-items';
 
 /** Thin CLI entrypoint — see `src/scripts/bootstrap-admin.ts`, `src/scripts/seed-city-sheet-checklist-items.ts`, and `src/scripts/seed-city-sheet-candidates.ts` for the tested logic. */
@@ -15,6 +16,7 @@ async function main(): Promise<void> {
     await runAdminBootstrap(prisma);
     await runCitySheetChecklistItemSeed(prisma);
     await runCitySheetCandidateSeed(prisma);
+    await runPilotSeed(prisma);
   } finally {
     await prisma.$disconnect();
     await pool.end();
@@ -75,3 +77,17 @@ main().catch((error: unknown) => {
   console.error('Admin bootstrap failed:', error);
   process.exitCode = 1;
 });
+
+/**
+ * Founder Pilot data: the City Sheet categories the pilot's acceptance
+ * case matches but WO A3 left empty, plus the public-benefit
+ * opportunities that give the Coordinated Plan supporting steps.
+ */
+async function runPilotSeed(prisma: PrismaClient): Promise<void> {
+  const result = await seedPilotData(prisma);
+  console.log(
+    `Pilot seed: ${result.citySheetCreated.length} City Sheet candidate(s) and ` +
+      `${result.opportunitiesCreated.length} opportunity(ies) created; ` +
+      `${result.citySheetSkipped.length + result.opportunitiesSkipped.length} already present.`,
+  );
+}

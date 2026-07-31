@@ -16,6 +16,16 @@
  * meaning, and `borderSubtle` is a low-contrast hairline for calm internal
  * dividers, leaving `border` for higher-contrast card/input boundaries.
  *
+ * `textTertiary` (light) is `#675d4d` rather than the original `#8c8171`
+ * for accessibility: the old value scored 3.58:1 on `surfacePrimary` and
+ * only 2.82:1 on `surfaceTertiary`, failing WCAG AA (4.5:1) on all four
+ * light surfaces — and 37 of its 44 usages are 12–14px text, so none
+ * qualify for the large-text exemption. `#675d4d` is the lightest value
+ * that clears 4.5:1 against every light surface (4.76:1 at worst), so it
+ * preserves as much of the three-tier hierarchy as the standard permits.
+ * The dark value is deliberately unchanged: it already passed everywhere
+ * (4.75–5.62:1).
+ *
  * `emberCore`/`emberMid`/`emberTip` (Warm & Elemental identity direction,
  * Founder-approved): a three-stop gradient for the Steward's own presence
  * — the voice orb (`VoiceOrb.tsx`) — so it reads as a glow with real
@@ -32,7 +42,7 @@ export const colorTokens = {
     surfaceSunken: '#ece3d3',
     textPrimary: '#2b241c',
     textSecondary: '#5c5245',
-    textTertiary: '#8c8171',
+    textTertiary: '#675d4d',
     border: '#ddd0ba',
     borderSubtle: '#ece2d0',
     focusRing: '#a8481f',
