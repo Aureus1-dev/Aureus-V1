@@ -1,26 +1,13 @@
 'use client';
 
-import type { ReactNode } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { primarySurfaces } from '../navigation/surfaces';
 import { useSession } from '../../state';
-import { RoomTransition } from './RoomTransition';
 import { StewardPanel } from '../components/steward-panel';
 import styles from './AppShell.module.css';
 
-export interface AppShellProps {
-  children: ReactNode;
-}
-
 const FOUNDER_ROLES = ['PLATFORM_ADMINISTRATOR', 'SYSTEM_ADMINISTRATOR'];
-
-/** Routes whose content *is* the environment and must run to the shell's edges. */
-const ARRIVAL_SURFACES = ['/welcome'];
-
-function isArrivalSurface(pathname: string | null): boolean {
-  return ARRIVAL_SURFACES.some((path) => pathname === path || pathname?.startsWith(`${path}/`));
-}
 
 function isActiveSurface(pathname: string | null, href: string): boolean {
   if (!pathname) return false;
@@ -28,33 +15,38 @@ function isActiveSurface(pathname: string | null, href: string): boolean {
 }
 
 /**
- * Living Steward Workspace shell (FPB-002 §4, FPB-012 — restyled, not
- * rebuilt, per the Founder-approved visual-shell redesign). Every screen
- * still renders inside this one shell so navigation, landmarks, and layout
- * behavior stay consistent across all 21 surfaces — only the presentation
- * changed. The curated `'primary'`-tier surfaces (Conversation, Journey,
- * Plans, Opportunities, Documents, Community, Calendar, Settings) stay
- * quietly visible; every other surface is still a real, working link,
- * just collapsed behind a disclosure rather than competing for attention
- * (no functionality removed — "collapsed, not removed"). The Founder
- * Operating System (PR-003) is deliberately not one of the 21 surfaces —
- * it's an administrative tool, not a member experience, explicitly left
- * out of this redesign — so its nav entry is appended conditionally and
- * only ever renders for a Platform or System Administrator.
+ * The transitional application chrome, mounted over the Hall.
  *
- * The skip link is deliberately *not* rendered here. It lives in the
- * member layout, above `GuestClaimBanner`, because a skip link is only
- * useful if it is the first thing a keyboard or screen-reader member
- * reaches — rendered here, inside the shell, it came fourth, after the
- * guest banner's own controls, which is the opposite of its purpose.
+ * ── What changed, and why it is temporary ──────────────────────────
  *
- * `StewardPanel` (the docked right-hand context column — Current Goal,
- * Desired Outcome, Today's Progress, Suggested Next Step, Relevant
- * Journey, Recent Memory) renders alongside `<main>` on every screen;
- * `AppShell.module.css` collapses it below the 1024px breakpoint rather
- * than shrinking the conversation column on narrow viewports.
+ * This was a four-region CSS grid — header, navigation rail, `<main>`,
+ * Steward panel — and the Hall rendered *inside* its `<main>` cell on two
+ * routes. That is the layer inversion the environment-first redesign
+ * exists to correct: DOCUMENT 12, constitutional, states the Hall "is not
+ * an application launcher" and that its first design principle is
+ * "Architecture before interface"; AUREUS-201 requires an environment
+ * that "replaces the traditional concept of application pages".
+ *
+ * So `<main>` has moved into the room (`HallStage`), and what remains
+ * here is only chrome, positioned over the environment rather than
+ * containing it. The room runs underneath it, edge to edge, because a
+ * wall does not stop at a piece of furniture; only the member's own
+ * column steps aside, so nothing they need to read sits behind this.
+ *
+ * This component is scheduled for removal. The permanent rail
+ * contradicts AUREUS-203 — "Traditional navigation controls remain
+ * available but should remain secondary" — and the Steward panel is a
+ * dashboard, which AUREA-001 forbids outright: "There are no feature
+ * dashboards." Both stay mounted only until their architectural
+ * replacements are in place, so that navigation is never briefly
+ * unreachable for a keyboard or screen-reader member.
+ *
+ * Everything else is unchanged: the curated `'primary'`-tier surfaces
+ * stay visible, every other surface is still a real, working link behind
+ * the disclosure, and the Founder Operating System entry is still
+ * appended only for a Platform or System Administrator.
  */
-export function AppShell({ children }: AppShellProps) {
+export function AppShell() {
   const { session } = useSession();
   const pathname = usePathname();
   const isFounder = session.roles.some((role) => FOUNDER_ROLES.includes(role));
@@ -62,7 +54,7 @@ export function AppShell({ children }: AppShellProps) {
   const secondaryTier = primarySurfaces.filter((surface) => surface.tier === 'secondary');
 
   return (
-    <div className={styles.shell}>
+    <div className={styles.chrome}>
       <header className={styles.header}>
         <Link href="/welcome" className={styles.brand}>
           Aureus
@@ -110,22 +102,6 @@ export function AppShell({ children }: AppShellProps) {
           </ul>
         </details>
       </nav>
-      {/*
-        The Hall is the environment, not a panel inside one. On the
-        arrival route `<main>` therefore gives up its padding entirely,
-        so the room reaches the edges of the shell and no generic page
-        shows behind it. Every other surface keeps the padding it has
-        always had — this is a full-bleed exception for one route, not a
-        change to how the shell lays out screens.
-      */}
-      <main
-        id="main-content"
-        className={styles.main}
-        data-surface={isArrivalSurface(pathname) ? 'arrival' : undefined}
-        tabIndex={-1}
-      >
-        <RoomTransition pathname={pathname}>{children}</RoomTransition>
-      </main>
       <div className={styles.panelRegion}>
         <StewardPanel />
       </div>

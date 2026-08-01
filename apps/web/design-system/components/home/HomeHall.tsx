@@ -2,7 +2,6 @@
 
 import { useState, type FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
-import { LivingHall } from '../environment';
 import { ArrivalStage } from '../arrival';
 import { Button } from '../Button/Button';
 import { FormField } from '../FormField';
@@ -23,10 +22,12 @@ import styles from './HomeHall.module.css';
  * not a grid of things to click. What a member finds is the room, the
  * light, and the question Aureus always opens with.
  *
- * The Steward's presence is deliberately `resting`: nothing has been
- * asked yet, and AUREUS-004 §PRESENCE is explicit that the Steward
- * "never creates unnecessary urgency" and "never competes for
- * attention".
+ * The Steward's presence is `resting` — the Hall's own default, since
+ * nothing has been asked yet. This no longer raises a room of its own to
+ * say so: the Hall is permanent now and already standing, and a second
+ * one nested inside it would give the member two floors and two hearths.
+ * What was a component that built a room is now simply what the member
+ * finds standing in the one that is already there.
  *
  * What the member types is carried into the guided arrival rather than
  * discarded — an input that loses your words would be worse than no
@@ -48,28 +49,26 @@ export function HomeHall() {
   }
 
   return (
-    <LivingHall presence="resting">
-      <ArrivalStage stepKey="home-hall">
-        <div className={styles.hall}>
-          <h1 className={styles.question}>How can we help?</h1>
-          <p className={styles.body}>
-            Tell us what&apos;s going on, in your own words. Whatever it is — big or small.
-          </p>
-          <form onSubmit={handleSubmit} noValidate>
-            <FormField
-              id="home-need"
-              multiline
-              label="What brings you here today"
-              value={need}
-              onChange={setNeed}
-              placeholder="e.g. I need help finding a better job"
-            />
-            <Button type="submit" disabled={!need.trim()}>
-              Continue
-            </Button>
-          </form>
-        </div>
-      </ArrivalStage>
-    </LivingHall>
+    <ArrivalStage stepKey="home-hall">
+      <div className={styles.hall}>
+        <h1 className={styles.question}>How can we help?</h1>
+        <p className={styles.body}>
+          Tell us what&apos;s going on, in your own words. Whatever it is — big or small.
+        </p>
+        <form onSubmit={handleSubmit} noValidate>
+          <FormField
+            id="home-need"
+            multiline
+            label="What brings you here today"
+            value={need}
+            onChange={setNeed}
+            placeholder="e.g. I need help finding a better job"
+          />
+          <Button type="submit" disabled={!need.trim()}>
+            Continue
+          </Button>
+        </form>
+      </div>
+    </ArrivalStage>
   );
 }

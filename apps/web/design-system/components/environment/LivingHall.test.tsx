@@ -50,6 +50,75 @@ describe('LivingHall — the Hall as an environment', () => {
     expect(container.children).toHaveLength(1);
   });
 
+  /**
+   * The Hall is now mounted once, in the member layout, for the life of
+   * the session. AUREUS-201: "The Hall remains present throughout the
+   * member experience. Only the current interaction changes." Before
+   * this, the room was rebuilt on every navigation — which is what made
+   * it read as a background image rather than a place.
+   */
+  it('survives the member’s business changing entirely — the room is not rebuilt around them', () => {
+    const { container, rerender } = render(
+      <LivingHall>
+        <p>the first thing</p>
+      </LivingHall>,
+    );
+    const hallBefore = container.querySelector('[data-aureus-hall]');
+    const hearthBefore = container.querySelector('[data-presence]');
+
+    rerender(
+      <LivingHall>
+        <section>
+          <h2>something else entirely</h2>
+        </section>
+      </LivingHall>,
+    );
+
+    // Identity, not equality: the very same DOM nodes, never replaced.
+    expect(container.querySelector('[data-aureus-hall]')).toBe(hallBefore);
+    expect(container.querySelector('[data-presence]')).toBe(hearthBefore);
+    expect(screen.getByRole('heading', { name: 'something else entirely' })).toBeInTheDocument();
+  });
+
+  /**
+   * Founder ruling: "The Hearth shall never become fully obscured.
+   * Loading states. Navigation. Dialogs. Toasts. Panels. Errors.
+   * Transitions. All shall preserve visual continuity with the Hearth."
+   *
+   * Held structurally rather than by convention — the hearth is a
+   * *sibling* of the stage and precedes it, so no amount of content and
+   * no route can render over it. These assert the structure that makes
+   * that true, because an invariant nobody can accidentally break is the
+   * only kind that survives twenty other surfaces.
+   */
+  it('keeps the hearth beside the member’s business, never behind it', () => {
+    const { container } = render(
+      <LivingHall>
+        <p>content</p>
+      </LivingHall>,
+    );
+    const hearth = container.querySelector('[data-presence]')!;
+    const content = screen.getByText('content');
+
+    // The stage never contains the hearth, so it can never cover it.
+    expect(hearth.contains(content)).toBe(false);
+    expect(content.contains(hearth)).toBe(false);
+    // And the hearth is drawn first, so it is above in the room, not behind.
+    expect(hearth.compareDocumentPosition(content)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+  });
+
+  it('bounds the stage rather than letting it grow over the hearth', () => {
+    const stage = readFileSync(`${__dirname}/HallStage.module.css`, 'utf8');
+    // `flex: 0 1 auto` — may shrink, never grows — plus `min-height: 0`
+    // is what makes a long surface scroll *within* the room instead of
+    // pushing the hearth off the top of it.
+    expect(stage).toMatch(/flex:\s*0 1 auto/);
+    expect(stage).toMatch(/min-height:\s*0/);
+    expect(stage).toMatch(/overflow-y:\s*auto/);
+    // Never an overlay: an absolutely positioned stage could cover the hearth.
+    expect(stage).not.toMatch(/position:\s*(absolute|fixed)/);
+  });
+
   it('renders a complete, deliberate composition before the member’s hour is known', () => {
     // The server cannot read the member's clock. Whatever it renders must
     // already be a finished room, never an unlit one waiting on JS.

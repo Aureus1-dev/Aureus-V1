@@ -1,5 +1,6 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import { axe } from 'jest-axe';
+import { LivingHall } from '../environment';
 import { HomeHall } from './HomeHall';
 
 const push = jest.fn();
@@ -8,11 +9,13 @@ jest.mock('next/navigation', () => ({ useRouter: () => ({ push }) }));
 beforeEach(() => push.mockClear());
 
 describe('HomeHall — Home with no active mission is the Hall itself', () => {
-  it('renders the Hall as the surface, not a card inside one', () => {
+  it('does not raise a room of its own — the Hall is already standing', () => {
     const { container } = render(<HomeHall />);
-    // The Hall marks itself so the shell can go full-bleed around it.
-    expect(container.querySelector('[data-aureus-hall]')).toBeInTheDocument();
-    expect(container.firstElementChild).toHaveAttribute('data-aureus-hall');
+    // The Hall is mounted once, permanently, by the member layout. A
+    // second one nested inside it would give the member two floors and
+    // two hearths, so what Home contributes is only what stands in the
+    // room that is already there.
+    expect(container.querySelector('[data-aureus-hall]')).toBeNull();
   });
 
   it('opens with the question Aureus always opens with', () => {
@@ -29,7 +32,13 @@ describe('HomeHall — Home with no active mission is the Hall itself', () => {
   });
 
   it('keeps the Steward resting — nothing has been asked yet', () => {
-    const { container } = render(<HomeHall />);
+    // Presence belongs to the Hall now, so this asserts what the member
+    // actually meets: Home standing in the room, hearth at rest.
+    const { container } = render(
+      <LivingHall>
+        <HomeHall />
+      </LivingHall>,
+    );
     expect(container.querySelector('[data-presence]')).toHaveAttribute('data-presence', 'resting');
   });
 

@@ -1,14 +1,34 @@
-.shell {
+/*
+ * Transitional chrome over the Hall.
+ *
+ * The room is now the root surface, so this can no longer be a grid that
+ * *contains* the application — it is a fixed overlay sitting on top of
+ * it. `pointer-events: none` on the frame with `auto` restored on each
+ * region means the room beneath stays fully interactive everywhere the
+ * chrome is not actually drawn: the overlay spans the viewport, but only
+ * the header, the rail and the panel are really there.
+ */
+
+.chrome {
+  position: fixed;
+  inset: 0;
+  z-index: 5;
   display: grid;
   grid-template-columns: 1fr;
   grid-template-rows: auto auto 1fr;
-  grid-template-areas: 'header' 'nav' 'main';
-  min-height: 100vh;
+  grid-template-areas: 'header' 'nav' '.';
+  pointer-events: none;
+}
+
+.header,
+.nav,
+.panelRegion {
+  pointer-events: auto;
 }
 
 /* Hidden until the `wide` breakpoint (1440px) below — a docked column
    only appears once there is enough width to spare without squeezing
-   the conversation surface out of its intended ~70-80% share. */
+   the member's column out of its intended share. */
 .panelRegion {
   display: none;
 }
@@ -19,8 +39,9 @@
   align-items: center;
   justify-content: space-between;
   padding: var(--space-3) var(--space-4);
-  background: var(--color-surface-primary);
-  border-bottom: 1px solid var(--color-border);
+  background: color-mix(in srgb, var(--color-surface-primary) 86%, transparent);
+  backdrop-filter: blur(6px);
+  border-bottom: 1px solid var(--color-border-subtle);
 }
 
 .brand {
@@ -35,8 +56,9 @@
 
 .nav {
   grid-area: nav;
-  background: var(--color-surface-primary);
-  border-bottom: 1px solid var(--color-border);
+  background: color-mix(in srgb, var(--color-surface-primary) 86%, transparent);
+  backdrop-filter: blur(6px);
+  border-bottom: 1px solid var(--color-border-subtle);
   overflow-x: auto;
 }
 
@@ -104,37 +126,11 @@
   margin-top: var(--space-1);
 }
 
-.main {
-  grid-area: main;
-  padding: var(--space-6) var(--space-4);
-}
-
-/*
- * Wherever the Hall is rendered, it is the whole environment rather than
- * a region within a page. Padding here would frame it as a card sitting
- * on a generic background — exactly what AUREUS-201 forbids: "The Hall
- * itself is never represented as a floating panel."
- *
- * Driven by the Hall's own presence rather than by the route, because
- * whether a surface is the Hall is a question of state, not path:
- * `/home` is the Hall for a member with no mission yet and an ordinary
- * padded dashboard for a member with one. `:has()` lets the shell answer
- * that correctly without the page having to reach up and tell it.
- *
- * `[data-surface='arrival']` remains as a floor: on an engine without
- * `:has()`, the arrival route is still full-bleed, and Home degrades to
- * a padded Hall rather than a broken one.
- */
-.main[data-surface='arrival'],
-.main:has([data-aureus-hall]) {
-  padding: 0;
-}
-
 @media (min-width: 1024px) {
-  .shell {
+  .chrome {
     grid-template-columns: 240px minmax(0, 1fr);
     grid-template-rows: auto 1fr;
-    grid-template-areas: 'header header' 'nav main';
+    grid-template-areas: 'header header' 'nav .';
   }
 
   .nav {
@@ -156,26 +152,18 @@
   .navMore .navList {
     padding: var(--space-1) var(--space-2) var(--space-2);
   }
-
-  .main {
-    padding: var(--space-8);
-  }
-
-  .main[data-surface='arrival'],
-  .main:has([data-aureus-hall]) {
-    padding: 0;
-  }
 }
 
 @media (min-width: 1440px) {
-  .shell {
+  .chrome {
     grid-template-columns: 240px minmax(0, 1fr) 320px;
-    grid-template-areas: 'header header header' 'nav main panel';
+    grid-template-areas: 'header header header' 'nav . panel';
   }
 
   .panelRegion {
     display: block;
     grid-area: panel;
+    overflow-y: auto;
     padding: var(--space-8) var(--space-4) var(--space-8) 0;
   }
 }

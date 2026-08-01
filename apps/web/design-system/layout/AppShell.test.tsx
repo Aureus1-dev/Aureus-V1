@@ -37,9 +37,9 @@ function renderShell(roles: string[] = []) {
         <MemoryProvider>
           <ConversationProvider>
             <SignedInAs roles={roles}>
-              <AppShell>
-                <p>Content</p>
-              </AppShell>
+              {/* Chrome only: `<main>` moved into the Hall (`HallStage`),
+                  so the shell no longer wraps the application's content. */}
+              <AppShell />
             </SignedInAs>
           </ConversationProvider>
         </MemoryProvider>

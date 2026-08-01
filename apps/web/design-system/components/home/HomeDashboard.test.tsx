@@ -157,10 +157,11 @@ describe('HomeDashboard', () => {
     const { container } = renderHome();
 
     expect(await screen.findByRole('heading', { level: 1, name: 'How can we help?' })).toBeInTheDocument();
-    // The Hall is the surface, so the shell can render it full-bleed.
-    expect(container.querySelector('[data-aureus-hall]')).toBeInTheDocument();
+    // The Hall itself is mounted permanently by the member layout, so
+    // Home raises no room of its own — only what stands inside one.
+    expect(container.querySelector('[data-aureus-hall]')).toBeNull();
     // One calm affordance — no menu of rooms, no competing calls to action.
-    expect(container.querySelectorAll('#main-content a')).toHaveLength(0);
+    expect(container.querySelectorAll('a')).toHaveLength(0);
   });
 
   it(
