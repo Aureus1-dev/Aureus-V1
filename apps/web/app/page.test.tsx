@@ -113,7 +113,7 @@ describe('RootPage — identity continuity for a returning member', () => {
     ['a restored browser session'],
     ['a second tab that already rotated the token'],
     ['a browser restart'],
-  ])('never creates a new identity after %s — it explains and sends them to sign in', async (_scenario) => {
+  ])('never creates a new identity after %s — it explains and sends them to sign in', async () => {
     const establishGuestSession = jest.fn().mockResolvedValue(undefined);
     mockedUseSession.mockReturnValue({
       session: { isAuthenticated: false },
