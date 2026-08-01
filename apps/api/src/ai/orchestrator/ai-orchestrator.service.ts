@@ -347,7 +347,11 @@ function composeCombinedRationale(primary: PlanItemDto, supporting: PlanItemDto[
     return `${primaryLabel} is the strongest real option available right now — nothing else found fit closely enough to include alongside it.`;
   }
 
-  const supportingLabels = supporting.map((item) => item.categoryLabel).join(' and ');
-  const verb = supporting.length > 1 ? 'round out' : 'rounds out';
-  return `${primaryLabel} addresses this most directly; ${supportingLabels} ${verb} it — together they cover what's needed now and what helps beyond it.`;
+  // De-duplicated: two supporting items from the same category produced
+  // "Opportunity and Opportunity", which reads as a bug to the member.
+  const uniqueLabels = [...new Set(supporting.map((item) => item.categoryLabel))];
+  const supportingLabels = uniqueLabels.join(' and ');
+  // "round out it" was ungrammatical; the object belongs inside the phrasal verb.
+  const verb = uniqueLabels.length > 1 ? 'round it out' : 'rounds it out';
+  return `${primaryLabel} addresses this most directly; ${supportingLabels} ${verb} — together they cover what's needed now and what helps beyond it.`;
 }

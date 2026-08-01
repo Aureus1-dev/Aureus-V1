@@ -1,7 +1,6 @@
 'use client';
 
-import Link from 'next/link';
-import { Button } from '../../Button/Button';
+import { LinkButton } from '../../Button/LinkButton';
 import styles from './ExecutionStatusStep.module.css';
 
 export type PlanItemDecision = 'APPROVED' | 'DISMISSED' | 'ACCEPTED' | 'DECLINED';
@@ -36,7 +35,7 @@ export function ExecutionStatusStep({ decisions }: ExecutionStatusStepProps) {
 
   return (
     <div className={styles.step}>
-      <h2 className={styles.title}>Here&apos;s where things stand</h2>
+      <h1 className={styles.title}>Here&apos;s where things stand</h1>
 
       {accepted.length > 0 ? (
         <ul className={styles.decisionList}>
@@ -57,15 +56,9 @@ export function ExecutionStatusStep({ decisions }: ExecutionStatusStepProps) {
       </p>
 
       <div className={styles.actions}>
-        <Link href="/journey">
-          <Button>View my journey</Button>
-        </Link>
-        <Link href="/opportunities">
-          <Button variant="secondary">Browse opportunities</Button>
-        </Link>
-        <Link href="/conversation">
-          <Button variant="secondary">Talk to my steward</Button>
-        </Link>
+        <LinkButton href="/journey">View my journey</LinkButton>
+        <LinkButton href="/opportunities" variant="secondary">Browse opportunities</LinkButton>
+        <LinkButton href="/conversation" variant="secondary">Talk to my steward</LinkButton>
       </div>
     </div>
   );

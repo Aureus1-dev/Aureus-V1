@@ -1,11 +1,10 @@
 'use client';
 
 import { useEffect } from 'react';
-import Link from 'next/link';
 import { useJourney, useSession } from '../../../state';
 import { EmptyState } from '../EmptyState/EmptyState';
 import { LoadingState } from '../LoadingState/LoadingState';
-import { Button } from '../Button/Button';
+import { LinkButton } from '../Button/LinkButton';
 import { Greeting } from './Greeting';
 import { QuickActions } from './QuickActions';
 import { JourneySection } from './JourneySection';
@@ -35,6 +34,7 @@ export function HomeDashboard() {
   if (!session.isAuthenticated) {
     return (
       <EmptyState
+        titleAs="h1"
         title="Sign in to see your Home"
         description="Home is where your Aureus journey picks up each time you return."
       />
@@ -50,15 +50,25 @@ export function HomeDashboard() {
   }
 
   if (journeyState.goals.length === 0) {
+    // The Founder Pilot branch wrapped this empty state in `ArrivalRoom`
+    // to stop Home reading as one small card in an empty field. That was
+    // right when `ArrivalRoom` was a soft panel; it is wrong now that it
+    // is the full architectural Hall, because `/home` is not an arrival
+    // surface and keeps `AppShell`'s padding — so the room would render
+    // as a bordered panel inside a page, which AUREUS-201 forbids
+    // outright: "The Hall itself is never represented as a floating
+    // panel."
+    //
+    // The heading fix from that branch is kept. Whether Home's empty
+    // state should itself become a full-bleed Hall surface is a
+    // genuine experience decision, not an integration detail, so it is
+    // raised for the Founder rather than decided here.
     return (
       <EmptyState
+        titleAs="h1"
         title="Let's get started"
         description="You don't have a mission yet — begin at Welcome to set your first goal."
-        action={
-          <Link href="/welcome">
-            <Button>Go to Welcome</Button>
-          </Link>
-        }
+        action={<LinkButton href="/welcome">Go to Welcome</LinkButton>}
       />
     );
   }

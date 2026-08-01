@@ -142,3 +142,41 @@ describe('SessionContext', () => {
     expect(getApi().session.permissions).toEqual(['manage_pods']);
   });
 });
+
+describe('SessionProvider — a returning member whose session has ended', () => {
+  afterEach(() => {
+    clearTokens();
+    cleanup();
+    jest.clearAllMocks();
+  });
+
+  /**
+   * The cold-load path: a refresh token is on disk from a previous visit
+   * (browser restart, an expired token, or a second tab that already
+   * rotated it) and the server refuses it. Before this was handled,
+   * `sessionExpired` stayed false — the browser looked like a brand-new
+   * visitor, so RootPage and AuthGate silently minted a fresh guest and
+   * orphaned everything the member had already built.
+   */
+  it('reports the session as expired when a stored refresh token is refused on restore', async () => {
+    setTokens({ accessToken: fakeAccessToken({ sub: 'member-1' }), refreshToken: 'stale-token', expiresIn: 900 });
+    mockedAuthApi.refresh.mockRejectedValue(new Error('401'));
+
+    const { getApi } = renderHarness();
+
+    await waitFor(() => expect(getApi().isRestoring).toBe(false));
+    expect(getApi().sessionExpired).toBe(true);
+    expect(getApi().session.isAuthenticated).toBe(false);
+  });
+
+  it('does not report an expiry for a genuinely new visitor with no stored token', async () => {
+    clearTokens();
+
+    const { getApi } = renderHarness();
+
+    await waitFor(() => expect(getApi().isRestoring).toBe(false));
+    // No prior session existed, so nothing expired — this visitor must
+    // still get the ordinary guest welcome, not a sign-in wall.
+    expect(getApi().sessionExpired).toBe(false);
+  });
+});

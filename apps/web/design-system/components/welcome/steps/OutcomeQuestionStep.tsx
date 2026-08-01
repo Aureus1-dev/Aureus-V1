@@ -64,11 +64,12 @@ export function OutcomeQuestionStep({ onSubmit, submitting, error, onRetry }: Ou
 
   return (
     <div className={styles.step}>
-      <h2 className={styles.title}>What would help most right now?</h2>
+      <h1 className={styles.title}>What would help most right now?</h1>
       <p className={styles.body}>Tell us in your own words — Aureus will use this to find the most useful next step.</p>
       <form onSubmit={handleSubmit} noValidate>
         <FormField
           id="outcome-answer"
+          multiline
           label="What would help most"
           value={answer}
           onChange={setAnswer}
