@@ -13,6 +13,7 @@ import { ArrivalSessionFallback } from '../../design-system/components/arrival';
 import { GuestClaimBanner } from '../../design-system/components/guest';
 import {
   EnvironmentProvider,
+  PlaceProvider,
   HallFrame,
   LivingHall,
   HallStage,
@@ -76,21 +77,23 @@ import { V1_FEATURE_FLAGS } from '../../lib/config/v1-feature-scope';
 export default function MemberLayout({ children }: { children: React.ReactNode }) {
   return (
     <EnvironmentProvider>
-      <SkipLink targetId="main-content" />
-      <HallFrame above={<GuestClaimBanner />}>
-        <LivingHall chrome="shell">
-          <HallStage>
-            <AuthGate fallback={<ArrivalSessionFallback />}>{children}</AuthGate>
-          </HallStage>
-        </LivingHall>
-      </HallFrame>
-      <AppShell />
-      <SurfaceTracker />
-      {V1_FEATURE_FLAGS.voice ? <VoiceOrchestrator /> : null}
-      <TextInterfaceOrchestrator />
-      <StewardWorkspace />
-      <GlobalActionPalette />
-      <UrgentHelpAffordance />
+      <PlaceProvider>
+        <SkipLink targetId="main-content" />
+        <HallFrame above={<GuestClaimBanner />}>
+          <LivingHall chrome="shell">
+            <HallStage>
+              <AuthGate fallback={<ArrivalSessionFallback />}>{children}</AuthGate>
+            </HallStage>
+          </LivingHall>
+        </HallFrame>
+        <AppShell />
+        <SurfaceTracker />
+        {V1_FEATURE_FLAGS.voice ? <VoiceOrchestrator /> : null}
+        <TextInterfaceOrchestrator />
+        <StewardWorkspace />
+        <GlobalActionPalette />
+        <UrgentHelpAffordance />
+      </PlaceProvider>
     </EnvironmentProvider>
   );
 }

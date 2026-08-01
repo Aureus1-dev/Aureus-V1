@@ -59,13 +59,24 @@
    * ends up in the middle of the member's reading column.
    */
   container: hall / inline-size;
-  /* Safe areas: never let the notch or the home indicator crop the room's
-     content, while the architecture itself still runs to the edge. */
+  /*
+   * Safe areas: never let the notch or the home indicator crop the
+   * room's content, while the architecture itself still runs to the
+   * edge.
+   *
+   * Published as variables as well as applied, because the openings in
+   * the wall have to line up with the member's column and an absolutely
+   * positioned layer resolves against the *padding* box, not the content
+   * box. Anchoring them to the padding box put the left doorway's name
+   * underneath the member's own input.
+   */
+  --hall-pad-top: max(var(--space-8), env(safe-area-inset-top));
+  --hall-pad-right: max(var(--space-6), env(safe-area-inset-right));
+  --hall-pad-bottom: max(var(--space-8), env(safe-area-inset-bottom));
+  --hall-pad-left: max(var(--space-6), env(safe-area-inset-left));
   padding:
-    max(var(--space-8), env(safe-area-inset-top))
-    max(var(--space-6), env(safe-area-inset-right))
-    max(var(--space-8), env(safe-area-inset-bottom))
-    max(var(--space-6), env(safe-area-inset-left));
+    var(--hall-pad-top) var(--hall-pad-right)
+    var(--hall-pad-bottom) var(--hall-pad-left);
   background: var(--color-surface-sunken);
 }
 
@@ -164,13 +175,13 @@
  * quietly becomes a no-op and the room reclaims its full width.
  */
 .hall[data-chrome='shell'] {
-  padding-top: calc(
+  --hall-pad-top: calc(
     max(var(--space-6), env(safe-area-inset-top)) + var(--shell-chrome-top, 0px)
   );
-  padding-left: calc(
+  --hall-pad-left: calc(
     max(var(--space-6), env(safe-area-inset-left)) + var(--shell-chrome-left, 0px)
   );
-  padding-right: calc(
+  --hall-pad-right: calc(
     max(var(--space-6), env(safe-area-inset-right)) + var(--shell-chrome-right, 0px)
   );
 }
@@ -187,11 +198,10 @@
 @media (max-width: 640px) {
   .hall {
     justify-content: flex-start;
-    padding:
-      max(var(--space-10), env(safe-area-inset-top))
-      max(var(--space-4), env(safe-area-inset-right))
-      max(var(--space-8), env(safe-area-inset-bottom))
-      max(var(--space-4), env(safe-area-inset-left));
+    --hall-pad-top: max(var(--space-10), env(safe-area-inset-top));
+    --hall-pad-right: max(var(--space-4), env(safe-area-inset-right));
+    --hall-pad-bottom: max(var(--space-8), env(safe-area-inset-bottom));
+    --hall-pad-left: max(var(--space-4), env(safe-area-inset-left));
   }
 
   .centre {
@@ -207,7 +217,7 @@
 @media (max-height: 620px) {
   .hall {
     justify-content: flex-start;
-    padding-top: var(--space-6);
+    --hall-pad-top: var(--space-6);
   }
 }
 

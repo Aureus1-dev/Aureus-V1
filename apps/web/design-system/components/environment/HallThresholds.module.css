@@ -9,10 +9,26 @@
  * directly, they are almost nothing, which is correct for this phase.
  */
 
+/*
+ * The openings live in the wall, but they are placed relative to the
+ * member's column — so this layer spans the Hall's *content* box, not
+ * its padding box.
+ *
+ * An absolutely positioned child resolves `inset` against the padding
+ * box, which includes the room's padding. With the transitional chrome
+ * making that padding wildly asymmetric (a 240px rail one side, a 320px
+ * panel the other) the two boxes had different centres, and the left
+ * doorway's name landed underneath the member's own input. The Hall
+ * publishes its padding for exactly this.
+ */
 .thresholds {
   position: absolute;
-  inset: 0;
+  top: 0;
+  bottom: 0;
+  left: var(--hall-pad-left, 0px);
+  right: var(--hall-pad-right, 0px);
   z-index: 0;
+  /* Inert where there is no way through; the links below restore it. */
   pointer-events: none;
   /* Warm near-black, identical in both themes. See the note in
      `HallArchitecture.module.css`; declared per part because
@@ -37,6 +53,65 @@
 
 .left { left: calc(50% - 22rem - 4.5rem); }
 .right { right: calc(50% - 22rem - 4.5rem); }
+
+/*
+ * A way through.
+ *
+ * The whole opening is the target — the name is a label on the
+ * architecture, not a button beside it. At rest the name is nearly
+ * invisible, so the room still reads as a room; on hover or focus it
+ * comes up and the light beyond the opening warms, which is what a
+ * doorway does when you look toward it.
+ */
+.way {
+  position: absolute;
+  inset: 0;
+  pointer-events: auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  text-decoration: none;
+  color: var(--color-text-secondary);
+}
+
+/*
+ * The name of the place beyond.
+ *
+ * Wider than the opening it labels and centred on it, because the
+ * opening is a few rem across and "The Steward's Study" is not. Clipping
+ * a doorway's name to the width of the doorway is how "The Library"
+ * became "The Libra".
+ */
+.name {
+  position: absolute;
+  bottom: -1.75rem;
+  left: 50%;
+  transform: translateX(-50%);
+  width: max-content;
+  max-width: 9rem;
+  font-size: var(--font-size-xs);
+  line-height: var(--line-height-tight);
+  text-align: center;
+  opacity: 0.55;
+  transition: opacity var(--motion-duration-slow) var(--motion-easing-standard);
+}
+
+.way:hover .name,
+.way:focus-visible .name {
+  opacity: 1;
+}
+
+.way:hover .opening,
+.way:focus-visible .opening {
+  opacity: 0.55;
+}
+
+.way:focus-visible {
+  outline: 2px solid var(--color-focus-ring);
+  outline-offset: 4px;
+  border-radius: var(--radius-md);
+}
 
 .opening {
   position: absolute;

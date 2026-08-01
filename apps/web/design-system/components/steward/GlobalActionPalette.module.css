@@ -79,7 +79,10 @@
 
 .option {
   width: 100%;
-  display: block;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-4);
   padding: var(--space-3);
   border: none;
   border-radius: var(--radius-md);
@@ -89,6 +92,21 @@
   font-size: var(--font-size-sm);
   text-align: left;
   cursor: pointer;
+}
+
+/*
+ * The room a destination is in.
+ *
+ * Quiet on purpose: it orients rather than competes, and a member
+ * scanning for "Documents" should still read "Documents" first. It is
+ * part of the option's accessible name, so the same orientation reaches
+ * a screen reader — "Documents, The Library".
+ */
+.optionPlace {
+  flex: none;
+  color: var(--color-text-tertiary);
+  font-size: var(--font-size-xs);
+  white-space: nowrap;
 }
 
 .optionActive {

@@ -1,42 +1,84 @@
+'use client';
+
+import Link from 'next/link';
+import { usePlace } from './PlaceProvider';
 import styles from './HallThresholds.module.css';
 
 /**
- * Quiet openings at the edges of the Hall, suggesting that the house
- * continues beyond this room.
+ * The openings at the edges of the Hall — the ways through to the rest
+ * of the house.
  *
  * "From the Hall, members may naturally move toward places such as the
  * Steward's Study, the Library, the Circle, the Workshop, the
  * Opportunity Center, the Garden. These places should feel connected as
  * parts of one home, not as separate applications" (AUREUS-003
- * §ORGANIZATION).
+ * §ORGANIZATION). AUREUS-005 §INVISIBLE NAVIGATION: "The architecture
+ * itself should provide guidance."
  *
- * So these are not six navigation cards, and they are deliberately not
- * six equal calls to action — that would be a menu wearing an
- * architectural costume, and it would put six competing choices in front
- * of a member whose first question is whether anyone here can help them.
- * AUREUS-003 §VISUAL HIERARCHY is explicit that the Hall has "one
+ * ── Why these are not six doors ────────────────────────────────────
+ *
+ * They deliberately are not six equal calls to action. That would be a
+ * menu wearing an architectural costume, and it would put six competing
+ * choices in front of a member whose first question is whether anyone
+ * here can help them. AUREUS-003 §VISUAL HIERARCHY allows the Hall "one
  * unmistakable focal point"; that is the hearth, and these stay
  * peripheral to it.
  *
- * They carry no labels and no interaction in this phase. They exist so
- * that a member's eye registers, without being told, that there is more
- * house than this room — which is what makes "take me to the Library"
- * feel like a reasonable thing to say later. The Steward remains the
- * guide (AUREUS-005 §STEWARD-LED NAVIGATION); the walls only imply.
+ * So the room shows a way back to the places this member has actually
+ * been, most recent first, and nothing else. AUREA-002 §ORIENTATION:
+ * "Members are never given a feature tour… The Steward introduces spaces
+ * only when they become relevant." Before a member has been anywhere,
+ * the openings are exactly what they have always been — architecture,
+ * unlabelled and inert, suggesting only that there is more house than
+ * this room. That is what makes "take me to the Library" feel like a
+ * reasonable thing to say later.
  *
- * Entirely decorative and `aria-hidden`: a member using a screen reader
- * is not told about doorways they cannot yet walk through, because that
- * would be an announcement of something that does not work.
+ * Every other way to move is unaffected and remains primary: asking the
+ * Steward, and the Index. This is the third way, and the quietest.
+ *
+ * ── Accessibility ──────────────────────────────────────────────────
+ *
+ * An opening that leads somewhere is a real link with a real name, in
+ * the tab order, inside a labelled `<nav>`. An opening that leads
+ * nowhere is `aria-hidden` decoration, because announcing a doorway a
+ * member cannot walk through is worse than staying silent.
  */
 export function HallThresholds() {
+  const { visited } = usePlace();
+
+  if (visited.length === 0) {
+    return (
+      <div className={styles.thresholds} aria-hidden="true">
+        <div className={`${styles.threshold} ${styles.left}`}>
+          <div className={styles.opening} />
+        </div>
+        <div className={`${styles.threshold} ${styles.right}`}>
+          <div className={styles.opening} />
+        </div>
+      </div>
+    );
+  }
+
+  const [first, second] = visited;
+
   return (
-    <div className={styles.thresholds} aria-hidden="true">
+    <nav className={styles.thresholds} aria-label="Ways back">
       <div className={`${styles.threshold} ${styles.left}`}>
-        <div className={styles.opening} />
+        <Link href={first.entrance!} className={styles.way}>
+          <span className={styles.opening} aria-hidden="true" />
+          <span className={styles.name}>{first.name}</span>
+        </Link>
       </div>
       <div className={`${styles.threshold} ${styles.right}`}>
-        <div className={styles.opening} />
+        {second ? (
+          <Link href={second.entrance!} className={styles.way}>
+            <span className={styles.opening} aria-hidden="true" />
+            <span className={styles.name}>{second.name}</span>
+          </Link>
+        ) : (
+          <span className={styles.opening} aria-hidden="true" />
+        )}
       </div>
-    </div>
+    </nav>
   );
 }

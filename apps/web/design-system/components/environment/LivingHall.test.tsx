@@ -228,7 +228,10 @@ describe('HallArchitecture and HallThresholds', () => {
     expect(thresholds.textContent).toBe('');
   });
 
-  it('offers no interactive targets — thresholds are architecture in this phase, not navigation', () => {
+  it('offers no interactive targets until a threshold actually leads somewhere', () => {
+    // Outside a PlaceProvider — and before a member has been anywhere —
+    // the openings are architecture, not navigation. A doorway a member
+    // cannot walk through is worse announced than left silent.
     const { container } = render(<HallThresholds />);
     expect(container.querySelectorAll('a, button, [role="link"], [role="button"]')).toHaveLength(0);
   });

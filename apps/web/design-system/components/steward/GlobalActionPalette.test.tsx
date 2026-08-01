@@ -101,12 +101,53 @@ describe('GlobalActionPalette', () => {
     expect(screen.queryByRole('option', { name: 'Academy' })).not.toBeInTheDocument();
   });
 
+  it('gathers destinations by the room they belong to, in the canon\'s order', async () => {
+    // Founder ruling: "Routes are implementation details. Places are the
+    // member's mental model." A flat alphabet of routes is the software
+    // module list; the same routes under their rooms is a house.
+    renderPalette();
+    await userEvent.click(screen.getByRole('button', { name: /Open the command palette/ }));
+
+    const rooms = screen
+      .getAllByRole('option')
+      .map((option) => option.textContent ?? '')
+      .filter((text) => text.includes('The '))
+      .map((text) => text.slice(text.indexOf('The ')));
+
+    // Hall first, then Library, Study, Circle, Workshop, Opportunity
+    // Center — the order AUREA-001 lists them in. Housekeeping last.
+    const firstSeen = [...new Set(rooms)];
+    expect(firstSeen).toEqual([
+      'The Hall',
+      'The Library',
+      "The Steward's Study",
+      'The Circle',
+      'The Workshop',
+      'The Opportunity Center',
+    ]);
+  });
+
+  it('finds everything in a room when a member types the room\'s name', async () => {
+    renderPalette();
+    await userEvent.click(screen.getByRole('button', { name: /Open the command palette/ }));
+    await userEvent.type(screen.getByRole('combobox'), 'library');
+
+    // Nothing here is literally called "Library" — a member looking for
+    // the room should still find what is in it.
+    expect(screen.getByRole('option', { name: 'Documents The Library' })).toBeInTheDocument();
+    expect(screen.getByRole('option', { name: 'Resources The Library' })).toBeInTheDocument();
+  });
+
   it('navigates and closes when a navigation option is clicked', async () => {
     renderPalette();
     await userEvent.click(screen.getByRole('button', { name: /Open the command palette/ }));
     await userEvent.type(screen.getByRole('combobox'), 'Documents');
 
-    await userEvent.click(screen.getByRole('option', { name: 'Documents' }));
+    // Named by destination *and* by the room it is in: a member reads
+    // "Documents, The Library", not a bare route label. Founder ruling:
+    // "The member must experience seven understandable places, not
+    // twenty-one software modules."
+    await userEvent.click(screen.getByRole('option', { name: 'Documents The Library' }));
 
     expect(push).toHaveBeenCalledWith('/documents');
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();

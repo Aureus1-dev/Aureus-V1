@@ -2,6 +2,8 @@ export { LivingHall, HallFrame, useInsideHall } from './LivingHall';
 export type { LivingHallProps, HallFrameProps } from './LivingHall';
 export { EnvironmentProvider, useEnvironment } from './EnvironmentProvider';
 export type { HallEnvironmentValue } from './EnvironmentProvider';
+export { PlaceProvider, usePlace } from './PlaceProvider';
+export type { PlaceValue } from './PlaceProvider';
 export { HallStage } from './HallStage';
 export type { HallStageProps } from './HallStage';
 export { HallHearth } from './HallHearth';
