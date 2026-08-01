@@ -16,8 +16,11 @@
      `HallArchitecture.module.css`; declared per part because
      `ArrivalScene` composes the hearth without the Hall around it. */
   --hall-shade: color-mix(in srgb, var(--color-ember-core) 20%, black);
-  width: clamp(3.25rem, 5.5vw, 4.75rem);
-  height: clamp(4.75rem, 8.5vw, 7rem);
+  /* Sized by the camera (`LivingHall.module.css`), with a standalone
+     fallback for the opening sequence, which composes the hearth without
+     a Hall around it. */
+  width: var(--hearth-width, clamp(5.5rem, 10vw, 10rem));
+  height: var(--hearth-height, clamp(8rem, 14.5vw, 14.5rem));
   display: flex;
   align-items: center;
   justify-content: center;
@@ -60,26 +63,19 @@
 }
 
 /*
- * The light of Aureus. Seated low in the recess, the way a flame sits in
- * a hearth rather than hovering in the middle of it.
+ * Where the Aureus Mark sits inside the vessel.
+ *
+ * This is placement only — the Mark's own form, warmth and breath belong
+ * to `AureusLight`, so replacing the silhouette with final artwork
+ * touches one file and nothing here.
  */
 .light {
   position: absolute;
   left: 50%;
-  bottom: 14%;
-  width: 38%;
-  height: 46%;
+  bottom: 10%;
+  width: 62%;
+  height: 74%;
   transform: translateX(-50%);
-  border-radius: 50% 50% 44% 44% / 78% 78% 22% 22%;
-  background: radial-gradient(
-    ellipse at 50% 72%,
-    color-mix(in srgb, var(--color-ember-tip) 92%, white) 0%,
-    var(--color-ember-mid) 46%,
-    color-mix(in srgb, var(--color-ember-core) 76%, transparent) 78%,
-    transparent 100%
-  );
-  filter: blur(0.5px);
-  animation: hearth-breathe 7200ms ease-in-out infinite;
 }
 
 /*
@@ -167,9 +163,7 @@
 .hearth[data-presence='thinking'] .attendLine { opacity: 0.5; }
 
 /* SPEAKING — a gentle warm swell in the whole hearth, not a waveform. */
-.hearth[data-presence='speaking'] .light {
-  animation: hearth-breathe 3400ms ease-in-out infinite;
-}
+.hearth[data-presence='speaking'] .spill { animation-duration: 3400ms; }
 .hearth[data-presence='speaking'] .presence { opacity: 1; }
 .hearth[data-presence='speaking'] .attendLine { opacity: 0.75; width: 46%; }
 
@@ -200,7 +194,6 @@
 :global([data-time='afternoon']) .spill { opacity: 0.7; }
 :global([data-time='evening']) .spill { opacity: 1; }
 :global([data-time='night']) .spill { opacity: 1; transform: translate(-50%, -46%) scale(1.25); }
-:global([data-time='night']) .light { filter: blur(0.5px) saturate(1.06); }
 
 /* ── Reduced motion ────────────────────────────────────────────────── */
 /*

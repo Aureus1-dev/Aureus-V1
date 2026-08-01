@@ -183,11 +183,12 @@ describe('GlobalActionPalette', () => {
     // Two options exist for "Documents": the nav option, then "Ask your Steward".
     await userEvent.keyboard('{ArrowDown}{Enter}');
 
-    expect(push).not.toHaveBeenCalled();
+    // The ask goes to the conversation, not to the Documents route.
+    expect(push).not.toHaveBeenCalledWith('/documents');
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
   });
 
-  it('sends a free-text question to the Steward, including currently-visible interface context, and opens the workspace panel', async () => {
+  it('sends a free-text question to the Steward, with visible interface context, and takes the member to the conversation', async () => {
     mockedApi.createConversation.mockResolvedValue({ id: 'conv-1', userId: 'member-1', title: null, createdAt: 'x', updatedAt: 'x' });
     mockedApi.sendMessage.mockResolvedValue({
       id: 'msg-1', conversationId: 'conv-1', role: 'ASSISTANT', content: 'Here is your journey.', createdAt: 'x',
@@ -203,7 +204,11 @@ describe('GlobalActionPalette', () => {
       'token-123', 'conv-1', 'take me to my journey please',
       expect.stringContaining('Home.NextMission'),
     );
-    expect(screen.getByTestId('open-panels')).toHaveTextContent('steward-workspace');
+    // The docked Steward panel is gone — a permanent panel is a
+    // dashboard, which AUREA-001 forbids. An answer must not arrive
+    // somewhere the member is not standing, so the ask moves them into
+    // the conversation, in the Hall.
+    expect(push).toHaveBeenCalledWith('/conversation');
   });
 
   it('has no accessibility violations when open', async () => {

@@ -48,7 +48,7 @@
 /* ── Background: plaster rear wall ─────────────────────────────────── */
 .rearWall {
   position: absolute;
-  inset: 0 0 32% 0;
+  inset: 0 0 53% 0;
   background:
     linear-gradient(
       to bottom,
@@ -153,7 +153,7 @@
   position: absolute;
   left: 0;
   right: 0;
-  bottom: 32%;
+  bottom: 53%;
   height: 1px;
   background: linear-gradient(
     to right,
@@ -174,7 +174,7 @@
  */
 .floor {
   position: absolute;
-  inset: 68% 0 0 0;
+  inset: 47% 0 0 0;
   background:
     /* the pool of light the aperture casts across the stone */
     radial-gradient(
@@ -184,9 +184,9 @@
     ),
     linear-gradient(
       to bottom,
-      color-mix(in srgb, var(--color-surface-sunken) 94%, var(--hall-shade)) 0%,
-      color-mix(in srgb, var(--color-surface-sunken) 74%, var(--hall-shade)) 34%,
-      color-mix(in srgb, var(--color-surface-sunken) 66%, var(--hall-shade)) 100%
+      color-mix(in srgb, var(--color-surface-sunken) 90%, var(--hall-shade)) 0%,
+      color-mix(in srgb, var(--color-surface-sunken) 68%, var(--hall-shade)) 30%,
+      color-mix(in srgb, var(--color-surface-sunken) 52%, var(--hall-shade)) 100%
     );
 }
 
@@ -199,10 +199,52 @@
   background: repeating-linear-gradient(
     to bottom,
     transparent 0 2.5rem,
-    color-mix(in srgb, var(--hall-shade) 4%, transparent) 2.5rem calc(2.5rem + 1px)
+    color-mix(in srgb, var(--hall-shade) 6%, transparent) 2.5rem calc(2.5rem + 1px)
   );
   mask-image: linear-gradient(to bottom, transparent, black 55%);
   -webkit-mask-image: linear-gradient(to bottom, transparent, black 55%);
+}
+
+/*
+ * The one true perspective cue: two joints in the stone running from the
+ * corners nearest the member toward the hearth, converging at the
+ * vanishing point.
+ *
+ * AUREUS-BP-001 asks for depth built from "converging architectural
+ * lines" and warns against "flat full-screen gradients as the primary
+ * environment". Tonal separation alone was giving a wall and a lighter
+ * wall; two converging lines are what make a floor read as a floor and
+ * put the member *in* the room rather than in front of a picture of one.
+ *
+ * Drawn with `conic-gradient` rather than pseudo-elements so the pair
+ * shares one vanishing point by construction — at the hearth, on the
+ * horizon — instead of two rotations that have to be kept in agreement.
+ *
+ * Set wide, at about 38° either side of straight down, so they leave the
+ * frame near the outer thirds. A narrower pair converged into a funnel
+ * that ran straight through the member's reading column, which is the
+ * room making the interaction harder to read — the one thing it is never
+ * allowed to do.
+ */
+.floor::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background:
+    conic-gradient(
+      from 218deg at 50% 0%,
+      transparent 0deg,
+      color-mix(in srgb, var(--hall-shade) 12%, transparent) 0.35deg,
+      transparent 0.7deg
+    ),
+    conic-gradient(
+      from 141.3deg at 50% 0%,
+      transparent 0deg,
+      color-mix(in srgb, var(--hall-shade) 12%, transparent) 0.35deg,
+      transparent 0.7deg
+    );
+  mask-image: linear-gradient(to bottom, transparent 2%, black 45%, black 100%);
+  -webkit-mask-image: linear-gradient(to bottom, transparent 2%, black 45%, black 100%);
 }
 
 /* ── Foreground: timber frame ──────────────────────────────────────── */
@@ -389,9 +431,9 @@
     display: none;
   }
 
-  .rearWall { inset: 0 0 26% 0; }
-  .horizon { bottom: 26%; }
-  .floor { inset: 74% 0 0 0; }
+  .rearWall { inset: 0 0 42% 0; }
+  .horizon { bottom: 42%; }
+  .floor { inset: 58% 0 0 0; }
 }
 
 /* ── Forced colours ────────────────────────────────────────────────── */

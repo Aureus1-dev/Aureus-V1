@@ -50,7 +50,7 @@
   overflow: hidden;
   display: flex;
   flex-direction: column;
-  justify-content: center;
+  justify-content: flex-start;
   align-items: center;
   /*
    * Named container so the room's own parts can respond to the size of
@@ -70,6 +70,31 @@
    * box. Anchoring them to the padding box put the left doorway's name
    * underneath the member's own input.
    */
+  /*
+   * ── The camera ───────────────────────────────────────────────────
+   *
+   * AUREUS-BP-001 fixes the member's standing position: eye height
+   * around 1.55–1.7m, the Hearth's centre 36–40% from the top of the
+   * usable viewport, the horizon 44–50%. Those three numbers are the
+   * whole viewpoint, and they live here rather than being implied by
+   * three stylesheets that each guessed.
+   *
+   * The hearth scale is the blueprint's too — roughly 8–12% of the
+   * room's width on desktop, 12–16% on tablet, 18–24% on a phone.
+   * Measured in `cqi`, the *room's* inline size, because the responsive
+   * rule is that the camera moves closer as the room narrows, and the
+   * room is not the viewport.
+   */
+  --hearth-width: clamp(5rem, 10cqi, 10rem);
+  --hearth-height: calc(var(--hearth-width) * 1.45);
+  /*
+   * 38dvh, with a ceiling only so an unusually tall window does not push
+   * the hearth into the middle of the room. The ceiling was 20rem, which
+   * capped out at 1080px tall and put the hearth at 30% — outside the
+   * blueprint's band, and measurably so.
+   */
+  --hearth-centre: clamp(7rem, 38dvh, 30rem);
+
   --hall-pad-top: max(var(--space-8), env(safe-area-inset-top));
   --hall-pad-right: max(var(--space-6), env(safe-area-inset-right));
   --hall-pad-bottom: max(var(--space-8), env(safe-area-inset-bottom));
@@ -113,6 +138,16 @@
   display: flex;
   justify-content: center;
   width: 100%;
+  /*
+   * Drops the hearth to the camera's height. Flex centring put it
+   * wherever the content beneath it happened to leave room, which meant
+   * the room's one fixed point moved every time the stage changed —
+   * the opposite of a stable viewpoint.
+   */
+  margin-top: max(
+    0px,
+    calc(var(--hearth-centre) - var(--hall-pad-top) - var(--hearth-height) / 2)
+  );
 }
 
 /*
@@ -195,9 +230,26 @@
  * competing with it for vertical space. Height is never fixed, so a
  * virtual keyboard simply reduces the room.
  */
+/*
+ * The camera steps closer as the room narrows — the responsive rule of
+ * AUREUS-BP-001, expressed as the one thing that actually changes: how
+ * much of the room the hearth occupies. Roughly 10% of the room's width
+ * on desktop, 14% on a tablet, 21% on a phone.
+ */
+@media (max-width: 899px) {
+  .hall {
+    --hearth-width: max(5rem, 14cqi);
+  }
+}
+
+@media (max-width: 599px) {
+  .hall {
+    --hearth-width: max(4.5rem, 21cqi);
+  }
+}
+
 @media (max-width: 640px) {
   .hall {
-    justify-content: flex-start;
     --hall-pad-top: max(var(--space-10), env(safe-area-inset-top));
     --hall-pad-right: max(var(--space-4), env(safe-area-inset-right));
     --hall-pad-bottom: max(var(--space-8), env(safe-area-inset-bottom));
@@ -216,8 +268,10 @@
  */
 @media (max-height: 620px) {
   .hall {
-    justify-content: flex-start;
     --hall-pad-top: var(--space-6);
+    /* A landscape phone has no room for a standing camera; the member is
+       close to the hearth and the horizon rises with them. */
+    --hearth-centre: 26dvh;
   }
 }
 

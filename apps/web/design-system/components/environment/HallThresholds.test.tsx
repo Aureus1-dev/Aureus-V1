@@ -41,6 +41,7 @@ describe('HallThresholds — architecture that is navigation', () => {
   });
 
   it('opens a way back to a place the member has actually been', () => {
+    // Standing in the Hall, so no "way home" entry — only history.
     const { container } = renderAfterVisiting(['/home', '/journey', '/home']);
     const nav = screen.getByRole('navigation', { name: 'Ways back' });
     expect(nav).toBeInTheDocument();
@@ -65,7 +66,20 @@ describe('HallThresholds — architecture that is navigation', () => {
     const { container } = renderAfterVisiting(['/home', '/journey', '/resources', '/journey']);
     const names = [...container.querySelectorAll('a')].map((a) => a.textContent);
     expect(names).not.toContain('The Workshop');
-    expect(names).toEqual(['The Library']);
+    // The way home comes first from anywhere that is not the Hall, then
+    // the most recent other place they have been.
+    expect(names).toEqual(['The Hall', 'The Library']);
+  });
+
+  it('always offers the way home from anywhere that is not the Hall', () => {
+    // AUREUS-005 non-negotiable: "Members should always know how to
+    // return home." With the navigation rail gone, the architecture is
+    // what says so — including on a member's very first departure, when
+    // there is no history to return through yet.
+    const { container } = renderAfterVisiting(['/home', '/journey']);
+    const names = [...container.querySelectorAll('a')].map((a) => a.textContent);
+    expect(names[0]).toBe('The Hall');
+    expect(container.querySelector('a')).toHaveAttribute('href', '/home');
   });
 
   it('treats housekeeping as nowhere — a member does not walk to their settings', () => {

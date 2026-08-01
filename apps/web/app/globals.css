@@ -5,49 +5,6 @@ body {
   min-height: 100%;
 }
 
-/*
- * ── Transitional: the application chrome's own metrics ─────────────
- *
- * How much of the viewport `AppShell` occupies. The Hall insets its own
- * column by these so nothing a member needs to read sits behind the
- * rail, and it reads them rather than restating them — an inset guessed
- * against a header defined somewhere else is wrong the moment either
- * changes, and it was: the 69px header clipped the top of the hearth.
- *
- * Header: 44px brand + `--space-3` twice + a 1px rule. Below 1024 the
- * navigation is a horizontal band beneath it, so the chrome is two rows
- * deep; from 1024 the rail moves to the side, and from 1440 the Steward
- * panel docks opposite.
- *
- * These live here, rather than in `AppShell.module.css`, only because a
- * CSS module may not declare a rule on `:root`. They belong to the
- * chrome and are deleted with it; the Hall's own rule falls back to
- * zero, so removing this block needs no corresponding edit there.
- */
-:root {
-  --shell-chrome-top: 4.3125rem;
-  --shell-chrome-left: 0px;
-  --shell-chrome-right: 0px;
-}
-
-@media (max-width: 1023px) {
-  :root {
-    --shell-chrome-top: 10.9rem;
-  }
-}
-
-@media (min-width: 1024px) {
-  :root {
-    --shell-chrome-left: 240px;
-  }
-}
-
-@media (min-width: 1440px) {
-  :root {
-    --shell-chrome-right: 320px;
-  }
-}
-
 body {
   background: var(--color-surface-secondary);
   color: var(--color-text-primary);

@@ -1,4 +1,5 @@
 import type { StewardPresence } from './environment.types';
+import { AureusLight } from './AureusLight';
 import styles from './HallHearth.module.css';
 
 export interface HallHearthProps {
@@ -30,12 +31,17 @@ export interface HallHearthProps {
  *
  * ── What it is ────────────────────────────────────────────────────────
  *
- * "The Aureus Mark serves as the architectural centre of the Hall.
- * Everything else supports that centre" (AUREUS-003 §ARCHITECTURE), and
- * a centre made of light needs something to rest in — so the light sits
- * in a carved stone recess with a bronze lip, built into the rear wall
- * rather than floating in front of it. That is what makes it read as
- * architecture instead of an interface element.
+ * The vessel. Founder ruling: "The Aureus Mark is the symbolic and
+ * constitutional center. The Hearth is the architectural vessel through
+ * which the Aureus Mark is embodied in the Hall… The member should
+ * perceive one coherent central object: the Aureus Mark living within
+ * the Hearth."
+ *
+ * So this is not a hearth *and* a Mark. It is one thing: `AureusLight`
+ * set into a carved stone recess with a bronze lip, built into the rear
+ * wall rather than floating in front of it. The recess is what makes it
+ * read as architecture instead of an interface element; the light is
+ * what makes it Aureus.
  *
  * It breathes, slowly, because it is alive. It says one thing: we are
  * here.
@@ -62,8 +68,10 @@ export function HallHearth({ presence = 'resting' }: HallHearthProps) {
       {/* The recess cut into the wall, and the bronze lip that catches light. */}
       <div className={styles.recess}>
         <div className={styles.lip} />
-        {/* The light of Aureus itself. */}
-        <div className={styles.light} />
+        {/* The Aureus light itself — the institution's Mark, living here. */}
+        <div className={styles.light}>
+          <AureusLight />
+        </div>
         {/* The Steward's response within that light. */}
         <div className={styles.presence} />
       </div>

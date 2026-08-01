@@ -190,8 +190,14 @@ describe('HallHearth — the universal light, not the Member’s Mark', () => {
   });
 
   it('carries no member identity — it renders identically with no props at all', () => {
-    const first = render(<HallHearth />).container.innerHTML;
-    const second = render(<HallHearth />).container.innerHTML;
+    // The Aureus light's gradient needs an id unique to its render, or a
+    // second hearth on the same page inherits the first one's fill. That
+    // id is React's, not the member's, so it is normalised away: what
+    // this test is about is whether anything *about the member* reaches
+    // the light, and nothing does.
+    const withoutGeneratedIds = (html: string) => html.replace(/«[^»]*»/g, 'id');
+    const first = withoutGeneratedIds(render(<HallHearth />).container.innerHTML);
+    const second = withoutGeneratedIds(render(<HallHearth />).container.innerHTML);
     // Universal: two members, two renders, one light. A Mark could never
     // satisfy this test, which is exactly the point.
     expect(first).toBe(second);

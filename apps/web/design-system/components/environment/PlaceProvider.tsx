@@ -13,9 +13,19 @@ export interface PlaceValue {
    * they have been, which is what the architecture is allowed to show.
    */
   visited: PlaceDefinition[];
+  /**
+   * What the room offers as ways through, in order.
+   *
+   * The Hall comes first whenever the member is not standing in it.
+   * AUREUS-005 non-negotiable: "Members should always know how to return
+   * home" — and with the navigation rail gone, the architecture is what
+   * has to say so. Everything after it is somewhere they have actually
+   * been.
+   */
+  waysBack: PlaceDefinition[];
 }
 
-const EMPTY: PlaceValue = { current: null, visited: [] };
+const EMPTY: PlaceValue = { current: null, visited: [], waysBack: [] };
 
 const PlaceContext = createContext<PlaceValue>(EMPTY);
 
@@ -67,7 +77,14 @@ export function PlaceProvider({ children }: { children: ReactNode }) {
       .map((id) => PLACES[id])
       .filter((place) => place.entrance !== null)
       .slice(0, REMEMBERED);
-    return { current: currentId ? PLACES[currentId] : null, visited };
+
+    // Home first, always, when they are not already there. A member who
+    // has walked one room deep has no history to return through yet, and
+    // that is exactly the moment they most need the way back.
+    const homeFirst = currentId !== null && currentId !== 'hall' ? [PLACES.hall] : [];
+    const waysBack = [...homeFirst, ...visited.filter((p) => p.id !== 'hall')].slice(0, REMEMBERED);
+
+    return { current: currentId ? PLACES[currentId] : null, visited, waysBack };
   }, [currentId, visitedIds]);
 
   return <PlaceContext.Provider value={value}>{children}</PlaceContext.Provider>;

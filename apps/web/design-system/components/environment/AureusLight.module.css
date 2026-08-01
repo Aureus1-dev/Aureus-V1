@@ -1,0 +1,67 @@
+/*
+ * The Aureus light.
+ *
+ * The silhouette is a hard-edged path; what makes it read as *light*
+ * rather than as a shape is the blur and the glow it throws. AUREUS-006:
+ * "Light is Aureus' primary architectural material" — so the Mark is
+ * lit, not drawn.
+ */
+
+.light {
+  display: block;
+  width: 100%;
+  height: 100%;
+  /* Softened just enough that the edge is luminous rather than cut. Kept
+     small so the aperture stays recognisable at the size it reaches on a
+     phone. */
+  filter:
+    blur(0.06em)
+    drop-shadow(0 0 0.5em color-mix(in srgb, var(--color-ember-mid) 55%, transparent))
+    drop-shadow(0 0 1.6em color-mix(in srgb, var(--color-ember-core) 32%, transparent));
+  animation: aureus-breathe 7200ms ease-in-out infinite;
+}
+
+/*
+ * The one permitted motion: a slow warming and cooling, well under the
+ * threshold where it reads as animation. AUREUS-201 permits "breathing
+ * light" and forbids flashing; AUREUS-BP-001 permits "subtle Hearth
+ * breathing" and forbids pulsing controls. The difference is entirely in
+ * the amplitude and the period.
+ */
+@keyframes aureus-breathe {
+  0%,
+  100% {
+    opacity: 0.94;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+/*
+ * Reduced motion: the light stops moving and stays fully lit. A member
+ * who prefers reduced motion arrives in exactly the same room, at
+ * exactly the same brightness — they lose the breath, not the fire.
+ */
+@media (prefers-reduced-motion: reduce) {
+  :global(:root:not([data-reduced-motion='false'])) .light {
+    animation: none;
+    opacity: 1;
+  }
+}
+
+:global([data-reduced-motion='true']) .light {
+  animation: none;
+  opacity: 1;
+}
+
+/*
+ * Forced colours: the operating system owns colour, and a gradient-filled
+ * path would render as an unreadable blob. The Mark steps out rather than
+ * fighting for control of a decorative surface.
+ */
+@media (forced-colors: active) {
+  .light {
+    display: none;
+  }
+}

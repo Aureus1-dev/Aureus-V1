@@ -1,6 +1,5 @@
 export { SurfaceTracker } from './SurfaceTracker';
 export { TextInterfaceOrchestrator } from './TextInterfaceOrchestrator';
-export { StewardWorkspace } from './StewardWorkspace';
 export { GlobalActionPalette } from './GlobalActionPalette';
 export { StewardHome } from './StewardHome';
 export { NeedsYourDecision } from './NeedsYourDecision';

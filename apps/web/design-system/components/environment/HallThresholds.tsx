@@ -24,14 +24,18 @@ import styles from './HallThresholds.module.css';
  * unmistakable focal point"; that is the hearth, and these stay
  * peripheral to it.
  *
- * So the room shows a way back to the places this member has actually
- * been, most recent first, and nothing else. AUREA-002 §ORIENTATION:
+ * So the room shows the way home, and a way back to somewhere this
+ * member has actually been. Nothing else. AUREA-002 §ORIENTATION:
  * "Members are never given a feature tour… The Steward introduces spaces
- * only when they become relevant." Before a member has been anywhere,
- * the openings are exactly what they have always been — architecture,
- * unlabelled and inert, suggesting only that there is more house than
- * this room. That is what makes "take me to the Library" feel like a
- * reasonable thing to say later.
+ * only when they become relevant." Standing in the Hall with no history
+ * yet, the openings are exactly what they have always been —
+ * architecture, unlabelled and inert, suggesting only that there is more
+ * house than this room. That is what makes "take me to the Library" feel
+ * like a reasonable thing to say later.
+ *
+ * The way home is never absent while a member is elsewhere. AUREUS-005
+ * non-negotiable: "Members should always know how to return home." With
+ * the navigation rail gone, the architecture is what says so.
  *
  * Every other way to move is unaffected and remains primary: asking the
  * Steward, and the Index. This is the third way, and the quietest.
@@ -44,9 +48,9 @@ import styles from './HallThresholds.module.css';
  * member cannot walk through is worse than staying silent.
  */
 export function HallThresholds() {
-  const { visited } = usePlace();
+  const { waysBack } = usePlace();
 
-  if (visited.length === 0) {
+  if (waysBack.length === 0) {
     return (
       <div className={styles.thresholds} aria-hidden="true">
         <div className={`${styles.threshold} ${styles.left}`}>
@@ -59,7 +63,7 @@ export function HallThresholds() {
     );
   }
 
-  const [first, second] = visited;
+  const [first, second] = waysBack;
 
   return (
     <nav className={styles.thresholds} aria-label="Ways back">

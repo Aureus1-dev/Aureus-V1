@@ -2,14 +2,11 @@
 
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react';
 import { useRouter } from 'next/navigation';
-import { useConversation, useHighlightRegistry, useInterfaceState } from '../../../state';
+import { useConversation, useHighlightRegistry } from '../../../state';
 import { VisuallyHidden } from '../../accessibility';
 import { primarySurfaces } from '../../navigation/surfaces';
 import { PLACE_IDS, PLACES, placeForPath, type PlaceId } from '../../navigation/places';
-import { INTERFACE_ALLOWED_PANEL_IDS } from './interface-tool-allowlists';
 import styles from './GlobalActionPalette.module.css';
-
-const STEWARD_PANEL_ID = INTERFACE_ALLOWED_PANEL_IDS[0];
 
 type PaletteOption =
   | { kind: 'navigate'; id: string; label: string; href: string; place: string | null }
@@ -59,7 +56,6 @@ function placeRank(place: PlaceId | null): number {
 export function GlobalActionPalette() {
   const router = useRouter();
   const { activate, describeTargets } = useHighlightRegistry();
-  const { openPanel } = useInterfaceState();
   const conversation = useConversation();
   const [isOpen, setIsOpen] = useState(false);
   const [query, setQuery] = useState('');
@@ -139,7 +135,12 @@ export function GlobalActionPalette() {
       .join(', ');
     const content = query.trim();
     close();
-    openPanel(STEWARD_PANEL_ID);
+    // The docked Steward panel this used to open no longer exists — a
+    // permanent panel is a dashboard, which AUREA-001 forbids. So an ask
+    // goes where an ask belongs: the conversation, in the Hall. Without
+    // this the member's question would be answered somewhere they are
+    // not standing.
+    router.push('/conversation');
     await conversation.sendMessage(interfaceContext || undefined, content);
   }
 

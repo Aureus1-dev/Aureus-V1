@@ -1,11 +1,9 @@
-import { AppShell } from '../../design-system/layout';
 import { SkipLink } from '../../design-system/accessibility';
 import { AuthGate } from '../../design-system/components/auth';
 import { VoiceOrchestrator } from '../../design-system/components/voice';
 import {
   SurfaceTracker,
   TextInterfaceOrchestrator,
-  StewardWorkspace,
   GlobalActionPalette,
 } from '../../design-system/components/steward';
 import { UrgentHelpAffordance } from '../../design-system/components/urgent-help';
@@ -44,17 +42,26 @@ import { V1_FEATURE_FLAGS } from '../../lib/config/v1-feature-scope';
  * experience blank loading screens." It also means `<main>` exists in
  * every state, so the skip link always has somewhere to go.
  *
- * `AppShell` is now chrome only — header, navigation rail, Steward
- * panel — rendered *over* the room as a fixed overlay. It is
- * transitional and scheduled for removal; see its own documentation.
+ * ── What is no longer here ─────────────────────────────────────────
+ *
+ * `AppShell` — the header, the permanent navigation rail and the docked
+ * Steward panel — is gone, along with the floating Steward widget.
+ * AUREUS-BP-001: "Permanent left and right rails are prohibited… No
+ * permanent Steward sidebar remains." AUREA-001: "There are no feature
+ * dashboards." AUREUS-203 allows traditional navigation controls only as
+ * *secondary*, and a twenty-link rail is not secondary.
+ *
+ * Nothing became unreachable. Movement is now, in canon order: asking
+ * the Steward; the openings in the Hall's own wall, which always include
+ * the way home; and the Index, which is keyboard-first and lists every
+ * place. Everything the docked panel and the floating widget showed —
+ * the recent conversation, decisions waiting on the member — is rendered
+ * in full by `StewardHome`, in the Steward's Study.
  *
  * The invisible orchestrators are unchanged. `VoiceOrchestrator` and
  * `TextInterfaceOrchestrator` (both invisible) and `SurfaceTracker`
  * (invisible) are mounted once so Dynamic Screen Orchestration and
  * context continuity keep working no matter which surface is rendered.
- * `StewardWorkspace` remains the single floating Steward presence —
- * never two competing widgets — and is itself scheduled to be replaced
- * by the Steward's presence within the hearth.
  *
  * C2 — V1 Scope Lockdown: voice is cut for V1 entirely, so
  * `VoiceOrchestrator` is only mounted when the flag is on. It stays
@@ -80,17 +87,15 @@ export default function MemberLayout({ children }: { children: React.ReactNode }
       <PlaceProvider>
         <SkipLink targetId="main-content" />
         <HallFrame above={<GuestClaimBanner />}>
-          <LivingHall chrome="shell">
+          <LivingHall>
             <HallStage>
               <AuthGate fallback={<ArrivalSessionFallback />}>{children}</AuthGate>
             </HallStage>
           </LivingHall>
         </HallFrame>
-        <AppShell />
         <SurfaceTracker />
         {V1_FEATURE_FLAGS.voice ? <VoiceOrchestrator /> : null}
         <TextInterfaceOrchestrator />
-        <StewardWorkspace />
         <GlobalActionPalette />
         <UrgentHelpAffordance />
       </PlaceProvider>
