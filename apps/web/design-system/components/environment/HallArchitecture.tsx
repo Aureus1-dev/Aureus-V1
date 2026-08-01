@@ -2,61 +2,98 @@ import { AureusMark } from './AureusMark';
 import styles from './HallArchitecture.module.css';
 
 /**
- * The built fabric of the Hall: the surfaces a member is standing among
- * rather than looking at.
+ * The Hall's built fabric — a rotunda.
+ *
+ * The member stands inside a circular room. Above them a dome rises to
+ * an oculus, and the day comes in through it. Around them a drum wall
+ * carries the openings into the rest of the house. Beneath them a stone
+ * floor runs out in courses that converge on the Hearth.
  *
  * Every layer here is `aria-hidden` and empty. That is a hard rule, not
- * a convenience — AUREUS-006 §TECHNOLOGY asks that members "experience
- * stewardship rather than software", which cuts both ways: the room may
- * never carry information a member could miss, so nothing in this file
- * is allowed to mean anything. Read the Hall with a screen reader and it
- * is silent; the interaction on the stage is the whole content.
+ * a convention: the environment may never hold information a member
+ * could miss, and four tests assert it.
  *
- * Depth is built from stacked planes rather than perspective or 3D. A
- * back wall, a floor that meets it at a shallow horizon, a timber frame
- * standing in front of both, and an aperture onto the garden — four
- * layers at four distances is enough for the eye to read a room, and it
- * costs nothing but CSS. AUREUS-006 asks for materials that "age
- * gracefully" and light as the primary material; it does not ask for a
- * render.
+ * ── Why a rotunda, and why it is built this way ────────────────────
  *
- * This component holds no logic and no state. It is given a time of day
- * by `LivingHall` through a data attribute on the container and responds
- * to it entirely in CSS.
+ * This was a flat wall with a window in it, and it read as a picture of
+ * a room rather than a room. A flat wall gives the eye nothing to travel
+ * along: no near, no far, and no reason for the gaze to end up anywhere
+ * in particular.
+ *
+ * A rotunda answers all three at once, because a circle seen from inside
+ * *is* perspective. Every course in the floor and every rib in the dome
+ * converges on one point, and that point is the Hearth. The architecture
+ * then does the work the canon asks of it — "The eye is gently guided
+ * toward the Hearth" — without a single arrow, highlight or instruction.
+ *
+ * ── How it is drawn ────────────────────────────────────────────────
+ *
+ * Entirely in CSS, from gradients. No 3D engine, no canvas, no imagery;
+ * AUREUS-201 §PERFORMANCE forbids all three. The whole method is that a
+ * `conic-gradient` centred on the vanishing point gives true radial
+ * convergence, and a `repeating-radial-gradient` with two radii gives
+ * true elliptical recession — so one-point perspective is a native CSS
+ * primitive, provided every centre is the same point. Every centre in
+ * this file is the Hearth.
+ *
+ * Layers run back to front, and each is a plane the eye can separate:
+ * sky, dome, drum, floor, foreground. Nothing here is a background.
+ * Every part is the building.
  */
 export function HallArchitecture() {
   return (
     <div className={styles.architecture} aria-hidden="true">
-      {/* Background: the far wall, warm plaster catching the day's light. */}
-      <div className={styles.rearWall} />
+      {/* ── Above: the dome, and the day coming through it ──────── */}
+      <div className={styles.dome}>
+        {/* Ribs converging on the oculus, and the courses between them. */}
+        <div className={styles.domeRibs} />
+        <div className={styles.domeCourses} />
+        {/* The shadow the dome casts on itself, deepest at the springing. */}
+        <div className={styles.domeShade} />
+      </div>
+
+      {/* The oculus: the room's only daylight, and the reason it changes
+          through the day. */}
+      <div className={styles.oculus}>
+        <div className={styles.sky} />
+        {/* Growth over the rim, seen from beneath (AUREUS-006 §NATURE). */}
+        <div className={styles.oculusGrowth} />
+      </div>
+      {/* What the oculus throws down into the room. */}
+      <div className={styles.daylight} />
+
+      {/* ── Around: the drum wall the thresholds are cut into ───── */}
+      <div className={styles.drum}>
+        {/* Plaster over stone, curving away at both ends. */}
+        <div className={styles.drumCurve} />
+      </div>
+
       {/*
-        The Aureus Mark, set into that wall above the Hearth. It is part
-        of the building, not part of the fire: "permanently integrated
-        into the architecture behind the Hearth. It reflects the
-        firelight. It never becomes the fire."
+        The Aureus Mark, set into the drum on the room's centre line,
+        above and behind the Hearth: "permanently integrated into the
+        architecture behind the Hearth. It reflects the firelight. It
+        never becomes the fire."
       */}
       <div className={styles.markWall}>
         <AureusMark />
       </div>
-      {/* The opening onto the garden — the one place daylight actually enters. */}
-      <div className={styles.aperture}>
-        <div className={styles.apertureLight} />
-        <div className={styles.foliage} />
+
+      {/* Where the drum meets the floor. Curved, because the room is. */}
+      <div className={styles.springLine} />
+
+      {/* ── Beneath: the floor, in courses that converge ────────── */}
+      <div className={styles.floor}>
+        <div className={styles.floorCourses} />
+        <div className={styles.floorRays} />
+        {/* The pool the Hearth throws around itself, on the stone. */}
+        <div className={styles.hearthPool} />
       </div>
-      {/* Middle ground: where wall meets floor. A shallow horizon, low in
-          the frame, so the member reads as standing in the room rather
-          than looking down into a diagram of one. */}
-      <div className={styles.horizon} />
-      <div className={styles.floor} />
-      {/* Foreground: the timber structure nearest the member. Its uprights
-          are what give the room its scale. */}
-      <div className={styles.frame}>
-        <div className={styles.postLeft} />
-        <div className={styles.postRight} />
-        <div className={styles.beam} />
+
+      {/* ── Nearest the member: the piers they are standing between ── */}
+      <div className={styles.foreground}>
+        <div className={`${styles.pier} ${styles.pierLeft}`} />
+        <div className={`${styles.pier} ${styles.pierRight}`} />
       </div>
-      {/* Overhead wash — light implied above rather than a drawn ceiling. */}
-      <div className={styles.ceilingWash} />
     </div>
   );
 }

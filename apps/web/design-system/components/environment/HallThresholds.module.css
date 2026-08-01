@@ -1,91 +1,177 @@
 /*
- * Peripheral openings. Two, not six — the point is that the house
- * continues, not that a member should start choosing between rooms
- * before anyone has asked what they need.
+ * Six openings in the drum.
  *
- * Each is a shallow arch of slightly warmer light set into the rear
- * wall, well away from the centre and well below the hearth in
- * contrast. At a glance they read as "there is more that way". Looked at
- * directly, they are almost nothing, which is correct for this phase.
+ * The whole believability of these rests on one thing: a passage has
+ * *depth*. A shape filled with colour is a painted arch; a shape with a
+ * dark reveal around a lit interior is a doorway. So each bay is drawn
+ * in three parts — the thickness of the wall it is cut through, the room
+ * beyond it, and the light that room spills back onto the drum.
+ *
+ * They are placed around the room rather than along a line, and each
+ * carries its own foreshortening: the pair nearest the centre face the
+ * member almost squarely, the pair at the turn are steep, narrow slots.
+ * That difference is what says "circular" more than any curve could.
  */
 
-/*
- * The openings live in the wall, but they are placed relative to the
- * member's column — so this layer spans the Hall's *content* box, not
- * its padding box.
- *
- * An absolutely positioned child resolves `inset` against the padding
- * box, which includes the room's padding. With the transitional chrome
- * making that padding wildly asymmetric (a 240px rail one side, a 320px
- * panel the other) the two boxes had different centres, and the left
- * doorway's name landed underneath the member's own input. The Hall
- * publishes its padding for exactly this.
- */
 .thresholds {
   position: absolute;
-  top: 0;
-  bottom: 0;
+  /* Spans the drum, which is the band the openings are cut into. Ties to
+     the same custom properties the architecture uses, so the wall and
+     its doorways can never disagree about where the wall is. */
+  top: var(--spring, 30%);
+  bottom: calc(100% - var(--grade, 54%));
   left: var(--hall-pad-left, 0px);
   right: var(--hall-pad-right, 0px);
   z-index: 0;
-  /* Inert where there is no way through; the links below restore it. */
   pointer-events: none;
-  /* Warm near-black, identical in both themes. See the note in
-     `HallArchitecture.module.css`; declared per part because
-     `ArrivalScene` composes the thresholds without the Hall around
-     them. */
   --hall-shade: color-mix(in srgb, var(--color-ember-core) 20%, black);
 }
 
-/*
- * Anchored to the member's reading column, not to the edge of the room.
- * `.centre` is 44rem wide and centred, so half of it is 22rem from the
- * middle; the openings sit clear of that, in margin that actually
- * exists. Anchoring by a percentage of the room's width put them behind
- * the heading as soon as the room was narrower than the full viewport.
- */
-.threshold {
+/* ── A bay ─────────────────────────────────────────────────────────── */
+.bay {
   position: absolute;
-  top: 34%;
-  width: clamp(2rem, 4cqi, 3.5rem);
-  height: 26%;
+  bottom: 0;
+  /* Height and width are set per bay below; both fall off toward the
+     room's turn, which is the foreshortening. */
+  transform-origin: bottom center;
 }
 
-.left { left: calc(50% - 22rem - 4.5rem); }
-.right { right: calc(50% - 22rem - 4.5rem); }
+/*
+ * The reveal: the thickness of the wall the passage is cut through.
+ *
+ * Round-headed, and darker than the drum, because the inside faces of an
+ * opening are in shadow. The inset shadow is doing the actual work — it
+ * is the depth of the masonry, and without it this is a silhouette.
+ */
+.reveal {
+  position: absolute;
+  inset: 0;
+  display: block;
+  border-radius: 50% 50% 0 0 / 34% 34% 0 0;
+  overflow: hidden;
+  background: color-mix(in srgb, var(--hall-shade) 62%, var(--color-surface-sunken));
+  box-shadow:
+    inset 0 0.15rem 0.9rem color-mix(in srgb, var(--hall-shade) 72%, transparent),
+    inset 0.12rem 0 0.5rem color-mix(in srgb, var(--hall-shade) 55%, transparent),
+    inset -0.12rem 0 0.5rem color-mix(in srgb, var(--hall-shade) 55%, transparent);
+}
 
 /*
- * A way through.
- *
- * The whole opening is the target — the name is a label on the
- * architecture, not a button beside it. At rest the name is nearly
- * invisible, so the room still reads as a room; on hover or focus it
- * comes up and the light beyond the opening warms, which is what a
- * doorway does when you look toward it.
+ * The glimpse. Never a picture of the room — a wash of the light that
+ * room is lit by, and one or two masses suggesting what is in it. Enough
+ * to know somewhere is through there. Not enough to know what it looks
+ * like.
  */
+.beyond {
+  position: absolute;
+  inset: 8% 6% 0 6%;
+  border-radius: 50% 50% 0 0 / 30% 30% 0 0;
+  filter: blur(2px);
+  opacity: 0.62;
+}
+
+/* The Library: lamplight, and the vertical rhythm of shelves. */
+.beyond-library {
+  background:
+    repeating-linear-gradient(
+      to right,
+      color-mix(in srgb, var(--hall-shade) 46%, transparent) 0 3px,
+      transparent 3px 7px
+    ),
+    linear-gradient(
+      to bottom,
+      color-mix(in srgb, var(--color-ember-tip) 44%, var(--hall-shade)) 0%,
+      color-mix(in srgb, var(--color-ember-core) 42%, var(--hall-shade)) 100%
+    );
+}
+
+/* The Steward's Study: one low lamp, and quiet around it. */
+.beyond-study {
+  background: radial-gradient(
+    56% 44% at 50% 62%,
+    color-mix(in srgb, var(--color-ember-tip) 58%, var(--hall-shade)) 0%,
+    color-mix(in srgb, var(--hall-shade) 76%, var(--color-ember-core)) 72%,
+    var(--hall-shade) 100%
+  );
+}
+
+/* The Circle: several warm points, gathered — people, suggested only. */
+.beyond-circle {
+  background:
+    radial-gradient(22% 18% at 30% 58%, color-mix(in srgb, var(--color-ember-mid) 60%, transparent), transparent 70%),
+    radial-gradient(20% 16% at 62% 52%, color-mix(in srgb, var(--color-ember-mid) 52%, transparent), transparent 70%),
+    radial-gradient(18% 15% at 46% 70%, color-mix(in srgb, var(--color-ember-tip) 44%, transparent), transparent 72%),
+    linear-gradient(to bottom, color-mix(in srgb, var(--color-ember-core) 34%, var(--hall-shade)), var(--hall-shade));
+}
+
+/* The Workshop: a working light, cooler and more direct. */
+.beyond-workshop {
+  background: linear-gradient(
+    to bottom,
+    color-mix(in srgb, var(--color-information) 30%, var(--color-ember-tip)) 0%,
+    color-mix(in srgb, var(--color-ember-core) 40%, var(--hall-shade)) 62%,
+    var(--hall-shade) 100%
+  );
+}
+
+/* The Opportunity Center: daylight from windows, and movement. */
+.beyond-opportunity-center {
+  background:
+    radial-gradient(40% 52% at 68% 34%, color-mix(in srgb, var(--color-ember-tip) 70%, white), transparent 74%),
+    linear-gradient(to bottom, color-mix(in srgb, var(--color-ember-tip) 40%, white) 0%, color-mix(in srgb, var(--color-ember-core) 32%, var(--hall-shade)) 100%);
+}
+
+/* The Garden: open sky and green, the brightest of the six. */
+.beyond-garden {
+  background:
+    radial-gradient(50% 44% at 46% 74%, color-mix(in srgb, var(--color-journey) 72%, var(--hall-shade)), transparent 76%),
+    radial-gradient(38% 30% at 74% 82%, color-mix(in srgb, var(--color-journey) 56%, var(--hall-shade)), transparent 74%),
+    linear-gradient(to bottom, color-mix(in srgb, var(--color-information) 16%, white) 0%, color-mix(in srgb, var(--color-journey) 40%, white) 100%);
+}
+
+/* The Hall itself, seen from another room: its own firelight. */
+.beyond-hall {
+  background: radial-gradient(
+    50% 44% at 50% 76%,
+    color-mix(in srgb, var(--color-ember-tip) 76%, var(--hall-shade)) 0%,
+    color-mix(in srgb, var(--color-ember-core) 48%, var(--hall-shade)) 60%,
+    var(--hall-shade) 100%
+  );
+}
+
+/*
+ * A bay a member can actually walk through is lit: the room beyond comes
+ * up, and its light spills onto the drum around the opening the way an
+ * open door lights a wall.
+ */
+.bay[data-open='true'] .beyond {
+  opacity: 0.95;
+}
+
+.bay[data-open='true'] .reveal {
+  box-shadow:
+    inset 0 0.15rem 0.9rem color-mix(in srgb, var(--hall-shade) 60%, transparent),
+    0 0 2.5rem 0.4rem color-mix(in srgb, var(--color-ember-mid) 16%, transparent);
+}
+
+/* ── Walking through ───────────────────────────────────────────────── */
 .way {
   position: absolute;
   inset: 0;
   pointer-events: auto;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: flex-end;
+  display: block;
   text-decoration: none;
   color: var(--color-text-secondary);
 }
 
 /*
- * The name of the place beyond.
- *
- * Wider than the opening it labels and centred on it, because the
- * opening is a few rem across and "The Steward's Study" is not. Clipping
- * a doorway's name to the width of the doorway is how "The Library"
- * became "The Libra".
+ * The name of the place beyond, carved beneath the opening. Wider than
+ * the opening it labels and centred on it — clipping a doorway's name to
+ * the width of the doorway is how "The Library" became "The Libra".
  */
 .name {
   position: absolute;
-  bottom: -1.75rem;
+  top: calc(100% + 0.5rem);
   left: 50%;
   transform: translateX(-50%);
   width: max-content;
@@ -93,7 +179,7 @@
   font-size: var(--font-size-xs);
   line-height: var(--line-height-tight);
   text-align: center;
-  opacity: 0.55;
+  opacity: 0.6;
   transition: opacity var(--motion-duration-slow) var(--motion-easing-standard);
 }
 
@@ -102,9 +188,11 @@
   opacity: 1;
 }
 
-.way:hover .opening,
-.way:focus-visible .opening {
-  opacity: 0.55;
+.way:hover ~ .reveal,
+.way:focus-visible ~ .reveal {
+  box-shadow:
+    inset 0 0.15rem 0.9rem color-mix(in srgb, var(--hall-shade) 55%, transparent),
+    0 0 3.5rem 0.6rem color-mix(in srgb, var(--color-ember-mid) 26%, transparent);
 }
 
 .way:focus-visible {
@@ -113,66 +201,64 @@
   border-radius: var(--radius-md);
 }
 
-.opening {
-  position: absolute;
-  inset: 0;
-  border-radius: 50% 50% 0 0 / 30% 30% 0 0;
-  background: linear-gradient(
-    to bottom,
-    color-mix(in srgb, var(--color-surface-sunken) 88%, var(--hall-shade)),
-    color-mix(in srgb, var(--color-ember-core) 12%, var(--color-surface-sunken))
-  );
-  box-shadow:
-    inset 0 0.2rem 1rem color-mix(in srgb, var(--hall-shade) 30%, transparent),
-    0 0 2.5rem color-mix(in srgb, var(--color-ember-core) 10%, transparent);
-  opacity: 0.28;
+/* ── Placement around the drum ─────────────────────────────────────── */
+/*
+ * Six bays around a circle, seen from inside it. Width and height fall
+ * off toward the turn and the bays lean with the wall, so the pair at
+ * the edges read as being on the far side of the room rather than beside
+ * the member. The two nearest the centre are held clear of the reading
+ * column.
+ */
+.bayNearLeft,
+.bayNearRight {
+  width: 9%;
+  height: 76%;
 }
 
-/* A hint of light from whatever lies beyond, low in the opening. */
-.opening::after {
-  content: '';
-  position: absolute;
-  left: 20%;
-  right: 20%;
-  bottom: 0;
-  height: 22%;
-  background: linear-gradient(
-    to top,
-    color-mix(in srgb, var(--color-ember-tip) 26%, transparent),
-    transparent
-  );
+.bayLeft,
+.bayRight {
+  width: 7%;
+  height: 62%;
 }
 
-/* Evening and night: the rooms beyond are lit, so the openings read a
-   little warmer — the house is occupied. */
-:global([data-time='evening']) .opening { opacity: 0.4; }
-:global([data-time='night']) .opening { opacity: 0.36; }
+.bayFarLeft,
+.bayFarRight {
+  width: 4.6%;
+  height: 48%;
+}
+
+.bayNearLeft { left: 30%; transform: perspective(70rem) rotateY(16deg); }
+.bayLeft { left: 17%; transform: perspective(70rem) rotateY(30deg); }
+.bayFarLeft { left: 6%; transform: perspective(70rem) rotateY(46deg); }
+
+.bayNearRight { right: 30%; transform: perspective(70rem) rotateY(-16deg); }
+.bayRight { right: 17%; transform: perspective(70rem) rotateY(-30deg); }
+.bayFarRight { right: 6%; transform: perspective(70rem) rotateY(-46deg); }
 
 /*
- * The thresholds appear only when the Hall itself is wide enough to have
- * a periphery — a question about the room, not about the screen. Inside
- * the member shell the Hall is several hundred pixels narrower than the
- * viewport (a navigation column one side, the Steward's rail the other),
- * so a viewport media query kept them on at 1440px and put the left
- * opening directly behind the member's heading. A peripheral detail that
- * lands in the reading line is no longer peripheral, and AUREUS-006 asks
- * that beauty always serve stewardship.
- *
- * So the Hall is a query container (`LivingHall.module.css`, and
- * `ArrivalScene.module.css` for the opening sequence) and this measures
- * the room. In practice that means the openings show on wide displays
- * and on any surface where the Hall has the screen to itself; on a
- * laptop inside the member shell they stay away. Below the gate the Hall
- * still reads as a room — floor, wall, frame, hearth — without them.
+ * Narrow rooms. The member is standing much closer to the Hearth, so the
+ * far bays are behind them and out of frame — which is true of a real
+ * rotunda and is why this is a recomposition rather than a hiding of
+ * detail. The remaining pair stay reachable and named.
  */
-.thresholds {
-  display: none;
+@container hall (max-width: 900px) {
+  .bayFarLeft,
+  .bayFarRight {
+    display: none;
+  }
+
+  .bayLeft { left: 8%; }
+  .bayRight { right: 8%; }
 }
 
-@container hall (min-width: 1000px) {
-  .thresholds {
-    display: block;
+@container hall (max-width: 600px) {
+  .bayLeft,
+  .bayRight {
+    display: none;
   }
+
+  .bayNearLeft { left: 4%; width: 15%; }
+  .bayNearRight { right: 4%; width: 15%; }
 }
 
 @media (forced-colors: active) {

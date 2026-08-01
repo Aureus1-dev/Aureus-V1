@@ -20,7 +20,7 @@
      fallback for the opening sequence, which composes the hearth without
      a Hall around it. */
   width: var(--hearth-width, clamp(5.5rem, 10vw, 10rem));
-  height: var(--hearth-height, clamp(8rem, 14.5vw, 14.5rem));
+  height: calc(var(--hearth-height, 12rem) * 0.82);
   display: flex;
   align-items: center;
   justify-content: center;

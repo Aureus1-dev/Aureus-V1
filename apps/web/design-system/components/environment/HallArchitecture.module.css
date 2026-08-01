@@ -1,17 +1,34 @@
 /*
- * The Hall's built fabric.
+ * The rotunda.
+ *
+ * ── The one geometric idea ─────────────────────────────────────────
+ *
+ * There is a single vanishing point, and it is the Hearth. `--vp-x` and
+ * `--vp-y` name it, and every gradient in this file is centred there:
+ * the dome's ribs converge on it, the floor's courses recede toward it,
+ * the light pools on it. That is what makes the room read as one space
+ * instead of as stacked bands — and it means the composition can never
+ * drift out of agreement with itself, because there is only one number
+ * to change.
+ *
+ * The bands themselves are the three planes of any real interior:
+ *
+ *   0 → --spring     the dome, rising to the oculus
+ *   --spring → --grade   the drum wall, carrying the openings
+ *   --grade → bottom     the floor, running out to the member's feet
+ *
+ * The springing line sits above the Hearth and the grade below it, so
+ * the fire stands *on* the floor with wall behind it — the difference
+ * between a brazier in a room and a fireplace in a wall.
+ *
+ * Everything is drawn from gradients. No 3D engine, no canvas, no
+ * imagery: AUREUS-201 §PERFORMANCE forbids all three, and none of them
+ * would make the room more believable than convergence does.
  *
  * Materials are suggested, never photographed (AUREUS-006 §MATERIALS:
  * warm wood, stone, plaster, bronze, living greenery). Every colour
- * derives from a design token through `color-mix`, so light and dark
- * theme both work and a future brand palette applies without touching
- * this file.
- *
- * Time of day is inherited from `[data-time]` on the LivingHall root.
- * The base rules below are the neutral afternoon composition the server
- * renders — complete and deliberate on its own — and each time period
- * adjusts light direction, warmth and intensity across every plane
- * rather than tinting a single gradient.
+ * derives from a token through `color-mix`, so both themes work and a
+ * future brand palette applies without touching this file.
  */
 
 .architecture {
@@ -24,462 +41,437 @@
   /*
    * The Hall's shadow colour.
    *
-   * Depth in this room was originally mixed from `--color-text-primary`,
-   * which is near-black in the light theme and near-white in the dark
-   * one. Every cue built on it inverted with the theme: in dark mode the
-   * hearth's recess, the floor, the timber frame and the ceiling all
-   * came out *lighter* than the surfaces they were cut into, and the
-   * room was lit upside down.
+   * Depth here was originally mixed from `--color-text-primary`, which
+   * is near-black in the light theme and near-white in the dark one.
+   * Every cue built on it inverted with the theme, and in dark mode the
+   * room was lit upside down. Shadow is not a text colour. This is a
+   * warm near-black derived from the ember, so it still belongs to the
+   * palette and means the same thing in both themes: further from the
+   * light.
    *
-   * Shadow is not a text colour. This is a warm near-black derived from
-   * the ember, so it still belongs to the palette and a future brand
-   * change carries it — and it means the same thing in both themes:
-   * further from the light.
-   *
-   * Declared on each part rather than on the Hall, because the parts are
-   * also composed directly by `ArrivalScene` during the opening
-   * sequence. An inherited definition would be missing there, and a
-   * `color-mix` with an undefined custom property drops the whole
-   * declaration — the room would lose its surfaces mid-arrival.
+   * Declared per part, because `ArrivalScene` composes these directly
+   * without the Hall around them, and a `color-mix` with an undefined
+   * custom property drops the whole declaration — the room would lose
+   * its surfaces mid-arrival.
    */
   --hall-shade: color-mix(in srgb, var(--color-ember-core) 20%, black);
+
+  /* The vanishing point: the Hearth, and nothing else. */
+  --vp-x: 50%;
+  --vp-y: 47%;
+
+  /* Where the dome springs from the drum, and where the drum meets stone. */
+  --spring: 30%;
+  --grade: 54%;
+
+  /* The oculus, on the centre line, high in the dome. */
+  --oculus-y: 7%;
+
+  --plaster: color-mix(in srgb, var(--color-surface-tertiary) 82%, var(--color-ember-tip) 18%);
+  --stone: color-mix(in srgb, var(--color-surface-sunken) 88%, var(--hall-shade));
+  --bronze: color-mix(in srgb, var(--color-ember-mid) 64%, var(--hall-shade));
 }
 
-/* ── Background: plaster rear wall ─────────────────────────────────── */
-.rearWall {
+/* ── The dome ──────────────────────────────────────────────────────── */
+/*
+ * Curved by lighting rather than by shape: brightest at the oculus,
+ * falling away toward the springing, which is exactly how a real dome
+ * reads from beneath. A drawn arc would have given an outline; a
+ * gradient gives a surface.
+ */
+.dome {
   position: absolute;
-  inset: 0 0 53% 0;
+  inset: 0 0 calc(100% - var(--spring)) 0;
   background:
-    linear-gradient(
-      to bottom,
-      color-mix(in srgb, var(--color-surface-tertiary) 92%, var(--hall-shade) 8%),
-      color-mix(in srgb, var(--color-surface-tertiary) 74%, var(--color-surface-sunken))
+    radial-gradient(
+      120% 190% at var(--vp-x) var(--oculus-y),
+      color-mix(in srgb, var(--plaster) 62%, white) 0%,
+      color-mix(in srgb, var(--plaster) 94%, white) 30%,
+      color-mix(in srgb, var(--plaster) 84%, var(--hall-shade)) 70%,
+      color-mix(in srgb, var(--plaster) 66%, var(--hall-shade)) 100%
     );
 }
 
-/* Limewash: a broad, very low-contrast mottling so the wall reads as a
-   hand-finished surface rather than a flat fill. Two offset radial
-   washes, no image, no noise texture. */
-.rearWall::after {
-  content: '';
+/*
+ * Ribs, converging on the oculus because that is where a dome's ribs go.
+ *
+ * Deliberately almost invisible. Drawn at any real strength the dome
+ * became a wireframe and the room a 3D render — the exact opposite of
+ * handcrafted. What a member should get from these is a sense that the
+ * ceiling is curved and structured, arrived at without ever noticing a
+ * line. Sixteen ribs, at a twentieth of the shadow colour.
+ */
+.domeRibs {
+  position: absolute;
+  inset: 0;
+  background: repeating-conic-gradient(
+    from 0deg at var(--vp-x) var(--oculus-y),
+    transparent 0deg 21.6deg,
+    color-mix(in srgb, var(--hall-shade) 5%, transparent) 21.6deg 22.5deg
+  );
+  mask-image: radial-gradient(90% 150% at var(--vp-x) var(--oculus-y), transparent 12%, black 34%, black 100%);
+  -webkit-mask-image: radial-gradient(90% 150% at var(--vp-x) var(--oculus-y), transparent 12%, black 34%, black 100%);
+}
+
+/* The horizontal courses between them, closing as they recede toward the
+   oculus — the coffering that tells the eye how far away the top is. */
+.domeCourses {
+  position: absolute;
+  inset: 0;
+  background: repeating-radial-gradient(
+    88% 148% at var(--vp-x) var(--oculus-y),
+    transparent 0 5.4%,
+    color-mix(in srgb, var(--hall-shade) 4%, transparent) 5.4% 5.9%
+  );
+  mask-image: radial-gradient(90% 150% at var(--vp-x) var(--oculus-y), transparent 14%, black 40%);
+  -webkit-mask-image: radial-gradient(90% 150% at var(--vp-x) var(--oculus-y), transparent 14%, black 40%);
+}
+
+/* What the dome throws onto itself where it turns away from the light. */
+.domeShade {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    to bottom,
+    transparent 40%,
+    color-mix(in srgb, var(--hall-shade) 18%, transparent) 100%
+  );
+}
+
+/* ── The oculus ────────────────────────────────────────────────────── */
+/*
+ * The room's only daylight. Deliberately the single brightest thing in
+ * the frame *above* the Hearth, and small — a bright hole in a dome
+ * reads as sky; a large one reads as a missing roof.
+ */
+.oculus {
+  position: absolute;
+  left: var(--vp-x);
+  top: var(--oculus-y);
+  width: min(9%, 8rem);
+  aspect-ratio: 2.4;
+  transform: translate(-50%, -46%);
+  border-radius: 50%;
+  overflow: hidden;
+  /*
+   * A dome is thick, and the whole reason an oculus reads as a *hole* is
+   * that you can see the thickness. At 17% wide with a soft rim it read
+   * as a disc lying on the ceiling; small, bright, and ringed in heavy
+   * shadow, it reads as sky.
+   */
+  box-shadow:
+    inset 0 -0.5rem 1rem color-mix(in srgb, var(--hall-shade) 78%, transparent),
+    inset 0 0.3rem 0.6rem color-mix(in srgb, var(--hall-shade) 55%, transparent),
+    0 0 0 0.18rem color-mix(in srgb, var(--hall-shade) 46%, transparent),
+    0 1rem 8rem 2.5rem color-mix(in srgb, var(--color-ember-tip) 24%, transparent);
+}
+
+.sky {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    to bottom,
+    color-mix(in srgb, var(--color-information) 46%, white) 0%,
+    color-mix(in srgb, var(--color-information) 24%, white) 62%,
+    white 100%
+  );
+}
+
+/* Leaves over the rim, hanging into the opening. */
+.oculusGrowth {
   position: absolute;
   inset: 0;
   background:
-    radial-gradient(60% 50% at 22% 30%, color-mix(in srgb, var(--color-surface-primary) 42%, transparent), transparent 70%),
-    radial-gradient(50% 45% at 78% 55%, color-mix(in srgb, var(--color-surface-sunken) 34%, transparent), transparent 72%);
+    radial-gradient(26% 60% at 14% 4%, color-mix(in srgb, var(--color-journey) 62%, var(--hall-shade)), transparent 70%),
+    radial-gradient(20% 44% at 33% 0%, color-mix(in srgb, var(--color-journey) 48%, var(--hall-shade)), transparent 72%),
+    radial-gradient(24% 52% at 82% 2%, color-mix(in srgb, var(--color-journey) 56%, var(--hall-shade)), transparent 70%);
+  filter: blur(0.5px);
+  animation: leaves-stir 14s ease-in-out infinite;
 }
 
 /*
- * Where the Mark is set into the wall.
- *
- * Above the Hearth and behind it, on the room's centre line. Sized
- * against the hearth so the two always read as one composition — the
- * fire below, the enduring Mark above — rather than as two objects that
- * happen to share a wall.
- *
- * It sits in the architecture layer, so the hearth's own light and the
- * member's business both pass in front of it. Masonry is the furthest
- * thing back that still matters.
+ * The shaft of daylight. Widening as it falls, because that is what a
+ * shaft through a round opening does, and landing on the floor where the
+ * Hearth is.
+ */
+.daylight {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(
+    38% 62% at var(--vp-x) calc(var(--oculus-y) + 6%),
+    color-mix(in srgb, var(--color-ember-tip) 17%, transparent) 0%,
+    color-mix(in srgb, var(--color-ember-tip) 7%, transparent) 45%,
+    transparent 78%
+  );
+}
+
+/* ── The drum ──────────────────────────────────────────────────────── */
+/*
+ * The wall the openings are cut into. Curvature comes from tone, not
+ * outline: brightest on the centre line where the wall faces the member
+ * squarely, falling away at both ends where it turns out of view.
+ */
+.drum {
+  position: absolute;
+  inset: var(--spring) 0 calc(100% - var(--grade)) 0;
+  background: linear-gradient(
+    to bottom,
+    color-mix(in srgb, var(--plaster) 82%, var(--hall-shade)) 0%,
+    var(--plaster) 46%,
+    color-mix(in srgb, var(--plaster) 86%, var(--hall-shade)) 100%
+  );
+}
+
+.drumCurve {
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(
+      to right,
+      color-mix(in srgb, var(--hall-shade) 34%, transparent) 0%,
+      color-mix(in srgb, var(--hall-shade) 8%, transparent) 22%,
+      transparent 46%,
+      transparent 54%,
+      color-mix(in srgb, var(--hall-shade) 8%, transparent) 78%,
+      color-mix(in srgb, var(--hall-shade) 34%, transparent) 100%
+    ),
+    /* limewash: a hand-finished surface rather than a flat fill */
+    radial-gradient(56% 70% at 26% 34%, color-mix(in srgb, var(--color-surface-primary) 26%, transparent), transparent 74%);
+}
+
+/*
+ * Where the Mark is set into the drum: on the centre line, above the
+ * Hearth. Sized against the hearth so the two always read as one
+ * composition rather than two objects sharing a wall.
  */
 .markWall {
   position: absolute;
-  left: 50%;
-  /*
-   * High enough on the wall that the fire never crosses the inscription.
-   * At 1.6× the hearth's height the flame's tip reached the wordmark and
-   * "Helping people flourish. Forever." was legible only in the gaps
-   * between the flame's own movement.
-   */
-  top: calc(var(--hearth-centre, 38dvh) - var(--hearth-height, 12rem) * 1.5);
-  width: min(26%, calc(var(--hearth-width, 8rem) * 1.35));
+  left: var(--vp-x);
+  /* Clear of the flame. At `--spring` + 2.5% the ring landed directly on
+     the fire and the two read as one object, which is precisely the
+     conflation the Mark was separated from the Hearth to end. */
+  top: calc(var(--spring) - 13%);
+  width: min(7.5%, calc(var(--hearth-width, 8rem) * 0.8));
   transform: translateX(-50%);
   display: flex;
   justify-content: center;
 }
 
-/* On a phone the wall above the fire is the one thing there is no room
-   for. The Mark keeps its glyph and gives up the inscription rather than
-   crowding the hearth. */
-@container hall (max-width: 560px) {
-  .markWall {
-    width: calc(var(--hearth-width, 8rem) * 0.9);
-    top: calc(var(--hearth-centre, 38dvh) - var(--hearth-height, 12rem) * 1.55);
-  }
-}
-
-/* ── The aperture: the room's daylight source ──────────────────────── */
 /*
- * An opening, not a framed panel. It carries no stroke of its own: a
- * drawn outline is what turns a hole in a wall into a rectangle sitting
- * on top of one, and at this scale the eye reads the outline long before
- * it reads the light. What defines the aperture is the difference in
- * luminance across its edge and the glow it throws onto the plaster
- * around it — which is what defines a real one.
- *
- * The head is arched so it belongs to the same hand that carved the
- * hearth's recess.
+ * The springing line where drum meets floor. Curved: it is the near edge
+ * of a circle, so it rises at the sides. Drawn as the top edge of an
+ * ellipse rather than a straight rule, because a straight one is the
+ * single fastest way to tell the eye it is looking at a flat backdrop.
  */
-.aperture {
+.springLine {
   position: absolute;
-  top: 9%;
-  right: 10%;
-  /*
-   * Kept small on purpose. A window is the brightest thing in a real
-   * room, but the Hall has exactly one focal point and it is the hearth
-   * (AUREUS-003 §VISUAL HIERARCHY). At its previous size the daylight
-   * won the room; at this size it lights the room and lets the hearth
-   * hold it.
-   */
-  width: min(12%, 9rem);
-  height: 24%;
-  border-radius: 48% 48% var(--radius-sm) var(--radius-sm) / 24% 24% var(--radius-sm) var(--radius-sm);
-  overflow: hidden;
-  /*
-   * Only the light the opening spills back into the room. Two layers: a
-   * close halo on the plaster around the reveal, and a long throw down
-   * and into the room. Between them the edge dissolves rather than
-   * ending on a line.
-   */
+  left: -14%;
+  right: -14%;
+  top: calc(var(--grade) - 9%);
+  height: 18%;
+  border-radius: 50%;
+  border-top: 1px solid color-mix(in srgb, var(--hall-shade) 62%, transparent);
   box-shadow:
-    0 0 4rem 1.5rem color-mix(in srgb, var(--color-ember-tip) 22%, transparent),
-    0 3rem 9rem 1rem color-mix(in srgb, var(--color-ember-tip) 16%, transparent);
+    0 -0.6rem 1.6rem -0.4rem color-mix(in srgb, var(--hall-shade) 46%, transparent),
+    inset 0 0.5rem 1.4rem -0.5rem color-mix(in srgb, var(--hall-shade) 40%, transparent);
 }
 
-.apertureLight {
-  position: absolute;
-  inset: 0;
-  /* Always graded, never a flat fill — a flat rectangle of colour is a
-     swatch, and a graded one is sky. */
-  background: linear-gradient(
-    to bottom,
-    color-mix(in srgb, var(--color-ember-tip) 34%, white) 0%,
-    color-mix(in srgb, var(--color-ember-tip) 62%, white) 52%,
-    color-mix(in srgb, var(--color-ember-tip) 88%, white) 100%
-  );
-  box-shadow: 0 0 4rem 1rem color-mix(in srgb, var(--color-ember-tip) 40%, transparent);
-}
-
-
-/* Living greenery beyond the opening (AUREUS-006 §NATURE), read as soft
-   masses rather than drawn plants. */
-.foliage {
-  position: absolute;
-  inset: 38% -4% -6% -4%;
-  background:
-    radial-gradient(42% 60% at 22% 100%, color-mix(in srgb, var(--color-journey) 52%, transparent), transparent 72%),
-    radial-gradient(38% 52% at 62% 100%, color-mix(in srgb, var(--color-journey) 40%, transparent), transparent 74%),
-    radial-gradient(30% 44% at 88% 100%, color-mix(in srgb, var(--color-journey) 32%, transparent), transparent 76%);
-  filter: blur(1px);
-}
-
-/* The sill. Without it the greenery ends on a straight cut at the bottom
-   of the opening, which is the one place the eye reads a rectangle. */
-.aperture::after {
-  content: '';
-  position: absolute;
-  inset: auto 0 0 0;
-  height: 22%;
-  background: linear-gradient(
-    to top,
-    color-mix(in srgb, var(--hall-shade) 34%, transparent),
-    transparent
-  );
-}
-
-/* ── Middle ground: horizon and floor ──────────────────────────────── */
-.horizon {
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 53%;
-  height: 1px;
-  background: linear-gradient(
-    to right,
-    transparent,
-    color-mix(in srgb, var(--hall-shade) 34%, transparent) 14%,
-    color-mix(in srgb, var(--hall-shade) 34%, transparent) 86%,
-    transparent
-  );
-}
-
+/* ── The floor ─────────────────────────────────────────────────────── */
 /*
- * The stone floor. It starts almost at the wall's own tone and deepens
- * toward the viewer, so the wall/floor junction is a change of plane
- * rather than a drawn band: a hard horizontal edge at this height cuts
- * straight through the member's reading line, and the room is never
- * allowed to make the interaction harder to read (AUREUS-003 §VISUAL
- * HIERARCHY).
+ * Stone, deepening toward the member because that is the part nearest
+ * them and furthest from the oculus.
  */
 .floor {
   position: absolute;
-  inset: 47% 0 0 0;
-  background:
-    /* the pool of light the aperture casts across the stone */
-    radial-gradient(
-      70% 120% at 72% 0%,
-      color-mix(in srgb, var(--color-ember-tip) 20%, transparent),
-      transparent 70%
-    ),
-    linear-gradient(
-      to bottom,
-      color-mix(in srgb, var(--color-surface-sunken) 90%, var(--hall-shade)) 0%,
-      color-mix(in srgb, var(--color-surface-sunken) 68%, var(--hall-shade)) 30%,
-      color-mix(in srgb, var(--color-surface-sunken) 52%, var(--hall-shade)) 100%
-    );
-}
-
-/* Stone joints: a few wide, very faint bands receding toward the
-   horizon. Enough to establish a ground plane, not a tiled pattern. */
-.floor::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: repeating-linear-gradient(
+  inset: var(--grade) 0 0 0;
+  background: linear-gradient(
     to bottom,
-    transparent 0 2.5rem,
-    color-mix(in srgb, var(--hall-shade) 6%, transparent) 2.5rem calc(2.5rem + 1px)
+    color-mix(in srgb, var(--stone) 88%, var(--color-surface-sunken)) 0%,
+    var(--stone) 30%,
+    color-mix(in srgb, var(--stone) 72%, var(--hall-shade)) 100%
   );
-  mask-image: linear-gradient(to bottom, transparent, black 55%);
-  -webkit-mask-image: linear-gradient(to bottom, transparent, black 55%);
 }
 
 /*
- * The one true perspective cue: two joints in the stone running from the
- * corners nearest the member toward the hearth, converging at the
- * vanishing point.
- *
- * AUREUS-BP-001 asks for depth built from "converging architectural
- * lines" and warns against "flat full-screen gradients as the primary
- * environment". Tonal separation alone was giving a wall and a lighter
- * wall; two converging lines are what make a floor read as a floor and
- * put the member *in* the room rather than in front of a picture of one.
- *
- * Drawn with `conic-gradient` rather than pseudo-elements so the pair
- * shares one vanishing point by construction — at the hearth, on the
- * horizon — instead of two rotations that have to be kept in agreement.
- *
- * Set wide, at about 38° either side of straight down, so they leave the
- * frame near the outer thirds. A narrower pair converged into a funnel
- * that ran straight through the member's reading column, which is the
- * room making the interaction harder to read — the one thing it is never
- * allowed to do.
+ * Concentric courses, laid around the Hearth. Ellipses rather than
+ * circles, and closing up as they approach the vanishing point: that
+ * spacing *is* the perspective, and it is what tells the eye how far
+ * away the far side of the room is.
  */
-.floor::after {
-  content: '';
+.floorCourses {
   position: absolute;
   inset: 0;
-  background:
-    conic-gradient(
-      from 218deg at 50% 0%,
-      transparent 0deg,
-      color-mix(in srgb, var(--hall-shade) 12%, transparent) 0.35deg,
-      transparent 0.7deg
-    ),
-    conic-gradient(
-      from 141.3deg at 50% 0%,
-      transparent 0deg,
-      color-mix(in srgb, var(--hall-shade) 12%, transparent) 0.35deg,
-      transparent 0.7deg
-    );
-  mask-image: linear-gradient(to bottom, transparent 2%, black 45%, black 100%);
-  -webkit-mask-image: linear-gradient(to bottom, transparent 2%, black 45%, black 100%);
+  background: repeating-radial-gradient(
+    92% 210% at var(--vp-x) -14%,
+    transparent 0 6.2%,
+    color-mix(in srgb, var(--hall-shade) 5%, transparent) 6.2% 6.8%
+  );
+  mask-image: linear-gradient(to bottom, transparent 1%, black 22%, black 100%);
+  -webkit-mask-image: linear-gradient(to bottom, transparent 1%, black 22%, black 100%);
 }
 
-/* ── Foreground: timber frame ──────────────────────────────────────── */
-.frame {
+/*
+ * The radial joints between them. Every one points at the Hearth, so
+ * wherever a member's eye lands on the floor, the stone sends it back to
+ * the fire.
+ */
+.floorRays {
+  position: absolute;
+  inset: 0;
+  background: repeating-conic-gradient(
+    from 188deg at var(--vp-x) -14%,
+    transparent 0deg 5.6deg,
+    color-mix(in srgb, var(--hall-shade) 3.5%, transparent) 5.6deg 6deg
+  );
+  mask-image: linear-gradient(to bottom, transparent 3%, black 34%, black 100%);
+  -webkit-mask-image: linear-gradient(to bottom, transparent 3%, black 34%, black 100%);
+}
+
+/* The pool of firelight on the stone. The floor is brightest where the
+   Hearth stands, and the light falls off with distance. */
+.hearthPool {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(
+    56% 46% at var(--vp-x) 2%,
+    color-mix(in srgb, var(--color-ember-mid) 20%, transparent) 0%,
+    color-mix(in srgb, var(--color-ember-core) 9%, transparent) 42%,
+    transparent 76%
+  );
+}
+
+/* ── The foreground ────────────────────────────────────────────────── */
+/*
+ * The two piers the member is standing between. They are the nearest
+ * thing in the room and they are cropped by the frame, which is the
+ * cheapest and most convincing depth cue there is: something can only be
+ * cut off by the edge of your vision if you are inside the space with
+ * it.
+ */
+.foreground {
   position: absolute;
   inset: 0;
 }
 
-.postLeft,
-.postRight {
+.pier {
   position: absolute;
-  top: 0;
-  bottom: 0;
-  width: clamp(0.5rem, 1.6vw, 1.25rem);
+  top: calc(var(--spring) - 13%);
+  bottom: -2%;
+  width: clamp(1.5rem, 4.5cqi, 4.5rem);
   background: linear-gradient(
     to right,
-    color-mix(in srgb, var(--color-ember-core) 46%, var(--hall-shade) 32%),
-    color-mix(in srgb, var(--color-ember-core) 30%, var(--hall-shade) 22%)
+    color-mix(in srgb, var(--hall-shade) 72%, var(--bronze)) 0%,
+    color-mix(in srgb, var(--bronze) 62%, var(--hall-shade)) 42%,
+    color-mix(in srgb, var(--hall-shade) 58%, var(--bronze)) 100%
   );
-  box-shadow: 0 0 4rem color-mix(in srgb, var(--hall-shade) 30%, transparent);
+  box-shadow: 0 0 5rem color-mix(in srgb, var(--hall-shade) 45%, transparent);
 }
 
-.postLeft { left: 4%; }
-.postRight { right: 4%; }
-
-.beam {
-  position: absolute;
-  top: 0;
-  left: 4%;
-  right: 4%;
-  height: clamp(0.5rem, 1.4vw, 1.1rem);
-  background: linear-gradient(
-    to bottom,
-    color-mix(in srgb, var(--color-ember-core) 48%, var(--hall-shade) 34%),
-    color-mix(in srgb, var(--color-ember-core) 28%, var(--hall-shade) 20%)
-  );
+.pierLeft {
+  left: 0;
+  /* Leaning in with the perspective — a vertical pier at the edge of a
+     round room would be the one straight line that gives the trick
+     away. */
+  transform: perspective(90rem) rotateY(28deg);
+  transform-origin: left center;
 }
 
-.ceilingWash {
-  position: absolute;
-  inset: 0 0 auto 0;
-  height: 26%;
-  background: linear-gradient(
-    to bottom,
-    color-mix(in srgb, var(--hall-shade) 12%, transparent),
-    transparent
-  );
+.pierRight {
+  right: 0;
+  transform: perspective(90rem) rotateY(-28deg);
+  transform-origin: right center;
 }
 
-/* ── Time of day, across the whole environment ─────────────────────── */
+@keyframes leaves-stir {
+  0%, 100% { transform: translateX(0) scale(1); }
+  50% { transform: translateX(-0.6%) scale(1.015); }
+}
 
-/* Morning: hopeful. High, clean light entering from the aperture side. */
-:global([data-time='morning']) .apertureLight {
-  background: linear-gradient(
-    to bottom,
-    color-mix(in srgb, var(--color-information) 18%, white) 0%,
-    color-mix(in srgb, var(--color-information) 8%, white) 44%,
-    color-mix(in srgb, var(--color-ember-tip) 52%, white) 100%
-  );
-}
-:global([data-time='morning']) .floor {
-  background:
-    radial-gradient(64% 120% at 74% 0%, color-mix(in srgb, var(--color-ember-tip) 26%, transparent), transparent 68%),
-    linear-gradient(to bottom, color-mix(in srgb, var(--color-surface-sunken) 88%, var(--color-surface-primary)), var(--color-surface-sunken));
-}
-:global([data-time='morning']) .ceilingWash { height: 20%; }
-
-/* Afternoon: capable and even. This is the base composition above. */
-
-/* Evening: warm and low. Light rakes in from the side, long across the floor. */
-:global([data-time='evening']) .apertureLight {
-  background: linear-gradient(
-    to bottom,
-    color-mix(in srgb, var(--color-ember-mid) 46%, white) 0%,
-    color-mix(in srgb, var(--color-ember-mid) 88%, white) 46%,
-    color-mix(in srgb, var(--color-ember-core) 92%, white) 100%
-  );
-}
-:global([data-time='evening']) .floor {
-  background:
-    radial-gradient(90% 140% at 86% 6%, color-mix(in srgb, var(--color-ember-mid) 24%, transparent), transparent 72%),
-    linear-gradient(to bottom, color-mix(in srgb, var(--color-surface-sunken) 94%, var(--hall-shade)), var(--color-surface-sunken));
-}
-:global([data-time='evening']) .rearWall::after {
-  background:
-    radial-gradient(58% 48% at 74% 34%, color-mix(in srgb, var(--color-ember-mid) 20%, transparent), transparent 72%),
-    radial-gradient(50% 45% at 20% 60%, color-mix(in srgb, var(--color-surface-sunken) 40%, transparent), transparent 74%);
-}
-:global([data-time='evening']) .ceilingWash { height: 32%; }
-
-/* Night: still and safe. The daylight has gone; the hearth carries the
-   room. Never ominous — the walls stay warm and the floor stays legible,
-   because a member arriving at 2am is often the one who most needs the
-   place to feel safe. */
+/* ── Time of day ───────────────────────────────────────────────────── */
 /*
- * At night the aperture stops being a light source and becomes simply
- * the outside, seen from within: darker than the plaster in both themes,
- * with a little cool sky high in the opening so it reads as night rather
- * than as a hole. A thin rim of moonlight along the head of the arch
- * keeps that edge alive now that nothing is drawn around it, and the
- * room's own hearthlight catches the sill.
+ * The oculus is the room's clock. Light changes; layout never does, and
+ * nothing here may reduce legibility (AUREUS-BP-001 §LIGHT).
  */
-:global([data-time='night']) .apertureLight {
-  background: linear-gradient(
-    to bottom,
-    color-mix(in srgb, var(--color-information) 26%, var(--hall-shade)) 0%,
-    color-mix(in srgb, var(--hall-shade) 54%, var(--color-surface-sunken)) 46%,
-    color-mix(in srgb, var(--hall-shade) 68%, var(--color-surface-sunken)) 100%
-  );
-  box-shadow:
-    inset 0 0.08rem 0 color-mix(in srgb, var(--color-information) 34%, transparent),
-    inset 0 -1.5rem 2.5rem -1rem color-mix(in srgb, var(--color-ember-core) 26%, transparent);
+:global([data-time='morning']) .sky {
+  background: linear-gradient(to bottom,
+    color-mix(in srgb, var(--color-information) 30%, white),
+    color-mix(in srgb, var(--color-information) 10%, white) 60%,
+    white);
 }
-:global([data-time='night']) .aperture {
-  box-shadow: 0 1.5rem 5rem 0.5rem color-mix(in srgb, var(--hall-shade) 16%, transparent);
-}
-:global([data-time='night']) .foliage { opacity: 0.45; }
-:global([data-time='night']) .floor {
-  background:
-    radial-gradient(58% 100% at 50% 0%, color-mix(in srgb, var(--color-ember-core) 20%, transparent), transparent 70%),
-    linear-gradient(to bottom, color-mix(in srgb, var(--color-surface-sunken) 88%, var(--hall-shade)), var(--color-surface-sunken));
-}
-:global([data-time='night']) .rearWall {
-  background: linear-gradient(
-    to bottom,
-    color-mix(in srgb, var(--color-surface-sunken) 82%, var(--hall-shade)),
-    color-mix(in srgb, var(--color-surface-secondary) 76%, var(--color-surface-sunken))
-  );
-}
-:global([data-time='night']) .ceilingWash { height: 36%; }
+:global([data-time='morning']) .daylight { opacity: 1.05; }
 
-/* ── Narrow viewports ──────────────────────────────────────────────── */
+:global([data-time='evening']) .sky {
+  background: linear-gradient(to bottom,
+    color-mix(in srgb, var(--color-ember-mid) 40%, white),
+    color-mix(in srgb, var(--color-ember-mid) 72%, white) 58%,
+    color-mix(in srgb, var(--color-ember-core) 62%, white));
+}
+:global([data-time='evening']) .daylight { opacity: 0.75; }
+:global([data-time='evening']) .domeShade { opacity: 1.3; }
+
+:global([data-time='night']) .sky {
+  background: linear-gradient(to bottom,
+    color-mix(in srgb, var(--color-information) 26%, var(--hall-shade)),
+    color-mix(in srgb, var(--hall-shade) 82%, var(--color-surface-sunken)));
+}
+:global([data-time='night']) .oculusGrowth { opacity: 0.4; }
+:global([data-time='night']) .daylight { opacity: 0.25; }
+:global([data-time='night']) .domeShade { opacity: 1.6; }
+/* At night the Hearth is what lights the room, so its pool does more. */
+:global([data-time='night']) .hearthPool { opacity: 1.4; }
+
+/* ── Narrow rooms ──────────────────────────────────────────────────── */
 /*
- * The room is recomposed vertically rather than scaled down: the frame's
- * uprights would sit inside the reading width on a phone, so they step
- * out to the very edge, the aperture moves up and widens into a band of
- * daylight across the top, and the horizon rises so the floor still
- * reads beneath the content.
+ * The camera steps closer, so the member is nearer the Hearth and sees
+ * less of the dome above it. The room is recomposed, never scaled down:
+ * the same rotunda, standing in a different part of it.
  */
-@media (max-width: 640px) {
-  .postLeft { left: 0; }
-  .postRight { right: 0; }
-  .beam { left: 0; right: 0; }
-
-  /*
-   * On a phone the tall side window would sit inside the reading width,
-   * so the daylight becomes a clerestory: a band under the beam, running
-   * the width of the room. Its ends are faded rather than cut, and it
-   * has no top radius, because it is part of the wall — a rounded
-   * rectangle floating near the top of a phone screen is a card, and the
-   * Hall is never a card (AUREUS-201 §Composition).
-   */
-  /*
-   * On a phone the opening itself is out of frame.
-   *
-   * There is no room for a window and a hearth in the same third of the
-   * screen: whichever is brighter takes the eye, and the Hall has one
-   * focal point, which is the hearth (AUREUS-003 §VISUAL HIERARCHY).
-   * Every arrangement that kept the opening visible — a side window, a
-   * clerestory band — put daylight directly behind the flame.
-   *
-   * So what is kept is the light rather than the frame: a warm wash high
-   * on the plaster, entering from the same side the window occupies on
-   * every larger screen, so the room is lit from a consistent direction
-   * and simply continues past the edge of a small screen. The time of
-   * day still reaches it, because it is the same element carrying the
-   * same gradient — only unfocused.
-   */
-  .aperture {
-    top: -16%;
-    right: -20%;
-    left: auto;
-    width: 64%;
-    height: 34%;
-    border-radius: var(--radius-full);
-    overflow: visible;
-    box-shadow: none;
-    filter: blur(2.75rem);
-    opacity: 0.42;
+@container hall (max-width: 900px) {
+  .architecture {
+    --spring: 26%;
+    --grade: 52%;
+    --oculus-y: 5%;
   }
 
-  .aperture::after,
-  .foliage {
+  .oculus {
+    width: min(26%, 12rem);
+  }
+}
+
+@container hall (max-width: 600px) {
+  .architecture {
+    --spring: 23%;
+    --grade: 50%;
+    --oculus-y: 4%;
+  }
+
+  .oculus {
+    width: 34%;
+  }
+
+  /* The piers leave the frame — at this width they would be standing in
+     the member's reading column rather than at the edge of their vision. */
+  .foreground {
     display: none;
   }
+}
 
-  .rearWall { inset: 0 0 42% 0; }
-  .horizon { bottom: 42%; }
-  .floor { inset: 58% 0 0 0; }
+/* ── Reduced motion ────────────────────────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  :global(:root:not([data-reduced-motion='false'])) .oculusGrowth {
+    animation: none;
+  }
+}
+
+:global([data-reduced-motion='true']) .oculusGrowth {
+  animation: none;
 }
 
 /* ── Forced colours ────────────────────────────────────────────────── */
 /*
- * In forced-colors mode the member has asked the operating system to
- * take over colour entirely. The architecture carries no information, so
- * the honest response is to step out of the way rather than fight the
- * user agent for control of a decorative surface.
+ * The member has asked the operating system to take over colour. The
+ * architecture carries no information, so the honest response is to step
+ * out rather than fight the user agent for a decorative surface.
  */
 @media (forced-colors: active) {
   .architecture {
