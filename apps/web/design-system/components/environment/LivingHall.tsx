@@ -1,9 +1,10 @@
 'use client';
 
-import { createContext, useContext, type ReactNode } from 'react';
+import { createContext, useContext, type CSSProperties, type ReactNode } from 'react';
 import type { EnvironmentalTime, StewardPresence } from './environment.types';
 import { useEnvironment } from './EnvironmentProvider';
 import { HallArchitecture } from './HallArchitecture';
+import { HallCandles } from './HallCandles';
 import { HallHearth } from './HallHearth';
 import { HallThresholds } from './HallThresholds';
 import styles from './LivingHall.module.css';
@@ -128,6 +129,15 @@ export function LivingHall({ children, presence = 'resting', time, chrome }: Liv
   const environment = useEnvironment();
   const environmentalTime = time ?? environment.time;
 
+  /*
+   * How lit the room is, from candlelight to fully welcomed. Republished
+   * as a custom property rather than passed down, because almost every
+   * surface in the Hall responds to it — the plaster, the candles, the
+   * depth of the shadows — and threading a number through six components
+   * would have meant six chances to forget one.
+   */
+  const welcome = environment.welcome;
+
   return (
     <InsideHallContext.Provider value={true}>
       <div
@@ -135,9 +145,11 @@ export function LivingHall({ children, presence = 'resting', time, chrome }: Liv
         data-aureus-hall=""
         data-time={environmentalTime}
         data-chrome={chrome}
+        style={{ '--hall-welcome': welcome } as CSSProperties}
       >
         <HallArchitecture />
         <HallThresholds />
+        <HallCandles />
         <div className={styles.centre}>
           <div className={styles.crown}>
             <HallHearth presence={presence} />

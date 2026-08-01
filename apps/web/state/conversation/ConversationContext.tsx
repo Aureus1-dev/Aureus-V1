@@ -197,7 +197,16 @@ interface ConversationContextValue {
   clearError: () => void;
 }
 
-const ConversationContext = createContext<ConversationContextValue | null>(null);
+/**
+ * Exported so a consumer that must work *without* a conversation can read
+ * it optionally. The Hall is the case: it is lit from candlelight to full
+ * welcome by how much has been said, but it also renders during arrival,
+ * during session restoration and in tests, where no conversation exists.
+ * A room that cannot be lit until someone speaks is the opposite of the
+ * idea. `useConversation` still throws, which is right for everything
+ * that genuinely needs one.
+ */
+export const ConversationContext = createContext<ConversationContextValue | null>(null);
 
 export function ConversationProvider({ children }: { children: React.ReactNode }) {
   const { session } = useSession();

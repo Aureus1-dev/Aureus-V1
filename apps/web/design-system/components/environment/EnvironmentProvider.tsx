@@ -10,15 +10,26 @@ import {
 } from 'react';
 import type { EnvironmentalTime } from './environment.types';
 import { getEnvironmentalTime, NEUTRAL_ENVIRONMENTAL_TIME } from './getEnvironmentalTime';
+import { HALL_AT_REST, useHallWelcome } from './useHallWelcome';
 
 export interface HallEnvironmentValue {
   /** The member's hour, as the Hall expresses it. */
   time: EnvironmentalTime;
   /** True once the browser has told us the member's real hour. */
   resolved: boolean;
+  /**
+   * How lit the Hall is, 0 → 1: candlelight for a room nobody has spoken
+   * in yet, full light once a member is really here. See
+   * `useHallWelcome`.
+   */
+  welcome: number;
 }
 
-const NEUTRAL: HallEnvironmentValue = { time: NEUTRAL_ENVIRONMENTAL_TIME, resolved: false };
+const NEUTRAL: HallEnvironmentValue = {
+  time: NEUTRAL_ENVIRONMENTAL_TIME,
+  resolved: false,
+  welcome: HALL_AT_REST,
+};
 
 const EnvironmentContext = createContext<HallEnvironmentValue>(NEUTRAL);
 
@@ -58,6 +69,18 @@ const CLOCK_INTERVAL_MS = 60_000;
  */
 export function EnvironmentProvider({ children }: { children: ReactNode }) {
   const [time, setTime] = useState<EnvironmentalTime | null>(null);
+  /*
+   * Read here rather than in the Hall itself, deliberately. The room is
+   * also composed by the opening sequence, by the session fallback and
+   * by tests, none of which sit inside a conversation — and a Hall that
+   * *requires* a conversation in order to be lit is a room that cannot
+   * exist before anyone speaks, which is the opposite of the idea.
+   *
+   * Everything outside this provider gets the neutral environment, which
+   * is candlelight: exactly the state the Hall should be in when nothing
+   * has been said yet.
+   */
+  const welcome = useHallWelcome();
 
   useEffect(() => {
     const read = () => setTime(getEnvironmentalTime());
@@ -67,8 +90,8 @@ export function EnvironmentProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const value = useMemo<HallEnvironmentValue>(
-    () => (time ? { time, resolved: true } : NEUTRAL),
-    [time],
+    () => (time ? { time, resolved: true, welcome } : { ...NEUTRAL, welcome }),
+    [time, welcome],
   );
 
   return <EnvironmentContext.Provider value={value}>{children}</EnvironmentContext.Provider>;

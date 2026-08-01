@@ -67,7 +67,25 @@
   /* The oculus, on the centre line, high in the dome. */
   --oculus-y: 7%;
 
-  --plaster: color-mix(in srgb, var(--color-surface-tertiary) 82%, var(--color-ember-tip) 18%);
+  /*
+   * ── The Hall's own light level ───────────────────────────────────
+   *
+   * `--hall-welcome` runs 0 → 1: candlelight for a room nobody has
+   * spoken in yet, full light once a member is really here. Published by
+   * `LivingHall`; see `useHallWelcome`.
+   *
+   * Every surface below reads it, which is the point — a room does not
+   * brighten in one place. The plaster warms, the shadows shorten, the
+   * daylight strengthens and the candles recede, all off one number.
+   */
+  --lit: var(--hall-welcome, 0);
+
+  --plaster: color-mix(
+    in srgb,
+    color-mix(in srgb, var(--color-surface-tertiary) 82%, var(--color-ember-tip) 18%)
+      calc(58% + 42% * var(--lit)),
+    var(--hall-shade)
+  );
   --stone: color-mix(in srgb, var(--color-surface-sunken) 88%, var(--hall-shade));
   --bronze: color-mix(in srgb, var(--color-ember-mid) 64%, var(--hall-shade));
 }
@@ -134,8 +152,9 @@
   background: linear-gradient(
     to bottom,
     transparent 40%,
-    color-mix(in srgb, var(--hall-shade) 18%, transparent) 100%
+    color-mix(in srgb, var(--hall-shade) calc(34% - 16% * var(--lit)), transparent) 100%
   );
+  transition: background 2400ms var(--motion-easing-standard);
 }
 
 /* ── The oculus ────────────────────────────────────────────────────── */
@@ -199,10 +218,11 @@
   inset: 0;
   background: radial-gradient(
     38% 62% at var(--vp-x) calc(var(--oculus-y) + 6%),
-    color-mix(in srgb, var(--color-ember-tip) 17%, transparent) 0%,
-    color-mix(in srgb, var(--color-ember-tip) 7%, transparent) 45%,
+    color-mix(in srgb, var(--color-ember-tip) calc(10% + 14% * var(--lit)), transparent) 0%,
+    color-mix(in srgb, var(--color-ember-tip) calc(4% + 6% * var(--lit)), transparent) 45%,
     transparent 78%
   );
+  transition: background 2400ms var(--motion-easing-standard);
 }
 
 /* ── The drum ──────────────────────────────────────────────────────── */
