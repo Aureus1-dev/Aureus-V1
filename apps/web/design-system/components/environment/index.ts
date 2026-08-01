@@ -7,6 +7,8 @@ export type { PlaceValue } from './PlaceProvider';
 export { HallStage } from './HallStage';
 export type { HallStageProps } from './HallStage';
 export { AureusLight } from './AureusLight';
+export { AureusMark } from './AureusMark';
+export type { AureusMarkProps } from './AureusMark';
 export { HallHearth } from './HallHearth';
 export type { HallHearthProps } from './HallHearth';
 export { HallArchitecture } from './HallArchitecture';

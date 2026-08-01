@@ -1,0 +1,118 @@
+/*
+ * The Mark, cut into the wall behind the Hearth.
+ *
+ * Everything here is *reflected* light. The Mark is bronze inlay in
+ * stone: it has no light of its own, it catches what the fire below
+ * gives it, and it does not move. Founder directive: "It reflects the
+ * firelight. It never becomes the fire… The Hearth is living. The Mark
+ * is enduring."
+ */
+
+.mark {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-3);
+  width: 100%;
+  pointer-events: none;
+}
+
+.glyph {
+  display: block;
+  width: 100%;
+  height: auto;
+  /*
+   * The one thing that changes: how much of the fire's light the bronze
+   * is holding. Slower than the flame itself and shallower, because
+   * reflected light lags its source and never matches it.
+   */
+  animation: mark-catches-light 9600ms ease-in-out infinite;
+}
+
+/* Bronze, brighter where the fire reaches it. */
+.ring,
+.leaf,
+.flame {
+  fill: none;
+  stroke: color-mix(in srgb, var(--color-ember-mid) 62%, var(--hall-shade, black));
+  stroke-linejoin: round;
+  vector-effect: non-scaling-stroke;
+}
+
+.ring {
+  stroke-width: 1.25;
+  opacity: 0.72;
+}
+
+.leaf {
+  stroke-width: 1.5;
+  opacity: 0.9;
+}
+
+/* The innermost form catches the most, being nearest the fire. */
+.flame {
+  stroke-width: 1.5;
+  stroke: color-mix(in srgb, var(--color-ember-tip) 78%, var(--color-ember-core));
+  fill: color-mix(in srgb, var(--color-ember-core) 12%, transparent);
+}
+
+@keyframes mark-catches-light {
+  0%,
+  100% {
+    opacity: 0.86;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+/*
+ * The promise, carved beneath. Small, quiet, and permanent — this is
+ * masonry, not a headline, and it must never compete with the member's
+ * own business on the stage below.
+ */
+.inscription {
+  text-align: center;
+}
+
+.wordmark {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: 0.32em;
+  text-transform: uppercase;
+  color: color-mix(in srgb, var(--color-ember-mid) 74%, var(--color-text-secondary));
+}
+
+.promise {
+  margin: var(--space-1) 0 0;
+  font-size: var(--font-size-xs);
+  letter-spacing: 0.06em;
+  color: var(--color-text-tertiary);
+  opacity: 0.85;
+}
+
+/* Reduced motion: the bronze simply holds the light. Nothing is lost —
+   the Mark was never meant to move. */
+@media (prefers-reduced-motion: reduce) {
+  :global(:root:not([data-reduced-motion='false'])) .glyph {
+    animation: none;
+    opacity: 1;
+  }
+}
+
+:global([data-reduced-motion='true']) .glyph {
+  animation: none;
+  opacity: 1;
+}
+
+/*
+ * Forced colours: strokes would be repainted to system colours and the
+ * inscription would fight the wall. The Mark steps out rather than
+ * rendering as an unreadable ring.
+ */
+@media (forced-colors: active) {
+  .mark {
+    display: none;
+  }
+}

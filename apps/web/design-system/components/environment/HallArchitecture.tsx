@@ -1,3 +1,4 @@
+import { AureusMark } from './AureusMark';
 import styles from './HallArchitecture.module.css';
 
 /**
@@ -28,6 +29,15 @@ export function HallArchitecture() {
     <div className={styles.architecture} aria-hidden="true">
       {/* Background: the far wall, warm plaster catching the day's light. */}
       <div className={styles.rearWall} />
+      {/*
+        The Aureus Mark, set into that wall above the Hearth. It is part
+        of the building, not part of the fire: "permanently integrated
+        into the architecture behind the Hearth. It reflects the
+        firelight. It never becomes the fire."
+      */}
+      <div className={styles.markWall}>
+        <AureusMark />
+      </div>
       {/* The opening onto the garden — the one place daylight actually enters. */}
       <div className={styles.aperture}>
         <div className={styles.apertureLight} />

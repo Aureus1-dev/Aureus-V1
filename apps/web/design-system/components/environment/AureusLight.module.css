@@ -1,10 +1,10 @@
 /*
- * The Aureus light.
+ * The fire.
  *
- * The silhouette is a hard-edged path; what makes it read as *light*
- * rather than as a shape is the blur and the glow it throws. AUREUS-006:
- * "Light is Aureus' primary architectural material" — so the Mark is
- * lit, not drawn.
+ * The paths are hard-edged; what makes them read as *flame* rather than
+ * as a shape is the blur, the glow thrown onto everything nearby, and
+ * the fact that the core moves independently of the body. AUREUS-006:
+ * "Light is Aureus' primary architectural material."
  */
 
 .light {
@@ -19,6 +19,31 @@
     drop-shadow(0 0 0.5em color-mix(in srgb, var(--color-ember-mid) 55%, transparent))
     drop-shadow(0 0 1.6em color-mix(in srgb, var(--color-ember-core) 32%, transparent));
   animation: aureus-breathe 7200ms ease-in-out infinite;
+}
+
+/* The outer body carries the shape; the core carries the heat. Two
+   periods that do not divide evenly, so the fire never visibly repeats
+   — the difference between something alive and something looping. */
+.body {
+  animation: flame-body 5300ms ease-in-out infinite;
+  transform-origin: 50% 92%;
+}
+
+.core {
+  fill: color-mix(in srgb, var(--color-ember-tip) 88%, white);
+  opacity: 0.9;
+  animation: flame-core 3700ms ease-in-out infinite;
+  transform-origin: 50% 92%;
+}
+
+@keyframes flame-body {
+  0%, 100% { transform: scaleY(1) scaleX(1); }
+  50% { transform: scaleY(1.04) scaleX(0.985); }
+}
+
+@keyframes flame-core {
+  0%, 100% { transform: scaleY(1); opacity: 0.86; }
+  50% { transform: scaleY(1.07); opacity: 1; }
 }
 
 /*
@@ -44,13 +69,17 @@
  * exactly the same brightness — they lose the breath, not the fire.
  */
 @media (prefers-reduced-motion: reduce) {
-  :global(:root:not([data-reduced-motion='false'])) .light {
+  :global(:root:not([data-reduced-motion='false'])) .light,
+  :global(:root:not([data-reduced-motion='false'])) .body,
+  :global(:root:not([data-reduced-motion='false'])) .core {
     animation: none;
     opacity: 1;
   }
 }
 
-:global([data-reduced-motion='true']) .light {
+:global([data-reduced-motion='true']) .light,
+:global([data-reduced-motion='true']) .body,
+:global([data-reduced-motion='true']) .core {
   animation: none;
   opacity: 1;
 }

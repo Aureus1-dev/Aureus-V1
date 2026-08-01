@@ -26,31 +26,56 @@
   justify-content: center;
 }
 
-/* The carved recess: an arch in the stone, darker than the wall it cuts
-   into, because that is what a recess is. */
+/*
+ * The brazier the fire stands in.
+ *
+ * Founder reference: the Hearth is a bronze basin in the middle of the
+ * floor, and the member stands in front of it. It was a recess cut into
+ * the far wall, which put the fire *in* the wall rather than in the room
+ * — the member was looking at a fireplace instead of standing at a fire.
+ *
+ * So this is a vessel now: an open bowl, lit from within, with the
+ * bronze rim catching most of the light and the underside falling into
+ * shadow the way a real one does.
+ */
 .recess {
   position: relative;
   width: 100%;
   height: 100%;
-  border-radius: 50% 50% var(--radius-md) var(--radius-md) / 40% 40% var(--radius-md) var(--radius-md);
-  overflow: hidden;
-  background: linear-gradient(
-    to bottom,
-    color-mix(in srgb, var(--hall-shade) 62%, var(--color-surface-sunken)),
-    color-mix(in srgb, var(--hall-shade) 44%, var(--color-ember-core))
-  );
-  box-shadow:
-    inset 0 0.4rem 1.4rem color-mix(in srgb, var(--hall-shade) 62%, transparent),
-    0 0.5rem 1.5rem -0.5rem color-mix(in srgb, var(--hall-shade) 34%, transparent);
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  background: transparent;
 }
 
-/* Bronze lip along the base of the opening. */
+/* The bowl itself, seen from a standing height: a shallow ellipse. */
+.recess::after {
+  content: '';
+  position: absolute;
+  left: -6%;
+  right: -6%;
+  bottom: 0;
+  height: 20%;
+  border-radius: 50%;
+  background: linear-gradient(
+    to bottom,
+    color-mix(in srgb, var(--color-ember-mid) 60%, var(--hall-shade)) 0%,
+    color-mix(in srgb, var(--color-ember-core) 34%, var(--hall-shade)) 46%,
+    var(--hall-shade) 100%
+  );
+  box-shadow:
+    inset 0 0.18rem 0.5rem color-mix(in srgb, var(--color-ember-tip) 45%, transparent),
+    0 0.6rem 2rem -0.4rem color-mix(in srgb, var(--hall-shade) 55%, transparent);
+}
+
+/* The bronze rim of the bowl, where the fire's light lands hardest. */
 .lip {
   position: absolute;
-  left: 8%;
-  right: 8%;
-  bottom: 6%;
-  height: 0.3rem;
+  z-index: 1;
+  left: 6%;
+  right: 6%;
+  bottom: 17%;
+  height: 0.22rem;
   border-radius: var(--radius-full);
   background: linear-gradient(
     to right,
@@ -72,9 +97,9 @@
 .light {
   position: absolute;
   left: 50%;
-  bottom: 10%;
-  width: 62%;
-  height: 74%;
+  bottom: 16%;
+  width: 54%;
+  height: 80%;
   transform: translateX(-50%);
 }
 

@@ -69,6 +69,44 @@
     radial-gradient(50% 45% at 78% 55%, color-mix(in srgb, var(--color-surface-sunken) 34%, transparent), transparent 72%);
 }
 
+/*
+ * Where the Mark is set into the wall.
+ *
+ * Above the Hearth and behind it, on the room's centre line. Sized
+ * against the hearth so the two always read as one composition — the
+ * fire below, the enduring Mark above — rather than as two objects that
+ * happen to share a wall.
+ *
+ * It sits in the architecture layer, so the hearth's own light and the
+ * member's business both pass in front of it. Masonry is the furthest
+ * thing back that still matters.
+ */
+.markWall {
+  position: absolute;
+  left: 50%;
+  /*
+   * High enough on the wall that the fire never crosses the inscription.
+   * At 1.6× the hearth's height the flame's tip reached the wordmark and
+   * "Helping people flourish. Forever." was legible only in the gaps
+   * between the flame's own movement.
+   */
+  top: calc(var(--hearth-centre, 38dvh) - var(--hearth-height, 12rem) * 1.5);
+  width: min(26%, calc(var(--hearth-width, 8rem) * 1.35));
+  transform: translateX(-50%);
+  display: flex;
+  justify-content: center;
+}
+
+/* On a phone the wall above the fire is the one thing there is no room
+   for. The Mark keeps its glyph and gives up the inscription rather than
+   crowding the hearth. */
+@container hall (max-width: 560px) {
+  .markWall {
+    width: calc(var(--hearth-width, 8rem) * 0.9);
+    top: calc(var(--hearth-centre, 38dvh) - var(--hearth-height, 12rem) * 1.55);
+  }
+}
+
 /* ── The aperture: the room's daylight source ──────────────────────── */
 /*
  * An opening, not a framed panel. It carries no stroke of its own: a
