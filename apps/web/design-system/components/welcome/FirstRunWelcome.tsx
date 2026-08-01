@@ -45,6 +45,12 @@ const PRIVACY_NOTICE =
 export interface FirstRunWelcomeProps {
   /** Skip the hospitality intro for a returning member starting a new mission. */
   skipHospitality?: boolean;
+  /**
+   * Words the member already typed in Home's Hall. Opens the flow at the
+   * immediate-need step with the field pre-filled — the same start point
+   * `skipHospitality` uses, so this adds no new path through arrival.
+   */
+  initialNeed?: string;
 }
 
 /**
@@ -70,7 +76,7 @@ export interface FirstRunWelcomeProps {
  * unrecognized) is never a dead end — it falls back to `preferences`
  * rather than a blank screen.
  */
-export function FirstRunWelcome({ skipHospitality = false }: FirstRunWelcomeProps) {
+export function FirstRunWelcome({ skipHospitality = false, initialNeed }: FirstRunWelcomeProps) {
   const { session } = useSession();
   const { motionPreference, setMotionPreference } = useTheme();
   const journey = useJourney();
@@ -79,7 +85,7 @@ export function FirstRunWelcome({ skipHospitality = false }: FirstRunWelcomeProp
   const plan = usePlan();
 
   const [step, setStepState] = useState<Step>(() => {
-    if (skipHospitality) {
+    if (skipHospitality || initialNeed) {
       clearArrivalStep();
       return 'immediate-need';
     }

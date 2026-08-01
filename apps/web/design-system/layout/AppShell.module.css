@@ -110,11 +110,23 @@
 }
 
 /*
- * The arrival route renders the Hall, which is the whole environment
- * rather than a region within a page. Padding here would frame it as a
- * card sitting on a generic background — exactly what it must not be.
+ * Wherever the Hall is rendered, it is the whole environment rather than
+ * a region within a page. Padding here would frame it as a card sitting
+ * on a generic background — exactly what AUREUS-201 forbids: "The Hall
+ * itself is never represented as a floating panel."
+ *
+ * Driven by the Hall's own presence rather than by the route, because
+ * whether a surface is the Hall is a question of state, not path:
+ * `/home` is the Hall for a member with no mission yet and an ordinary
+ * padded dashboard for a member with one. `:has()` lets the shell answer
+ * that correctly without the page having to reach up and tell it.
+ *
+ * `[data-surface='arrival']` remains as a floor: on an engine without
+ * `:has()`, the arrival route is still full-bleed, and Home degrades to
+ * a padded Hall rather than a broken one.
  */
-.main[data-surface='arrival'] {
+.main[data-surface='arrival'],
+.main:has([data-aureus-hall]) {
   padding: 0;
 }
 
@@ -149,7 +161,8 @@
     padding: var(--space-8);
   }
 
-  .main[data-surface='arrival'] {
+  .main[data-surface='arrival'],
+  .main:has([data-aureus-hall]) {
     padding: 0;
   }
 }

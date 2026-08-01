@@ -74,7 +74,7 @@ export function LivingHall({ children, presence = 'resting', time }: LivingHallP
   const environmentalTime = time ?? resolved ?? NEUTRAL_ENVIRONMENTAL_TIME;
 
   return (
-    <div className={styles.hall} data-time={environmentalTime}>
+    <div className={styles.hall} data-aureus-hall="" data-time={environmentalTime}>
       <HallArchitecture />
       <HallThresholds />
       <div className={styles.centre}>

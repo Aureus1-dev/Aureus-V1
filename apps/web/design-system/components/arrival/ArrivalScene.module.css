@@ -17,6 +17,11 @@
   padding: var(--space-8) var(--space-4);
   overflow: hidden;
   text-align: center;
+  /* The opening sequence composes the Hall's own parts, so it has to be
+     the same kind of query container the Hall is — otherwise the
+     peripheral thresholds, which now size themselves to the room rather
+     than to the viewport, never appear during the arrival. */
+  container: hall / inline-size;
   background-color: #0b0806;
   transition: background-color 900ms var(--motion-easing-decelerate);
 }

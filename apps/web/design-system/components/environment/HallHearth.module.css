@@ -12,8 +12,12 @@
 .hearth {
   position: relative;
   flex: none;
-  width: clamp(3rem, 5vw, 4rem);
-  height: clamp(4.5rem, 8vw, 6rem);
+  /* Warm near-black, identical in both themes. See the note in
+     `HallArchitecture.module.css`; declared per part because
+     `ArrivalScene` composes the hearth without the Hall around it. */
+  --hall-shade: color-mix(in srgb, var(--color-ember-core) 20%, black);
+  width: clamp(3.25rem, 5.5vw, 4.75rem);
+  height: clamp(4.75rem, 8.5vw, 7rem);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -29,12 +33,12 @@
   overflow: hidden;
   background: linear-gradient(
     to bottom,
-    color-mix(in srgb, var(--color-text-primary) 62%, var(--color-surface-sunken)),
-    color-mix(in srgb, var(--color-text-primary) 44%, var(--color-ember-core))
+    color-mix(in srgb, var(--hall-shade) 62%, var(--color-surface-sunken)),
+    color-mix(in srgb, var(--hall-shade) 44%, var(--color-ember-core))
   );
   box-shadow:
-    inset 0 0.4rem 1.4rem color-mix(in srgb, var(--color-text-primary) 62%, transparent),
-    0 0.5rem 1.5rem -0.5rem color-mix(in srgb, var(--color-text-primary) 34%, transparent);
+    inset 0 0.4rem 1.4rem color-mix(in srgb, var(--hall-shade) 62%, transparent),
+    0 0.5rem 1.5rem -0.5rem color-mix(in srgb, var(--hall-shade) 34%, transparent);
 }
 
 /* Bronze lip along the base of the opening. */

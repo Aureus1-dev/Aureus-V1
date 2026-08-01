@@ -145,13 +145,22 @@ describe('HomeDashboard', () => {
     expect(screen.getByText('Sign in to see your Home')).toBeInTheDocument();
   });
 
-  it('directs a signed-in member with no mission yet to Welcome, not a broken dashboard', async () => {
+  /**
+   * Founder decision: with no active mission, Home is the Living Hall
+   * itself — hearth, "How can we help?", one input — rather than a card
+   * pointing at Welcome. The Hall is the member's primary environment,
+   * not a surface contained within one.
+   */
+  it('meets a signed-in member with no mission yet with the Hall itself, not a dashboard card', async () => {
     mockedGoals.listGoals.mockResolvedValue({ data: [], total: 0, page: 1, limit: 20, totalPages: 0 });
 
-    renderHome();
+    const { container } = renderHome();
 
-    expect(await screen.findByText("Let's get started")).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Go to Welcome' })).toHaveAttribute('href', '/welcome');
+    expect(await screen.findByRole('heading', { level: 1, name: 'How can we help?' })).toBeInTheDocument();
+    // The Hall is the surface, so the shell can render it full-bleed.
+    expect(container.querySelector('[data-aureus-hall]')).toBeInTheDocument();
+    // One calm affordance — no menu of rooms, no competing calls to action.
+    expect(container.querySelectorAll('#main-content a')).toHaveLength(0);
   });
 
   it(

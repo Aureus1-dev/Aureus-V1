@@ -3,8 +3,8 @@
 import { useEffect } from 'react';
 import { useJourney, useSession } from '../../../state';
 import { EmptyState } from '../EmptyState/EmptyState';
+import { HomeHall } from './HomeHall';
 import { LoadingState } from '../LoadingState/LoadingState';
-import { LinkButton } from '../Button/LinkButton';
 import { Greeting } from './Greeting';
 import { QuickActions } from './QuickActions';
 import { JourneySection } from './JourneySection';
@@ -50,27 +50,10 @@ export function HomeDashboard() {
   }
 
   if (journeyState.goals.length === 0) {
-    // The Founder Pilot branch wrapped this empty state in `ArrivalRoom`
-    // to stop Home reading as one small card in an empty field. That was
-    // right when `ArrivalRoom` was a soft panel; it is wrong now that it
-    // is the full architectural Hall, because `/home` is not an arrival
-    // surface and keeps `AppShell`'s padding — so the room would render
-    // as a bordered panel inside a page, which AUREUS-201 forbids
-    // outright: "The Hall itself is never represented as a floating
-    // panel."
-    //
-    // The heading fix from that branch is kept. Whether Home's empty
-    // state should itself become a full-bleed Hall surface is a
-    // genuine experience decision, not an integration detail, so it is
-    // raised for the Founder rather than decided here.
-    return (
-      <EmptyState
-        titleAs="h1"
-        title="Let's get started"
-        description="You don't have a mission yet — begin at Welcome to set your first goal."
-        action={<LinkButton href="/welcome">Go to Welcome</LinkButton>}
-      />
-    );
+    // Founder decision: with no active mission, Home *is* the Hall —
+    // full-bleed, hearth, "How can we help?", one input. Not a card, not
+    // an empty-state illustration, not a menu of rooms.
+    return <HomeHall />;
   }
 
   return (

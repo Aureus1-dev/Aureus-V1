@@ -11,6 +11,13 @@
   position: relative;
   isolation: isolate;
   overflow: hidden;
+  /*
+   * Named container so the room's own parts can respond to the size of
+   * the room. Inside the member shell the Hall is materially narrower
+   * than the viewport, and peripheral detail placed by viewport width
+   * ends up in the middle of the member's reading column.
+   */
+  container: hall / inline-size;
   display: flex;
   flex-direction: column;
   justify-content: center;
@@ -60,14 +67,21 @@
 .stageRegion::before {
   content: '';
   position: absolute;
-  inset: calc(var(--space-6) * -1) calc(var(--space-8) * -1);
+  inset: calc(var(--space-10) * -1) calc(var(--space-12) * -1);
   z-index: -1;
-  border-radius: var(--radius-xl);
+  pointer-events: none;
+  /*
+   * The falloff runs the whole way out, and the full-strength core is
+   * kept small. An ellipse that is still at half strength near its own
+   * bounding box reads as a lit rectangle — which is the panel this
+   * component exists to avoid.
+   */
   background: radial-gradient(
-    ellipse at 50% 40%,
-    color-mix(in srgb, var(--color-surface-primary) 78%, transparent) 0%,
-    color-mix(in srgb, var(--color-surface-primary) 52%, transparent) 48%,
-    transparent 78%
+    ellipse at 50% 44%,
+    color-mix(in srgb, var(--color-surface-primary) 76%, transparent) 0%,
+    color-mix(in srgb, var(--color-surface-primary) 58%, transparent) 30%,
+    color-mix(in srgb, var(--color-surface-primary) 24%, transparent) 60%,
+    transparent 88%
   );
 }
 

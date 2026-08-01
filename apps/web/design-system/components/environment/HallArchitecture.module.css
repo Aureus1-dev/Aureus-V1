@@ -20,6 +20,29 @@
   z-index: 0;
   overflow: hidden;
   pointer-events: none;
+
+  /*
+   * The Hall's shadow colour.
+   *
+   * Depth in this room was originally mixed from `--color-text-primary`,
+   * which is near-black in the light theme and near-white in the dark
+   * one. Every cue built on it inverted with the theme: in dark mode the
+   * hearth's recess, the floor, the timber frame and the ceiling all
+   * came out *lighter* than the surfaces they were cut into, and the
+   * room was lit upside down.
+   *
+   * Shadow is not a text colour. This is a warm near-black derived from
+   * the ember, so it still belongs to the palette and a future brand
+   * change carries it — and it means the same thing in both themes:
+   * further from the light.
+   *
+   * Declared on each part rather than on the Hall, because the parts are
+   * also composed directly by `ArrivalScene` during the opening
+   * sequence. An inherited definition would be missing there, and a
+   * `color-mix` with an undefined custom property drops the whole
+   * declaration — the room would lose its surfaces mid-arrival.
+   */
+  --hall-shade: color-mix(in srgb, var(--color-ember-core) 20%, black);
 }
 
 /* ── Background: plaster rear wall ─────────────────────────────────── */
@@ -29,7 +52,7 @@
   background:
     linear-gradient(
       to bottom,
-      color-mix(in srgb, var(--color-surface-tertiary) 92%, var(--color-text-primary) 8%),
+      color-mix(in srgb, var(--color-surface-tertiary) 92%, var(--hall-shade) 8%),
       color-mix(in srgb, var(--color-surface-tertiary) 74%, var(--color-surface-sunken))
     );
 }
@@ -47,31 +70,57 @@
 }
 
 /* ── The aperture: the room's daylight source ──────────────────────── */
+/*
+ * An opening, not a framed panel. It carries no stroke of its own: a
+ * drawn outline is what turns a hole in a wall into a rectangle sitting
+ * on top of one, and at this scale the eye reads the outline long before
+ * it reads the light. What defines the aperture is the difference in
+ * luminance across its edge and the glow it throws onto the plaster
+ * around it — which is what defines a real one.
+ *
+ * The head is arched so it belongs to the same hand that carved the
+ * hearth's recess.
+ */
 .aperture {
   position: absolute;
   top: 9%;
-  right: 7%;
-  width: min(17%, 13rem);
-  height: 38%;
-  border-radius: var(--radius-lg) var(--radius-lg) var(--radius-sm) var(--radius-sm);
+  right: 10%;
+  /*
+   * Kept small on purpose. A window is the brightest thing in a real
+   * room, but the Hall has exactly one focal point and it is the hearth
+   * (AUREUS-003 §VISUAL HIERARCHY). At its previous size the daylight
+   * won the room; at this size it lights the room and lets the hearth
+   * hold it.
+   */
+  width: min(12%, 9rem);
+  height: 24%;
+  border-radius: 48% 48% var(--radius-sm) var(--radius-sm) / 24% 24% var(--radius-sm) var(--radius-sm);
   overflow: hidden;
-  /* Bronze reveal around the opening. */
-  border: 1px solid color-mix(in srgb, var(--color-ember-core) 26%, transparent);
+  /*
+   * Only the light the opening spills back into the room. Two layers: a
+   * close halo on the plaster around the reveal, and a long throw down
+   * and into the room. Between them the edge dissolves rather than
+   * ending on a line.
+   */
   box-shadow:
-    0 0 0 1px color-mix(in srgb, var(--color-surface-primary) 40%, transparent),
-    0 2rem 5rem -1rem color-mix(in srgb, var(--color-ember-tip) 22%, transparent);
+    0 0 4rem 1.5rem color-mix(in srgb, var(--color-ember-tip) 22%, transparent),
+    0 3rem 9rem 1rem color-mix(in srgb, var(--color-ember-tip) 16%, transparent);
 }
 
 .apertureLight {
   position: absolute;
   inset: 0;
+  /* Always graded, never a flat fill — a flat rectangle of colour is a
+     swatch, and a graded one is sky. */
   background: linear-gradient(
     to bottom,
-    color-mix(in srgb, var(--color-ember-tip) 72%, white),
-    color-mix(in srgb, var(--color-ember-tip) 46%, var(--color-surface-primary))
+    color-mix(in srgb, var(--color-ember-tip) 34%, white) 0%,
+    color-mix(in srgb, var(--color-ember-tip) 62%, white) 52%,
+    color-mix(in srgb, var(--color-ember-tip) 88%, white) 100%
   );
   box-shadow: 0 0 4rem 1rem color-mix(in srgb, var(--color-ember-tip) 40%, transparent);
 }
+
 
 /* Living greenery beyond the opening (AUREUS-006 §NATURE), read as soft
    masses rather than drawn plants. */
@@ -85,6 +134,20 @@
   filter: blur(1px);
 }
 
+/* The sill. Without it the greenery ends on a straight cut at the bottom
+   of the opening, which is the one place the eye reads a rectangle. */
+.aperture::after {
+  content: '';
+  position: absolute;
+  inset: auto 0 0 0;
+  height: 22%;
+  background: linear-gradient(
+    to top,
+    color-mix(in srgb, var(--hall-shade) 34%, transparent),
+    transparent
+  );
+}
+
 /* ── Middle ground: horizon and floor ──────────────────────────────── */
 .horizon {
   position: absolute;
@@ -95,12 +158,20 @@
   background: linear-gradient(
     to right,
     transparent,
-    color-mix(in srgb, var(--color-text-primary) 34%, transparent) 14%,
-    color-mix(in srgb, var(--color-text-primary) 34%, transparent) 86%,
+    color-mix(in srgb, var(--hall-shade) 34%, transparent) 14%,
+    color-mix(in srgb, var(--hall-shade) 34%, transparent) 86%,
     transparent
   );
 }
 
+/*
+ * The stone floor. It starts almost at the wall's own tone and deepens
+ * toward the viewer, so the wall/floor junction is a change of plane
+ * rather than a drawn band: a hard horizontal edge at this height cuts
+ * straight through the member's reading line, and the room is never
+ * allowed to make the interaction harder to read (AUREUS-003 §VISUAL
+ * HIERARCHY).
+ */
 .floor {
   position: absolute;
   inset: 68% 0 0 0;
@@ -113,8 +184,9 @@
     ),
     linear-gradient(
       to bottom,
-      color-mix(in srgb, var(--color-surface-sunken) 62%, var(--color-text-primary)),
-      color-mix(in srgb, var(--color-surface-sunken) 78%, var(--color-text-primary))
+      color-mix(in srgb, var(--color-surface-sunken) 94%, var(--hall-shade)) 0%,
+      color-mix(in srgb, var(--color-surface-sunken) 74%, var(--hall-shade)) 34%,
+      color-mix(in srgb, var(--color-surface-sunken) 66%, var(--hall-shade)) 100%
     );
 }
 
@@ -127,7 +199,7 @@
   background: repeating-linear-gradient(
     to bottom,
     transparent 0 2.5rem,
-    color-mix(in srgb, var(--color-text-primary) 4%, transparent) 2.5rem calc(2.5rem + 1px)
+    color-mix(in srgb, var(--hall-shade) 4%, transparent) 2.5rem calc(2.5rem + 1px)
   );
   mask-image: linear-gradient(to bottom, transparent, black 55%);
   -webkit-mask-image: linear-gradient(to bottom, transparent, black 55%);
@@ -147,10 +219,10 @@
   width: clamp(0.5rem, 1.6vw, 1.25rem);
   background: linear-gradient(
     to right,
-    color-mix(in srgb, var(--color-ember-core) 46%, var(--color-text-primary) 32%),
-    color-mix(in srgb, var(--color-ember-core) 30%, var(--color-text-primary) 22%)
+    color-mix(in srgb, var(--color-ember-core) 46%, var(--hall-shade) 32%),
+    color-mix(in srgb, var(--color-ember-core) 30%, var(--hall-shade) 22%)
   );
-  box-shadow: 0 0 4rem color-mix(in srgb, var(--color-text-primary) 30%, transparent);
+  box-shadow: 0 0 4rem color-mix(in srgb, var(--hall-shade) 30%, transparent);
 }
 
 .postLeft { left: 4%; }
@@ -164,8 +236,8 @@
   height: clamp(0.5rem, 1.4vw, 1.1rem);
   background: linear-gradient(
     to bottom,
-    color-mix(in srgb, var(--color-ember-core) 48%, var(--color-text-primary) 34%),
-    color-mix(in srgb, var(--color-ember-core) 28%, var(--color-text-primary) 20%)
+    color-mix(in srgb, var(--color-ember-core) 48%, var(--hall-shade) 34%),
+    color-mix(in srgb, var(--color-ember-core) 28%, var(--hall-shade) 20%)
   );
 }
 
@@ -175,7 +247,7 @@
   height: 26%;
   background: linear-gradient(
     to bottom,
-    color-mix(in srgb, var(--color-text-primary) 12%, transparent),
+    color-mix(in srgb, var(--hall-shade) 12%, transparent),
     transparent
   );
 }
@@ -186,8 +258,9 @@
 :global([data-time='morning']) .apertureLight {
   background: linear-gradient(
     to bottom,
-    color-mix(in srgb, var(--color-surface-primary) 92%, var(--color-information)),
-    color-mix(in srgb, var(--color-ember-tip) 30%, var(--color-surface-primary))
+    color-mix(in srgb, var(--color-information) 18%, white) 0%,
+    color-mix(in srgb, var(--color-information) 8%, white) 44%,
+    color-mix(in srgb, var(--color-ember-tip) 52%, white) 100%
   );
 }
 :global([data-time='morning']) .floor {
@@ -203,14 +276,15 @@
 :global([data-time='evening']) .apertureLight {
   background: linear-gradient(
     to bottom,
-    color-mix(in srgb, var(--color-ember-mid) 52%, var(--color-surface-primary)),
-    color-mix(in srgb, var(--color-ember-core) 30%, var(--color-surface-sunken))
+    color-mix(in srgb, var(--color-ember-mid) 46%, white) 0%,
+    color-mix(in srgb, var(--color-ember-mid) 88%, white) 46%,
+    color-mix(in srgb, var(--color-ember-core) 92%, white) 100%
   );
 }
 :global([data-time='evening']) .floor {
   background:
     radial-gradient(90% 140% at 86% 6%, color-mix(in srgb, var(--color-ember-mid) 24%, transparent), transparent 72%),
-    linear-gradient(to bottom, color-mix(in srgb, var(--color-surface-sunken) 94%, var(--color-text-primary)), var(--color-surface-sunken));
+    linear-gradient(to bottom, color-mix(in srgb, var(--color-surface-sunken) 94%, var(--hall-shade)), var(--color-surface-sunken));
 }
 :global([data-time='evening']) .rearWall::after {
   background:
@@ -223,23 +297,38 @@
    room. Never ominous — the walls stay warm and the floor stays legible,
    because a member arriving at 2am is often the one who most needs the
    place to feel safe. */
+/*
+ * At night the aperture stops being a light source and becomes simply
+ * the outside, seen from within: darker than the plaster in both themes,
+ * with a little cool sky high in the opening so it reads as night rather
+ * than as a hole. A thin rim of moonlight along the head of the arch
+ * keeps that edge alive now that nothing is drawn around it, and the
+ * room's own hearthlight catches the sill.
+ */
 :global([data-time='night']) .apertureLight {
   background: linear-gradient(
     to bottom,
-    color-mix(in srgb, var(--color-surface-sunken) 86%, var(--color-text-primary)),
-    color-mix(in srgb, var(--color-ember-core) 18%, var(--color-surface-sunken))
+    color-mix(in srgb, var(--color-information) 26%, var(--hall-shade)) 0%,
+    color-mix(in srgb, var(--hall-shade) 54%, var(--color-surface-sunken)) 46%,
+    color-mix(in srgb, var(--hall-shade) 68%, var(--color-surface-sunken)) 100%
   );
+  box-shadow:
+    inset 0 0.08rem 0 color-mix(in srgb, var(--color-information) 34%, transparent),
+    inset 0 -1.5rem 2.5rem -1rem color-mix(in srgb, var(--color-ember-core) 26%, transparent);
+}
+:global([data-time='night']) .aperture {
+  box-shadow: 0 1.5rem 5rem 0.5rem color-mix(in srgb, var(--hall-shade) 16%, transparent);
 }
 :global([data-time='night']) .foliage { opacity: 0.45; }
 :global([data-time='night']) .floor {
   background:
     radial-gradient(58% 100% at 50% 0%, color-mix(in srgb, var(--color-ember-core) 20%, transparent), transparent 70%),
-    linear-gradient(to bottom, color-mix(in srgb, var(--color-surface-sunken) 88%, var(--color-text-primary)), var(--color-surface-sunken));
+    linear-gradient(to bottom, color-mix(in srgb, var(--color-surface-sunken) 88%, var(--hall-shade)), var(--color-surface-sunken));
 }
 :global([data-time='night']) .rearWall {
   background: linear-gradient(
     to bottom,
-    color-mix(in srgb, var(--color-surface-sunken) 82%, var(--color-text-primary)),
+    color-mix(in srgb, var(--color-surface-sunken) 82%, var(--hall-shade)),
     color-mix(in srgb, var(--color-surface-secondary) 76%, var(--color-surface-sunken))
   );
 }
@@ -258,12 +347,46 @@
   .postRight { right: 0; }
   .beam { left: 0; right: 0; }
 
+  /*
+   * On a phone the tall side window would sit inside the reading width,
+   * so the daylight becomes a clerestory: a band under the beam, running
+   * the width of the room. Its ends are faded rather than cut, and it
+   * has no top radius, because it is part of the wall — a rounded
+   * rectangle floating near the top of a phone screen is a card, and the
+   * Hall is never a card (AUREUS-201 §Composition).
+   */
+  /*
+   * On a phone the opening itself is out of frame.
+   *
+   * There is no room for a window and a hearth in the same third of the
+   * screen: whichever is brighter takes the eye, and the Hall has one
+   * focal point, which is the hearth (AUREUS-003 §VISUAL HIERARCHY).
+   * Every arrangement that kept the opening visible — a side window, a
+   * clerestory band — put daylight directly behind the flame.
+   *
+   * So what is kept is the light rather than the frame: a warm wash high
+   * on the plaster, entering from the same side the window occupies on
+   * every larger screen, so the room is lit from a consistent direction
+   * and simply continues past the edge of a small screen. The time of
+   * day still reaches it, because it is the same element carrying the
+   * same gradient — only unfocused.
+   */
   .aperture {
-    top: 6%;
-    right: 6%;
-    left: 6%;
-    width: auto;
-    height: 22%;
+    top: -16%;
+    right: -20%;
+    left: auto;
+    width: 64%;
+    height: 34%;
+    border-radius: var(--radius-full);
+    overflow: visible;
+    box-shadow: none;
+    filter: blur(2.75rem);
+    opacity: 0.42;
+  }
+
+  .aperture::after,
+  .foliage {
+    display: none;
   }
 
   .rearWall { inset: 0 0 26% 0; }

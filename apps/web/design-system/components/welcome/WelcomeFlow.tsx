@@ -14,6 +14,12 @@ import { readArrivalStep } from './arrival-progress';
 export interface WelcomeFlowProps {
   /** From `?newMission=true` — the escape hatch a returning member's "Start a new mission" action uses to reach the guided flow again without being redirected to Home first. */
   forceNewMission?: boolean;
+  /**
+   * From `?need=` — words the member already typed in Home's Hall. Carried
+   * through so the immediate-need step opens with them already in the
+   * field rather than asking a person to say the same thing twice.
+   */
+  initialNeed?: string;
 }
 
 /**
@@ -56,7 +62,7 @@ export interface WelcomeFlowProps {
  * in the existing suite ever mounted `WelcomeFlow` through a full
  * immediate-need-to-mission flow with a real `JourneyContext`).
  */
-export function WelcomeFlow({ forceNewMission = false }: WelcomeFlowProps) {
+export function WelcomeFlow({ forceNewMission = false, initialNeed }: WelcomeFlowProps) {
   const router = useRouter();
   const { session } = useSession();
   const journey = useJourney();
@@ -119,7 +125,7 @@ export function WelcomeFlow({ forceNewMission = false }: WelcomeFlowProps) {
       );
     }
 
-    return <FirstRunWelcome skipHospitality={forceNewMission} />;
+    return <FirstRunWelcome skipHospitality={forceNewMission} initialNeed={initialNeed} />;
   }
 
   // The Hall is the constant. Waiting for a journey to load, recovering
