@@ -1,9 +1,16 @@
 'use client';
 
-import { useEffect, useRef, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 import { useSession } from '../../../state';
 import { LoadingState } from '../LoadingState/LoadingState';
+import { ErrorState } from '../ErrorState/ErrorState';
+import { Button } from '../Button/Button';
+import { ApiError } from '../../../lib/api/errors';
+import {
+  ARRIVAL_CAPACITY_TITLE,
+  ARRIVAL_CAPACITY_DESCRIPTION,
+} from '../arrival/arrival-capacity-copy';
 import styles from './AuthGate.module.css';
 
 /**
@@ -57,6 +64,8 @@ export function AuthGate({ children, fallback }: AuthGateProps) {
   const router = useRouter();
   const { session, isRestoring, sessionExpired, establishGuestSession } = useSession();
   const attemptedGuest = useRef(false);
+  const [atCapacity, setAtCapacity] = useState(false);
+  const [retryToken, setRetryToken] = useState(0);
 
   useEffect(() => {
     if (isRestoring || session.isAuthenticated) return;
@@ -70,13 +79,44 @@ export function AuthGate({ children, fallback }: AuthGateProps) {
     attemptedGuest.current = true;
 
     let cancelled = false;
-    void establishGuestSession().catch(() => {
-      if (!cancelled) router.replace('/login');
+    void establishGuestSession().catch((error: unknown) => {
+      if (cancelled) return;
+      // Being turned away because the front door is busy is not a reason
+      // to show someone a login wall on a product that promises no
+      // account is required — say so plainly and let them retry.
+      if (error instanceof ApiError && error.isRateLimited) {
+        setAtCapacity(true);
+        return;
+      }
+      router.replace('/login');
     });
     return () => {
       cancelled = true;
     };
-  }, [isRestoring, session.isAuthenticated, sessionExpired, establishGuestSession, router]);
+  }, [isRestoring, session.isAuthenticated, sessionExpired, establishGuestSession, router, retryToken]);
+
+  if (atCapacity) {
+    return (
+      <div className={styles.wrapper}>
+        <ErrorState
+          title={ARRIVAL_CAPACITY_TITLE}
+          description={ARRIVAL_CAPACITY_DESCRIPTION}
+          action={
+            <Button
+              type="button"
+              onClick={() => {
+                setAtCapacity(false);
+                attemptedGuest.current = false;
+                setRetryToken((n) => n + 1);
+              }}
+            >
+              Try again
+            </Button>
+          }
+        />
+      </div>
+    );
+  }
 
   if (isRestoring || (!session.isAuthenticated && !sessionExpired)) {
     return fallback ?? <SessionRestoringNotice />;

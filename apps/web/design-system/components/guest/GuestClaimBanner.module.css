@@ -9,6 +9,20 @@
   background: var(--color-surface-secondary);
 }
 
+/*
+ * `GlobalActionPalette` is fixed to the top-right corner and this banner
+ * is the only thing in normal flow that reaches up into it, so the
+ * banner's own actions were rendering underneath it. Reserve the corner
+ * rather than moving the palette, which is a fixed landmark on every
+ * screen. Below 640px the actions wrap onto their own line and no longer
+ * collide, so the reservation only applies above that.
+ */
+@media (min-width: 640px) {
+  .banner {
+    padding-right: calc(var(--space-5) + 12rem);
+  }
+}
+
 .message {
   margin: 0;
   color: var(--color-text-primary);
@@ -36,5 +50,8 @@
   font-size: var(--font-size-sm);
   text-decoration: underline;
   cursor: pointer;
-  padding: var(--space-1);
+  /* Was 24px tall — under the 44px comfortable touch target, and the
+     smaller of the two actions in this banner. */
+  min-height: 44px;
+  padding: var(--space-1) var(--space-3);
 }

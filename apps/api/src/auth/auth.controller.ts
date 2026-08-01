@@ -30,6 +30,27 @@ import { AuthenticatedUser } from './strategies/jwt.strategy';
 // Brute-force protection (PR-002): tight per-IP limit on credential/token endpoints.
 const AUTH_THROTTLE = { default: { limit: 5, ttl: 60_000 } };
 
+/**
+ * Guest Steward mode's front door needs its own limit, not the credential
+ * one above.
+ *
+ * `AUTH_THROTTLE` exists to make password guessing expensive. `/auth/guest`
+ * has no password to guess and no account to break into — it mints a
+ * throwaway session — so a 5/minute ceiling bought no security here while
+ * breaking the product's central promise: the sixth visitor from any
+ * shared IP within a minute was turned away from a service that says no
+ * account is required to ask for help. One office, campus, café or
+ * mobile-carrier NAT reaches five in ordinary use, and each of those
+ * people is a different human being.
+ *
+ * 30/minute is sized for a shared egress IP rather than for one person,
+ * while still bounding automated abuse. The durable protection against
+ * bulk guest creation is not this window but `GuestLifecycleService`,
+ * which hard-deletes unclaimed guests after seven idle days — so a flood
+ * of empty rows cleans itself up rather than accumulating.
+ */
+const GUEST_THROTTLE = { default: { limit: 30, ttl: 60_000 } };
+
 @ApiTags('auth')
 @Controller('auth')
 export class AuthController {
@@ -49,7 +70,7 @@ export class AuthController {
 
   @Post('guest')
   @HttpCode(HttpStatus.CREATED)
-  @Throttle(AUTH_THROTTLE)
+  @Throttle(GUEST_THROTTLE)
   @ApiOperation({ summary: 'Start an unauthenticated guest session — no email or password required. Guest Steward mode: the first Aureus experience never requires an account.' })
   @ApiResponse({ status: 201, type: AuthResponseDto })
   guest(): Promise<AuthResponseDto> {

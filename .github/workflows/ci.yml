@@ -76,6 +76,13 @@ jobs:
       - name: Test (API unit, integration, and e2e tests)
         run: pnpm --filter @aureus-v1/api run test --coverage
 
+      # The web suite was never run here, so every frontend test in the repo
+      # could fail without CI noticing. Kept as its own step rather than
+      # folded into `pnpm run test` so the API's --coverage run above stays
+      # exactly as it was, and so a web failure is legible on its own.
+      - name: Test (web)
+        run: pnpm --filter @aureus-v1/web run test
+
       - name: Build
         run: pnpm run build
 
@@ -130,11 +137,20 @@ jobs:
           # too (PD-001) — dummy-but-well-formed values are fine, this
           # smoke test only needs the container to boot and serve /health,
           # not to actually send email.
+          #
+          # AI_PROVIDER joins them for the same reason: production now
+          # refuses to boot on the stub provider, because StubAiProvider
+          # returns a literal "[stub AI response]" string and the Steward's
+          # replies render straight into arrival — a misconfigured deploy
+          # would show that placeholder to a member in crisis. The key is
+          # never used; the container only has to boot and serve /health.
           docker run -d --network host --name api-smoke \
             -e DATABASE_URL="postgresql://aureus:aureus@localhost:5432/aureus?schema=public" \
             -e JWT_ACCESS_SECRET="ci-only-secret-do-not-use-in-production-min-32-chars" \
             -e CORS_ORIGIN="http://localhost:3001" \
             -e SMTP_HOST="smtp.example.com" \
+            -e AI_PROVIDER="openai" \
+            -e OPENAI_API_KEY="ci-only-not-a-real-key" \
             aureus-api:ci
 
           echo "Waiting for /health/live..."

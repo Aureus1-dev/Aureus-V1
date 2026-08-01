@@ -1,11 +1,11 @@
 'use client';
 
 import { useEffect } from 'react';
-import Link from 'next/link';
 import { useJourney, useSession } from '../../../state';
 import { EmptyState } from '../EmptyState/EmptyState';
+import { ArrivalRoom, ArrivalStage } from '../arrival';
 import { LoadingState } from '../LoadingState/LoadingState';
-import { Button } from '../Button/Button';
+import { LinkButton } from '../Button/LinkButton';
 import { Greeting } from './Greeting';
 import { QuickActions } from './QuickActions';
 import { JourneySection } from './JourneySection';
@@ -35,6 +35,7 @@ export function HomeDashboard() {
   if (!session.isAuthenticated) {
     return (
       <EmptyState
+        titleAs="h1"
         title="Sign in to see your Home"
         description="Home is where your Aureus journey picks up each time you return."
       />
@@ -50,16 +51,21 @@ export function HomeDashboard() {
   }
 
   if (journeyState.goals.length === 0) {
+    // A member with no mission yet was met by a single small card in an
+    // otherwise empty field. Home is the Hall (AUREUS-003) — so before
+    // there is anything to show, the room itself is what welcomes them,
+    // rather than an empty dashboard implying something is missing.
     return (
-      <EmptyState
-        title="Let's get started"
-        description="You don't have a mission yet — begin at Welcome to set your first goal."
-        action={
-          <Link href="/welcome">
-            <Button>Go to Welcome</Button>
-          </Link>
-        }
-      />
+      <ArrivalRoom>
+        <ArrivalStage stepKey="home-empty">
+          <EmptyState
+            titleAs="h1"
+            title="Let's get started"
+            description="You don't have a mission yet — begin at Welcome to set your first goal."
+            action={<LinkButton href="/welcome">Go to Welcome</LinkButton>}
+          />
+        </ArrivalStage>
+      </ArrivalRoom>
     );
   }
 

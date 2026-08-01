@@ -90,7 +90,19 @@ export const envValidationSchema = Joi.object({
   // API key becomes required — previously it stayed optional even then,
   // silently degrading requests to StubAiProvider (or a runtime provider
   // resolution error at request time) rather than failing at boot.
-  AI_PROVIDER: Joi.string().valid('openai', 'anthropic', 'stub').default('stub'),
+  // 'stub' is rejected once NODE_ENV=production: StubAiProvider returns a
+  // literal "[stub AI response] Acknowledged: ..." string, and with the
+  // Steward's replies rendered straight into arrival, a misconfigured
+  // production deploy would show a member in crisis that placeholder text
+  // where an answer should be. Failing at boot is the only way that is
+  // caught before a person reads it. Mirrors the CORS_ORIGIN rule above.
+  AI_PROVIDER: Joi.string().valid('openai', 'anthropic', 'stub').default('stub').when('NODE_ENV', {
+    is: 'production',
+    then: Joi.string().valid('openai', 'anthropic').required().messages({
+      'any.only':
+        'AI_PROVIDER must be a real provider ("openai" or "anthropic") in production — the stub provider returns placeholder text that members would see.',
+    }),
+  }),
   OPENAI_API_KEY: Joi.string().empty('').when('AI_PROVIDER', { is: 'openai', then: Joi.required() }),
   OPENAI_MODEL:       Joi.string().empty('').default('gpt-5-mini'),
   ANTHROPIC_API_KEY: Joi.string().empty('').when('AI_PROVIDER', { is: 'anthropic', then: Joi.required() }),

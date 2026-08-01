@@ -54,7 +54,7 @@ export function FirstMissionStep({ goal, creating, error, onRetry, onContinue }:
 
   return (
     <div className={styles.step}>
-      <h2 className={styles.title}>Your first mission is set</h2>
+      <h1 className={styles.title}>Your first mission is set</h1>
       <p className={styles.body}>
         &quot;{goal.title}&quot; is now your first Goal. We&apos;ve created a Journey to track your progress, with
         one small step ready to begin.

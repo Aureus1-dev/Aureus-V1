@@ -126,9 +126,24 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     async function restore() {
       const { refreshToken } = getTokenSnapshot();
       if (refreshToken) {
-        await refreshAccessToken();
+        const restored = await refreshAccessToken();
         if (!cancelled) {
           setSession((previous) => withTokenSnapshot(previous));
+          // A refresh token was on disk and the server refused it, so
+          // this browser belongs to a member whose session ended — not
+          // to a new visitor. Saying so is what stops `RootPage` and
+          // `AuthGate` from silently minting a fresh guest identity and
+          // orphaning everything that member already built.
+          //
+          // Previously the flag was only ever set by the auth bridge,
+          // which runs on a 401 *during* a request and therefore never
+          // on the cold load that follows a browser restart, an expired
+          // token, or a second tab having already rotated it. That cold
+          // load is exactly when a returning member arrives, so the
+          // guards existed but could not fire on the path that mattered.
+          if (!restored) {
+            setSessionExpired(true);
+          }
         }
       }
       if (!cancelled) {

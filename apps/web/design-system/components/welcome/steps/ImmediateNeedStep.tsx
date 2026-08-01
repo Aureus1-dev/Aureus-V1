@@ -25,7 +25,7 @@ export function ImmediateNeedStep({ onSubmit, submitting }: ImmediateNeedStepPro
 
   return (
     <div className={styles.step}>
-      <h2 className={styles.title}>What brings you to Aureus today?</h2>
+      <h1 className={styles.title}>What brings you to Aureus today?</h1>
       <p className={styles.body}>
         Whatever it is — big or small — tell us in your own words. We&apos;ll use this to shape your first mission
         and start looking for opportunities that could help.
@@ -33,6 +33,7 @@ export function ImmediateNeedStep({ onSubmit, submitting }: ImmediateNeedStepPro
       <form onSubmit={handleSubmit} noValidate>
         <FormField
           id="immediate-need"
+          multiline
           label="Your immediate need"
           value={need}
           onChange={setNeed}

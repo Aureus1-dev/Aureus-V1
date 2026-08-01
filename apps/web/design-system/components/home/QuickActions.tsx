@@ -1,6 +1,5 @@
-import Link from 'next/link';
 import { Card } from '../Card/Card';
-import { Button } from '../Button/Button';
+import { LinkButton } from '../Button/LinkButton';
 import { VisuallyHidden } from '../../accessibility';
 import styles from './QuickActions.module.css';
 
@@ -17,15 +16,9 @@ export function QuickActions() {
         <VisuallyHidden>Quick actions</VisuallyHidden>
       </h2>
       <div className={styles.actions}>
-        <Link href="/journey">
-          <Button variant="secondary">Continue my journey</Button>
-        </Link>
-        <Link href="/opportunities">
-          <Button variant="secondary">Browse opportunities</Button>
-        </Link>
-        <Link href="/welcome?newMission=true">
-          <Button variant="secondary">Start a new mission</Button>
-        </Link>
+        <LinkButton href="/journey" variant="secondary">Continue my journey</LinkButton>
+        <LinkButton href="/opportunities" variant="secondary">Browse opportunities</LinkButton>
+        <LinkButton href="/welcome?newMission=true" variant="secondary">Start a new mission</LinkButton>
       </div>
     </Card>
   );
