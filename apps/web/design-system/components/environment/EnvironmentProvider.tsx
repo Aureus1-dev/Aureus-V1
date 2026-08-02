@@ -11,6 +11,7 @@ import {
 import type { EnvironmentalTime } from './environment.types';
 import { getEnvironmentalTime, NEUTRAL_ENVIRONMENTAL_TIME } from './getEnvironmentalTime';
 import { HALL_AT_REST, useHallWelcome } from './useHallWelcome';
+import { useHallWaking } from './useHallWaking';
 
 export interface HallEnvironmentValue {
   /** The member's hour, as the Hall expresses it. */
@@ -23,12 +24,20 @@ export interface HallEnvironmentValue {
    * `useHallWelcome`.
    */
   welcome: number;
+  /**
+   * How far the Hall has woken since the member arrived, 0 → 1. Separate
+   * from `welcome` because they are different facts: waking is about
+   * arriving, welcome is about being known. The room's actual light is
+   * the two together.
+   */
+  awake: number;
 }
 
 const NEUTRAL: HallEnvironmentValue = {
   time: NEUTRAL_ENVIRONMENTAL_TIME,
   resolved: false,
   welcome: HALL_AT_REST,
+  awake: 1,
 };
 
 const EnvironmentContext = createContext<HallEnvironmentValue>(NEUTRAL);
@@ -81,6 +90,7 @@ export function EnvironmentProvider({ children }: { children: ReactNode }) {
    * has been said yet.
    */
   const welcome = useHallWelcome();
+  const awake = useHallWaking();
 
   useEffect(() => {
     const read = () => setTime(getEnvironmentalTime());
@@ -90,8 +100,8 @@ export function EnvironmentProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const value = useMemo<HallEnvironmentValue>(
-    () => (time ? { time, resolved: true, welcome } : { ...NEUTRAL, welcome }),
-    [time, welcome],
+    () => (time ? { time, resolved: true, welcome, awake } : { ...NEUTRAL, welcome, awake }),
+    [time, welcome, awake],
   );
 
   return <EnvironmentContext.Provider value={value}>{children}</EnvironmentContext.Provider>;

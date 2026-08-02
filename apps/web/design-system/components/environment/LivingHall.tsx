@@ -145,7 +145,7 @@ export function LivingHall({ children, presence = 'resting', time, chrome }: Liv
         data-aureus-hall=""
         data-time={environmentalTime}
         data-chrome={chrome}
-        style={{ '--hall-welcome': welcome } as CSSProperties}
+        style={{ '--hall-welcome': welcome, '--hall-awake': environment.awake } as CSSProperties}
       >
         <HallArchitecture />
         <HallThresholds />

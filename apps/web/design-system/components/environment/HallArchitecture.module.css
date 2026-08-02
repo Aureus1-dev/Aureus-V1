@@ -78,7 +78,15 @@
    * brighten in one place. The plaster warms, the shadows shorten, the
    * daylight strengthens and the candles recede, all off one number.
    */
-  --lit: var(--hall-welcome, 0);
+  --lit: calc(var(--hall-welcome, 0) * var(--hall-awake, 1));
+
+  /*
+   * How far the room has woken, on its own. Surfaces that must be dark
+   * before the member arrives read this rather than `--lit`, because a
+   * sleeping room is dark whatever has been said in it — and on a
+   * returning visit a great deal has.
+   */
+  --awake: var(--hall-awake, 1);
 
   --plaster: color-mix(
     in srgb,
@@ -100,6 +108,7 @@
 .dome {
   position: absolute;
   inset: 0 0 calc(100% - var(--spring)) 0;
+  opacity: calc(0.22 + 0.78 * var(--awake));
   background:
     radial-gradient(
       120% 190% at var(--vp-x) var(--oculus-y),
@@ -234,6 +243,7 @@
 .drum {
   position: absolute;
   inset: var(--spring) 0 calc(100% - var(--grade)) 0;
+  opacity: calc(0.18 + 0.82 * var(--awake));
   background: linear-gradient(
     to bottom,
     color-mix(in srgb, var(--plaster) 82%, var(--hall-shade)) 0%,
@@ -304,6 +314,7 @@
 .floor {
   position: absolute;
   inset: var(--grade) 0 0 0;
+  opacity: calc(0.16 + 0.84 * var(--awake));
   background: linear-gradient(
     to bottom,
     color-mix(in srgb, var(--stone) 88%, var(--color-surface-sunken)) 0%,

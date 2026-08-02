@@ -7,10 +7,22 @@
  * "Light is Aureus' primary architectural material."
  */
 
+/*
+ * The fire catches; it does not burst. Founder direction: "The fire
+ * doesn't burst into flame. It catches. Small. Warm. Intentional."
+ *
+ * So while the room is asleep the flame is a low ember — present, barely
+ * — and it comes up with the room rather than being switched on. `1.6` on
+ * the scale means it lags the room's own waking slightly, which is what
+ * makes it read as taking rather than being lit.
+ */
 .light {
   display: block;
   width: 100%;
   height: 100%;
+  opacity: calc(0.14 + 0.86 * min(1, var(--hall-awake, 1) * 1.6));
+  transform: scale(calc(0.62 + 0.38 * min(1, var(--hall-awake, 1) * 1.6)));
+  transform-origin: 50% 92%;
   /* Softened just enough that the edge is luminous rather than cut. Kept
      small so the aperture stays recognisable at the size it reaches on a
      phone. */

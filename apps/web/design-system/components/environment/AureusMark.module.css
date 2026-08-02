@@ -17,10 +17,21 @@
   pointer-events: none;
 }
 
+/*
+ * The light reaches the Mark before it reaches anything else. Founder
+ * direction: "A shaft of natural light begins to touch the Aureus Mark.
+ * Not because the Mark is glowing. Because the light is finally reaching
+ * it."
+ *
+ * `2.2` on the wake value is what makes it first: the bronze is legible
+ * well before the room is, so a member's eye has somewhere to rest in
+ * the dark. It is still only ever reflecting.
+ */
 .glyph {
   display: block;
   width: 100%;
   height: auto;
+  opacity: calc(0.1 + 0.9 * min(1, var(--hall-awake, 1) * 2.2));
   /*
    * The one thing that changes: how much of the fire's light the bronze
    * is holding. Slower than the flame itself and shallower, because
