@@ -1,0 +1,159 @@
+# Family Registry
+#
+# Governed by: FOUNDATION-004 — Repository Architecture & Canon Governance
+# Purpose: the permanent, institution-wide record of every document-identifier
+# family, its single defined purpose, its authority tier, and its status.
+#
+# Per FOUNDATION-004 §5 (Registry Requirement), this registry is created
+# before the Experience Architecture Consolidation Program moves, merges,
+# or retires any document. Repository changes follow this registry; this
+# registry is not written after the fact to describe what was already done.
+#
+# Scope note: this registry currently reflects the families audited during
+# the Experience Architecture Consolidation Program (Steward canon,
+# Experience canon, Frontend blueprints, and their immediate adjacent
+# documents). It is not yet a complete registry of every document family
+# in the Aureus repository. Families outside this program's scope
+# (e.g. PC-*, GV-*, AI-*, PD-*, ADR-*, ENG-*) are not listed below and
+# should be added when audited under this same discipline.
+
+registry_version: 1.0
+last_updated: pending Founder approval of PR A
+status: planned — precedes all file moves in Groups B through F
+
+families:
+
+  - prefix: AFX
+    name: Frontend Experience Canon
+    purpose: The engineering-authoritative experience canon governing conversation, voice, visual design, member journey, and member flourishing for shipped frontend work.
+    authority_tier: "Level 3/4 — Member Experience / Product Architecture (engineering-authoritative)"
+    location: docs/frontend/canon/
+    status: active, unchanged
+    audience: engineering
+    relationship_to_other_families: Governs FPB (production blueprints). Is the sole engineering-authoritative experience canon; AXC, AEX, SC, MJC, OC hold no engineering authority.
+
+  - prefix: FPB
+    name: Frontend Production Blueprints
+    purpose: The single production blueprint series translating AFX canon into implementable engineering specification. Governs all shipped frontend work.
+    authority_tier: "Level 4/5 — Product Architecture / Engineering (engineering-authoritative)"
+    location: docs/frontend/blueprints/
+    status: active, unchanged
+    audience: engineering
+    relationship_to_other_families: Derives authority from AFX. Cited by all active work orders (FWO-*, DOMAIN-*, PR-*, PD-*).
+
+  - prefix: AXB
+    name: Aspirational Experience Blueprints (renamed from the second FPB series)
+    purpose: Room-by-room implementation detail for the aspirational Living Home vision described by AXC. Not engineering-authoritative.
+    authority_tier: "Level 3 — Member Experience (aspirational)"
+    location: docs/03-member-experience/frontend-blueprints/ (pending final directory rename in Group C)
+    status: renaming — was FPB-000 through FPB-017 at this location; collision with the engineering-authoritative FPB prefix confirmed zero real-world citations for this series, so it moves.
+    audience: future experience design / not currently engineering
+    relationship_to_other_families: Governed by AXC. Must never be cited as engineering authority per FOUNDATION-004 §8.
+
+  - prefix: AXC
+    name: Experience Canon (aspirational)
+    purpose: The long-term aspirational member-experience canon — the Living Home, its rooms, its environmental language, motion, audio, and interaction principles.
+    authority_tier: "Level 3 — Member Experience (aspirational, not engineering-authoritative)"
+    location: docs/03-member-experience/experience-canon/
+    status: active, absorbing AEX
+    audience: experience design, future engineering migration candidate
+    relationship_to_other_families: Absorbs AEX (AEX-000 becomes AXC-000). Governs AXB. Must be explicitly disclaimed as non-engineering-authoritative wherever AFX/FPB are also present, per FOUNDATION-004 §1.
+
+  - prefix: AEX
+    name: Architecture of Experience (retiring)
+    purpose: Formerly an independent draft of the Experience Constitution and Living Hall Canon. Superseded by AXC.
+    authority_tier: "Level 3 — Member Experience (retiring)"
+    location: docs/architecture/experience/ (pre-retirement)
+    status: retiring — AEX-000 content becomes AXC-000; unique Neighborhoods/Long Steward Table vocabulary preserved as a reference note in AXC-008; AEX-000 and AEX-001 become redirect notices; prefix retires after migration.
+    audience: none — historical only, post-retirement
+    relationship_to_other_families: Fully absorbed into AXC. No remaining independent purpose.
+
+  - prefix: SC
+    name: Steward Foundation Canon
+    purpose: The philosophical foundation of Steward character, judgment, conversation, understanding, member sovereignty, burden/capability balance, and flourishing outcomes.
+    authority_tier: "Level 2/3 — Governance / Member Experience (aspirational, source philosophy)"
+    location: docs/canon/steward/foundation/
+    status: active, absorbing ST-001; one of two SC-001 forks retiring
+    audience: institutional philosophy, cross-referenced by AFX
+    relationship_to_other_families: Upstream source philosophy for AFX-001, AFX-002, AFX-006. Not itself engineering-authoritative; AFX operationalizes it.
+
+  - prefix: ST
+    name: Steward Personality Canon (retiring)
+    purpose: Formerly an independent statement of Steward character traits. Substantially duplicated SC-002.
+    authority_tier: "Level 2/3 (retiring)"
+    location: docs/canon/steward/ (pre-retirement)
+    status: retiring — unique content (Steward consistency across AI/Human/institutional forms; its Constitutional Question phrasing) merges into SC-002; ST-001 becomes a redirect notice.
+    audience: none — historical only, post-retirement
+    relationship_to_other_families: Fully absorbed into SC-002.
+
+  - prefix: MJC
+    name: Member Journey Canon
+    purpose: Describes the human, non-engineering shape of a member's journey through Aureus — welcome, discovery, guided execution, empowerment, reflection, proactive stewardship.
+    authority_tier: "Level 3 — Member Experience (aspirational methodology, not engineering-authoritative)"
+    location: docs/canon/member-journey/
+    status: active, kept per Founder ruling; cross-referenced to AFX-005; MJC-002 retiring into AXC-001
+    audience: institutional methodology
+    relationship_to_other_families: Shares subject matter and title with AFX-005 (Member Journey Canon, engineering-authoritative) — the two are explicitly disambiguated, not merged, per Founder ruling. MJC describes methodology; AFX-005 governs engineering.
+
+  - prefix: OC (opening-ceremony)
+    name: Opening Ceremony Canon (retiring)
+    purpose: Formerly an independent statement of Aureus's arrival ceremony. Substantially duplicated AXC-001.
+    authority_tier: "Level 3 (retiring)"
+    location: docs/canon/experience/ (pre-retirement)
+    status: retiring — pending the promised line-by-line uniqueness check against AXC-001; unique content merges in before retirement.
+    audience: none — historical only, post-retirement
+    relationship_to_other_families: Fully absorbing into AXC-001.
+
+  - prefix: OC (opportunity-center)
+    name: Opportunity Center Canon
+    purpose: Governs the Opportunity Center — unrelated in subject matter to the Opening Ceremony Canon above.
+    authority_tier: unaudited by this program
+    location: docs/canon/opportunity-center/
+    status: OUT OF SCOPE — flagged only. This prefix currently collides with the (retiring) Opening Ceremony Canon's identifier. The collision resolves itself once the Opening Ceremony OC-001 retires, but is recorded here per FOUNDATION-004 §4 (Identifier Uniqueness) so it is not silently forgotten if retirement is delayed.
+    audience: unaudited
+    relationship_to_other_families: none determined — out of this program's scope.
+
+  - prefix: EF
+    name: Emotional Foundations
+    purpose: Brand-level philosophy of the emotional register Aureus should evoke (Trust, Hope, Peace, Belonging, Human Dignity, Hospitality, Wisdom, Love, Stewardship, Human Flourishing).
+    authority_tier: "Level 2 — Governance / Brand (aspirational)"
+    location: docs/canon/branding/emotional-foundations/
+    status: kept as-is per Founder ruling; cross-reference only, no restructuring
+    audience: brand and experience design
+    relationship_to_other_families: EF-006 (Hospitality) cross-referenced from AXC-010 and FPB-017/AXB-017.
+
+  - prefix: BRAND
+    name: Brand Canon
+    purpose: Governs brand constitution, identity, onboarding philosophy, personalization philosophy, and related brand standards.
+    authority_tier: "Level 2 — Governance / Brand"
+    location: docs/canon/branding/
+    status: kept as-is per Founder ruling; cross-reference only (BRAND-005 specifically)
+    audience: brand and experience design
+    relationship_to_other_families: BRAND-005 (Onboarding Philosophy) cross-referenced with the Welcome-scope documents in AXC/MS.
+
+  - prefix: BR
+    name: Brand & Identity Canon
+    purpose: Governs symbols, ceremonies, and traditions, including the Member's Mark reveal ritual.
+    authority_tier: "Level 2 — Governance / Brand"
+    location: docs/canon/brand-and-identity/
+    status: kept as-is per Founder ruling; cross-reference only (BR-004 specifically, to AXC-001)
+    audience: brand and experience design
+    relationship_to_other_families: BR-004 cross-referenced with AXC-001's Mark-reveal ceremony content.
+
+  - prefix: MS
+    name: Member Stewardship Canon
+    purpose: Governs first welcome, onboarding, community, and belonging from the stewardship (not visual/environmental) angle.
+    authority_tier: "Level 3 — Member Experience (aspirational)"
+    location: docs/canon/member-stewardship/
+    status: kept as-is per Founder ruling; cross-reference only (MS-002 specifically)
+    audience: institutional methodology
+    relationship_to_other_families: MS-002 (First Welcome & Onboarding) cross-referenced with the Welcome-scope documents in AXC/BRAND.
+
+  - prefix: PA
+    name: Product Architecture
+    purpose: Cross-cutting product and information architecture, member lifecycle stages, and data governance — not member-experience-specific.
+    authority_tier: "Level 4 — Product Architecture"
+    location: docs/product-architecture/
+    status: kept as-is per Founder ruling; cross-reference only (PA-005 specifically)
+    audience: product and engineering
+    relationship_to_other_families: PA-005 (Member Experience Architecture) cross-referenced with AFX-005 and MJC-001, without merging — different governing tier.
