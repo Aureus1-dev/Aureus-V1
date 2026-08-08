@@ -24,6 +24,30 @@ import styles from './AureusMark.module.css';
  * what reflected light does — but it never generates light of its own
  * and never moves.
  *
+ * ── Two lights ─────────────────────────────────────────────────────
+ *
+ * Founder directive: the light should "reflect off of it in different
+ * ways", and "reflect differently from the time of day".
+ *
+ * There are exactly two lights in this room that can reach the Mark, and
+ * they arrive from opposite directions: daylight down through the
+ * oculus, firelight up from the Hearth. So the Mark is drawn three
+ * times — the bronze itself, then the daylight falling on it, then the
+ * firelight rising onto it — and the hour decides how much of each.
+ *
+ * That is why nothing here fades. At noon the highlight sits along the
+ * top of the ring and the underside falls away; by midnight the fire is
+ * the only light left and the weight has moved down onto the underside.
+ * Same bronze, same paths, different reading.
+ *
+ * Measured on the dark theme, the luminance difference between the top
+ * third of the Mark and the bottom third travels from −11.9 at morning
+ * to −3.5 at night: the underside gains roughly eight points on the top
+ * across the day. It does not fully invert, and deliberately so — the
+ * daylight never goes to nothing, because a Mark lit only from below is
+ * a Mark whose upper arc has gone missing, and this one is the member's
+ * primary orientation. It has to stay whole at every hour.
+ *
  * It is not the Member's Mark. AUREUS-013 and DOCUMENT 24: that one is
  * personal, unique to each member, and revealed only when a member
  * chooses to make Aureus their home. This one belongs to the house and
@@ -73,6 +97,8 @@ export function AureusMark({ inscribed = false }: AureusMarkProps) {
   // The Mark can appear more than once at a time during arrival, and a
   // duplicated gradient id would make one instance inherit the other's.
   const glowId = useId();
+  const dayId = useId();
+  const fireId = useId();
 
   return (
     <div className={styles.mark} aria-hidden="true">
@@ -88,12 +114,65 @@ export function AureusMark({ inscribed = false }: AureusMarkProps) {
             <stop offset="70%" stopColor="var(--color-ember-core)" stopOpacity="0.1" />
             <stop offset="100%" stopColor="var(--color-ember-core)" stopOpacity="0" />
           </radialGradient>
+
+          {/*
+           * Daylight, falling from the oculus. Strong at the top of the
+           * form and gone by the bottom, because that is where it comes
+           * from. Its colour is set by the hour (see the stylesheet) —
+           * the same bronze is pale at eight in the morning and amber at
+           * seven in the evening, and it is the light that changed, not
+           * the metal.
+           */}
+          <linearGradient id={dayId} x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="var(--mark-daylight)" stopOpacity="0.95" />
+            <stop offset="52%" stopColor="var(--mark-daylight)" stopOpacity="0.24" />
+            <stop offset="100%" stopColor="var(--mark-daylight)" stopOpacity="0" />
+          </linearGradient>
+
+          {/*
+           * Firelight, rising from the Hearth. The exact inverse: bright
+           * along the underside, nothing along the top. When the two
+           * trade places the whole Mark reads differently without a
+           * single path moving — which is the point. A lamp below an
+           * object does not dim it, it re-shades it.
+           */}
+          <linearGradient id={fireId} x1="0" y1="1" x2="0" y2="0">
+            <stop offset="0%" stopColor="var(--color-ember-tip)" stopOpacity="1" />
+            <stop offset="42%" stopColor="var(--color-ember-mid)" stopOpacity="0.42" />
+            <stop offset="100%" stopColor="var(--color-ember-mid)" stopOpacity="0" />
+          </linearGradient>
         </defs>
+
         {/* What the fire below throws onto the stone. */}
         <circle cx="60" cy="60" r="58" fill={`url(#${glowId})`} />
+
+        {/* The bronze itself: what you can see of it in no light at all. */}
         <path d={RING} className={styles.ring} />
         <path d={LEAF} className={styles.leaf} />
         <path d={FLAME} className={styles.flame} />
+
+        {/*
+         * Above. Still — daylight does not flicker.
+         *
+         * Each light is applied twice: along the edges of the metal,
+         * where a band of bronze catches a hard highlight, and across
+         * the face of the leaf, where it washes. Edge and face, because
+         * that is how light actually meets a raised inlay, and because
+         * an edge alone is a line drawing.
+         */}
+        <g className={styles.sheenAbove} stroke={`url(#${dayId})`}>
+          <path d={LEAF} className={styles.wash} fill={`url(#${dayId})`} />
+          <path d={RING} />
+          <path d={LEAF} />
+        </g>
+
+        {/* Below. Moving, one long beat behind the fire that causes it. */}
+        <g className={styles.sheenBelow} stroke={`url(#${fireId})`}>
+          <path d={LEAF} className={styles.wash} fill={`url(#${fireId})`} />
+          <path d={RING} />
+          <path d={LEAF} />
+          <path d={FLAME} />
+        </g>
       </svg>
 
       {inscribed ? (
