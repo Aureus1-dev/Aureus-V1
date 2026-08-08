@@ -1,0 +1,144 @@
+/*
+ * Candlelight.
+ *
+ * Two parts per candle, because that is what a candle actually is at a
+ * distance: a small hot point you can barely resolve, and a much larger
+ * soft halo on whatever it is standing near. Drawing only the flame gives
+ * fireflies; drawing only the halo gives smudges. Both together give a
+ * lit room.
+ *
+ * They are brightest when the Hall is at rest and recede as it warms —
+ * never out. `--hall-welcome` is the room's own light level, 0 when
+ * nobody has spoken and approaching 1 as the conversation goes on.
+ */
+
+.candles {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  /*
+   * A candle earns its keep in a dark room and is barely noticeable in a
+   * bright one. This is the whole relationship in one line: full presence
+   * at rest, a third of it once the Hall is lit.
+   */
+  opacity: calc(1 - var(--hall-welcome, 0) * 0.66);
+  transition: opacity 2400ms var(--motion-easing-standard);
+}
+
+.candle {
+  position: absolute;
+  width: calc(1.1rem * var(--candle-scale, 1));
+  height: calc(1.7rem * var(--candle-scale, 1));
+  transform: translate(-50%, -50%);
+}
+
+/* The flame: small, hot, and never still. */
+.flame {
+  position: absolute;
+  left: 50%;
+  bottom: 30%;
+  width: 46%;
+  height: 62%;
+  transform: translateX(-50%);
+  border-radius: 50% 50% 46% 46% / 74% 74% 26% 26%;
+  background: radial-gradient(
+    ellipse at 50% 74%,
+    color-mix(in srgb, var(--color-ember-tip) 92%, white) 0%,
+    var(--color-ember-mid) 52%,
+    color-mix(in srgb, var(--color-ember-core) 70%, transparent) 84%,
+    transparent 100%
+  );
+  filter: blur(0.4px);
+  transform-origin: 50% 92%;
+  animation: candle-flicker var(--candle-period, 3000ms) ease-in-out infinite;
+  animation-delay: var(--candle-delay, 0ms);
+}
+
+/*
+ * What the candle lights. Far larger than the flame, and soft enough
+ * that it reads as illumination on the wall behind rather than as a
+ * glowing dot — which is the difference between a candle and a status
+ * indicator.
+ */
+.halo {
+  position: absolute;
+  left: 50%;
+  top: 40%;
+  width: 900%;
+  height: 700%;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  background: radial-gradient(
+    ellipse at 50% 50%,
+    color-mix(in srgb, var(--color-ember-mid) 26%, transparent) 0%,
+    color-mix(in srgb, var(--color-ember-core) 11%, transparent) 38%,
+    transparent 72%
+  );
+  animation: candle-breathe calc(var(--candle-period, 3000ms) * 1.7) ease-in-out infinite;
+  animation-delay: var(--candle-delay, 0ms);
+}
+
+/*
+ * The flicker. Deliberately small — a real candle in still air moves
+ * very little, and the moment this becomes visible as *animation* the
+ * room stops being a room. Height varies more than width, because that
+ * is how a flame behaves when the air moves.
+ */
+@keyframes candle-flicker {
+  0%, 100% { transform: translateX(-50%) scaleY(1) scaleX(1); opacity: 0.92; }
+  28% { transform: translateX(-50%) scaleY(1.09) scaleX(0.97); opacity: 1; }
+  54% { transform: translateX(-50%) scaleY(0.95) scaleX(1.02); opacity: 0.88; }
+  76% { transform: translateX(-50%) scaleY(1.05) scaleX(0.99); opacity: 0.97; }
+}
+
+@keyframes candle-breathe {
+  0%, 100% { opacity: 0.86; }
+  50% { opacity: 1; }
+}
+
+/* ── Time of day ───────────────────────────────────────────────────── */
+/*
+ * Candles compete with daylight and win at night. This is not decoration:
+ * it is the reason the same room feels different at 3pm and 3am, and the
+ * reason a member arriving at 3am finds the place at its warmest.
+ */
+:global([data-time='morning']) .candles { opacity: calc((1 - var(--hall-welcome, 0) * 0.66) * 0.45); }
+:global([data-time='afternoon']) .candles { opacity: calc((1 - var(--hall-welcome, 0) * 0.66) * 0.35); }
+:global([data-time='evening']) .candles { opacity: calc((1 - var(--hall-welcome, 0) * 0.66) * 0.85); }
+:global([data-time='night']) .candles { opacity: calc(1 - var(--hall-welcome, 0) * 0.4); }
+
+/* ── Reduced motion ────────────────────────────────────────────────── */
+/*
+ * The candles stop moving and stay lit. A member who prefers reduced
+ * motion arrives in exactly the same room, at exactly the same
+ * brightness — they lose the flicker, not the light.
+ */
+@media (prefers-reduced-motion: reduce) {
+  :global(:root:not([data-reduced-motion='false'])) .flame,
+  :global(:root:not([data-reduced-motion='false'])) .halo {
+    animation: none;
+    opacity: 1;
+  }
+}
+
+:global([data-reduced-motion='true']) .flame,
+:global([data-reduced-motion='true']) .halo {
+  animation: none;
+  opacity: 1;
+}
+
+/* Narrow rooms: the member is close to the Hearth, so the candles at the
+   room's turn are behind them. The nearer ones stay. */
+@container hall (max-width: 600px) {
+  .candle:nth-child(-n + 2),
+  .candle:nth-last-child(-n + 2) {
+    display: none;
+  }
+}
+
+@media (forced-colors: active) {
+  .candles {
+    display: none;
+  }
+}

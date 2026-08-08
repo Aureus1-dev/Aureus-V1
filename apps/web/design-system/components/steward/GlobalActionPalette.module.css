@@ -24,6 +24,24 @@
   color: var(--color-text-tertiary);
 }
 
+/*
+ * The Index opens *beneath* the Hearth, not over it.
+ *
+ * Permanent architectural invariant (AUREUS-BP-001): "The Hearth shall
+ * never become fully obscured… Dialogs. Drawers." and, of the Index
+ * specifically, "Does not cover the Hearth completely." It used to open
+ * at 10vh, straight across the light.
+ *
+ * 52dvh clears the hearth at its blueprint position — centre at 38% of
+ * the viewport, a little over a tenth of it tall — so the light stays
+ * lit above whatever the member is choosing. It also puts the Index
+ * where every other interaction in this room happens: below the light,
+ * rising from where the member stands.
+ *
+ * The scrim is deliberately light. A 40% black wash blacked out the room
+ * behind it, which is the same failure by another route: the Hearth was
+ * technically visible and perceptually gone.
+ */
 .backdrop {
   position: fixed;
   inset: 0;
@@ -31,14 +49,14 @@
   display: flex;
   align-items: flex-start;
   justify-content: center;
-  padding-top: 10vh;
-  background: rgba(0, 0, 0, 0.4);
+  padding-top: 52dvh;
+  background: color-mix(in srgb, var(--hall-shade, black) 22%, transparent);
 }
 
 .dialog {
   width: 32rem;
   max-width: calc(100vw - var(--space-8));
-  max-height: 70vh;
+  max-height: 42dvh;
   display: flex;
   flex-direction: column;
   border-radius: var(--radius-lg);
@@ -79,7 +97,10 @@
 
 .option {
   width: 100%;
-  display: block;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-4);
   padding: var(--space-3);
   border: none;
   border-radius: var(--radius-md);
@@ -89,6 +110,21 @@
   font-size: var(--font-size-sm);
   text-align: left;
   cursor: pointer;
+}
+
+/*
+ * The room a destination is in.
+ *
+ * Quiet on purpose: it orients rather than competes, and a member
+ * scanning for "Documents" should still read "Documents" first. It is
+ * part of the option's accessible name, so the same orientation reaches
+ * a screen reader — "Documents, The Library".
+ */
+.optionPlace {
+  flex: none;
+  color: var(--color-text-tertiary);
+  font-size: var(--font-size-xs);
+  white-space: nowrap;
 }
 
 .optionActive {

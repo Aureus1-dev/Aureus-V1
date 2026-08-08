@@ -26,6 +26,24 @@
  * The dark value is deliberately unchanged: it already passed everywhere
  * (4.75–5.62:1).
  *
+ * The same correction was then required across the rest of the light
+ * semantic set, once seeded pilot data made those tokens visible as
+ * small text for the first time. Measured against all four light
+ * surfaces, every one failed AA at 12–14px: opportunity 3.16, warning
+ * 2.81, journey 2.83, information 3.29, success 3.63, actionPrimary
+ * 4.28, error 4.35. Each moved to the lightest value that clears 4.5:1
+ * on the darkest surface, so the palette darkens as little as the
+ * standard permits. AUREUS-302 §ACCESSIBILITY governs: "WCAG AA
+ * contrast... Accessibility is mandatory." That canon fixes the outcome
+ * and encodes no palette values, and these remain the Brand Neutral
+ * placeholders, so nothing here contradicts a ratified colour.
+ *
+ * Every dark value was measured too and every one already passed
+ * (4.56–6.89:1), so the dark theme is untouched throughout.
+ *
+ * `actionPrimaryHover` moves with `actionPrimary` only to keep the hover
+ * step visible; it is a button background, not small text.
+ *
  * `emberCore`/`emberMid`/`emberTip` (Warm & Elemental identity direction,
  * Founder-approved): a three-stop gradient for the Steward's own presence
  * — the voice orb (`VoiceOrb.tsx`) — so it reads as a glow with real
@@ -46,15 +64,15 @@ export const colorTokens = {
     border: '#ddd0ba',
     borderSubtle: '#ece2d0',
     focusRing: '#a8481f',
-    actionPrimary: '#a8481f',
-    actionPrimaryHover: '#8a3a19',
+    actionPrimary: '#9a4119',
+    actionPrimaryHover: '#7d3414',
     actionSecondary: '#5c5245',
-    success: '#3f7d4f',
-    warning: '#b5750a',
-    error: '#b23b2e',
-    information: '#5c7a99',
-    opportunity: '#8f6bb0',
-    journey: '#3f8f83',
+    success: '#356a43',
+    warning: '#805206',
+    error: '#a33529',
+    information: '#4a627b',
+    opportunity: '#73508f',
+    journey: '#2f6a62',
     steward: '#a8481f',
     conversation: '#5c5245',
     emberCore: '#a8481f',

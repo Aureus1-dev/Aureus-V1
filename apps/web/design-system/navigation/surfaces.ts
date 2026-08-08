@@ -1,4 +1,5 @@
 import { V1_FEATURE_FLAGS } from '../../lib/config/v1-feature-scope';
+import { placeForPath, type PlaceId } from './places';
 
 /**
  * The 21 primary experience surfaces (FPB-002 §3, extended by the Living
@@ -18,6 +19,19 @@ export interface SurfaceDefinition {
   label: string;
   href: string;
   tier: 'primary' | 'secondary';
+}
+
+/**
+ * Which of the seven places a surface belongs to — `null` for the
+ * settings of the house, which stay reachable but are not rooms.
+ *
+ * Derived from `places.ts` rather than restated here, so a surface can
+ * never be filed under two rooms or quietly under none. Founder ruling:
+ * "Routes are implementation details. Places are the member's mental
+ * model."
+ */
+export function placeOf(surface: SurfaceDefinition): PlaceId | null {
+  return placeForPath(surface.href);
 }
 
 const ALL_SURFACES: SurfaceDefinition[] = [

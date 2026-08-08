@@ -1,0 +1,108 @@
+/*
+ * The fire.
+ *
+ * The paths are hard-edged; what makes them read as *flame* rather than
+ * as a shape is the blur, the glow thrown onto everything nearby, and
+ * the fact that the core moves independently of the body. AUREUS-006:
+ * "Light is Aureus' primary architectural material."
+ */
+
+/*
+ * The fire catches; it does not burst. Founder direction: "The fire
+ * doesn't burst into flame. It catches. Small. Warm. Intentional."
+ *
+ * So while the room is asleep the flame is a low ember — present, barely
+ * — and it comes up with the room rather than being switched on. `1.6` on
+ * the scale means it lags the room's own waking slightly, which is what
+ * makes it read as taking rather than being lit.
+ */
+.light {
+  display: block;
+  width: 100%;
+  height: 100%;
+  opacity: calc(0.14 + 0.86 * min(1, var(--hall-awake, 1) * 1.6));
+  transform: scale(calc(0.62 + 0.38 * min(1, var(--hall-awake, 1) * 1.6)));
+  transform-origin: 50% 92%;
+  /* Softened just enough that the edge is luminous rather than cut. Kept
+     small so the aperture stays recognisable at the size it reaches on a
+     phone. */
+  filter:
+    blur(0.06em)
+    drop-shadow(0 0 0.5em color-mix(in srgb, var(--color-ember-mid) 55%, transparent))
+    drop-shadow(0 0 1.6em color-mix(in srgb, var(--color-ember-core) 32%, transparent));
+  animation: aureus-breathe 7200ms ease-in-out infinite;
+}
+
+/* The outer body carries the shape; the core carries the heat. Two
+   periods that do not divide evenly, so the fire never visibly repeats
+   — the difference between something alive and something looping. */
+.body {
+  animation: flame-body 5300ms ease-in-out infinite;
+  transform-origin: 50% 92%;
+}
+
+.core {
+  fill: color-mix(in srgb, var(--color-ember-tip) 88%, white);
+  opacity: 0.9;
+  animation: flame-core 3700ms ease-in-out infinite;
+  transform-origin: 50% 92%;
+}
+
+@keyframes flame-body {
+  0%, 100% { transform: scaleY(1) scaleX(1); }
+  50% { transform: scaleY(1.04) scaleX(0.985); }
+}
+
+@keyframes flame-core {
+  0%, 100% { transform: scaleY(1); opacity: 0.86; }
+  50% { transform: scaleY(1.07); opacity: 1; }
+}
+
+/*
+ * The one permitted motion: a slow warming and cooling, well under the
+ * threshold where it reads as animation. AUREUS-201 permits "breathing
+ * light" and forbids flashing; AUREUS-BP-001 permits "subtle Hearth
+ * breathing" and forbids pulsing controls. The difference is entirely in
+ * the amplitude and the period.
+ */
+@keyframes aureus-breathe {
+  0%,
+  100% {
+    opacity: 0.94;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+/*
+ * Reduced motion: the light stops moving and stays fully lit. A member
+ * who prefers reduced motion arrives in exactly the same room, at
+ * exactly the same brightness — they lose the breath, not the fire.
+ */
+@media (prefers-reduced-motion: reduce) {
+  :global(:root:not([data-reduced-motion='false'])) .light,
+  :global(:root:not([data-reduced-motion='false'])) .body,
+  :global(:root:not([data-reduced-motion='false'])) .core {
+    animation: none;
+    opacity: 1;
+  }
+}
+
+:global([data-reduced-motion='true']) .light,
+:global([data-reduced-motion='true']) .body,
+:global([data-reduced-motion='true']) .core {
+  animation: none;
+  opacity: 1;
+}
+
+/*
+ * Forced colours: the operating system owns colour, and a gradient-filled
+ * path would render as an unreadable blob. The Mark steps out rather than
+ * fighting for control of a decorative surface.
+ */
+@media (forced-colors: active) {
+  .light {
+    display: none;
+  }
+}

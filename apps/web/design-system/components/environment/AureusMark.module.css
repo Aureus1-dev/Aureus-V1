@@ -1,0 +1,279 @@
+/*
+ * The Mark, cut into the wall behind the Hearth.
+ *
+ * Everything here is *reflected* light. The Mark is bronze inlay in
+ * stone: it has no light of its own, it catches what the fire below
+ * gives it, and it does not move. Founder directive: "It reflects the
+ * firelight. It never becomes the fire… The Hearth is living. The Mark
+ * is enduring."
+ */
+
+.mark {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-3);
+  width: 100%;
+  pointer-events: none;
+
+  /*
+   * The two lights that can reach the bronze, and how much of each is
+   * arriving. Every value below is overridden by the hour further down;
+   * these are the neutral afternoon, which is what the Mark shows when
+   * it is composed outside the Hall (arrival, tests) and has no hour to
+   * read.
+   */
+  --mark-daylight: color-mix(in srgb, var(--color-ember-tip) 8%, white);
+  --mark-day: 0.82;
+  --mark-fire: 0.3;
+  /* How legible the bare metal is before any light lands on it. */
+  --mark-ambient: 62;
+
+  /*
+   * Both reflections are gated on the room being awake, and reach the
+   * bronze ahead of everything else — see `.glyph`. Held here so the two
+   * sheens cannot drift apart.
+   */
+  --mark-lit: min(1, var(--hall-awake, 1) * 2.2);
+}
+
+/*
+ * The light reaches the Mark before it reaches anything else. Founder
+ * direction: "A shaft of natural light begins to touch the Aureus Mark.
+ * Not because the Mark is glowing. Because the light is finally reaching
+ * it."
+ *
+ * `2.2` on the wake value is what makes it first: the bronze is legible
+ * well before the room is, so a member's eye has somewhere to rest in
+ * the dark. It is still only ever reflecting.
+ */
+.glyph {
+  display: block;
+  width: 100%;
+  height: auto;
+  opacity: calc(0.1 + 0.9 * var(--mark-lit));
+  /*
+   * Nothing pulses at this level any more, deliberately. The Mark used
+   * to breathe as a whole, which meant the daylight on it breathed too —
+   * and daylight does not flicker. The movement now belongs only to the
+   * light that actually moves, on `.sheenBelow`.
+   */
+}
+
+/*
+ * The bronze itself. Not "the Mark in shadow" — this is the metal with
+ * no light on it at all, which is what the other two layers are added
+ * to. Kept just legible so the form is never lost, even at 3am with the
+ * fire low.
+ */
+.ring,
+.leaf,
+.flame {
+  fill: none;
+  stroke: color-mix(
+    in srgb,
+    var(--color-ember-mid) calc(var(--mark-ambient) * 1%),
+    var(--hall-shade, black)
+  );
+  stroke-linejoin: round;
+  /*
+   * Deliberately *not* `non-scaling-stroke`. The Mark is a band of metal
+   * set into plaster, and a band has width — it thickens as the Mark
+   * grows, the way an inlay would. A hairline that stays 1px at every
+   * size is a line drawing of a logo, and light has nowhere to land on
+   * it: both reflections below wash across the width of the metal, so
+   * without width there is nothing to see.
+   */
+  stroke-width: 3;
+}
+
+/*
+ * The reflections. Same paths, same widths — only the light differs, so
+ * the highlight sits *on* the form rather than beside it.
+ */
+.sheenAbove path,
+.sheenBelow path {
+  fill: none;
+  stroke-linejoin: round;
+  /* Slightly narrower than the metal beneath, so the highlight sits
+     within the band and leaves a dark edge — which is what stops the
+     Mark reading as a glowing shape rather than a lit one. */
+  stroke-width: 2.4;
+}
+
+/*
+ * The wash across the face of the leaf. `stroke: none` beats the group's
+ * inherited stroke attribute, so this contributes surface only. Kept low
+ * — the Mark reflects, and a reflection that matched its source would
+ * make the bronze look like it was lit from inside.
+ */
+.wash {
+  stroke: none;
+  opacity: 0.5;
+}
+
+/* Daylight, down the oculus. Constant within an hour, and dead still. */
+.sheenAbove {
+  opacity: calc(var(--mark-day) * var(--mark-lit));
+  transition: opacity 2400ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/*
+ * Firelight, up from the Hearth. This is the one that moves — slower
+ * than the flame (5300ms / 3700ms) and on a period that shares no
+ * factor with either, so the reflection never falls into step with its
+ * own source. Reflected light lags, and it never quite matches.
+ */
+.sheenBelow {
+  animation: reflection-moves 8900ms ease-in-out infinite;
+  transition: opacity 2400ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+@keyframes reflection-moves {
+  0%,
+  100% {
+    opacity: calc(var(--mark-fire) * var(--mark-lit) * 0.82);
+  }
+  50% {
+    opacity: calc(var(--mark-fire) * var(--mark-lit));
+  }
+}
+
+/* The outer band, set deepest into the wall and so the dimmest. */
+.ring {
+  stroke-width: 2.6;
+  opacity: 0.66;
+}
+
+/*
+ * The leaf, raised proudest of the wall. Faintly filled so it reads as a
+ * plate of metal rather than an outline of one — this is the surface the
+ * two lights wash across.
+ */
+.leaf {
+  stroke-width: 3.4;
+  fill: color-mix(in srgb, var(--color-ember-mid) 14%, transparent);
+  opacity: 0.92;
+}
+
+/* The innermost form catches the most, being nearest the fire. */
+.flame {
+  stroke-width: 2.4;
+  stroke: color-mix(in srgb, var(--color-ember-tip) 78%, var(--color-ember-core));
+  fill: color-mix(in srgb, var(--color-ember-core) 12%, transparent);
+}
+
+/* ── The hour ──────────────────────────────────────────────────────── */
+/*
+ * Founder directive: the light must "reflect differently from the time
+ * of day". Nothing here changes the Mark — it changes what is falling on
+ * it, which is the only thing that changes about a real inlay.
+ *
+ * The Mark is never allowed to become illegible. `--mark-ambient` holds
+ * the bare metal readable at every hour, so what follows adjusts how the
+ * Mark *reads*, never whether it can be seen (AUREUS-BP-001 §LIGHT).
+ */
+
+/* Morning: high, cool light down the oculus. The bronze is pale, almost
+   silvered along the top, and the fire is barely a presence. */
+:global([data-time='morning']) .mark {
+  --mark-daylight: color-mix(in srgb, var(--color-information) 20%, white);
+  --mark-day: 1;
+  --mark-fire: 0.22;
+  --mark-ambient: 58;
+}
+
+/* Afternoon: the sun overhead and steady. The most even the Mark ever
+   looks, and the hour the server renders before it knows better. */
+:global([data-time='afternoon']) .mark {
+  --mark-daylight: color-mix(in srgb, var(--color-ember-tip) 8%, white);
+  --mark-day: 0.82;
+  --mark-fire: 0.3;
+  --mark-ambient: 62;
+}
+
+/* Evening: the two lights meet, and both are warm. The daylight coming
+   down has turned the same colour as the fire coming up, so the bronze
+   is lit from above and below at once — the richest it ever is. */
+:global([data-time='evening']) .mark {
+  --mark-daylight: color-mix(in srgb, var(--color-ember-mid) 58%, white);
+  --mark-day: 0.5;
+  --mark-fire: 0.82;
+  --mark-ambient: 56;
+}
+
+/* Night: the oculus gives almost nothing, and the Hearth is the only
+   light in the room. The shading inverts — the top of the ring falls
+   away, the underside catches everything. Same metal, read upside
+   down, which is exactly what happens when the only lamp is below. */
+:global([data-time='night']) .mark {
+  --mark-daylight: color-mix(in srgb, var(--color-information) 30%, var(--hall-shade, black));
+  --mark-day: 0.1;
+  --mark-fire: 1;
+  --mark-ambient: 40;
+}
+
+/*
+ * The promise, carved beneath. Small, quiet, and permanent — this is
+ * masonry, not a headline, and it must never compete with the member's
+ * own business on the stage below.
+ */
+.inscription {
+  text-align: center;
+}
+
+.wordmark {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: 0.32em;
+  text-transform: uppercase;
+  color: color-mix(in srgb, var(--color-ember-mid) 74%, var(--color-text-secondary));
+}
+
+.promise {
+  margin: var(--space-1) 0 0;
+  font-size: var(--font-size-xs);
+  letter-spacing: 0.06em;
+  color: var(--color-text-tertiary);
+  opacity: 0.85;
+}
+
+/*
+ * Reduced motion: the bronze simply holds the light. Both reflections
+ * stay exactly where they are, at full strength, so the hour still reads
+ * — a member who has asked for stillness gets the same room at the same
+ * time of day, not a plainer one (AUREUS-005: "an equally complete
+ * experience"). Only the flicker is gone, and the Mark was never the
+ * thing that flickered.
+ */
+@media (prefers-reduced-motion: reduce) {
+  :global(:root:not([data-reduced-motion='false'])) .glyph {
+    opacity: 1;
+  }
+
+  :global(:root:not([data-reduced-motion='false'])) .sheenBelow {
+    animation: none;
+    opacity: calc(var(--mark-fire) * var(--mark-lit));
+  }
+}
+
+:global([data-reduced-motion='true']) .glyph {
+  opacity: 1;
+}
+
+:global([data-reduced-motion='true']) .sheenBelow {
+  animation: none;
+  opacity: calc(var(--mark-fire) * var(--mark-lit));
+}
+
+/*
+ * Forced colours: strokes would be repainted to system colours and the
+ * inscription would fight the wall. The Mark steps out rather than
+ * rendering as an unreadable ring.
+ */
+@media (forced-colors: active) {
+  .mark {
+    display: none;
+  }
+}

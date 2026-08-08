@@ -1,0 +1,288 @@
+/*
+ * The Hall is the application's root surface.
+ *
+ * Exactly one viewport tall, clipping its own overflow: the room does
+ * not scroll, because a room does not scroll — the member's business
+ * scrolls within it (`HallStage.module.css`). That is also what holds
+ * the Founder's Hearth invariant on the busiest surfaces: with the
+ * document itself never taller than the viewport, there is no scroll
+ * that can carry the hearth away.
+ *
+ * Deliberately a block in normal flow rather than `position: fixed`.
+ * Fixing it would take the whole application out of flow and collapse
+ * `<body>` to zero height, which is invisible until something measures
+ * the document — and by then the failure looks like anything but its
+ * cause.
+ *
+ * `100dvh` rather than `vh` so mobile browser chrome appearing and
+ * disappearing does not leave a strip of generic page showing beneath
+ * the room, and so a virtual keyboard shrinks the room rather than
+ * pushing content behind the fold.
+ */
+
+/*
+ * The frame the room stands in.
+ *
+ * Anything that must appear *above* the Hall rather than inside it — the
+ * guest banner is the only such thing today — belongs here, and the room
+ * takes whatever height is left. That keeps the banner in normal
+ * document flow, where it can be any height it needs, without the
+ * document ever growing taller than the viewport and taking the hearth
+ * with it when it scrolls.
+ */
+.frame {
+  display: flex;
+  flex-direction: column;
+  height: 100dvh;
+}
+
+.frame > .hall {
+  flex: 1 1 auto;
+  height: auto;
+  min-height: 0;
+}
+
+.hall {
+  position: relative;
+  width: 100%;
+  height: 100dvh;
+  isolation: isolate;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  align-items: center;
+  /*
+   * Named container so the room's own parts can respond to the size of
+   * the room. Inside the member shell the Hall is materially narrower
+   * than the viewport, and peripheral detail placed by viewport width
+   * ends up in the middle of the member's reading column.
+   */
+  container: hall / inline-size;
+  /*
+   * Safe areas: never let the notch or the home indicator crop the
+   * room's content, while the architecture itself still runs to the
+   * edge.
+   *
+   * Published as variables as well as applied, because the openings in
+   * the wall have to line up with the member's column and an absolutely
+   * positioned layer resolves against the *padding* box, not the content
+   * box. Anchoring them to the padding box put the left doorway's name
+   * underneath the member's own input.
+   */
+  /*
+   * ── The camera ───────────────────────────────────────────────────
+   *
+   * AUREUS-BP-001 fixes the member's standing position: eye height
+   * around 1.55–1.7m, the Hearth's centre 36–40% from the top of the
+   * usable viewport, the horizon 44–50%. Those three numbers are the
+   * whole viewpoint, and they live here rather than being implied by
+   * three stylesheets that each guessed.
+   *
+   * The hearth scale is the blueprint's too — roughly 8–12% of the
+   * room's width on desktop, 12–16% on tablet, 18–24% on a phone.
+   * Measured in `cqi`, the *room's* inline size, because the responsive
+   * rule is that the camera moves closer as the room narrows, and the
+   * room is not the viewport.
+   */
+  --hearth-width: clamp(5rem, 10cqi, 10rem);
+  --hearth-height: calc(var(--hearth-width) * 1.45);
+  /*
+   * 38dvh, with a ceiling only so an unusually tall window does not push
+   * the hearth into the middle of the room. The ceiling was 20rem, which
+   * capped out at 1080px tall and put the hearth at 30% — outside the
+   * blueprint's band, and measurably so.
+   */
+  --hearth-centre: clamp(7rem, 38dvh, 30rem);
+
+  --hall-pad-top: max(var(--space-8), env(safe-area-inset-top));
+  --hall-pad-right: max(var(--space-6), env(safe-area-inset-right));
+  --hall-pad-bottom: max(var(--space-8), env(safe-area-inset-bottom));
+  --hall-pad-left: max(var(--space-6), env(safe-area-inset-left));
+  padding:
+    var(--hall-pad-top) var(--hall-pad-right)
+    var(--hall-pad-bottom) var(--hall-pad-left);
+  background: var(--color-surface-sunken);
+}
+
+/*
+ * The centre of the room: the hearth, and the member's business directly
+ * beneath it. Kept as one column so the eye lands on the hearth, drops to
+ * the content, and understands the relationship without being told.
+ *
+ * `min-height: 0` so the column may shrink, which is what lets the stage
+ * inside it bound its own overflow instead of overflowing the room.
+ */
+.centre {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-6);
+  width: 100%;
+  min-height: 0;
+  max-width: 40rem;
+}
+
+/*
+ * The hearth's own place on the wall.
+ *
+ * `flex: none` is load-bearing: the crown is never compressed by the
+ * content beneath it, whatever that content is. Together with the
+ * stage's `flex: 0 1 auto`, this is the Hearth invariant expressed as
+ * two lines of flexbox rather than as a rule everyone has to remember.
+ */
+.crown {
+  flex: none;
+  display: flex;
+  justify-content: center;
+  width: 100%;
+  /*
+   * Drops the hearth to the camera's height. Flex centring put it
+   * wherever the content beneath it happened to leave room, which meant
+   * the room's one fixed point moved every time the stage changed —
+   * the opposite of a stable viewpoint.
+   */
+  margin-top: max(
+    0px,
+    calc(var(--hearth-centre) - var(--hall-pad-top) - var(--hearth-height) / 2)
+  );
+}
+
+/*
+ * A pool of light where the member's business is.
+ *
+ * Not a floating card: no border, no drop shadow, no filled panel. It is
+ * only enough lift to guarantee text contrast over the floor and the
+ * wall, and its falloff runs the whole way out — an ellipse still at half
+ * strength near its own bounding box reads as a lit rectangle, which is
+ * the panel this whole component exists to avoid (AUREUS-201: "The Hall
+ * itself is never represented as a floating panel").
+ */
+.centre::before {
+  content: '';
+  position: absolute;
+  inset: calc(var(--space-10) * -1) calc(var(--space-12) * -1);
+  z-index: -1;
+  pointer-events: none;
+  background: radial-gradient(
+    ellipse at 50% 50%,
+    color-mix(in srgb, var(--color-surface-primary) 76%, transparent) 0%,
+    color-mix(in srgb, var(--color-surface-primary) 58%, transparent) 30%,
+    color-mix(in srgb, var(--color-surface-primary) 24%, transparent) 60%,
+    transparent 88%
+  );
+}
+
+@media (forced-colors: active) {
+  .centre::before {
+    display: none;
+  }
+}
+
+/*
+ * Long-form content (the Coordinated Plan, the stewardship offer) needs
+ * more room than a single question does. The stage widens rather than
+ * scrolling inside a fixed box.
+ */
+@media (min-width: 900px) {
+  .centre {
+    max-width: 44rem;
+  }
+}
+
+/*
+ * The transitional application chrome.
+ *
+ * While the shell's header, navigation rail and Steward panel are still
+ * mounted — they are removed in a later stage — they sit over the room
+ * as a fixed overlay. The architecture deliberately runs underneath
+ * them, because a wall does not stop at a piece of furniture; only the
+ * member's own column steps aside, so nothing they need to read is ever
+ * behind the chrome.
+ *
+ * The offsets are published by the chrome itself
+ * (`AppShell.module.css`), not restated here — an inset guessed against
+ * a rail whose height is set somewhere else is wrong the first time
+ * either changes, and it was: the header clipped the top of the hearth.
+ * Each falls back to zero, so when that stylesheet is deleted this rule
+ * quietly becomes a no-op and the room reclaims its full width.
+ */
+.hall[data-chrome='shell'] {
+  --hall-pad-top: calc(
+    max(var(--space-6), env(safe-area-inset-top)) + var(--shell-chrome-top, 0px)
+  );
+  --hall-pad-left: calc(
+    max(var(--space-6), env(safe-area-inset-left)) + var(--shell-chrome-left, 0px)
+  );
+  --hall-pad-right: calc(
+    max(var(--space-6), env(safe-area-inset-right)) + var(--shell-chrome-right, 0px)
+  );
+}
+
+/*
+ * Narrow viewports: recomposed, not shrunk.
+ *
+ * The room stays a room — the architecture recomposes vertically in its
+ * own stylesheet — but the centre column takes the full reading width,
+ * the gap tightens, and the hearth sits above the content rather than
+ * competing with it for vertical space. Height is never fixed, so a
+ * virtual keyboard simply reduces the room.
+ */
+/*
+ * The camera steps closer as the room narrows — the responsive rule of
+ * AUREUS-BP-001, expressed as the one thing that actually changes: how
+ * much of the room the hearth occupies. Roughly 10% of the room's width
+ * on desktop, 14% on a tablet, 21% on a phone.
+ */
+@media (max-width: 899px) {
+  .hall {
+    --hearth-width: max(5rem, 14cqi);
+  }
+}
+
+@media (max-width: 599px) {
+  .hall {
+    --hearth-width: max(4.5rem, 21cqi);
+  }
+}
+
+@media (max-width: 640px) {
+  .hall {
+    --hall-pad-top: max(var(--space-10), env(safe-area-inset-top));
+    --hall-pad-right: max(var(--space-4), env(safe-area-inset-right));
+    --hall-pad-bottom: max(var(--space-8), env(safe-area-inset-bottom));
+    --hall-pad-left: max(var(--space-4), env(safe-area-inset-left));
+  }
+
+  .centre {
+    gap: var(--space-5);
+    max-width: none;
+  }
+}
+
+/*
+ * Short viewports (a landscape phone, or a desktop window with the
+ * keyboard open) — the room must not force the content off-screen.
+ */
+@media (max-height: 620px) {
+  .hall {
+    --hall-pad-top: var(--space-6);
+    /* A landscape phone has no room for a standing camera; the member is
+       close to the hearth and the horizon rises with them. */
+    --hearth-centre: 26dvh;
+  }
+}
+
+/*
+ * Forced colours: the architecture and hearth remove themselves, so the
+ * Hall becomes a plain, fully legible surface rather than a half-drawn
+ * room fighting the user agent's palette.
+ */
+@media (forced-colors: active) {
+  .hall {
+    background: Canvas;
+    color: CanvasText;
+  }
+}

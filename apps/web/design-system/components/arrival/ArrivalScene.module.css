@@ -17,6 +17,11 @@
   padding: var(--space-8) var(--space-4);
   overflow: hidden;
   text-align: center;
+  /* The opening sequence composes the Hall's own parts, so it has to be
+     the same kind of query container the Hall is — otherwise the
+     peripheral thresholds, which now size themselves to the room rather
+     than to the viewport, never appear during the arrival. */
+  container: hall / inline-size;
   background-color: #0b0806;
   transition: background-color 900ms var(--motion-easing-decelerate);
 }
@@ -25,46 +30,54 @@
   background-color: #241a12;
 }
 
-.mark {
-  width: 88px;
-  height: 88px;
-  border-radius: var(--radius-full);
+/*
+ * The environment, revealed around the light.
+ *
+ * These are the Hall's own layers. Until the sequence reaches the Hall
+ * they are simply not yet lit; at that moment they come up slowly, so
+ * the member watches the room appear around the light that has been
+ * there since the first frame. There is no cut, and nothing is replaced.
+ */
+.environment {
+  position: absolute;
+  inset: 0;
   opacity: 0;
-  transform: scale(0.6);
-  background: radial-gradient(
-    circle at 35% 30%,
-    var(--color-ember-tip),
-    var(--color-ember-mid) 45%,
-    var(--color-ember-core) 100%
-  );
-  box-shadow: 0 0 60px 12px rgba(224, 138, 82, 0.35);
+  transition: opacity 1800ms var(--motion-easing-decelerate);
+}
+
+.environmentVisible {
+  opacity: 1;
+}
+
+/*
+ * The hearth during the sequence. The component is the Hall's own
+ * `HallHearth`; this only governs how it comes into being — from nothing,
+ * through a first gentle light, to fully formed — and where it sits, which
+ * is exactly where the Hall will keep it.
+ */
+.hearthWrap {
+  position: relative;
+  z-index: 1;
+  opacity: 0;
+  transform: scale(0.72);
   transition:
-    opacity 700ms var(--motion-easing-decelerate),
-    transform 900ms var(--motion-easing-decelerate);
+    opacity 900ms var(--motion-easing-decelerate),
+    transform 1200ms var(--motion-easing-decelerate);
 }
 
-.markLit {
-  opacity: 0.55;
-  transform: scale(0.85);
+.hearthLit {
+  opacity: 0.6;
+  transform: scale(0.9);
 }
 
-.markFormed {
+.hearthFormed {
   opacity: 1;
   transform: scale(1);
-  animation: arrival-breathe 4200ms ease-in-out infinite;
-}
-
-@keyframes arrival-breathe {
-  0%,
-  100% {
-    transform: scale(1);
-  }
-  50% {
-    transform: scale(1.06);
-  }
 }
 
 .copy {
+  position: relative;
+  z-index: 1;
   display: flex;
   max-width: 30rem;
   flex-direction: column;

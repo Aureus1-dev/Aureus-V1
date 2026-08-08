@@ -1,0 +1,31 @@
+/*
+ * The stage sits beneath the hearth and scrolls its own overflow.
+ *
+ * `flex: 0 1 auto` is the whole mechanism: the stage never *grows*, so
+ * short content keeps the hearth and the member's business balanced as
+ * one centred group, exactly as arrival composes today; and it may
+ * *shrink*, so a place with a great deal of content is bounded by the
+ * space below the hearth and scrolls inside it rather than pushing the
+ * hearth off the top of the room.
+ *
+ * `min-height: 0` is required for that shrink to happen at all — without
+ * it a flex item refuses to go below its content height and the overflow
+ * escapes to the document, which would scroll the room away and break
+ * the Hearth invariant on exactly the busiest surfaces.
+ */
+.stage {
+  flex: 0 1 auto;
+  min-height: 0;
+  width: 100%;
+  overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior: contain;
+}
+
+/* Focus moves here from the skip link. The outline belongs to the
+   member's keyboard, not to the room's composition, so it is drawn
+   inside rather than around the whole stage. */
+.stage:focus-visible {
+  outline: 2px solid var(--color-action-primary);
+  outline-offset: -2px;
+}

@@ -1,0 +1,247 @@
+/*
+ * The Aureus Hearth — light resting in carved stone, built into the wall
+ * of the Hall.
+ *
+ * Deliberately not a circle on a background. The recess is a tall, soft
+ * arch; the light sits inside it and spills onto the surfaces around it;
+ * a bronze lip catches the edge. Read quickly, it is an alcove with a
+ * flame in it — which is the point. Read as an interface element, it is
+ * nothing, because it is not one.
+ */
+
+.hearth {
+  position: relative;
+  flex: none;
+  /* Warm near-black, identical in both themes. See the note in
+     `HallArchitecture.module.css`; declared per part because
+     `ArrivalScene` composes the hearth without the Hall around it. */
+  --hall-shade: color-mix(in srgb, var(--color-ember-core) 20%, black);
+  /* Sized by the camera (`LivingHall.module.css`), with a standalone
+     fallback for the opening sequence, which composes the hearth without
+     a Hall around it. */
+  width: var(--hearth-width, clamp(5.5rem, 10vw, 10rem));
+  height: calc(var(--hearth-height, 12rem) * 0.82);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/*
+ * The brazier the fire stands in.
+ *
+ * Founder reference: the Hearth is a bronze basin in the middle of the
+ * floor, and the member stands in front of it. It was a recess cut into
+ * the far wall, which put the fire *in* the wall rather than in the room
+ * — the member was looking at a fireplace instead of standing at a fire.
+ *
+ * So this is a vessel now: an open bowl, lit from within, with the
+ * bronze rim catching most of the light and the underside falling into
+ * shadow the way a real one does.
+ */
+.recess {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  background: transparent;
+}
+
+/* The bowl itself, seen from a standing height: a shallow ellipse. */
+.recess::after {
+  content: '';
+  position: absolute;
+  left: -6%;
+  right: -6%;
+  bottom: 0;
+  height: 20%;
+  border-radius: 50%;
+  background: linear-gradient(
+    to bottom,
+    color-mix(in srgb, var(--color-ember-mid) 60%, var(--hall-shade)) 0%,
+    color-mix(in srgb, var(--color-ember-core) 34%, var(--hall-shade)) 46%,
+    var(--hall-shade) 100%
+  );
+  box-shadow:
+    inset 0 0.18rem 0.5rem color-mix(in srgb, var(--color-ember-tip) 45%, transparent),
+    0 0.6rem 2rem -0.4rem color-mix(in srgb, var(--hall-shade) 55%, transparent);
+}
+
+/* The bronze rim of the bowl, where the fire's light lands hardest. */
+.lip {
+  position: absolute;
+  z-index: 1;
+  left: 6%;
+  right: 6%;
+  bottom: 17%;
+  height: 0.22rem;
+  border-radius: var(--radius-full);
+  background: linear-gradient(
+    to right,
+    transparent,
+    color-mix(in srgb, var(--color-ember-mid) 78%, var(--color-surface-primary)) 22%,
+    color-mix(in srgb, var(--color-ember-tip) 86%, var(--color-surface-primary)) 50%,
+    color-mix(in srgb, var(--color-ember-mid) 78%, var(--color-surface-primary)) 78%,
+    transparent
+  );
+}
+
+/*
+ * Where the Aureus Mark sits inside the vessel.
+ *
+ * This is placement only — the Mark's own form, warmth and breath belong
+ * to `AureusLight`, so replacing the silhouette with final artwork
+ * touches one file and nothing here.
+ */
+.light {
+  position: absolute;
+  left: 50%;
+  bottom: 16%;
+  width: 54%;
+  height: 80%;
+  transform: translateX(-50%);
+}
+
+/*
+ * The Steward's response, inside the hearth's own light but distinctly
+ * its own shape: a smaller, cooler core that gathers and settles.
+ */
+.presence {
+  position: absolute;
+  left: 50%;
+  bottom: 22%;
+  width: 16%;
+  height: 16%;
+  transform: translateX(-50%);
+  border-radius: var(--radius-full);
+  background: radial-gradient(
+    circle at 50% 50%,
+    color-mix(in srgb, var(--color-ember-tip) 92%, white) 0%,
+    color-mix(in srgb, var(--color-ember-tip) 70%, transparent) 55%,
+    transparent 100%
+  );
+  opacity: 0.72;
+}
+
+/* What the hearth throws onto the wall and floor around it. */
+.spill {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 720%;
+  height: 520%;
+  transform: translate(-50%, -46%);
+  z-index: -1;
+  pointer-events: none;
+  background: radial-gradient(
+    ellipse at 50% 50%,
+    color-mix(in srgb, var(--color-ember-mid) 15%, transparent) 0%,
+    color-mix(in srgb, var(--color-ember-core) 7%, transparent) 40%,
+    transparent 70%
+  );
+  animation: hearth-spill 9600ms ease-in-out infinite;
+}
+
+/* A line incised in the stone beneath the recess. Almost invisible at
+   rest; it is the architecture's own acknowledgement that the Steward is
+   engaged, rather than a widget appearing somewhere else on screen. */
+.attendLine {
+  position: absolute;
+  left: 50%;
+  bottom: -8%;
+  width: 34%;
+  height: 1px;
+  transform: translateX(-50%);
+  background: linear-gradient(
+    to right,
+    transparent,
+    color-mix(in srgb, var(--color-ember-mid) 60%, transparent),
+    transparent
+  );
+  opacity: 0.35;
+  transition: opacity 900ms var(--motion-easing-standard), width 900ms var(--motion-easing-standard);
+}
+
+/* ── Steward presence states ───────────────────────────────────────── */
+/*
+ * Every state stays inside the same recess and changes only how the
+ * light behaves. None of them flash, and none of them borrow the visual
+ * language of a notification, a microphone or an audio waveform.
+ */
+
+/* RESTING — quiet and steady. The default, and all arrival ever uses. */
+.hearth[data-presence='resting'] .presence { opacity: 0.72; }
+
+/* LISTENING — the light gathers inward, slightly. Attention without demand. */
+.hearth[data-presence='listening'] .presence {
+  opacity: 0.9;
+  width: 20%;
+  height: 20%;
+}
+.hearth[data-presence='listening'] .attendLine { opacity: 0.6; }
+
+/* THINKING — slow contained movement. Never implies certainty or hurry. */
+.hearth[data-presence='thinking'] .presence {
+  animation: presence-consider 4200ms ease-in-out infinite;
+}
+.hearth[data-presence='thinking'] .attendLine { opacity: 0.5; }
+
+/* SPEAKING — a gentle warm swell in the whole hearth, not a waveform. */
+.hearth[data-presence='speaking'] .spill { animation-duration: 3400ms; }
+.hearth[data-presence='speaking'] .presence { opacity: 1; }
+.hearth[data-presence='speaking'] .attendLine { opacity: 0.75; width: 46%; }
+
+/* ATTENTION — used only when a member's attention is genuinely required.
+   Brighter and wider, still calm, still no flashing. */
+.hearth[data-presence='attention'] .attendLine { opacity: 0.95; width: 58%; }
+.hearth[data-presence='attention'] .presence { opacity: 1; }
+
+@keyframes hearth-breathe {
+  0%, 100% { transform: translateX(-50%) scale(1); opacity: 0.94; }
+  50% { transform: translateX(-50%) scale(1.05); opacity: 1; }
+}
+
+@keyframes hearth-spill {
+  0%, 100% { opacity: 0.85; }
+  50% { opacity: 1; }
+}
+
+@keyframes presence-consider {
+  0%, 100% { transform: translateX(-50%) translateY(0); opacity: 0.7; }
+  50% { transform: translateX(-50%) translateY(-6%); opacity: 0.95; }
+}
+
+/* ── Time of day ───────────────────────────────────────────────────── */
+/* In daylight the hearth is present but quiet; as the day goes the room
+   hands it more of the work, until at night it is what lights the Hall. */
+:global([data-time='morning']) .spill { opacity: 0.6; }
+:global([data-time='afternoon']) .spill { opacity: 0.7; }
+:global([data-time='evening']) .spill { opacity: 1; }
+:global([data-time='night']) .spill { opacity: 1; transform: translate(-50%, -46%) scale(1.25); }
+
+/* ── Reduced motion ────────────────────────────────────────────────── */
+/*
+ * The hearth stops moving and stays fully lit. A member who prefers
+ * reduced motion arrives in exactly the same room, at exactly the same
+ * brightness — they lose the breath, not the fire.
+ */
+@media (prefers-reduced-motion: reduce) {
+  :global(:root:not([data-reduced-motion='false'])) .light,
+  :global(:root:not([data-reduced-motion='false'])) .spill,
+  :global(:root:not([data-reduced-motion='false'])) .presence {
+    animation: none;
+  }
+}
+
+:global([data-reduced-motion='true']) .light,
+:global([data-reduced-motion='true']) .spill,
+:global([data-reduced-motion='true']) .presence {
+  animation: none;
+}
+
+@media (forced-colors: active) {
+  .hearth {
+    display: none;
+  }
+}

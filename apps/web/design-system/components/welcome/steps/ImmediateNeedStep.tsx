@@ -8,6 +8,8 @@ import styles from './ImmediateNeedStep.module.css';
 export interface ImmediateNeedStepProps {
   onSubmit: (need: string) => void;
   submitting: boolean;
+  /** Words the member already typed elsewhere (Home's Hall), so they are not asked to repeat themselves. */
+  initialValue?: string;
 }
 
 /**
@@ -15,8 +17,8 @@ export interface ImmediateNeedStepProps {
  * Flow). The question explains its purpose before asking (AFX-001 §7
  * "Earn Every Question") — this becomes the member's first Goal.
  */
-export function ImmediateNeedStep({ onSubmit, submitting }: ImmediateNeedStepProps) {
-  const [need, setNeed] = useState('');
+export function ImmediateNeedStep({ onSubmit, submitting, initialValue = '' }: ImmediateNeedStepProps) {
+  const [need, setNeed] = useState(initialValue);
 
   function handleSubmit(event: FormEvent) {
     event.preventDefault();

@@ -3,9 +3,8 @@
 import { useEffect } from 'react';
 import { useJourney, useSession } from '../../../state';
 import { EmptyState } from '../EmptyState/EmptyState';
-import { ArrivalRoom, ArrivalStage } from '../arrival';
+import { HomeHall } from './HomeHall';
 import { LoadingState } from '../LoadingState/LoadingState';
-import { LinkButton } from '../Button/LinkButton';
 import { Greeting } from './Greeting';
 import { QuickActions } from './QuickActions';
 import { JourneySection } from './JourneySection';
@@ -51,22 +50,10 @@ export function HomeDashboard() {
   }
 
   if (journeyState.goals.length === 0) {
-    // A member with no mission yet was met by a single small card in an
-    // otherwise empty field. Home is the Hall (AUREUS-003) — so before
-    // there is anything to show, the room itself is what welcomes them,
-    // rather than an empty dashboard implying something is missing.
-    return (
-      <ArrivalRoom>
-        <ArrivalStage stepKey="home-empty">
-          <EmptyState
-            titleAs="h1"
-            title="Let's get started"
-            description="You don't have a mission yet — begin at Welcome to set your first goal."
-            action={<LinkButton href="/welcome">Go to Welcome</LinkButton>}
-          />
-        </ArrivalStage>
-      </ArrivalRoom>
-    );
+    // Founder decision: with no active mission, Home *is* the Hall —
+    // full-bleed, hearth, "How can we help?", one input. Not a card, not
+    // an empty-state illustration, not a menu of rooms.
+    return <HomeHall />;
   }
 
   return (

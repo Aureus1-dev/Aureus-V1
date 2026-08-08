@@ -101,12 +101,53 @@ describe('GlobalActionPalette', () => {
     expect(screen.queryByRole('option', { name: 'Academy' })).not.toBeInTheDocument();
   });
 
+  it('gathers destinations by the room they belong to, in the canon\'s order', async () => {
+    // Founder ruling: "Routes are implementation details. Places are the
+    // member's mental model." A flat alphabet of routes is the software
+    // module list; the same routes under their rooms is a house.
+    renderPalette();
+    await userEvent.click(screen.getByRole('button', { name: /Open the command palette/ }));
+
+    const rooms = screen
+      .getAllByRole('option')
+      .map((option) => option.textContent ?? '')
+      .filter((text) => text.includes('The '))
+      .map((text) => text.slice(text.indexOf('The ')));
+
+    // Hall first, then Library, Study, Circle, Workshop, Opportunity
+    // Center — the order AUREA-001 lists them in. Housekeeping last.
+    const firstSeen = [...new Set(rooms)];
+    expect(firstSeen).toEqual([
+      'The Hall',
+      'The Library',
+      "The Steward's Study",
+      'The Circle',
+      'The Workshop',
+      'The Opportunity Center',
+    ]);
+  });
+
+  it('finds everything in a room when a member types the room\'s name', async () => {
+    renderPalette();
+    await userEvent.click(screen.getByRole('button', { name: /Open the command palette/ }));
+    await userEvent.type(screen.getByRole('combobox'), 'library');
+
+    // Nothing here is literally called "Library" — a member looking for
+    // the room should still find what is in it.
+    expect(screen.getByRole('option', { name: 'Documents The Library' })).toBeInTheDocument();
+    expect(screen.getByRole('option', { name: 'Resources The Library' })).toBeInTheDocument();
+  });
+
   it('navigates and closes when a navigation option is clicked', async () => {
     renderPalette();
     await userEvent.click(screen.getByRole('button', { name: /Open the command palette/ }));
     await userEvent.type(screen.getByRole('combobox'), 'Documents');
 
-    await userEvent.click(screen.getByRole('option', { name: 'Documents' }));
+    // Named by destination *and* by the room it is in: a member reads
+    // "Documents, The Library", not a bare route label. Founder ruling:
+    // "The member must experience seven understandable places, not
+    // twenty-one software modules."
+    await userEvent.click(screen.getByRole('option', { name: 'Documents The Library' }));
 
     expect(push).toHaveBeenCalledWith('/documents');
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
@@ -142,11 +183,12 @@ describe('GlobalActionPalette', () => {
     // Two options exist for "Documents": the nav option, then "Ask your Steward".
     await userEvent.keyboard('{ArrowDown}{Enter}');
 
-    expect(push).not.toHaveBeenCalled();
+    // The ask goes to the conversation, not to the Documents route.
+    expect(push).not.toHaveBeenCalledWith('/documents');
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
   });
 
-  it('sends a free-text question to the Steward, including currently-visible interface context, and opens the workspace panel', async () => {
+  it('sends a free-text question to the Steward, with visible interface context, and takes the member to the conversation', async () => {
     mockedApi.createConversation.mockResolvedValue({ id: 'conv-1', userId: 'member-1', title: null, createdAt: 'x', updatedAt: 'x' });
     mockedApi.sendMessage.mockResolvedValue({
       id: 'msg-1', conversationId: 'conv-1', role: 'ASSISTANT', content: 'Here is your journey.', createdAt: 'x',
@@ -162,7 +204,11 @@ describe('GlobalActionPalette', () => {
       'token-123', 'conv-1', 'take me to my journey please',
       expect.stringContaining('Home.NextMission'),
     );
-    expect(screen.getByTestId('open-panels')).toHaveTextContent('steward-workspace');
+    // The docked Steward panel is gone — a permanent panel is a
+    // dashboard, which AUREA-001 forbids. An answer must not arrive
+    // somewhere the member is not standing, so the ask moves them into
+    // the conversation, in the Hall.
+    expect(push).toHaveBeenCalledWith('/conversation');
   });
 
   it('has no accessibility violations when open', async () => {

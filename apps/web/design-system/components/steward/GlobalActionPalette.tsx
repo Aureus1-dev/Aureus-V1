@@ -2,18 +2,37 @@
 
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react';
 import { useRouter } from 'next/navigation';
-import { useConversation, useHighlightRegistry, useInterfaceState } from '../../../state';
+import { useConversation, useHighlightRegistry } from '../../../state';
 import { VisuallyHidden } from '../../accessibility';
 import { primarySurfaces } from '../../navigation/surfaces';
-import { INTERFACE_ALLOWED_PANEL_IDS } from './interface-tool-allowlists';
+import { PLACE_IDS, PLACES, placeForPath, type PlaceId } from '../../navigation/places';
 import styles from './GlobalActionPalette.module.css';
 
-const STEWARD_PANEL_ID = INTERFACE_ALLOWED_PANEL_IDS[0];
-
 type PaletteOption =
-  | { kind: 'navigate'; id: string; label: string; href: string }
+  | { kind: 'navigate'; id: string; label: string; href: string; place: string | null }
   | { kind: 'highlight'; id: string; label: string; targetId: string }
   | { kind: 'ask'; id: 'ask'; label: string };
+
+/**
+ * Where each destination sits in the house, for ordering and for saying
+ * so.
+ *
+ * Founder ruling: "The member must experience seven understandable
+ * places, not twenty-one software modules. Routes are implementation
+ * details. Places are the member's mental model." A flat alphabet of
+ * twenty routes *is* the software module list; the same twenty gathered
+ * under the room they belong to is a house.
+ *
+ * Housekeeping — settings, profile, search, help — sorts last and is
+ * left unnamed. It is always reachable, but it is not somewhere a member
+ * walks to, and calling it a room would put it on the same footing as
+ * the Circle.
+ */
+const PLACE_ORDER = new Map<PlaceId, number>(PLACE_IDS.map((id, index) => [id, index]));
+
+function placeRank(place: PlaceId | null): number {
+  return place === null ? PLACE_IDS.length : (PLACE_ORDER.get(place) ?? PLACE_IDS.length);
+}
 
 /**
  * The universal AI command surface (DOMAIN-007 Founder Decision 4):
@@ -37,7 +56,6 @@ type PaletteOption =
 export function GlobalActionPalette() {
   const router = useRouter();
   const { activate, describeTargets } = useHighlightRegistry();
-  const { openPanel } = useInterfaceState();
   const conversation = useConversation();
   const [isOpen, setIsOpen] = useState(false);
   const [query, setQuery] = useState('');
@@ -71,8 +89,23 @@ export function GlobalActionPalette() {
   const options = useMemo<PaletteOption[]>(() => {
     const normalized = query.trim().toLowerCase();
     const navOptions: PaletteOption[] = primarySurfaces
-      .filter((surface) => !normalized || surface.label.toLowerCase().includes(normalized))
-      .map((surface) => ({ kind: 'navigate', id: `nav-${surface.id}`, label: surface.label, href: surface.href }));
+      .map((surface) => ({ surface, place: placeForPath(surface.href) }))
+      .filter(({ surface, place }) => {
+        if (!normalized) return true;
+        // A member who types "library" is looking for the room, and
+        // should find everything in it — not just a route that happens
+        // to share the word.
+        const placeName = place ? PLACES[place].name.toLowerCase() : '';
+        return surface.label.toLowerCase().includes(normalized) || placeName.includes(normalized);
+      })
+      .sort((a, b) => placeRank(a.place) - placeRank(b.place))
+      .map(({ surface, place }) => ({
+        kind: 'navigate',
+        id: `nav-${surface.id}`,
+        label: surface.label,
+        href: surface.href,
+        place: place ? PLACES[place].name : null,
+      }));
 
     const highlightOptions: PaletteOption[] = describeTargets()
       .filter((target) => !normalized || target.label.toLowerCase().includes(normalized))
@@ -102,7 +135,12 @@ export function GlobalActionPalette() {
       .join(', ');
     const content = query.trim();
     close();
-    openPanel(STEWARD_PANEL_ID);
+    // The docked Steward panel this used to open no longer exists — a
+    // permanent panel is a dashboard, which AUREA-001 forbids. So an ask
+    // goes where an ask belongs: the conversation, in the Hall. Without
+    // this the member's question would be answered somewhere they are
+    // not standing.
+    router.push('/conversation');
     await conversation.sendMessage(interfaceContext || undefined, content);
   }
 
@@ -184,7 +222,10 @@ export function GlobalActionPalette() {
                     onMouseEnter={() => setActiveIndex(index)}
                     onClick={() => void selectOption(option)}
                   >
-                    {option.label}
+                    <span>{option.label}</span>
+                    {option.kind === 'navigate' && option.place ? (
+                      <span className={styles.optionPlace}>{option.place}</span>
+                    ) : null}
                   </button>
                 ))}
               </div>
