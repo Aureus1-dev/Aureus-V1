@@ -1,0 +1,29 @@
+{
+  "version": 1,
+  "environment": "aureus-living-hall",
+  "identityMode": "wordmark-only",
+  "logo": null,
+  "lightingStates": [
+    { "id": "deep-night", "file": "lighting-states/01-deep-night-embers.webp", "localHour": 0 },
+    { "id": "predawn", "file": "lighting-states/02-predawn-first-breath.webp", "localHour": 5 },
+    { "id": "dawn", "file": "lighting-states/03-dawn-breakfast-bird.webp", "localHour": 7 },
+    { "id": "morning", "file": "lighting-states/04-morning-awake.webp", "localHour": 9 },
+    { "id": "noon", "file": "lighting-states/05-noon-clear.webp", "localHour": 12 },
+    { "id": "afternoon", "file": "lighting-states/06-afternoon-steady.webp", "localHour": 15 },
+    { "id": "golden-hour", "file": "lighting-states/07-golden-hour-return.webp", "localHour": 18 },
+    { "id": "evening", "file": "lighting-states/08-evening-hearth.webp", "localHour": 20 },
+    { "id": "late-night", "file": "lighting-states/09-late-night-settling.webp", "localHour": 23 }
+  ],
+  "passes": {
+    "beauty": "render-passes/hall-beauty-reference.webp",
+    "normal": "render-passes/hall-surface-normal.webp",
+    "depth": "render-passes/hall-depth-white-near.webp",
+    "depthConvention": "white-near-black-far"
+  },
+  "motion": {
+    "maxDisplacementPx": 6,
+    "foliageLoopSeconds": [12, 18],
+    "birdMorningOnly": true,
+    "respectReducedMotion": true
+  }
+}

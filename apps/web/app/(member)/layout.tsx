@@ -9,7 +9,6 @@ import {
   GlobalActionPalette,
 } from '../../design-system/components/steward';
 import { UrgentHelpAffordance } from '../../design-system/components/urgent-help';
-import { GuestClaimBanner } from '../../design-system/components/guest';
 import { ArrivalSessionFallback } from '../../design-system/components/arrival';
 import { V1_FEATURE_FLAGS } from '../../lib/config/v1-feature-scope';
 
@@ -44,24 +43,15 @@ import { V1_FEATURE_FLAGS } from '../../lib/config/v1-feature-scope';
  * `StewardWorkspace` (bottom-right) and `GlobalActionPalette` (top-right)
  * in the one corner they leave free.
  *
- * `SkipLink` is the first child, above `GuestClaimBanner`, so it is the
- * very first thing a keyboard or screen-reader member reaches. It used to
- * live inside `AppShell`, which put it *after* the guest banner's own
- * "Create free account" and "Not now" controls — a skip link that three
- * other controls come before does not do its job.
- *
- * Progressive account creation (Part 3): `GuestClaimBanner` renders
- * in-flow above `AppShell`, not as another fixed corner widget — it
- * carries a full sentence of copy a small floating badge couldn't, and
- * a guest session is exactly the state every visitor starts in now, so
- * it needs to be legible, not squeezed into a corner. It renders nothing
- * for an already-claimed member session.
+ * `SkipLink` is the first child, before the Hall shell, so it is the first
+ * thing a keyboard or screen-reader member reaches. Progressive account
+ * creation now lives inside `AppShell`: the preservation offer belongs in
+ * the Hall and appears only after real work exists.
  */
 export default function MemberLayout({ children }: { children: React.ReactNode }) {
   return (
     <AuthGate fallback={<ArrivalSessionFallback />}>
       <SkipLink targetId="main-content" />
-      <GuestClaimBanner />
       <AppShell>{children}</AppShell>
       <SurfaceTracker />
       {V1_FEATURE_FLAGS.voice ? <VoiceOrchestrator /> : null}

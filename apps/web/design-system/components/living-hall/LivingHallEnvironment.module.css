@@ -1,0 +1,248 @@
+.environment {
+  --hall-shift-x: 0px;
+  --hall-shift-y: 0px;
+  position: fixed;
+  z-index: 0;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  background: #070504;
+}
+
+.sleepingPlate,
+.activePlate,
+.depthPlate,
+.roomWash,
+.fireBreath,
+.leafShadow,
+.vignette {
+  position: absolute;
+  inset: -1.5%;
+}
+
+.sleepingPlate,
+.activePlate,
+.depthPlate {
+  background-image: var(--hall-image);
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: cover;
+}
+
+.sleepingPlate {
+  opacity: 1;
+  transform: scale(1.015);
+}
+
+.activePlate {
+  opacity: 0;
+  transform: scale(1.025);
+  transition:
+    opacity 2400ms ease,
+    filter 2400ms ease;
+}
+
+.environment[data-awake='true'] .activePlate {
+  opacity: 1;
+}
+
+/* A restrained 2.5D foreground response. The grayscale pass is used as
+   a luminance mask, so near objects move a few pixels while the back wall
+   remains still. This only follows deliberate pointer movement; there is
+   no ambient camera drift. */
+.depthPlate {
+  opacity: 0.16;
+  transform: translate3d(var(--hall-shift-x), var(--hall-shift-y), 0) scale(1.027);
+  transition: opacity 1200ms ease;
+  -webkit-mask-image: var(--hall-depth);
+  mask-image: var(--hall-depth);
+  -webkit-mask-position: center;
+  mask-position: center;
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+  -webkit-mask-size: cover;
+  mask-size: cover;
+}
+
+.environment[data-awake='false'] .depthPlate {
+  opacity: 0;
+}
+
+.roomWash {
+  inset: 0;
+  opacity: 0.12;
+  transition:
+    background 900ms ease,
+    opacity 900ms ease;
+}
+
+.environment[data-room='journey'] .roomWash {
+  background: linear-gradient(125deg, rgba(89, 111, 82, 0.28), transparent 54%);
+}
+
+.environment[data-room='planning'] .roomWash,
+.environment[data-room='documents'] .roomWash {
+  background: linear-gradient(145deg, rgba(207, 174, 118, 0.22), transparent 58%);
+}
+
+.environment[data-room='opportunity'] .roomWash {
+  background: linear-gradient(115deg, rgba(181, 139, 70, 0.25), transparent 60%);
+}
+
+.environment[data-room='community'] .roomWash {
+  background: radial-gradient(circle at 33% 62%, rgba(215, 121, 54, 0.28), transparent 44%);
+}
+
+.environment[data-room='calendar'] .roomWash {
+  background: linear-gradient(165deg, rgba(132, 155, 158, 0.2), transparent 62%);
+}
+
+.environment[data-room='quiet'] .roomWash {
+  background: rgba(5, 4, 4, 0.18);
+}
+
+.fireBreath {
+  inset: auto;
+  left: 18%;
+  top: 52%;
+  width: 26%;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: radial-gradient(
+    circle,
+    rgba(255, 133, 50, 0.22),
+    rgba(131, 46, 12, 0.08) 42%,
+    transparent 70%
+  );
+  mix-blend-mode: screen;
+  animation: fire-breathe 5.5s ease-in-out infinite;
+}
+
+.environment[data-lighting='deep-night'] .fireBreath,
+.environment[data-lighting='predawn'] .fireBreath,
+.environment[data-lighting='late-night'] .fireBreath {
+  opacity: 0.36;
+}
+
+.environment[data-lighting='noon'] .fireBreath,
+.environment[data-lighting='afternoon'] .fireBreath {
+  opacity: 0.08;
+}
+
+.leafShadow {
+  inset: auto;
+  right: 1%;
+  top: 30%;
+  width: 25%;
+  height: 34%;
+  transform-origin: 75% 50%;
+  background: radial-gradient(ellipse at 70% 45%, rgba(13, 31, 19, 0.18), transparent 62%);
+  filter: blur(8px);
+  animation: leaves-breathe 15s ease-in-out infinite alternate;
+}
+
+.bird {
+  position: absolute;
+  right: 9.5%;
+  top: 32%;
+  width: 12px;
+  height: 7px;
+  opacity: 0.66;
+  transform: rotate(-8deg);
+  border-radius: 70% 20% 70% 20%;
+  background: #1e1813;
+  box-shadow: 6px -2px 0 -2px #1e1813;
+  animation: bird-departs 12s ease-in 1 both;
+}
+
+.vignette {
+  inset: 0;
+  background:
+    linear-gradient(
+      to bottom,
+      rgba(5, 4, 3, 0.2),
+      transparent 24%,
+      transparent 72%,
+      rgba(5, 4, 3, 0.34)
+    ),
+    radial-gradient(ellipse at center, transparent 52%, rgba(3, 2, 2, 0.26) 100%);
+}
+
+@keyframes fire-breathe {
+  0%,
+  100% {
+    transform: scale(0.96);
+    opacity: 0.68;
+  }
+  45% {
+    transform: scale(1.035) translateY(-1px);
+    opacity: 0.92;
+  }
+  70% {
+    transform: scale(0.99) translateX(1px);
+    opacity: 0.76;
+  }
+}
+
+@keyframes leaves-breathe {
+  from {
+    transform: rotate(-0.6deg) translateX(-1px);
+  }
+  to {
+    transform: rotate(0.8deg) translateX(2px);
+  }
+}
+
+@keyframes bird-departs {
+  0%,
+  36% {
+    transform: translate(0, 0) rotate(-8deg);
+    opacity: 0.66;
+  }
+  48% {
+    transform: translate(-2px, -3px) rotate(4deg);
+    opacity: 0.72;
+  }
+  100% {
+    transform: translate(90px, -70px) rotate(-12deg);
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root:not([data-reduced-motion='false']) .activePlate,
+  :root:not([data-reduced-motion='false']) .depthPlate,
+  :root:not([data-reduced-motion='false']) .fireBreath,
+  :root:not([data-reduced-motion='false']) .leafShadow,
+  :root:not([data-reduced-motion='false']) .bird {
+    animation: none;
+    transition: none;
+    transform: none;
+  }
+
+  :root:not([data-reduced-motion='false']) .bird {
+    display: none;
+  }
+}
+
+[data-reduced-motion='true'] .activePlate,
+[data-reduced-motion='true'] .depthPlate,
+[data-reduced-motion='true'] .fireBreath,
+[data-reduced-motion='true'] .leafShadow,
+[data-reduced-motion='true'] .bird {
+  animation: none;
+  transition: none;
+  transform: none;
+}
+
+[data-reduced-motion='true'] .bird {
+  display: none;
+}
+
+@media (max-width: 640px) {
+  .fireBreath {
+    left: 13%;
+    top: 50%;
+    width: 34%;
+  }
+}
