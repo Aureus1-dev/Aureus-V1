@@ -35,10 +35,10 @@ services:
     dockerContext: .
     plan: starter
     region: oregon
-    # /health/ready (DB-inclusive), not /health/live — matches railway.json's
-    # deploy.healthcheckPath rationale: a platform deciding whether a new
-    # deploy is ready for traffic should confirm the database is reachable,
-    # not just that the process started. The Dockerfile's own HEALTHCHECK
+    # /health/ready (DB-inclusive), not /health/live — a platform deciding
+    # whether a new deploy is ready for traffic should confirm the database
+    # is reachable, not just that the process started. The Dockerfile's own
+    # HEALTHCHECK
     # (a container-level liveness check) still uses /health/live separately.
     healthCheckPath: /health/ready
     # Pilot deploys are intentionally manual: CI passing proves the image,
