@@ -51,7 +51,7 @@ export function MessageComposer({ value, onChange, onSubmit, disabled }: Message
         className={styles.textarea}
         value={value}
         maxLength={MAX_LENGTH}
-        placeholder="Share what's on your mind..."
+        placeholder="How can we help?"
         disabled={disabled}
         onChange={(event) => onChange(event.target.value)}
         onKeyDown={handleKeyDown}

@@ -1,9 +1,21 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { useConnectedExperiences, useConversation, useJourney, usePlan, useRecommendations, useSession } from '../../../state';
+import {
+  useConnectedExperiences,
+  useConversation,
+  useJourney,
+  usePlan,
+  useRecommendations,
+  useSession,
+} from '../../../state';
 import { useRecommendationSubjects } from '../recommendations';
-import { getMyNeeds, offerResource, respondToOffer, type ResourceOfferResponseValue } from '../../../lib/api/needs';
+import {
+  getMyNeeds,
+  offerResource,
+  respondToOffer,
+  type ResourceOfferResponseValue,
+} from '../../../lib/api/needs';
 import type { PlanItemDto } from '../../../lib/api/plan';
 import { planItemKey } from '../plan/PlanCard';
 import { EmptyState } from '../EmptyState/EmptyState';
@@ -16,6 +28,7 @@ import { MessageComposer } from './MessageComposer';
 import { conversationErrorCopy } from './conversation-error-copy';
 import { buildVirtualTimeline, type BuiltPlan } from './build-virtual-timeline';
 import styles from './ConversationSurface.module.css';
+import { V1_FEATURE_FLAGS } from '../../../lib/config/v1-feature-scope';
 
 export interface ConversationSurfaceProps {
   /** From `?mode=voice` — lets another surface (e.g. Home's voice shortcut) deep-link straight into voice mode without importing any Voice Domain internals itself. */
@@ -112,29 +125,31 @@ export function ConversationSurface({ initialMode = 'text' }: ConversationSurfac
     if (!plan.state.plan || !needId || !session.accessToken) return;
     const unoffered = [plan.state.plan.primary, ...plan.state.plan.supporting].filter(
       (item): item is PlanItemDto & { cityResource: NonNullable<PlanItemDto['cityResource']> } =>
-        item.source === 'CITY_RESOURCE' && !(item.cityResource!.id in offerResponseByCityResourceId),
+        item.source === 'CITY_RESOURCE' &&
+        !(item.cityResource!.id in offerResponseByCityResourceId),
     );
     if (unoffered.length === 0) return;
     let cancelled = false;
-    void Promise.all(unoffered.map((item) => offerResource(session.accessToken!, needId, item.cityResource.id))).then(
-      (offers) => {
-        if (cancelled) return;
-        setOfferResponseByCityResourceId((previous) => {
-          const next = { ...previous };
-          offers.forEach((offer) => {
-            next[offer.citySheetEntryId] = offer.response;
-          });
-          return next;
+    void Promise.all(
+      unoffered.map((item) => offerResource(session.accessToken!, needId, item.cityResource.id)),
+    ).then((offers) => {
+      if (cancelled) return;
+      setOfferResponseByCityResourceId((previous) => {
+        const next = { ...previous };
+        offers.forEach((offer) => {
+          next[offer.citySheetEntryId] = offer.response;
         });
-      },
-    );
+        return next;
+      });
+    });
     return () => {
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [plan.state.plan, needId, session.accessToken]);
 
-  const builtPlan: BuiltPlan | null = plan.state.plan && planBuiltAt ? { plan: plan.state.plan, builtAt: planBuiltAt } : null;
+  const builtPlan: BuiltPlan | null =
+    plan.state.plan && planBuiltAt ? { plan: plan.state.plan, builtAt: planBuiltAt } : null;
   const planRecommendations = plan.state.plan
     ? [plan.state.plan.primary, ...plan.state.plan.supporting]
         .filter((item) => item.source === 'RECOMMENDATION')
@@ -151,8 +166,16 @@ export function ConversationSurface({ initialMode = 'text' }: ConversationSurfac
         if (accepted) await recommendations.approve(item.recommendation!.id);
         else await recommendations.dismiss(item.recommendation!.id);
       } else if (needId) {
-        const updated = await respondToOffer(session.accessToken, needId, item.cityResource!.id, accepted);
-        setOfferResponseByCityResourceId((previous) => ({ ...previous, [updated.citySheetEntryId]: updated.response }));
+        const updated = await respondToOffer(
+          session.accessToken,
+          needId,
+          item.cityResource!.id,
+          accepted,
+        );
+        setOfferResponseByCityResourceId((previous) => ({
+          ...previous,
+          [updated.citySheetEntryId]: updated.response,
+        }));
       }
     } finally {
       setDecidingKeys((keys) => keys.filter((k) => k !== key));
@@ -169,7 +192,12 @@ export function ConversationSurface({ initialMode = 'text' }: ConversationSurfac
   }
 
   const errorCopy = state.error ? conversationErrorCopy(state.error.kind) : null;
-  const entries = buildVirtualTimeline(timeline, builtPlan, journey.state.goals, connectedExperiences.state.documents);
+  const entries = buildVirtualTimeline(
+    timeline,
+    builtPlan,
+    journey.state.goals,
+    connectedExperiences.state.documents,
+  );
 
   return (
     <div className={styles.surface}>
@@ -180,33 +208,38 @@ export function ConversationSurface({ initialMode = 'text' }: ConversationSurfac
         onStartNew={startNewConversation}
       />
 
-      <div className={styles.modeToggle}>
-        <Button
-          type="button"
-          variant={mode === 'text' ? 'primary' : 'secondary'}
-          onClick={() => setMode('text')}
-          aria-pressed={mode === 'text'}
-        >
-          Type
-        </Button>
-        <Button
-          type="button"
-          variant={mode === 'voice' ? 'primary' : 'secondary'}
-          onClick={() => setMode('voice')}
-          aria-pressed={mode === 'voice'}
-        >
-          Talk
-        </Button>
-      </div>
+      {V1_FEATURE_FLAGS.voice ? (
+        <div className={styles.modeToggle}>
+          <Button
+            type="button"
+            variant={mode === 'text' ? 'primary' : 'secondary'}
+            onClick={() => setMode('text')}
+            aria-pressed={mode === 'text'}
+          >
+            Type
+          </Button>
+          <Button
+            type="button"
+            variant={mode === 'voice' ? 'primary' : 'secondary'}
+            onClick={() => setMode('voice')}
+            aria-pressed={mode === 'voice'}
+          >
+            Talk
+          </Button>
+        </div>
+      ) : null}
 
       {mode === 'voice' ? (
-        <VoiceSurface conversationId={state.activeConversationId ?? undefined} onClose={() => setMode('text')} />
+        <VoiceSurface
+          conversationId={state.activeConversationId ?? undefined}
+          onClose={() => setMode('text')}
+        />
       ) : (
         <>
           {entries.length === 0 && !state.pendingResponse ? (
             <EmptyState
-              title="Share what's on your mind"
-              description="Your steward is listening. There's no wrong way to begin."
+              title="How can we help?"
+              description="Tell us what is happening. We’ll take on as much as we responsibly can, and help you see it through."
             />
           ) : (
             <ConversationTimeline

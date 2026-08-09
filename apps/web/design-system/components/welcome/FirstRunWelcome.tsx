@@ -1,11 +1,22 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useConversation, useJourney, usePlan, useRecommendations, useSession } from '../../../state';
+import {
+  useConversation,
+  useJourney,
+  usePlan,
+  useRecommendations,
+  useSession,
+} from '../../../state';
 import { useRecommendationSubjects } from '../recommendations';
 import { planItemKey } from '../plan/PlanCard';
 import type { PlanItemDto } from '../../../lib/api/plan';
-import { getMyNeeds, offerResource, respondToOffer, type ResourceOfferResponseValue } from '../../../lib/api/needs';
+import {
+  getMyNeeds,
+  offerResource,
+  respondToOffer,
+  type ResourceOfferResponseValue,
+} from '../../../lib/api/needs';
 import { useTheme } from '../../theme';
 import { grantConsent } from '../../../lib/api/consent';
 import { CURRENT_CONSENT_VERSION } from '../../../lib/config/consent';
@@ -18,18 +29,33 @@ import { GoalReflectionStep } from './steps/GoalReflectionStep';
 import { FirstMissionStep } from './steps/FirstMissionStep';
 import { CoordinatedPlanStep } from './steps/CoordinatedPlanStep';
 import { StewardshipOfferStep } from './steps/StewardshipOfferStep';
-import { ExecutionStatusStep, type DecidedPlanItem, type PlanItemDecision } from './steps/ExecutionStatusStep';
+import {
+  ExecutionStatusStep,
+  type DecidedPlanItem,
+  type PlanItemDecision,
+} from './steps/ExecutionStatusStep';
 import { ArrivalStage } from '../arrival';
 import { classifyArrivalError, type ArrivalError } from './classify-arrival-error';
-import { clearArrivalStep, readArrivalStep, writeArrivalStep, type ArrivalStep } from './arrival-progress';
+import {
+  clearArrivalStep,
+  readArrivalStep,
+  writeArrivalStep,
+  type ArrivalStep,
+} from './arrival-progress';
 import { deriveUnderstandingPhase } from './understanding-progress';
 import styles from './FirstRunWelcome.module.css';
 
 type Step = ArrivalStep;
 
 const KNOWN_STEPS = new Set<Step>([
-  'consent', 'preferences', 'hospitality', 'immediate-need', 'first-mission',
-  'coordinated-plan', 'stewardship-offer', 'next-step',
+  'consent',
+  'preferences',
+  'hospitality',
+  'immediate-need',
+  'first-mission',
+  'coordinated-plan',
+  'stewardship-offer',
+  'next-step',
 ]);
 
 /**
@@ -67,7 +93,7 @@ export interface FirstRunWelcomeProps {
  * (a returning member deliberately starting over) ignores and clears
  * any stale persisted step, since that is an intentional fresh start.
  * A step value left over from a previous release (or otherwise
- * unrecognized) is never a dead end — it falls back to `preferences`
+ * unrecognized) is never a dead end — it falls back to `immediate-need`
  * rather than a blank screen.
  */
 export function FirstRunWelcome({ skipHospitality = false }: FirstRunWelcomeProps) {
@@ -84,7 +110,7 @@ export function FirstRunWelcome({ skipHospitality = false }: FirstRunWelcomeProp
       return 'immediate-need';
     }
     const persisted = readArrivalStep();
-    return persisted && KNOWN_STEPS.has(persisted) ? persisted : 'preferences';
+    return persisted && KNOWN_STEPS.has(persisted) ? persisted : 'immediate-need';
   });
   const [isGrantingConsent, setIsGrantingConsent] = useState(false);
   const [consentError, setConsentError] = useState<ArrivalError | null>(null);
@@ -165,7 +191,9 @@ export function FirstRunWelcome({ skipHospitality = false }: FirstRunWelcomeProp
   }, [session.accessToken, session.memberId, pendingMissionNeed, journey, goToStep]);
 
   const createdGoal =
-    !journey.state.isCreatingFirstMission && !journey.state.firstMissionDraft && !journey.state.error
+    !journey.state.isCreatingFirstMission &&
+    !journey.state.firstMissionDraft &&
+    !journey.state.error
       ? (journey.state.goals[0] ?? null)
       : null;
 
@@ -223,7 +251,9 @@ export function FirstRunWelcome({ skipHospitality = false }: FirstRunWelcomeProp
       if (conversation.state.activeConversationId) {
         try {
           const needs = await getMyNeeds(session.accessToken!);
-          needId = needs.find((n) => n.conversationId === conversation.state.activeConversationId)?.id;
+          needId = needs.find(
+            (n) => n.conversationId === conversation.state.activeConversationId,
+          )?.id;
         } catch {
           // Best-effort lookup — a coordinated plan built without a needId
           // is still a real, useful plan (Recommendation categories alone).
@@ -242,12 +272,15 @@ export function FirstRunWelcome({ skipHospitality = false }: FirstRunWelcomeProp
     if (!plan.state.plan || !arrivalNeedId || !session.accessToken) return;
     const unoffered = [plan.state.plan.primary, ...plan.state.plan.supporting].filter(
       (item): item is PlanItemDto & { cityResource: NonNullable<PlanItemDto['cityResource']> } =>
-        item.source === 'CITY_RESOURCE' && !(item.cityResource!.id in offerResponseByCityResourceId),
+        item.source === 'CITY_RESOURCE' &&
+        !(item.cityResource!.id in offerResponseByCityResourceId),
     );
     if (unoffered.length === 0) return;
     let cancelled = false;
     void Promise.all(
-      unoffered.map((item) => offerResource(session.accessToken!, arrivalNeedId, item.cityResource.id)),
+      unoffered.map((item) =>
+        offerResource(session.accessToken!, arrivalNeedId, item.cityResource.id),
+      ),
     ).then((offers) => {
       if (cancelled) return;
       setOfferResponseByCityResourceId((previous) => {
@@ -280,11 +313,25 @@ export function FirstRunWelcome({ skipHospitality = false }: FirstRunWelcomeProp
         if (item.source === 'RECOMMENDATION') {
           if (accepted) await recommendations.approve(item.recommendation!.id);
           else await recommendations.dismiss(item.recommendation!.id);
-          setPlanItemDecisions((previous) => ({ ...previous, [key]: accepted ? 'ACCEPTED' : 'DISMISSED' }));
+          setPlanItemDecisions((previous) => ({
+            ...previous,
+            [key]: accepted ? 'ACCEPTED' : 'DISMISSED',
+          }));
         } else if (arrivalNeedId) {
-          const updated = await respondToOffer(session.accessToken, arrivalNeedId, item.cityResource!.id, accepted);
-          setOfferResponseByCityResourceId((previous) => ({ ...previous, [updated.citySheetEntryId]: updated.response }));
-          setPlanItemDecisions((previous) => ({ ...previous, [key]: updated.response as PlanItemDecision }));
+          const updated = await respondToOffer(
+            session.accessToken,
+            arrivalNeedId,
+            item.cityResource!.id,
+            accepted,
+          );
+          setOfferResponseByCityResourceId((previous) => ({
+            ...previous,
+            [updated.citySheetEntryId]: updated.response,
+          }));
+          setPlanItemDecisions((previous) => ({
+            ...previous,
+            [key]: updated.response as PlanItemDecision,
+          }));
         }
       } finally {
         setDecidingPlanItemKeys((keys) => keys.filter((k) => k !== key));
@@ -308,7 +355,12 @@ export function FirstRunWelcome({ skipHospitality = false }: FirstRunWelcomeProp
         // persisted) — no dead end, restart understanding rather than
         // granting consent for nothing to actually persist.
         if (!pendingMissionNeed) {
-          return <ImmediateNeedStep onSubmit={handleImmediateNeed} submitting={conversation.state.pendingResponse} />;
+          return (
+            <ImmediateNeedStep
+              onSubmit={handleImmediateNeed}
+              submitting={conversation.state.pendingResponse}
+            />
+          );
         }
         return (
           <ConsentStep
@@ -323,7 +375,9 @@ export function FirstRunWelcome({ skipHospitality = false }: FirstRunWelcomeProp
         return (
           <PreferencesStep
             reducedMotion={motionPreference === 'reduced'}
-            onReducedMotionChange={(reducedMotion) => setMotionPreference(reducedMotion ? 'reduced' : 'system')}
+            onReducedMotionChange={(reducedMotion) =>
+              setMotionPreference(reducedMotion ? 'reduced' : 'system')
+            }
             onContinue={() => goToStep('hospitality')}
           />
         );
@@ -357,11 +411,16 @@ export function FirstRunWelcome({ skipHospitality = false }: FirstRunWelcomeProp
 
         return (
           <>
-            {phase.kind === 'collecting' ? <p className={styles.priorMessage}>{PRIVACY_NOTICE}</p> : null}
+            {phase.kind === 'collecting' ? (
+              <p className={styles.priorMessage}>{PRIVACY_NOTICE}</p>
+            ) : null}
             {phase.kind === 'clarifying' || phase.kind === 'crisis' ? (
               <p className={styles.priorMessage}>{phase.priorMessage}</p>
             ) : null}
-            <ImmediateNeedStep onSubmit={handleImmediateNeed} submitting={conversation.state.pendingResponse} />
+            <ImmediateNeedStep
+              onSubmit={handleImmediateNeed}
+              submitting={conversation.state.pendingResponse}
+            />
           </>
         );
       }
@@ -404,7 +463,12 @@ export function FirstRunWelcome({ skipHospitality = false }: FirstRunWelcomeProp
         // A separate decision from persistence consent (already granted,
         // earlier, before createFirstMission ever ran) — this is only ever
         // about whether to preserve progress across sessions and devices.
-        return <StewardshipOfferStep isGuest={session.isGuest} onContinue={() => goToStep('next-step')} />;
+        return (
+          <StewardshipOfferStep
+            isGuest={session.isGuest}
+            onContinue={() => goToStep('next-step')}
+          />
+        );
 
       case 'next-step':
         // Execution status narration + a long-term stewardship prompt

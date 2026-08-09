@@ -49,7 +49,12 @@ function SignedInAs({ children }: { children: React.ReactNode }) {
   const { setSession, session } = useSession();
   const signedIn = session.isAuthenticated;
   if (!signedIn) {
-    setSession({ ...session, isAuthenticated: true, accessToken: 'token-123', memberId: 'member-1' });
+    setSession({
+      ...session,
+      isAuthenticated: true,
+      accessToken: 'token-123',
+      memberId: 'member-1',
+    });
   }
   return <>{children}</>;
 }
@@ -83,10 +88,28 @@ function renderSurface({ signedIn = true }: { signedIn?: boolean } = {}) {
 describe('ConversationSurface', () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    mockedApi.listConversations.mockResolvedValue({ data: [], total: 0, page: 1, limit: 20, totalPages: 0 });
-    mockedGoals.listGoals.mockResolvedValue({ data: [], total: 0, page: 1, limit: 20, totalPages: 0 });
+    mockedApi.listConversations.mockResolvedValue({
+      data: [],
+      total: 0,
+      page: 1,
+      limit: 20,
+      totalPages: 0,
+    });
+    mockedGoals.listGoals.mockResolvedValue({
+      data: [],
+      total: 0,
+      page: 1,
+      limit: 20,
+      totalPages: 0,
+    });
     mockedNeeds.getMyNeeds.mockResolvedValue([]);
-    mockedDocuments.listDocuments.mockResolvedValue({ data: [], total: 0, page: 1, limit: 20, totalPages: 0 });
+    mockedDocuments.listDocuments.mockResolvedValue({
+      data: [],
+      total: 0,
+      page: 1,
+      limit: 20,
+      totalPages: 0,
+    });
   });
 
   it('prompts sign-in when the member is not authenticated, without calling the API', () => {
@@ -97,7 +120,7 @@ describe('ConversationSurface', () => {
 
   it('shows an empty state before any message has been sent', async () => {
     renderSurface();
-    expect(await screen.findByText("Share what's on your mind")).toBeInTheDocument();
+    expect(await screen.findByText('How can we help?')).toBeInTheDocument();
   });
 
   it('sends a message end-to-end and displays the exchange', async () => {
@@ -126,7 +149,9 @@ describe('ConversationSurface', () => {
   });
 
   it('shows a calm, retryable error state and preserves the draft on 503', async () => {
-    mockedApi.createConversation.mockRejectedValue(new ApiError(503, 'The AI service is temporarily unavailable'));
+    mockedApi.createConversation.mockRejectedValue(
+      new ApiError(503, 'The AI service is temporarily unavailable'),
+    );
 
     renderSurface();
     const textarea = await screen.findByLabelText('Message your steward');
@@ -140,20 +165,35 @@ describe('ConversationSurface', () => {
 
   it('has no accessibility violations in its default authenticated state', async () => {
     const { container } = renderSurface();
-    await screen.findByText("Share what's on your mind");
+    await screen.findByText('How can we help?');
     expect(await axe(container)).toHaveNoViolations();
   });
 
   it('switches to voice mode on the same conversation, and back — text ↔ voice continuity', async () => {
     mockedApi.createConversation.mockResolvedValue({
-      id: 'conv-1', userId: 'member-1', title: null, createdAt: 'x', updatedAt: 'x',
+      id: 'conv-1',
+      userId: 'member-1',
+      title: null,
+      createdAt: 'x',
+      updatedAt: 'x',
     });
     mockedApi.sendMessage.mockResolvedValue({
-      id: 'reply-1', conversationId: 'conv-1', role: 'ASSISTANT', content: 'Hello.', createdAt: 'x',
+      id: 'reply-1',
+      conversationId: 'conv-1',
+      role: 'ASSISTANT',
+      content: 'Hello.',
+      createdAt: 'x',
     });
     mockedVoiceApi.startVoiceSession.mockResolvedValue({
-      id: 'vs-1', conversationId: 'conv-1', clientSecret: 'secret', expiresAt: 'x',
-      model: 'gpt-4o-realtime-preview', voice: 'alloy', turnDetectionMode: 'semantic_vad', startedAt: 'x', endedAt: null,
+      id: 'vs-1',
+      conversationId: 'conv-1',
+      clientSecret: 'secret',
+      expiresAt: 'x',
+      model: 'gpt-4o-realtime-preview',
+      voice: 'alloy',
+      turnDetectionMode: 'semantic_vad',
+      startedAt: 'x',
+      endedAt: null,
     });
 
     renderSurface();
@@ -175,36 +215,88 @@ describe('ConversationSurface', () => {
 
   it('shows a coordinated plan built during this conversation inline, and approving it calls the real recommendation approval — never a second, invented mechanism', async () => {
     mockedApi.createConversation.mockResolvedValue({
-      id: 'conv-1', userId: 'member-1', title: null, createdAt: 'x', updatedAt: 'x',
+      id: 'conv-1',
+      userId: 'member-1',
+      title: null,
+      createdAt: 'x',
+      updatedAt: 'x',
     });
     mockedApi.sendMessage.mockResolvedValue({
-      id: 'reply-1', conversationId: 'conv-1', role: 'ASSISTANT', content: 'Got it.', createdAt: 'x',
+      id: 'reply-1',
+      conversationId: 'conv-1',
+      role: 'ASSISTANT',
+      content: 'Got it.',
+      createdAt: 'x',
     });
     const recommendation = {
-      id: 'rec-1', userId: 'member-1', opportunityId: 'opp-1', resourceId: null, courseId: null, podId: null,
-      rationale: 'This matches your goal.', status: 'PENDING' as const, decidedAt: null, createdAt: 'x',
+      id: 'rec-1',
+      userId: 'member-1',
+      opportunityId: 'opp-1',
+      resourceId: null,
+      courseId: null,
+      podId: null,
+      rationale: 'This matches your goal.',
+      status: 'PENDING' as const,
+      decidedAt: null,
+      createdAt: 'x',
     };
     mockedPlan.buildCoordinatedPlan.mockResolvedValue({
       run: {
-        id: 'run-1', userId: 'member-1', goal: 'COORDINATED_PLAN', capabilitiesInvoked: ['RECOMMENDATION'],
-        outcome: 'Built a coordinated plan.', status: 'SUCCESS', latencyMs: 5, createdAt: 'x',
+        id: 'run-1',
+        userId: 'member-1',
+        goal: 'COORDINATED_PLAN',
+        capabilitiesInvoked: ['RECOMMENDATION'],
+        outcome: 'Built a coordinated plan.',
+        status: 'SUCCESS',
+        latencyMs: 5,
+        createdAt: 'x',
       },
       plan: {
-        primary: { source: 'RECOMMENDATION', recommendation, cityResource: null, categoryLabel: 'Opportunity' },
+        primary: {
+          source: 'RECOMMENDATION',
+          recommendation,
+          cityResource: null,
+          categoryLabel: 'Opportunity',
+        },
         supporting: [],
         combinedRationale: 'Opportunity is the strongest real option available right now.',
         additionalPossibilitiesCount: 0,
       },
     });
     mockedOpportunities.getOpportunity.mockResolvedValue({
-      id: 'opp-1', opportunityRef: 'AUR-OPP-000001', title: 'Career Training Grant', shortDescription: 'A short description.',
-      fullDescription: 'Full description.', category: 'EMPLOYMENT', tags: [], provider: 'Department of Labor',
-      officialSourceUrl: 'https://example.com', applicationUrl: null, location: null, country: null, state: null,
-      eligibilityRules: 'Open to all', benefitType: 'TRAINING', benefitAmount: null, deadline: null,
-      status: 'ACTIVE', verificationStatus: 'VERIFIED', rejectionReason: null, confidenceScore: 90,
-      freshnessScore: 90, datePublished: null, dateLastVerified: null, sourceName: 'DOL', sourceUrl: null,
-      sourceType: 'ADMIN_ENTRY', submittedById: 'admin-1', createdById: 'admin-1', lastUpdatedById: 'admin-1',
-      createdAt: 'x', updatedAt: 'x', deletedAt: null,
+      id: 'opp-1',
+      opportunityRef: 'AUR-OPP-000001',
+      title: 'Career Training Grant',
+      shortDescription: 'A short description.',
+      fullDescription: 'Full description.',
+      category: 'EMPLOYMENT',
+      tags: [],
+      provider: 'Department of Labor',
+      officialSourceUrl: 'https://example.com',
+      applicationUrl: null,
+      location: null,
+      country: null,
+      state: null,
+      eligibilityRules: 'Open to all',
+      benefitType: 'TRAINING',
+      benefitAmount: null,
+      deadline: null,
+      status: 'ACTIVE',
+      verificationStatus: 'VERIFIED',
+      rejectionReason: null,
+      confidenceScore: 90,
+      freshnessScore: 90,
+      datePublished: null,
+      dateLastVerified: null,
+      sourceName: 'DOL',
+      sourceUrl: null,
+      sourceType: 'ADMIN_ENTRY',
+      submittedById: 'admin-1',
+      createdById: 'admin-1',
+      lastUpdatedById: 'admin-1',
+      createdAt: 'x',
+      updatedAt: 'x',
+      deletedAt: null,
     });
 
     let api!: { buildPlan: () => void };
@@ -244,6 +336,11 @@ describe('ConversationSurface', () => {
     await waitFor(() => expect(screen.getByText('This matches your goal.')).toBeInTheDocument());
 
     await userEvent.click(screen.getByRole('button', { name: 'Approve' }));
-    await waitFor(() => expect(mockedRecommendations.approveRecommendation).toHaveBeenCalledWith('token-123', 'rec-1'));
+    await waitFor(() =>
+      expect(mockedRecommendations.approveRecommendation).toHaveBeenCalledWith(
+        'token-123',
+        'rec-1',
+      ),
+    );
   });
 });
