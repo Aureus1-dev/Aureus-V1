@@ -61,6 +61,11 @@ jobs:
       - name: Install dependencies
         run: pnpm install
 
+      # A green build is not launch-ready if a newly disclosed high/critical
+      # vulnerability is already present in the resolved dependency graph.
+      - name: Audit dependencies (high and critical)
+        run: pnpm audit --audit-level high
+
       - name: Prisma generate
         run: npx prisma generate
 

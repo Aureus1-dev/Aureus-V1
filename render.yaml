@@ -41,7 +41,11 @@ services:
     # not just that the process started. The Dockerfile's own HEALTHCHECK
     # (a container-level liveness check) still uses /health/live separately.
     healthCheckPath: /health/ready
-    autoDeploy: true
+    # Pilot deploys are intentionally manual: CI passing proves the image,
+    # but cannot prove the human-verification, Tending Run, Memory Rights,
+    # or Founder walkthrough gates in docs/launch/WORKORDERS.md. Change to
+    # `checksPass` only after Pilot-25 authorizes continuous delivery.
+    autoDeployTrigger: off
     # Runs before the new version receives traffic (Render's own
     # pre-deploy hook, distinct from the container's CMD). Plain
     # `prisma migrate deploy`, not scripts/db-migrate-deploy.sh's
@@ -74,6 +78,35 @@ services:
       # emails link back to.
       - key: FRONTEND_URL
         sync: false
+      # Production refuses the placeholder AI provider. V1 uses OpenAI by
+      # default; change both fields together if Anthropic is chosen instead.
+      - key: AI_PROVIDER
+        value: openai
+      - key: OPENAI_API_KEY
+        sync: false
+      # A real SMTP transport is required for account verification and
+      # password recovery. Adjust port/secure together for port 465.
+      - key: SMTP_HOST
+        sync: false
+      - key: SMTP_PORT
+        value: 587
+      - key: SMTP_SECURE
+        value: false
+      - key: SMTP_USER
+        sync: false
+      - key: SMTP_PASSWORD
+        sync: false
+      - key: SMTP_FROM_EMAIL
+        sync: false
+      # Make launch cost stop-lines explicit in the hosting dashboard.
+      - key: AI_EMERGENCY_STOP
+        value: false
+      - key: AI_GLOBAL_DAILY_BUDGET_USD
+        value: 50
+      - key: AI_USER_DAILY_BUDGET_USD
+        value: 2
+      - key: GUEST_SESSION_RETENTION_DAYS
+        value: 7
       - key: SENTRY_DSN
         sync: false
       - key: REDIS_URL
@@ -90,7 +123,7 @@ services:
     region: oregon
     # Matches the Dockerfile's own HEALTHCHECK (GET /, expects < 500).
     healthCheckPath: /
-    autoDeploy: true
+    autoDeployTrigger: off
     envVars:
       - key: NODE_ENV
         value: production
@@ -112,5 +145,6 @@ services:
 
 databases:
   - name: aureus-postgres
-    plan: starter
+    # `starter` is a legacy database type and cannot create a new instance.
+    plan: basic-256mb
     region: oregon

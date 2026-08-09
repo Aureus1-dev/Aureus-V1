@@ -50,23 +50,10 @@ export const envValidationSchema = Joi.object({
   GUEST_SESSION_RETENTION_DAYS: Joi.number().default(7),
 
   // ── Email delivery (ADR-009, hardened PD-001) ────────────────────────────
-  // TEMPORARY (v1 launch): SMTP_HOST was required once NODE_ENV=production
-  // (see git history for the .when('NODE_ENV', ...) rule this replaced).
-  // Relaxed to fully optional in every environment so the app can boot and
-  // serve traffic before a production SMTP provider is provisioned — a
-  // sequencing problem (SMTP setup depending on a domain the deploy itself
-  // is meant to prove out first), not a decision that email delivery is
-  // unimportant. Absent, NodemailerEmailService falls back to nodemailer's
-  // jsonTransport (captures instead of delivering) and logs a startup
-  // warning naming exactly which features are affected: email verification,
-  // password reset, and the email channel of Communication System
-  // notifications — see that warning and docs/operations/production-
-  // runbook.md §2 for the full list. None of this touches the security
-  // controls those features sit behind (email-verification-required-at-
-  // login stays enforced; a user with no way to receive the verification
-  // link simply cannot complete it — "unavailable," not "bypassed").
-  // Revert by restoring: `.when('NODE_ENV', { is: 'production', then: Joi.required() })`
-  // once a production SMTP provider is configured.
+  // SMTP is a production launch requirement because login enforces email
+  // verification and password recovery is delivered by email. Without a
+  // real transport, a new member cannot complete the normal account
+  // lifecycle. Development/test retain the local jsonTransport fallback.
   // .empty('') treats an explicitly-empty-string value the same as an
   // absent one — docker-compose.yml's `${SMTP_HOST:-}` substitution sets
   // literally "" rather than omitting the key when the operator hasn't
@@ -75,7 +62,11 @@ export const envValidationSchema = Joi.object({
   // ANTHROPIC_MODEL further down) for the same docker-compose.yml
   // `${VAR:-}` empty-string reason as SMTP_HOST above — an unset value
   // must fall through to Joi's own .default(), not fail validation outright.
-  SMTP_HOST: Joi.string().empty('').optional(),
+  SMTP_HOST: Joi.string().empty('').when('NODE_ENV', {
+    is: 'production',
+    then: Joi.required(),
+    otherwise: Joi.optional(),
+  }),
   SMTP_PORT:       Joi.number().empty('').default(587),
   SMTP_SECURE:     Joi.boolean().empty('').default(false),
   SMTP_USER:       Joi.string().empty('').optional(),
@@ -96,12 +87,13 @@ export const envValidationSchema = Joi.object({
   // production deploy would show a member in crisis that placeholder text
   // where an answer should be. Failing at boot is the only way that is
   // caught before a person reads it. Mirrors the CORS_ORIGIN rule above.
-  AI_PROVIDER: Joi.string().valid('openai', 'anthropic', 'stub').default('stub').when('NODE_ENV', {
+  AI_PROVIDER: Joi.when('NODE_ENV', {
     is: 'production',
     then: Joi.string().valid('openai', 'anthropic').required().messages({
       'any.only':
         'AI_PROVIDER must be a real provider ("openai" or "anthropic") in production — the stub provider returns placeholder text that members would see.',
     }),
+    otherwise: Joi.string().valid('openai', 'anthropic', 'stub').default('stub'),
   }),
   OPENAI_API_KEY: Joi.string().empty('').when('AI_PROVIDER', { is: 'openai', then: Joi.required() }),
   OPENAI_MODEL:       Joi.string().empty('').default('gpt-5-mini'),
