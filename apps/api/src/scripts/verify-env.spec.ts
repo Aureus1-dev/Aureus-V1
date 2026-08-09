@@ -22,7 +22,7 @@ describe('verifyEnv (PD-002)', () => {
     expect(errors.some((e) => e.includes('JWT_ACCESS_SECRET'))).toBe(true);
   });
 
-  it('requires CORS_ORIGIN and a matching AI key once NODE_ENV=production', () => {
+  it('requires CORS_ORIGIN, SMTP, and a matching AI key once NODE_ENV=production', () => {
     const { ok, errors } = verifyEnv({
       ...validBaseEnv,
       NODE_ENV: 'production',
@@ -31,19 +31,21 @@ describe('verifyEnv (PD-002)', () => {
 
     expect(ok).toBe(false);
     expect(errors.some((e) => e.includes('CORS_ORIGIN'))).toBe(true);
+    expect(errors.some((e) => e.includes('SMTP_HOST'))).toBe(true);
     expect(errors.some((e) => e.includes('OPENAI_API_KEY'))).toBe(true);
   });
 
-  it('does not require SMTP_HOST once NODE_ENV=production (temporary v1 relaxation)', () => {
+  it('rejects the stub AI provider in production', () => {
     const { ok, errors } = verifyEnv({
       ...validBaseEnv,
       NODE_ENV: 'production',
       CORS_ORIGIN: 'https://app.aureus.example',
+      SMTP_HOST: 'smtp.example.com',
       AI_PROVIDER: 'stub',
     });
 
-    expect(errors).toEqual([]);
-    expect(ok).toBe(true);
+    expect(ok).toBe(false);
+    expect(errors.some((e) => e.includes('AI_PROVIDER'))).toBe(true);
   });
 
   it('accepts a fully-configured production environment', () => {
@@ -52,7 +54,8 @@ describe('verifyEnv (PD-002)', () => {
       NODE_ENV: 'production',
       CORS_ORIGIN: 'https://app.aureus.example',
       SMTP_HOST: 'smtp.example.com',
-      AI_PROVIDER: 'stub',
+      AI_PROVIDER: 'openai',
+      OPENAI_API_KEY: 'test-key',
     });
 
     expect(errors).toEqual([]);

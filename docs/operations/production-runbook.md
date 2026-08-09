@@ -48,6 +48,8 @@ Required (app fails to boot without these — see `apps/api/src/app.module.ts` J
 | Variable | Dev/test behavior if unset | Production requirement |
 |---|---|---|
 | `CORS_ORIGIN` | Defaults to `*` | Must be an explicit origin (not `*`) — `*` disables credentialed CORS |
+| `SMTP_HOST` | Falls back to local capture | Required — verification and password-recovery messages must deliver before Member One |
+| `AI_PROVIDER` | Defaults to `stub` | Must be `openai` or `anthropic`; the placeholder provider is rejected |
 | `OPENAI_API_KEY` | N/A unless `AI_PROVIDER=openai` | Required whenever `AI_PROVIDER=openai` (either environment) |
 | `ANTHROPIC_API_KEY` | N/A unless `AI_PROVIDER=anthropic` | Required whenever `AI_PROVIDER=anthropic` (either environment) |
 
@@ -56,8 +58,7 @@ Recommended in production (defaulted, but the defaults are dev-shaped):
 | Variable | Default | Why to set it in production |
 |---|---|---|
 | `NODE_ENV` | `development` | Set to `production` — also gates the requirements above and disables Swagger (see `ENABLE_API_DOCS` below) |
-| `SMTP_HOST`/`SMTP_PORT`/`SMTP_USER`/`SMTP_PASSWORD` | Falls back to nodemailer's local jsonTransport capture — no real email sent | **Not currently required in production** (temporary v1 relaxation — see "Email delivery is optional for v1" below). Set before launch to enable email verification, password reset, and notification emails |
-| `AI_PROVIDER` | `stub` → deterministic canned responses, no real AI | Set to `openai` or `anthropic` with the matching API key (required above) for a real AI Steward |
+| `SMTP_PORT`/`SMTP_USER`/`SMTP_PASSWORD`/`SMTP_FROM_EMAIL` | Provider-specific | Configure for the selected SMTP provider; verify both verification and reset messages before Member One |
 | `ENABLE_API_DOCS` | `false` in production (on by default outside it) | Set to `true` only if this deployment wants `/api/docs` public — otherwise stays closed to avoid handing out a free endpoint/DTO schema dump |
 | `FRONTEND_URL` | `http://localhost:3001` | Set to the real deployed frontend origin — used to build password-reset/email-verification links; left at the default, those links point at `localhost` for every recipient |
 | `AI_EMERGENCY_STOP` | `false` | Set to `true` to immediately halt all AI features platform-wide — a kill switch, no restart required (PR-002) |
@@ -74,21 +75,9 @@ Optional, one-time only (see §1):
 |---|---|
 | `BOOTSTRAP_ADMIN_EMAIL` / `BOOTSTRAP_ADMIN_PASSWORD` | First-administrator creation via `npx prisma db seed` |
 
-### Email delivery is optional for v1 (temporary)
+### Email delivery is a launch requirement
 
-`SMTP_HOST` is **not** required in production right now — this is a deliberate, temporary relaxation for the v1 launch (SMTP setup depends on a domain the deploy itself is meant to prove out first), not a decision that email delivery doesn't matter. Leaving it unset in production is fully supported: the app boots normally, `NodemailerEmailService` falls back to nodemailer's `jsonTransport` (captures messages locally instead of delivering them), and logs an explicit startup warning.
-
-**Exactly what stays unavailable without `SMTP_HOST` configured:**
-- **Email verification** — `POST /auth/register` still creates the account and issues a real verification token, but the email carrying its link is never delivered, so the member has no way to complete verification.
-- **Password reset** — `POST /auth/forgot-password` still issues a real reset token, but its email is never delivered — no self-service password recovery until SMTP is configured.
-- **Communication System notification emails** — the email delivery *channel* only; in-app notifications and every other feature are unaffected. `NotificationsService` already tracks each attempt's delivery status and never crashes on a send failure (this predates this change).
-
-**What does *not* change** — no security control is weakened by this relaxation:
-- Login still enforces `emailVerified` (`POST /auth/login` returns 403 for an unverified account) — a member who cannot receive the verification email simply cannot log in until SMTP is configured (or an operator verifies them directly). This is the intended, accepted tradeoff of shipping without SMTP for v1, not a bypass.
-- Password-reset and email-verification tokens are still generated, hashed, TTL'd, and single-use exactly as before — only their delivery is affected.
-- Anti-enumeration behavior (`forgot-password` always returning 204) is unchanged.
-
-**Reverting this relaxation** once a production SMTP provider is ready: restore the `.when('NODE_ENV', { is: 'production', then: Joi.required() })` rule on `SMTP_HOST` in `apps/api/src/config/env.validation.ts` (removed in this change — see git history), then just set `SMTP_HOST`/`SMTP_PORT`/`SMTP_USER`/`SMTP_PASSWORD` in Render.
+Production fails closed when `SMTP_HOST` is missing. That is intentional: login requires email verification, and password recovery is delivered by email. Before Member One, complete one real registration/verification cycle and one real forgot-password/reset cycle against the deployed domain. Development and test environments can still omit SMTP and use nodemailer's local `jsonTransport` capture.
 
 ### Verifying an environment before deploying (PD-002)
 
@@ -157,7 +146,7 @@ A web service on Railway (or any other host) would need its own equivalent confi
 
 `render.yaml` (repo root) is the equivalent explicit build/deploy spec for Render, added after a 2026-07-28 incident where every route on a Render deployment of the API returned 404 despite Render reporting the deploy as successful. Root-cause investigation (record kept in §6 below) found no defect in the application — a clean build and boot of the exact repository code correctly registers every route, `POST /auth/register` included — and found instead that this repository had **no Render configuration anywhere**, unlike Railway's explicit `railway.json`. In a pnpm monorepo with two Dockerfiles (`apps/api/Dockerfile`, `apps/web/Dockerfile`), the same ambiguity `railway.json`'s own comment already warns about for Railway's auto-detection applies equally to Render's: without an explicit spec, a platform has no reliable way to know which Dockerfile to build, or that the build context must be the repository root (both Dockerfiles' own header comments require this, for the same pnpm-workspace/Prisma-schema-resolution reason).
 
-`render.yaml` pins: `dockerfilePath: ./apps/api/Dockerfile`, `dockerContext: .` (repository root — do **not** set Render's Root Directory to `apps/api`, which would break both Dockerfiles' repo-root-relative `COPY` paths), and `healthCheckPath: /health/ready` (matching Railway's `deploy.healthcheckPath` choice and its rationale — a platform deciding whether a deploy is ready for traffic should confirm database connectivity, not just that the process started; the Dockerfile's own container-level `HEALTHCHECK` is a separate, deliberately DB-independent liveness check at `/health/live`). A web service on Render would need its own equivalent spec pointing at `apps/web/Dockerfile`, not added here for the same reason Railway's doesn't have one yet.
+`render.yaml` pins both deployable services: the API uses `apps/api/Dockerfile`, the web app uses `apps/web/Dockerfile`, and both use the repository root as `dockerContext` (do **not** set Render's Root Directory to an app subdirectory). The API health check is `/health/ready`; the web health check is `/`. Render injects `NEXT_PUBLIC_API_BASE_URL` as a Docker build argument. Pilot auto-deploys are disabled because CI cannot certify the human launch gates; trigger each pilot deploy manually, then switch `autoDeployTrigger` to `checksPass` only after Pilot-25 authorizes normal continuous delivery.
 
 ### Container hardening (PD-002)
 
