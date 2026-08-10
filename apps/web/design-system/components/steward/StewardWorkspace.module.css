@@ -78,4 +78,12 @@
     left: var(--space-3);
     right: var(--space-3);
   }
+
+  /* .panel's base `width: 22rem` otherwise wins over these edge insets
+     (over-constrained fixed-position sizing resolves in favor of an
+     explicit width), leaving the panel narrower than the full-width
+     layout these insets are meant to produce on small screens. */
+  .panel {
+    width: auto;
+  }
 }

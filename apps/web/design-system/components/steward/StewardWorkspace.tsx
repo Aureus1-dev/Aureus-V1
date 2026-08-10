@@ -28,11 +28,21 @@ const LIVE_VOICE_STATES = new Set(['connecting', 'listening', 'thinking', 'speak
  * component rather than as a second floating widget (`PersistentVoicePresence`,
  * DOMAIN-005, is deliberately not also mounted): "compose into one unified
  * Steward surface... never two competing floating widgets."
+ *
+ * The one exception is the Conversation Room itself (`currentSurfaceId ===
+ * 'conversation'`, set by `SurfaceTracker`): its full-size `ConversationSurface`
+ * already shows this same history and voice presence at first-class size, so
+ * floating a second, smaller copy on top of it would only duplicate — and
+ * visually obstruct — the surface it mirrors.
  */
 export function StewardWorkspace() {
   const { interfaceState, openPanel, closePanel } = useInterfaceState();
   const voice = useVoice();
   const isExpanded = interfaceState.openPanelIds.includes(STEWARD_PANEL_ID);
+
+  if (interfaceState.currentSurfaceId === 'conversation') {
+    return null;
+  }
   // C2 — V1 Scope Lockdown: voice is cut for V1 entirely, so this never
   // shows live voice UI regardless of turnState, even though the backend
   // already makes a live turnState unreachable (defense in depth).

@@ -2,7 +2,7 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { axe } from 'jest-axe';
 import { SessionProvider, useSession } from '../../../state/session/SessionContext';
-import { InterfaceProvider } from '../../../state/interface/InterfaceContext';
+import { InterfaceProvider, useInterfaceState } from '../../../state/interface/InterfaceContext';
 import { VoiceProvider } from '../../../state/voice/VoiceContext';
 import { ConversationProvider } from '../../../state/conversation/ConversationContext';
 import { RecommendationsProvider } from '../../../state/recommendations/RecommendationsContext';
@@ -25,16 +25,27 @@ function SignedInAs({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
-function renderWorkspace() {
+function SetCurrentSurface({ id, children }: { id: string; children: React.ReactNode }) {
+  const { interfaceState, setCurrentSurface } = useInterfaceState();
+  if (interfaceState.currentSurfaceId !== id) {
+    setCurrentSurface(id);
+  }
+  return <>{children}</>;
+}
+
+function renderWorkspace({ surfaceId }: { surfaceId?: string } = {}) {
+  const body = (
+    <SignedInAs>
+      <StewardWorkspace />
+    </SignedInAs>
+  );
   return render(
     <SessionProvider>
       <InterfaceProvider>
         <VoiceProvider>
           <ConversationProvider>
             <RecommendationsProvider>
-              <SignedInAs>
-                <StewardWorkspace />
-              </SignedInAs>
+              {surfaceId ? <SetCurrentSurface id={surfaceId}>{body}</SetCurrentSurface> : body}
             </RecommendationsProvider>
           </ConversationProvider>
         </VoiceProvider>
@@ -93,6 +104,12 @@ describe('StewardWorkspace', () => {
     // Before any voice session, the collapsed pill shows plain "Steward" text.
     expect(screen.getByText('Steward')).toBeInTheDocument();
     expect(screen.queryByText('Listening…')).not.toBeInTheDocument();
+  });
+
+  it('renders nothing on the Conversation Room itself, which already shows this same content at full size', () => {
+    renderWorkspace({ surfaceId: 'conversation' });
+    expect(screen.queryByText('Steward')).not.toBeInTheDocument();
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
   });
 
   it('has no accessibility violations when collapsed', async () => {
