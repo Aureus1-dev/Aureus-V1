@@ -12,7 +12,20 @@ describe('primarySurfaces', () => {
   it('still includes the standing member surfaces', () => {
     const ids = primarySurfaces.map((s) => s.id);
     expect(ids).toEqual(
-      expect.arrayContaining(['welcome', 'conversation', 'home', 'journey', 'opportunities', 'steward']),
+      expect.arrayContaining([
+        'welcome',
+        'conversation',
+        'home',
+        'journey',
+        'opportunities',
+        'steward',
+      ]),
+    );
+  });
+
+  it('never advertises placeholder-only rooms in the Founder pilot', () => {
+    expect(primarySurfaces.map((s) => s.id)).not.toEqual(
+      expect.arrayContaining(['community', 'calendar', 'settings', 'search', 'help']),
     );
   });
 
@@ -21,10 +34,10 @@ describe('primarySurfaces', () => {
     expect(plans).toEqual({ id: 'plans', label: 'Plans', href: '/plans', tier: 'primary' });
   });
 
-  it('curates the Steward Workspace nav to exactly the 8 quiet primary-tier surfaces, everything else secondary', () => {
+  it('curates the Steward Workspace nav to operational primary-tier surfaces only', () => {
     const primaryTierIds = primarySurfaces.filter((s) => s.tier === 'primary').map((s) => s.id);
     expect(primaryTierIds.sort()).toEqual(
-      ['calendar', 'community', 'conversation', 'documents', 'journey', 'opportunities', 'plans', 'settings'].sort(),
+      ['conversation', 'documents', 'journey', 'opportunities', 'plans'].sort(),
     );
     expect(primarySurfaces.every((s) => s.tier === 'primary' || s.tier === 'secondary')).toBe(true);
   });
