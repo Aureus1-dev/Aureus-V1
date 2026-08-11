@@ -86,7 +86,7 @@ describe('AppShell', () => {
     );
     expect(screen.getByRole('link', { name: 'Journey' })).toHaveAttribute('href', '/journey');
     expect(screen.getByRole('link', { name: 'Documents' })).toHaveAttribute('href', '/documents');
-    expect(screen.getByRole('link', { name: 'Settings' })).toHaveAttribute('href', '/settings');
+    expect(screen.queryByRole('link', { name: 'Settings' })).not.toBeInTheDocument();
   });
 
   it('announces the current room and marks the current route', async () => {
