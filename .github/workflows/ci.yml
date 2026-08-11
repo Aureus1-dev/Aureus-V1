@@ -2,9 +2,9 @@ name: CI
 
 on:
   push:
-    branches: ["**"]
+    branches: ['**']
   pull_request:
-    branches: ["main"]
+    branches: ['main']
 
 jobs:
   ci:
@@ -27,8 +27,8 @@ jobs:
           --health-retries 5
 
     env:
-      DATABASE_URL: "postgresql://aureus:aureus@localhost:5432/aureus?schema=public"
-      JWT_ACCESS_SECRET: "ci-only-secret-do-not-use-in-production-min-32-chars"
+      DATABASE_URL: 'postgresql://aureus:aureus@localhost:5432/aureus?schema=public'
+      JWT_ACCESS_SECRET: 'ci-only-secret-do-not-use-in-production-min-32-chars'
 
     steps:
       - name: Checkout
@@ -37,12 +37,12 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: "22"
+          node-version: '22'
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
         with:
-          version: "10.32.1"
+          version: '10.32.1'
           run_install: false
 
       - name: Get pnpm store path
@@ -156,6 +156,7 @@ jobs:
             -e SMTP_HOST="smtp.example.com" \
             -e AI_PROVIDER="openai" \
             -e OPENAI_API_KEY="ci-only-not-a-real-key" \
+            -e VOICE_PROVIDER="openai" \
             aureus-api:ci
 
           echo "Waiting for /health/live..."
