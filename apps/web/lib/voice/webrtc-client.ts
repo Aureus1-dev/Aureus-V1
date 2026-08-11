@@ -1,4 +1,5 @@
 import type { RawRealtimeEvent } from './realtime-event-mapper';
+import type { VoiceRealtimeClient } from './realtime-client';
 
 const REALTIME_API_URL = 'https://api.openai.com/v1/realtime';
 
@@ -17,7 +18,7 @@ export interface VoiceWebRtcClientCallbacks {
  * member action (a "Start voice conversation" press) — never on mount,
  * never automatically.
  */
-export class VoiceWebRtcClient {
+export class VoiceWebRtcClient implements VoiceRealtimeClient {
   private pc: RTCPeerConnection | null = null;
   private dataChannel: RTCDataChannel | null = null;
   private micStream: MediaStream | null = null;
@@ -91,6 +92,21 @@ export class VoiceWebRtcClient {
    */
   interrupt(): void {
     this.sendEvent({ type: 'response.cancel' });
+  }
+
+  resolveToolCall(callId: string, output: Record<string, unknown>): void {
+    this.sendEvent({
+      type: 'conversation.item.create',
+      item: { type: 'function_call_output', call_id: callId, output: JSON.stringify(output) },
+    });
+    this.sendEvent({ type: 'response.create' });
+  }
+
+  syncInterfaceContext(summary: string): void {
+    this.sendEvent({
+      type: 'conversation.item.create',
+      item: { type: 'message', role: 'system', content: [{ type: 'input_text', text: summary }] },
+    });
   }
 
   sendEvent(event: Record<string, unknown>): void {
