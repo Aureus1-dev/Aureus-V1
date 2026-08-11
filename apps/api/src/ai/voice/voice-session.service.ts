@@ -7,7 +7,12 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { AiCapability, AiMessageRole, AiRequestStatus, VoiceSessionEndReason } from '@prisma/client';
+import {
+  AiCapability,
+  AiMessageRole,
+  AiRequestStatus,
+  VoiceSessionEndReason,
+} from '@prisma/client';
 import { AuthenticatedUser } from '../../auth/strategies/jwt.strategy';
 import { NeedsService } from '../../needs/needs.service';
 import { isCrisisLanguage, CRISIS_REDIRECT_MESSAGE } from '../../needs/crisis-detection.util';
@@ -16,8 +21,14 @@ import {
   AI_CONVERSATION_REPOSITORY,
   IAiConversationRepository,
 } from '../conversations/repositories/ai-conversation.repository.interface';
-import { AI_MESSAGE_REPOSITORY, IAiMessageRepository } from '../conversations/repositories/ai-message.repository.interface';
-import { AI_REQUEST_REPOSITORY, IAiRequestRepository } from '../requests/repositories/ai-request.repository.interface';
+import {
+  AI_MESSAGE_REPOSITORY,
+  IAiMessageRepository,
+} from '../conversations/repositories/ai-message.repository.interface';
+import {
+  AI_REQUEST_REPOSITORY,
+  IAiRequestRepository,
+} from '../requests/repositories/ai-request.repository.interface';
 import { AiRequestsService } from '../requests/ai-requests.service';
 import { computeVoiceCostUsd } from '../requests/ai-pricing.util';
 import { VOICE_PROVIDER, IVoiceProvider } from './providers/voice-provider.interface';
@@ -27,16 +38,19 @@ import {
   AI_VOICE_SESSION_REPOSITORY,
   IAiVoiceSessionRepository,
 } from './repositories/ai-voice-session.repository.interface';
-import { AI_TURN_EVENT_REPOSITORY, IAiTurnEventRepository } from './repositories/ai-turn-event.repository.interface';
+import {
+  AI_TURN_EVENT_REPOSITORY,
+  IAiTurnEventRepository,
+} from './repositories/ai-turn-event.repository.interface';
 import { StartVoiceSessionDto } from './dto/start-voice-session.dto';
 import { VoiceSessionResponseDto } from './dto/voice-session-response.dto';
 import { SyncVoiceEventsDto } from './dto/sync-voice-events.dto';
-import { SyncVoiceEventsResponseDto, TurnEventResponseDto } from './dto/sync-voice-events-response.dto';
+import {
+  SyncVoiceEventsResponseDto,
+  TurnEventResponseDto,
+} from './dto/sync-voice-events-response.dto';
 import { VoiceSessionStatusResponseDto } from './dto/voice-session-status-response.dto';
 import { MessageResponseDto } from '../conversations/dto/message-response.dto';
-
-const VOICE_MODEL_DEFAULT = 'gpt-realtime';
-const VOICE_NAME_DEFAULT = 'marin';
 
 /**
  * Natural re-authorization checkpoint (Founder Decision 5/6): rather than a
@@ -53,10 +67,12 @@ export class VoiceSessionService {
 
   constructor(
     @Inject(VOICE_PROVIDER) private readonly voiceProvider: IVoiceProvider,
-    @Inject(AI_CONVERSATION_REPOSITORY) private readonly conversationRepo: IAiConversationRepository,
+    @Inject(AI_CONVERSATION_REPOSITORY)
+    private readonly conversationRepo: IAiConversationRepository,
     @Inject(AI_MESSAGE_REPOSITORY) private readonly messageRepo: IAiMessageRepository,
     @Inject(AI_REQUEST_REPOSITORY) private readonly requestRepo: IAiRequestRepository,
-    @Inject(AI_VOICE_SESSION_REPOSITORY) private readonly voiceSessionRepo: IAiVoiceSessionRepository,
+    @Inject(AI_VOICE_SESSION_REPOSITORY)
+    private readonly voiceSessionRepo: IAiVoiceSessionRepository,
     @Inject(AI_TURN_EVENT_REPOSITORY) private readonly turnEventRepo: IAiTurnEventRepository,
     private readonly config: ConfigService,
     private readonly needs: NeedsService,
@@ -64,7 +80,10 @@ export class VoiceSessionService {
   ) {}
 
   /** POST /ai/voice/sessions — broker an ephemeral credential and open a session against the canonical conversation. */
-  async startSession(dto: StartVoiceSessionDto, caller: AuthenticatedUser): Promise<VoiceSessionResponseDto> {
+  async startSession(
+    dto: StartVoiceSessionDto,
+    caller: AuthenticatedUser,
+  ): Promise<VoiceSessionResponseDto> {
     // Same pre-flight budget ceiling every text completion already goes
     // through (AiRequestsService.runCompletion) — voice previously had no
     // check here at all, only ever contributing to the ledger, never
@@ -81,11 +100,14 @@ export class VoiceSessionService {
     // session state, so ending the stale session here is safe.
     const existingActive = await this.voiceSessionRepo.findActiveByUser(caller.id);
     if (existingActive) {
-      await this.voiceSessionRepo.end(existingActive.id, VoiceSessionEndReason.RECONNECT_SUPERSEDED);
+      await this.voiceSessionRepo.end(
+        existingActive.id,
+        VoiceSessionEndReason.RECONNECT_SUPERSEDED,
+      );
     }
 
-    const model = this.config.get<string>('VOICE_MODEL', VOICE_MODEL_DEFAULT);
-    const voice = this.config.get<string>('VOICE_NAME', VOICE_NAME_DEFAULT);
+    const model = this.config.get<string>('VOICE_MODEL') || this.voiceProvider.defaultModel;
+    const voice = this.config.get<string>('VOICE_NAME') || this.voiceProvider.defaultVoice;
     const startedAt = Date.now();
 
     try {
@@ -125,7 +147,13 @@ export class VoiceSessionService {
       });
 
       this.logger.log(`Voice session ${session.id} started for user ${caller.id}`);
-      return VoiceSessionResponseDto.fromEntity(session, broker.clientSecret, broker.expiresAt);
+      return VoiceSessionResponseDto.fromEntity(
+        session,
+        broker.clientSecret,
+        broker.expiresAt,
+        this.voiceProvider.provider,
+        this.voiceProvider.transport,
+      );
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Unknown error';
 
@@ -168,13 +196,19 @@ export class VoiceSessionService {
    * `VOICE_ASSISTANT_SYSTEM_PROMPT`), but a guarantee that does not depend
    * on it.
    */
-  async syncEvents(id: string, dto: SyncVoiceEventsDto, caller: AuthenticatedUser): Promise<SyncVoiceEventsResponseDto> {
+  async syncEvents(
+    id: string,
+    dto: SyncVoiceEventsDto,
+    caller: AuthenticatedUser,
+  ): Promise<SyncVoiceEventsResponseDto> {
     const session = await this.getOwnedSessionOrThrow(id, caller);
     await this.assertWithinDurationLimit(session);
 
     const existingMessages = await this.messageRepo.findByConversation(session.conversationId);
     const existingProviderItemIds = new Set(
-      existingMessages.map((m) => m.providerItemId).filter((providerItemId): providerItemId is string => providerItemId !== null),
+      existingMessages
+        .map((m) => m.providerItemId)
+        .filter((providerItemId): providerItemId is string => providerItemId !== null),
     );
     let hasExistingMemberMessage = existingMessages.some((m) => m.role === AiMessageRole.USER);
 
@@ -206,7 +240,10 @@ export class VoiceSessionService {
         // evidence, never merely because the client claims it — this is
         // what makes "a pause never finalizes a turn" a backend rule
         // rather than a client-trusted convention.
-        const finalized = await this.turnEventRepo.hasFinalizedTurn(session.id, message.providerItemId);
+        const finalized = await this.turnEventRepo.hasFinalizedTurn(
+          session.id,
+          message.providerItemId,
+        );
         if (!finalized) {
           throw new BadRequestException(
             `Member message '${message.providerItemId}' has no corresponding MEMBER_TURN_FINALIZED turn event and cannot be recorded as final.`,
@@ -244,7 +281,9 @@ export class VoiceSessionService {
           try {
             await this.needs.capture(caller.id, session.conversationId, message.content);
           } catch (error) {
-            this.logger.warn(`Failed to capture stated need for voice conversation ${session.conversationId}: ${error}`);
+            this.logger.warn(
+              `Failed to capture stated need for voice conversation ${session.conversationId}: ${error}`,
+            );
           }
         }
 
@@ -336,12 +375,18 @@ export class VoiceSessionService {
     return session;
   }
 
-  private async assertWithinDurationLimit(session: { id: string; startedAt: Date; endedAt: Date | null }): Promise<void> {
+  private async assertWithinDurationLimit(session: {
+    id: string;
+    startedAt: Date;
+    endedAt: Date | null;
+  }): Promise<void> {
     if (session.endedAt) return;
     const elapsed = Date.now() - session.startedAt.getTime();
     if (elapsed > MAX_SESSION_DURATION_MS) {
       await this.voiceSessionRepo.end(session.id, VoiceSessionEndReason.DURATION_LIMIT);
-      throw new BadRequestException('This voice session has exceeded its duration limit and has ended. Please start a new session.');
+      throw new BadRequestException(
+        'This voice session has exceeded its duration limit and has ended. Please start a new session.',
+      );
     }
   }
 }
