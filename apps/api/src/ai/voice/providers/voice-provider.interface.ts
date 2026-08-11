@@ -17,6 +17,8 @@ export interface VoiceSessionBrokerOutput {
   providerSessionRef: string | null;
 }
 
+export type VoiceTransport = 'openai-webrtc' | 'gemini-live-websocket' | 'stub';
+
 /**
  * Realtime-voice provider abstraction, parallel to IAiProvider (ai-provider
  * .interface.ts) but not the same interface — brokering a short-lived
@@ -29,5 +31,8 @@ export interface VoiceSessionBrokerOutput {
  */
 export interface IVoiceProvider {
   readonly provider: AiProviderEnum;
+  readonly transport: VoiceTransport;
+  readonly defaultModel: string;
+  readonly defaultVoice: string;
   brokerSession(input: VoiceSessionBrokerInput): Promise<VoiceSessionBrokerOutput>;
 }
