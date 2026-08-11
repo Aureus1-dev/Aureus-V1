@@ -10,6 +10,7 @@ describe('StubVoiceProvider', () => {
       voice: 'alloy',
       instructions: 'You are a helpful assistant.',
       turnDetectionConfig: { type: 'semantic_vad', eagerness: 'low' },
+      tools: [],
     });
 
     expect(result.provider ?? AiProvider.STUB).toBe(AiProvider.STUB);
