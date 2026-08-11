@@ -44,7 +44,7 @@ services:
     # No persistence volume: rate-limit counters are short-lived
     # (60s windows) and safe to lose on restart — not a durability-critical
     # store, unlike Postgres above.
-    command: ["redis-server", "--save", "", "--appendonly", "no"]
+    command: ['redis-server', '--save', '', '--appendonly', 'no']
     ports:
       - '6379:6379'
     healthcheck:
@@ -91,6 +91,8 @@ services:
       OPENAI_MODEL: ${OPENAI_MODEL:-}
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
       ANTHROPIC_MODEL: ${ANTHROPIC_MODEL:-}
+      VOICE_PROVIDER: ${VOICE_PROVIDER:-stub}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
       AI_EMERGENCY_STOP: ${AI_EMERGENCY_STOP:-false}
       AI_GLOBAL_DAILY_BUDGET_USD: ${AI_GLOBAL_DAILY_BUDGET_USD:-50}
       AI_USER_DAILY_BUDGET_USD: ${AI_USER_DAILY_BUDGET_USD:-2}
@@ -106,7 +108,13 @@ services:
       # database restarting doesn't also restart an otherwise-healthy
       # container — see /health/ready for the DB-inclusive check a load
       # balancer or orchestrator readiness probe should use instead.
-      test: ['CMD', 'node', '-e', "require('http').get('http://localhost:3000/health/live',r=>process.exit(r.statusCode===200?0:1)).on('error',()=>process.exit(1))"]
+      test:
+        [
+          'CMD',
+          'node',
+          '-e',
+          "require('http').get('http://localhost:3000/health/live',r=>process.exit(r.statusCode===200?0:1)).on('error',()=>process.exit(1))",
+        ]
       interval: 30s
       timeout: 5s
       start_period: 15s
