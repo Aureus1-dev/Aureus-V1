@@ -35,6 +35,9 @@ interface OpenAiRealtimeClientSecretResponse {
 @Injectable()
 export class OpenAiVoiceProvider implements IVoiceProvider {
   readonly provider = AiProvider.OPENAI;
+  readonly transport = 'openai-webrtc' as const;
+  readonly defaultModel = 'gpt-realtime';
+  readonly defaultVoice = 'marin';
   private readonly logger = new Logger(OpenAiVoiceProvider.name);
 
   constructor(private readonly config: ConfigService) {}
