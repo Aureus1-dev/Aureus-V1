@@ -20,6 +20,14 @@ export interface SurfaceDefinition {
   tier: 'primary' | 'secondary';
 }
 
+/**
+ * Founder-ready pilot rule (2026-08-11): a room is advertised only when a
+ * member can complete its primary outcome. Direct routes remain available
+ * to the Founder for build verification, but placeholder rooms must never
+ * appear in the Hall index or command palette as if they were operational.
+ */
+const PILOT_HIDDEN_SURFACE_IDS = new Set(['community', 'calendar', 'settings', 'search', 'help']);
+
 const ALL_SURFACES: SurfaceDefinition[] = [
   { id: 'welcome', label: 'Welcome', href: '/welcome', tier: 'secondary' },
   { id: 'conversation', label: 'Conversation', href: '/conversation', tier: 'primary' },
@@ -52,6 +60,7 @@ const ALL_SURFACES: SurfaceDefinition[] = [
  */
 export const primarySurfaces: SurfaceDefinition[] = ALL_SURFACES.filter(
   (surface) =>
+    !PILOT_HIDDEN_SURFACE_IDS.has(surface.id) &&
     (surface.id !== 'academy' || V1_FEATURE_FLAGS.academy) &&
     (surface.id !== 'pods' || V1_FEATURE_FLAGS.pods),
 );
