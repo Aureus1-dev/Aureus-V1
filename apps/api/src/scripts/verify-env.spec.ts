@@ -22,7 +22,7 @@ describe('verifyEnv (PD-002)', () => {
     expect(errors.some((e) => e.includes('JWT_ACCESS_SECRET'))).toBe(true);
   });
 
-  it('requires CORS_ORIGIN, SMTP, and a matching AI key once NODE_ENV=production', () => {
+  it('requires CORS_ORIGIN, SMTP, and the OpenAI voice key once NODE_ENV=production', () => {
     const { ok, errors } = verifyEnv({
       ...validBaseEnv,
       NODE_ENV: 'production',
@@ -42,10 +42,25 @@ describe('verifyEnv (PD-002)', () => {
       CORS_ORIGIN: 'https://app.aureus.example',
       SMTP_HOST: 'smtp.example.com',
       AI_PROVIDER: 'stub',
+      OPENAI_API_KEY: 'voice-key',
     });
 
     expect(ok).toBe(false);
     expect(errors.some((e) => e.includes('AI_PROVIDER'))).toBe(true);
+  });
+
+  it('requires OPENAI_API_KEY in production even when Anthropic handles text, because V1 voice is enabled', () => {
+    const { ok, errors } = verifyEnv({
+      ...validBaseEnv,
+      NODE_ENV: 'production',
+      CORS_ORIGIN: 'https://app.aureus.example',
+      SMTP_HOST: 'smtp.example.com',
+      AI_PROVIDER: 'anthropic',
+      ANTHROPIC_API_KEY: 'anthropic-key',
+    });
+
+    expect(ok).toBe(false);
+    expect(errors.some((e) => e.includes('OPENAI_API_KEY'))).toBe(true);
   });
 
   it('accepts a fully-configured production environment', () => {
@@ -56,6 +71,21 @@ describe('verifyEnv (PD-002)', () => {
       SMTP_HOST: 'smtp.example.com',
       AI_PROVIDER: 'openai',
       OPENAI_API_KEY: 'test-key',
+    });
+
+    expect(errors).toEqual([]);
+    expect(ok).toBe(true);
+  });
+
+  it('accepts Anthropic for text when the separate OpenAI credential needed by voice is also configured', () => {
+    const { ok, errors } = verifyEnv({
+      ...validBaseEnv,
+      NODE_ENV: 'production',
+      CORS_ORIGIN: 'https://app.aureus.example',
+      SMTP_HOST: 'smtp.example.com',
+      AI_PROVIDER: 'anthropic',
+      ANTHROPIC_API_KEY: 'anthropic-key',
+      OPENAI_API_KEY: 'voice-key',
     });
 
     expect(errors).toEqual([]);
