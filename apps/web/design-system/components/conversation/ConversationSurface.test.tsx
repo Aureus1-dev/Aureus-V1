@@ -191,6 +191,8 @@ describe('ConversationSurface', () => {
       expiresAt: 'x',
       model: 'gpt-4o-realtime-preview',
       voice: 'alloy',
+      provider: 'OPENAI',
+      transport: 'openai-webrtc',
       turnDetectionMode: 'semantic_vad',
       startedAt: 'x',
       endedAt: null,
