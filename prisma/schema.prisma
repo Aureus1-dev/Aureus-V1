@@ -1651,6 +1651,7 @@ model CourseMedia {
 enum AiProvider {
   OPENAI
   ANTHROPIC
+  GEMINI
   STUB
 }
 
