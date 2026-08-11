@@ -12,6 +12,19 @@ describe('isAmbiguousNeed', () => {
     expect(isAmbiguousNeed('stuff')).toBe(true);
   });
 
+  it.each([
+    'money',
+    'rent',
+    'food',
+    'job',
+    'housing',
+    'benefits',
+    'medicine',
+    'utilities',
+  ])('treats concise real-life need %j as meaningful', (content) => {
+    expect(isAmbiguousNeed(content)).toBe(false);
+  });
+
   it('treats a specific, meaningful stated need as not ambiguous', () => {
     expect(isAmbiguousNeed('I need help finding a job in food service near Chester County')).toBe(false);
     expect(isAmbiguousNeed('I got an eviction notice and need legal help fast')).toBe(false);
