@@ -25,8 +25,16 @@ describe('isOutcomeUnclear', () => {
     expect(isOutcomeUnclear(content)).toBe(false);
   });
 
+  it.each(['money', 'rent', 'food', 'job', 'housing', 'benefits', 'medicine', 'utilities'])(
+    'treats concise need %j as sufficient to begin useful work without repeating the broad arrival question',
+    (content) => {
+      expect(isOutcomeUnclear(content)).toBe(false);
+    },
+  );
+
   it('is case-insensitive', () => {
     expect(isOutcomeUnclear('I NEED HELP FINDING A JOB')).toBe(false);
+    expect(isOutcomeUnclear('MONEY')).toBe(false);
   });
 
   it('treats a direct question as already clear — Aureus should answer it, not ask what would help', () => {
