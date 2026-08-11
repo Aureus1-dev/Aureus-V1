@@ -11,7 +11,8 @@
     "check-types": "turbo run check-types",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "verify:env": "tsx apps/api/src/scripts/verify-env-cli.ts"
+    "verify:env": "tsx apps/api/src/scripts/verify-env-cli.ts",
+    "release:gate": "node scripts/release-gate.mjs"
   },
   "engines": {
     "node": ">=22"
