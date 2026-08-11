@@ -16,8 +16,8 @@ import * as Joi from 'joi';
  */
 export const envValidationSchema = Joi.object({
   DATABASE_URL: Joi.string().required(),
-  PORT:         Joi.number().default(3000),
-  NODE_ENV:     Joi.string().valid('development', 'production', 'test').default('development'),
+  PORT: Joi.number().default(3000),
+  NODE_ENV: Joi.string().valid('development', 'production', 'test').default('development'),
   // Swagger/OpenAPI docs are on by default outside production, off by
   // default in it (main.ts) — this opts back in for a production
   // deployment that wants the schema public anyway.
@@ -26,16 +26,18 @@ export const envValidationSchema = Joi.object({
   // '*' is fine for local dev/CI; in production it disables credentialed
   // CORS silently (see main.ts) rather than the operator ever intending
   // that, so it's rejected outright once NODE_ENV=production.
-  CORS_ORIGIN: Joi.string().default('*').when('NODE_ENV', {
-    is: 'production',
-    then: Joi.string().invalid('*').required().messages({
-      'any.invalid': 'CORS_ORIGIN must be an explicit origin allowlist in production, not "*"',
+  CORS_ORIGIN: Joi.string()
+    .default('*')
+    .when('NODE_ENV', {
+      is: 'production',
+      then: Joi.string().invalid('*').required().messages({
+        'any.invalid': 'CORS_ORIGIN must be an explicit origin allowlist in production, not "*"',
+      }),
     }),
-  }),
 
   // ── Authentication (OAS-SEC-003) ────────────────────────────────────────
-  JWT_ACCESS_SECRET:      Joi.string().min(32).required(),
-  JWT_ACCESS_EXPIRY:      Joi.string().default('15m'),
+  JWT_ACCESS_SECRET: Joi.string().min(32).required(),
+  JWT_ACCESS_EXPIRY: Joi.string().default('15m'),
   JWT_REFRESH_EXPIRY_DAYS: Joi.number().default(30),
 
   // ── Guest Steward mode privacy lifecycle ─────────────────────────────
@@ -67,12 +69,12 @@ export const envValidationSchema = Joi.object({
     then: Joi.required(),
     otherwise: Joi.optional(),
   }),
-  SMTP_PORT:       Joi.number().empty('').default(587),
-  SMTP_SECURE:     Joi.boolean().empty('').default(false),
-  SMTP_USER:       Joi.string().empty('').optional(),
-  SMTP_PASSWORD:   Joi.string().empty('').optional(),
+  SMTP_PORT: Joi.number().empty('').default(587),
+  SMTP_SECURE: Joi.boolean().empty('').default(false),
+  SMTP_USER: Joi.string().empty('').optional(),
+  SMTP_PASSWORD: Joi.string().empty('').optional(),
   SMTP_FROM_EMAIL: Joi.string().default('no-reply@aureus.app'),
-  FRONTEND_URL:    Joi.string().default('http://localhost:3001'),
+  FRONTEND_URL: Joi.string().default('http://localhost:3001'),
 
   // ── AI Intelligence Engine (ADR-015, hardened PD-001) ────────────────────
   // AI_PROVIDER defaults to 'stub': unset (local dev, CI, this
@@ -95,10 +97,15 @@ export const envValidationSchema = Joi.object({
     }),
     otherwise: Joi.string().valid('openai', 'anthropic', 'stub').default('stub'),
   }),
-  OPENAI_API_KEY: Joi.string().empty('').when('AI_PROVIDER', { is: 'openai', then: Joi.required() }),
-  OPENAI_MODEL:       Joi.string().empty('').default('gpt-5-mini'),
-  ANTHROPIC_API_KEY: Joi.string().empty('').when('AI_PROVIDER', { is: 'anthropic', then: Joi.required() }),
-  ANTHROPIC_MODEL:    Joi.string().empty('').default('claude-3-5-haiku-20241022'),
+  OPENAI_API_KEY: Joi.string()
+    .empty('')
+    .when('AI_PROVIDER', { is: 'openai', then: Joi.required() })
+    .when('VOICE_PROVIDER', { is: 'openai', then: Joi.required() }),
+  OPENAI_MODEL: Joi.string().empty('').default('gpt-5-mini'),
+  ANTHROPIC_API_KEY: Joi.string()
+    .empty('')
+    .when('AI_PROVIDER', { is: 'anthropic', then: Joi.required() }),
+  ANTHROPIC_MODEL: Joi.string().empty('').default('claude-3-5-haiku-20241022'),
 
   // ── Infrastructure (PD-002) ──────────────────────────────────────────────
   // Optional in every environment: absent, rate limiting falls back to
@@ -130,13 +137,23 @@ export const envValidationSchema = Joi.object({
   // is. Added to this schema anyway so a typo (e.g. AI_GLOBAL_DAILY_BUDGET_USD
   // set to a non-numeric string) fails loudly at boot instead of silently
   // falling through to ConfigService's own default.
-  AI_EMERGENCY_STOP:          Joi.boolean().empty('').default(false),
+  AI_EMERGENCY_STOP: Joi.boolean().empty('').default(false),
   AI_GLOBAL_DAILY_BUDGET_USD: Joi.number().empty('').default(50),
-  AI_USER_DAILY_BUDGET_USD:   Joi.number().empty('').default(2),
+  AI_USER_DAILY_BUDGET_USD: Joi.number().empty('').default(2),
 
-  // Voice Domain (ADR-016). Reuses OPENAI_API_KEY above — no separate
-  // credential. Optional in every environment: absent, VoiceSessionService
-  // falls back to these same literal defaults itself.
-  VOICE_MODEL: Joi.string().empty('').default('gpt-realtime'),
-  VOICE_NAME:  Joi.string().empty('').default('marin'),
+  // Voice is an explicitly selected provider, never inferred from whether a
+  // key happens to exist. Production rejects the stub and requires the key
+  // matching the selected provider, preventing a voice UI that can only fail
+  // after microphone permission has been granted.
+  VOICE_PROVIDER: Joi.when('NODE_ENV', {
+    is: 'production',
+    then: Joi.string().valid('openai', 'gemini').required(),
+    otherwise: Joi.string().valid('openai', 'gemini', 'stub').default('stub'),
+  }),
+  GEMINI_API_KEY: Joi.string()
+    .empty('')
+    .when('VOICE_PROVIDER', { is: 'gemini', then: Joi.required() }),
+  // When omitted, each provider supplies its own current safe default.
+  VOICE_MODEL: Joi.string().empty('').optional(),
+  VOICE_NAME: Joi.string().empty('').optional(),
 });
