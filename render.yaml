@@ -84,6 +84,12 @@ services:
         value: openai
       - key: OPENAI_API_KEY
         sync: false
+      # Voice is explicit and fail-loud. Set to `gemini` and supply
+      # GEMINI_API_KEY to use Gemini Live; OpenAI reuses OPENAI_API_KEY.
+      - key: VOICE_PROVIDER
+        value: openai
+      - key: GEMINI_API_KEY
+        sync: false
       # A real SMTP transport is required for account verification and
       # password recovery. Adjust port/secure together for port 465.
       - key: SMTP_HOST
