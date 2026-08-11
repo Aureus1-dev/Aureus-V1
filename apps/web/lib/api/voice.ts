@@ -16,7 +16,8 @@ export type VoiceTurnEventType =
   | 'SILENCE_TIMEOUT';
 
 export type VoiceMessageCompletionStatus = 'COMPLETE' | 'INTERRUPTED' | 'CANCELLED';
-export type VoiceSessionEndReason = 'MEMBER_ENDED' | 'TIMEOUT' | 'DURATION_LIMIT' | 'ERROR' | 'RECONNECT_SUPERSEDED';
+export type VoiceSessionEndReason =
+  'MEMBER_ENDED' | 'TIMEOUT' | 'DURATION_LIMIT' | 'ERROR' | 'RECONNECT_SUPERSEDED';
 
 export interface VoiceSessionDto {
   id: string;
@@ -26,6 +27,8 @@ export interface VoiceSessionDto {
   model: string;
   voice: string;
   turnDetectionMode: string;
+  provider: 'OPENAI' | 'GEMINI' | 'STUB';
+  transport: 'openai-webrtc' | 'gemini-live-websocket' | 'stub';
   startedAt: string;
   endedAt: string | null;
 }
@@ -111,7 +114,10 @@ export function syncVoiceEvents(
   });
 }
 
-export function endVoiceSession(accessToken: string, sessionId: string): Promise<VoiceSessionStatusDto> {
+export function endVoiceSession(
+  accessToken: string,
+  sessionId: string,
+): Promise<VoiceSessionStatusDto> {
   return apiRequest<VoiceSessionStatusDto>(`/ai/voice/sessions/${sessionId}/end`, {
     method: 'POST',
     accessToken,
