@@ -23,20 +23,42 @@ import {
   AI_CONVERSATION_REPOSITORY,
   IAiConversationRepository,
 } from '../conversations/repositories/ai-conversation.repository.interface';
-import { AI_MESSAGE_REPOSITORY, IAiMessageRepository } from '../conversations/repositories/ai-message.repository.interface';
-import { AI_REQUEST_REPOSITORY, IAiRequestRepository } from '../requests/repositories/ai-request.repository.interface';
+import {
+  AI_MESSAGE_REPOSITORY,
+  IAiMessageRepository,
+} from '../conversations/repositories/ai-message.repository.interface';
+import {
+  AI_REQUEST_REPOSITORY,
+  IAiRequestRepository,
+} from '../requests/repositories/ai-request.repository.interface';
 import {
   AI_VOICE_SESSION_REPOSITORY,
   IAiVoiceSessionRepository,
 } from './repositories/ai-voice-session.repository.interface';
-import { AI_TURN_EVENT_REPOSITORY, IAiTurnEventRepository } from './repositories/ai-turn-event.repository.interface';
+import {
+  AI_TURN_EVENT_REPOSITORY,
+  IAiTurnEventRepository,
+} from './repositories/ai-turn-event.repository.interface';
 
 const NOW = new Date('2026-07-16T12:00:00.000Z');
-const USER: AuthenticatedUser = { id: 'user-001', email: 'user@example.com', roles: [UserRole.MEMBER] };
-const OTHER_USER: AuthenticatedUser = { id: 'other-001', email: 'other@example.com', roles: [UserRole.MEMBER] };
+const USER: AuthenticatedUser = {
+  id: 'user-001',
+  email: 'user@example.com',
+  roles: [UserRole.MEMBER],
+};
+const OTHER_USER: AuthenticatedUser = {
+  id: 'other-001',
+  email: 'other@example.com',
+  roles: [UserRole.MEMBER],
+};
 
 const makeConversation = (o: Partial<AiConversation> = {}): AiConversation => ({
-  id: 'conv-001', userId: USER.id, title: null, createdAt: NOW, updatedAt: NOW, ...o,
+  id: 'conv-001',
+  userId: USER.id,
+  title: null,
+  createdAt: NOW,
+  updatedAt: NOW,
+  ...o,
 });
 
 const makeVoiceSession = (o: Partial<AiVoiceSession> = {}): AiVoiceSession => ({
@@ -87,26 +109,49 @@ const makeTurnEvent = (o: Partial<AiTurnEvent> = {}): AiTurnEvent => ({
 
 const mockVoiceProvider: jest.Mocked<IVoiceProvider> = {
   provider: AiProvider.OPENAI,
+  transport: 'openai-webrtc',
+  defaultModel: 'gpt-realtime',
+  defaultVoice: 'marin',
   brokerSession: jest.fn(),
 };
 const mockConversationRepo: jest.Mocked<IAiConversationRepository> = {
-  create: jest.fn(), findById: jest.fn(), findAll: jest.fn(), touch: jest.fn(),
+  create: jest.fn(),
+  findById: jest.fn(),
+  findAll: jest.fn(),
+  touch: jest.fn(),
 };
 const mockMessageRepo: jest.Mocked<IAiMessageRepository> = {
-  create: jest.fn(), createIfNotExists: jest.fn(), findByConversation: jest.fn(), findRecentByConversation: jest.fn(),
+  create: jest.fn(),
+  createIfNotExists: jest.fn(),
+  findByConversation: jest.fn(),
+  findRecentByConversation: jest.fn(),
 };
 const mockRequestRepo: jest.Mocked<IAiRequestRepository> = {
-  create: jest.fn(), findById: jest.fn(), findAll: jest.fn(),
+  create: jest.fn(),
+  findById: jest.fn(),
+  findAll: jest.fn(),
 };
 const mockVoiceSessionRepo: jest.Mocked<IAiVoiceSessionRepository> = {
-  create: jest.fn(), findById: jest.fn(), findActiveByUser: jest.fn(), end: jest.fn(),
+  create: jest.fn(),
+  findById: jest.fn(),
+  findActiveByUser: jest.fn(),
+  end: jest.fn(),
 };
 const mockTurnEventRepo: jest.Mocked<IAiTurnEventRepository> = {
-  createIfNotExists: jest.fn(), findByVoiceSession: jest.fn(), hasFinalizedTurn: jest.fn(),
+  createIfNotExists: jest.fn(),
+  findByVoiceSession: jest.fn(),
+  hasFinalizedTurn: jest.fn(),
 };
-const mockConfig = { get: jest.fn((_key: string, def?: unknown) => def) } as unknown as jest.Mocked<ConfigService>;
-const mockNeeds = { capture: jest.fn(), findMine: jest.fn() } as unknown as jest.Mocked<NeedsService>;
-const mockAiRequests = { assertWithinBudget: jest.fn() } as unknown as jest.Mocked<AiRequestsService>;
+const mockConfig = {
+  get: jest.fn((_key: string, def?: unknown) => def),
+} as unknown as jest.Mocked<ConfigService>;
+const mockNeeds = {
+  capture: jest.fn(),
+  findMine: jest.fn(),
+} as unknown as jest.Mocked<NeedsService>;
+const mockAiRequests = {
+  assertWithinBudget: jest.fn(),
+} as unknown as jest.Mocked<AiRequestsService>;
 
 describe('VoiceSessionService', () => {
   let service: VoiceSessionService;
@@ -146,7 +191,9 @@ describe('VoiceSessionService', () => {
     it('creates a new conversation when none is given, then brokers and persists a session', async () => {
       mockConversationRepo.create.mockResolvedValue(makeConversation());
       mockVoiceProvider.brokerSession.mockResolvedValue({
-        clientSecret: 'secret_abc', expiresAt: new Date('2026-07-16T12:30:00.000Z'), providerSessionRef: 'sess_ref_001',
+        clientSecret: 'secret_abc',
+        expiresAt: new Date('2026-07-16T12:30:00.000Z'),
+        providerSessionRef: 'sess_ref_001',
       });
       mockVoiceSessionRepo.create.mockResolvedValue(makeVoiceSession());
 
@@ -160,29 +207,41 @@ describe('VoiceSessionService', () => {
     it('reuses an existing owned conversation when conversationId is given', async () => {
       mockConversationRepo.findById.mockResolvedValue(makeConversation());
       mockVoiceProvider.brokerSession.mockResolvedValue({
-        clientSecret: 'secret_abc', expiresAt: NOW, providerSessionRef: null,
+        clientSecret: 'secret_abc',
+        expiresAt: NOW,
+        providerSessionRef: null,
       });
       mockVoiceSessionRepo.create.mockResolvedValue(makeVoiceSession());
 
       await service.startSession({ conversationId: 'conv-001' }, USER);
 
       expect(mockConversationRepo.create).not.toHaveBeenCalled();
-      expect(mockVoiceSessionRepo.create).toHaveBeenCalledWith(expect.objectContaining({ conversationId: 'conv-001' }));
+      expect(mockVoiceSessionRepo.create).toHaveBeenCalledWith(
+        expect.objectContaining({ conversationId: 'conv-001' }),
+      );
     });
 
     it('forbids starting a session against a conversation owned by someone else', async () => {
       mockConversationRepo.findById.mockResolvedValue(makeConversation({ userId: OTHER_USER.id }));
-      await expect(service.startSession({ conversationId: 'conv-001' }, USER)).rejects.toThrow(ForbiddenException);
+      await expect(service.startSession({ conversationId: 'conv-001' }, USER)).rejects.toThrow(
+        ForbiddenException,
+      );
     });
 
     it('throws NotFoundException for a nonexistent conversationId', async () => {
       mockConversationRepo.findById.mockResolvedValue(null);
-      await expect(service.startSession({ conversationId: 'ghost' }, USER)).rejects.toThrow(NotFoundException);
+      await expect(service.startSession({ conversationId: 'ghost' }, USER)).rejects.toThrow(
+        NotFoundException,
+      );
     });
 
     it('injects the mandated Conversation Timing Layer policy into every brokered session, never a client-supplied one', async () => {
       mockConversationRepo.create.mockResolvedValue(makeConversation());
-      mockVoiceProvider.brokerSession.mockResolvedValue({ clientSecret: 's', expiresAt: NOW, providerSessionRef: null });
+      mockVoiceProvider.brokerSession.mockResolvedValue({
+        clientSecret: 's',
+        expiresAt: NOW,
+        providerSessionRef: null,
+      });
       mockVoiceSessionRepo.create.mockResolvedValue(makeVoiceSession());
 
       await service.startSession({}, USER);
@@ -200,36 +259,56 @@ describe('VoiceSessionService', () => {
 
     it('injects the fixed Dynamic Screen Orchestration toolset into every brokered session, never a client-supplied one (DOMAIN-005)', async () => {
       mockConversationRepo.create.mockResolvedValue(makeConversation());
-      mockVoiceProvider.brokerSession.mockResolvedValue({ clientSecret: 's', expiresAt: NOW, providerSessionRef: null });
+      mockVoiceProvider.brokerSession.mockResolvedValue({
+        clientSecret: 's',
+        expiresAt: NOW,
+        providerSessionRef: null,
+      });
       mockVoiceSessionRepo.create.mockResolvedValue(makeVoiceSession());
 
       await service.startSession({}, USER);
 
-      expect(mockVoiceProvider.brokerSession).toHaveBeenCalledWith(expect.objectContaining({ tools: VOICE_TOOLS }));
+      expect(mockVoiceProvider.brokerSession).toHaveBeenCalledWith(
+        expect.objectContaining({ tools: VOICE_TOOLS }),
+      );
     });
 
     it('supersedes an existing active session for the same member (graceful reconnection, not a hard rejection)', async () => {
       mockConversationRepo.create.mockResolvedValue(makeConversation());
       mockVoiceSessionRepo.findActiveByUser.mockResolvedValue(makeVoiceSession({ id: 'vs-old' }));
-      mockVoiceProvider.brokerSession.mockResolvedValue({ clientSecret: 's', expiresAt: NOW, providerSessionRef: null });
+      mockVoiceProvider.brokerSession.mockResolvedValue({
+        clientSecret: 's',
+        expiresAt: NOW,
+        providerSessionRef: null,
+      });
       mockVoiceSessionRepo.create.mockResolvedValue(makeVoiceSession({ id: 'vs-new' }));
 
       const result = await service.startSession({}, USER);
 
-      expect(mockVoiceSessionRepo.end).toHaveBeenCalledWith('vs-old', VoiceSessionEndReason.RECONNECT_SUPERSEDED);
+      expect(mockVoiceSessionRepo.end).toHaveBeenCalledWith(
+        'vs-old',
+        VoiceSessionEndReason.RECONNECT_SUPERSEDED,
+      );
       expect(result.id).toBe('vs-new');
     });
 
     it('writes a SUCCESS AiRequest audit row and never persists the client secret in it', async () => {
       mockConversationRepo.create.mockResolvedValue(makeConversation());
-      mockVoiceProvider.brokerSession.mockResolvedValue({ clientSecret: 'super-secret', expiresAt: NOW, providerSessionRef: null });
+      mockVoiceProvider.brokerSession.mockResolvedValue({
+        clientSecret: 'super-secret',
+        expiresAt: NOW,
+        providerSessionRef: null,
+      });
       mockVoiceSessionRepo.create.mockResolvedValue(makeVoiceSession());
 
       await service.startSession({}, USER);
 
-      expect(mockRequestRepo.create).toHaveBeenCalledWith(expect.objectContaining({
-        capability: AiCapability.VOICE_CONVERSATION, status: AiRequestStatus.SUCCESS,
-      }));
+      expect(mockRequestRepo.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          capability: AiCapability.VOICE_CONVERSATION,
+          status: AiRequestStatus.SUCCESS,
+        }),
+      );
       const auditCallArgs = JSON.stringify(mockRequestRepo.create.mock.calls[0][0]);
       expect(auditCallArgs).not.toContain('super-secret');
     });
@@ -239,7 +318,9 @@ describe('VoiceSessionService', () => {
       mockVoiceProvider.brokerSession.mockRejectedValue(new Error('upstream 500'));
 
       await expect(service.startSession({}, USER)).rejects.toThrow(BadRequestException);
-      expect(mockRequestRepo.create).toHaveBeenCalledWith(expect.objectContaining({ status: AiRequestStatus.FAILED }));
+      expect(mockRequestRepo.create).toHaveBeenCalledWith(
+        expect.objectContaining({ status: AiRequestStatus.FAILED }),
+      );
       expect(mockVoiceSessionRepo.create).not.toHaveBeenCalled();
     });
   });
@@ -250,23 +331,39 @@ describe('VoiceSessionService', () => {
       mockTurnEventRepo.hasFinalizedTurn.mockResolvedValue(false);
 
       await expect(
-        service.syncEvents('vs-001', {
-          messages: [{ role: 'USER', content: 'I think maybe', providerItemId: 'item-999' }],
-        }, USER),
+        service.syncEvents(
+          'vs-001',
+          {
+            messages: [{ role: 'USER', content: 'I think maybe', providerItemId: 'item-999' }],
+          },
+          USER,
+        ),
       ).rejects.toThrow(BadRequestException);
       expect(mockMessageRepo.createIfNotExists).not.toHaveBeenCalled();
     });
 
     it('does not finalize a member turn merely because a pause/silence event was reported', async () => {
       mockVoiceSessionRepo.findById.mockResolvedValue(makeVoiceSession());
-      mockTurnEventRepo.createIfNotExists.mockResolvedValue(makeTurnEvent({ type: AiTurnEventType.SILENCE_TIMEOUT }));
+      mockTurnEventRepo.createIfNotExists.mockResolvedValue(
+        makeTurnEvent({ type: AiTurnEventType.SILENCE_TIMEOUT }),
+      );
       mockTurnEventRepo.hasFinalizedTurn.mockResolvedValue(false);
 
       await expect(
-        service.syncEvents('vs-001', {
-          turnEvents: [{ type: AiTurnEventType.SILENCE_TIMEOUT, providerItemId: 'item-999', occurredAt: NOW.toISOString() }],
-          messages: [{ role: 'USER', content: 'still thinking', providerItemId: 'item-999' }],
-        }, USER),
+        service.syncEvents(
+          'vs-001',
+          {
+            turnEvents: [
+              {
+                type: AiTurnEventType.SILENCE_TIMEOUT,
+                providerItemId: 'item-999',
+                occurredAt: NOW.toISOString(),
+              },
+            ],
+            messages: [{ role: 'USER', content: 'still thinking', providerItemId: 'item-999' }],
+          },
+          USER,
+        ),
       ).rejects.toThrow(BadRequestException);
     });
 
@@ -276,10 +373,20 @@ describe('VoiceSessionService', () => {
       mockTurnEventRepo.hasFinalizedTurn.mockResolvedValue(true);
       mockMessageRepo.createIfNotExists.mockResolvedValue(makeMessage());
 
-      const result = await service.syncEvents('vs-001', {
-        turnEvents: [{ type: AiTurnEventType.MEMBER_TURN_FINALIZED, providerItemId: 'item-001', occurredAt: NOW.toISOString() }],
-        messages: [{ role: 'USER', content: 'Hello', providerItemId: 'item-001' }],
-      }, USER);
+      const result = await service.syncEvents(
+        'vs-001',
+        {
+          turnEvents: [
+            {
+              type: AiTurnEventType.MEMBER_TURN_FINALIZED,
+              providerItemId: 'item-001',
+              occurredAt: NOW.toISOString(),
+            },
+          ],
+          messages: [{ role: 'USER', content: 'Hello', providerItemId: 'item-001' }],
+        },
+        USER,
+      );
 
       expect(result.messages).toHaveLength(1);
       expect(mockConversationRepo.touch).toHaveBeenCalledWith('conv-001');
@@ -288,15 +395,26 @@ describe('VoiceSessionService', () => {
     it('represents an interrupted steward response accurately rather than as complete', async () => {
       mockVoiceSessionRepo.findById.mockResolvedValue(makeVoiceSession());
       mockMessageRepo.createIfNotExists.mockResolvedValue(
-        makeMessage({ role: 'ASSISTANT' as AiMessage['role'], completionStatus: AiMessageCompletionStatus.INTERRUPTED }),
+        makeMessage({
+          role: 'ASSISTANT' as AiMessage['role'],
+          completionStatus: AiMessageCompletionStatus.INTERRUPTED,
+        }),
       );
 
-      await service.syncEvents('vs-001', {
-        messages: [{
-          role: 'ASSISTANT', content: 'Here is what I fou', providerItemId: 'item-002',
-          completionStatus: AiMessageCompletionStatus.INTERRUPTED,
-        }],
-      }, USER);
+      await service.syncEvents(
+        'vs-001',
+        {
+          messages: [
+            {
+              role: 'ASSISTANT',
+              content: 'Here is what I fou',
+              providerItemId: 'item-002',
+              completionStatus: AiMessageCompletionStatus.INTERRUPTED,
+            },
+          ],
+        },
+        USER,
+      );
 
       expect(mockMessageRepo.createIfNotExists).toHaveBeenCalledWith(
         expect.objectContaining({ completionStatus: AiMessageCompletionStatus.INTERRUPTED }),
@@ -318,21 +436,39 @@ describe('VoiceSessionService', () => {
       mockVoiceSessionRepo.findById.mockResolvedValue(makeVoiceSession({ startedAt: staleStart }));
 
       await expect(service.syncEvents('vs-001', {}, USER)).rejects.toThrow(BadRequestException);
-      expect(mockVoiceSessionRepo.end).toHaveBeenCalledWith('vs-001', VoiceSessionEndReason.DURATION_LIMIT);
+      expect(mockVoiceSessionRepo.end).toHaveBeenCalledWith(
+        'vs-001',
+        VoiceSessionEndReason.DURATION_LIMIT,
+      );
     });
 
     it('records turn events idempotently via the repository and returns them', async () => {
       mockVoiceSessionRepo.findById.mockResolvedValue(makeVoiceSession());
-      mockTurnEventRepo.createIfNotExists.mockResolvedValue(makeTurnEvent({ type: AiTurnEventType.STEWARD_RESPONSE_STARTED }));
+      mockTurnEventRepo.createIfNotExists.mockResolvedValue(
+        makeTurnEvent({ type: AiTurnEventType.STEWARD_RESPONSE_STARTED }),
+      );
 
-      const result = await service.syncEvents('vs-001', {
-        turnEvents: [{ type: AiTurnEventType.STEWARD_RESPONSE_STARTED, providerItemId: 'item-003', occurredAt: NOW.toISOString() }],
-      }, USER);
+      const result = await service.syncEvents(
+        'vs-001',
+        {
+          turnEvents: [
+            {
+              type: AiTurnEventType.STEWARD_RESPONSE_STARTED,
+              providerItemId: 'item-003',
+              occurredAt: NOW.toISOString(),
+            },
+          ],
+        },
+        USER,
+      );
 
       expect(result.turnEvents).toHaveLength(1);
-      expect(mockTurnEventRepo.createIfNotExists).toHaveBeenCalledWith(expect.objectContaining({
-        voiceSessionId: 'vs-001', type: AiTurnEventType.STEWARD_RESPONSE_STARTED,
-      }));
+      expect(mockTurnEventRepo.createIfNotExists).toHaveBeenCalledWith(
+        expect.objectContaining({
+          voiceSessionId: 'vs-001',
+          type: AiTurnEventType.STEWARD_RESPONSE_STARTED,
+        }),
+      );
     });
   });
 
@@ -341,7 +477,10 @@ describe('VoiceSessionService', () => {
       mockTurnEventRepo.hasFinalizedTurn.mockResolvedValue(true);
       mockMessageRepo.createIfNotExists.mockImplementation(async (data) =>
         makeMessage({
-          role: data.role, content: data.content, providerItemId: data.providerItemId, completionStatus: data.completionStatus,
+          role: data.role,
+          content: data.content,
+          providerItemId: data.providerItemId,
+          completionStatus: data.completionStatus,
         }),
       );
     });
@@ -350,20 +489,42 @@ describe('VoiceSessionService', () => {
       mockVoiceSessionRepo.findById.mockResolvedValue(makeVoiceSession());
       mockMessageRepo.findByConversation.mockResolvedValue([]);
 
-      await service.syncEvents('vs-001', {
-        messages: [{ role: 'USER', content: 'I need help finding a job', providerItemId: 'item-001' }],
-      }, USER);
+      await service.syncEvents(
+        'vs-001',
+        {
+          messages: [
+            { role: 'USER', content: 'I need help finding a job', providerItemId: 'item-001' },
+          ],
+        },
+        USER,
+      );
 
-      expect(mockNeeds.capture).toHaveBeenCalledWith(USER.id, 'conv-001', 'I need help finding a job');
+      expect(mockNeeds.capture).toHaveBeenCalledWith(
+        USER.id,
+        'conv-001',
+        'I need help finding a job',
+      );
     });
 
     it('does not re-capture a need for a later member message in an already-started conversation', async () => {
       mockVoiceSessionRepo.findById.mockResolvedValue(makeVoiceSession());
-      mockMessageRepo.findByConversation.mockResolvedValue([makeMessage({ providerItemId: 'item-000' })]);
+      mockMessageRepo.findByConversation.mockResolvedValue([
+        makeMessage({ providerItemId: 'item-000' }),
+      ]);
 
-      await service.syncEvents('vs-001', {
-        messages: [{ role: 'USER', content: 'What about opportunities near me?', providerItemId: 'item-001' }],
-      }, USER);
+      await service.syncEvents(
+        'vs-001',
+        {
+          messages: [
+            {
+              role: 'USER',
+              content: 'What about opportunities near me?',
+              providerItemId: 'item-001',
+            },
+          ],
+        },
+        USER,
+      );
 
       expect(mockNeeds.capture).not.toHaveBeenCalled();
     });
@@ -372,12 +533,22 @@ describe('VoiceSessionService', () => {
       mockVoiceSessionRepo.findById.mockResolvedValue(makeVoiceSession());
       // The message already exists from an earlier sync call for this exact providerItemId.
       mockMessageRepo.findByConversation.mockResolvedValue([
-        makeMessage({ role: 'USER' as AiMessage['role'], providerItemId: 'item-001', content: 'I need help finding a job' }),
+        makeMessage({
+          role: 'USER' as AiMessage['role'],
+          providerItemId: 'item-001',
+          content: 'I need help finding a job',
+        }),
       ]);
 
-      await service.syncEvents('vs-001', {
-        messages: [{ role: 'USER', content: 'I need help finding a job', providerItemId: 'item-001' }],
-      }, USER);
+      await service.syncEvents(
+        'vs-001',
+        {
+          messages: [
+            { role: 'USER', content: 'I need help finding a job', providerItemId: 'item-001' },
+          ],
+        },
+        USER,
+      );
 
       expect(mockNeeds.capture).not.toHaveBeenCalled();
     });
@@ -387,37 +558,67 @@ describe('VoiceSessionService', () => {
       mockMessageRepo.findByConversation.mockResolvedValue([]);
       mockNeeds.capture.mockRejectedValueOnce(new Error('db unavailable'));
 
-      const result = await service.syncEvents('vs-001', {
-        messages: [{ role: 'USER', content: 'I need help finding a job', providerItemId: 'item-001' }],
-      }, USER);
+      const result = await service.syncEvents(
+        'vs-001',
+        {
+          messages: [
+            { role: 'USER', content: 'I need help finding a job', providerItemId: 'item-001' },
+          ],
+        },
+        USER,
+      );
 
       expect(result.messages).toHaveLength(1);
     });
 
     it('posts the same deterministic crisis redirect message text uses, as an assistant message in the canonical conversation', async () => {
       mockVoiceSessionRepo.findById.mockResolvedValue(makeVoiceSession());
-      mockMessageRepo.findByConversation.mockResolvedValue([makeMessage({ providerItemId: 'item-000' })]);
+      mockMessageRepo.findByConversation.mockResolvedValue([
+        makeMessage({ providerItemId: 'item-000' }),
+      ]);
       mockMessageRepo.create.mockResolvedValue(
-        makeMessage({ role: 'ASSISTANT' as AiMessage['role'], content: CRISIS_REDIRECT_MESSAGE, providerItemId: undefined as unknown as string }),
+        makeMessage({
+          role: 'ASSISTANT' as AiMessage['role'],
+          content: CRISIS_REDIRECT_MESSAGE,
+          providerItemId: undefined as unknown as string,
+        }),
       );
 
-      const result = await service.syncEvents('vs-001', {
-        messages: [{ role: 'USER', content: 'I want to kill myself', providerItemId: 'item-001' }],
-      }, USER);
+      const result = await service.syncEvents(
+        'vs-001',
+        {
+          messages: [
+            { role: 'USER', content: 'I want to kill myself', providerItemId: 'item-001' },
+          ],
+        },
+        USER,
+      );
 
-      expect(mockMessageRepo.create).toHaveBeenCalledWith(expect.objectContaining({
-        conversationId: 'conv-001', role: 'ASSISTANT', content: CRISIS_REDIRECT_MESSAGE,
-      }));
+      expect(mockMessageRepo.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          conversationId: 'conv-001',
+          role: 'ASSISTANT',
+          content: CRISIS_REDIRECT_MESSAGE,
+        }),
+      );
       expect(result.messages.some((m) => m.content === CRISIS_REDIRECT_MESSAGE)).toBe(true);
     });
 
     it('does not post a crisis redirect for an assistant message, even if its text happens to match the phrase list', async () => {
       mockVoiceSessionRepo.findById.mockResolvedValue(makeVoiceSession());
-      mockMessageRepo.findByConversation.mockResolvedValue([makeMessage({ providerItemId: 'item-000' })]);
+      mockMessageRepo.findByConversation.mockResolvedValue([
+        makeMessage({ providerItemId: 'item-000' }),
+      ]);
 
-      await service.syncEvents('vs-001', {
-        messages: [{ role: 'ASSISTANT', content: 'quoting back: kill myself', providerItemId: 'item-001' }],
-      }, USER);
+      await service.syncEvents(
+        'vs-001',
+        {
+          messages: [
+            { role: 'ASSISTANT', content: 'quoting back: kill myself', providerItemId: 'item-001' },
+          ],
+        },
+        USER,
+      );
 
       expect(mockMessageRepo.create).not.toHaveBeenCalled();
     });
@@ -425,40 +626,62 @@ describe('VoiceSessionService', () => {
     it('does not re-post a crisis redirect when the same crisis message is replayed by a client retry', async () => {
       mockVoiceSessionRepo.findById.mockResolvedValue(makeVoiceSession());
       mockMessageRepo.findByConversation.mockResolvedValue([
-        makeMessage({ role: 'USER' as AiMessage['role'], providerItemId: 'item-001', content: 'I want to kill myself' }),
+        makeMessage({
+          role: 'USER' as AiMessage['role'],
+          providerItemId: 'item-001',
+          content: 'I want to kill myself',
+        }),
       ]);
 
-      await service.syncEvents('vs-001', {
-        messages: [{ role: 'USER', content: 'I want to kill myself', providerItemId: 'item-001' }],
-      }, USER);
+      await service.syncEvents(
+        'vs-001',
+        {
+          messages: [
+            { role: 'USER', content: 'I want to kill myself', providerItemId: 'item-001' },
+          ],
+        },
+        USER,
+      );
 
       expect(mockMessageRepo.create).not.toHaveBeenCalled();
     });
   });
 
   describe('syncEvents — real cost tracking', () => {
-    it('prices a newly-reported usage entry and writes it as a real AiRequest, priced by the session\'s own model', async () => {
+    it("prices a newly-reported usage entry and writes it as a real AiRequest, priced by the session's own model", async () => {
       mockVoiceSessionRepo.findById.mockResolvedValue(makeVoiceSession({ model: 'gpt-realtime' }));
       mockMessageRepo.findByConversation.mockResolvedValue([]);
       mockRequestRepo.create.mockResolvedValue({} as never);
 
-      await service.syncEvents('vs-001', {
-        usage: [{
-          providerItemId: 'item-resp-1',
-          inputAudioTokens: 1000, inputTextTokens: 0, cachedAudioTokens: 0, cachedTextTokens: 0,
-          outputAudioTokens: 1000, outputTextTokens: 0,
-        }],
-      }, USER);
+      await service.syncEvents(
+        'vs-001',
+        {
+          usage: [
+            {
+              providerItemId: 'item-resp-1',
+              inputAudioTokens: 1000,
+              inputTextTokens: 0,
+              cachedAudioTokens: 0,
+              cachedTextTokens: 0,
+              outputAudioTokens: 1000,
+              outputTextTokens: 0,
+            },
+          ],
+        },
+        USER,
+      );
 
-      expect(mockRequestRepo.create).toHaveBeenCalledWith(expect.objectContaining({
-        userId: USER.id,
-        conversationId: 'conv-001',
-        capability: AiCapability.VOICE_CONVERSATION,
-        model: 'gpt-realtime',
-        promptTokens: 1000,
-        completionTokens: 1000,
-        status: AiRequestStatus.SUCCESS,
-      }));
+      expect(mockRequestRepo.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          userId: USER.id,
+          conversationId: 'conv-001',
+          capability: AiCapability.VOICE_CONVERSATION,
+          model: 'gpt-realtime',
+          promptTokens: 1000,
+          completionTokens: 1000,
+          status: AiRequestStatus.SUCCESS,
+        }),
+      );
       const costUsd = mockRequestRepo.create.mock.calls[0][0].costUsd;
       expect(costUsd).toBeCloseTo(0.032 + 0.064, 6);
     });
@@ -469,29 +692,51 @@ describe('VoiceSessionService', () => {
         makeMessage({ role: 'ASSISTANT' as AiMessage['role'], providerItemId: 'item-resp-1' }),
       ]);
 
-      await service.syncEvents('vs-001', {
-        usage: [{
-          providerItemId: 'item-resp-1',
-          inputAudioTokens: 1000, inputTextTokens: 0, cachedAudioTokens: 0, cachedTextTokens: 0,
-          outputAudioTokens: 1000, outputTextTokens: 0,
-        }],
-      }, USER);
+      await service.syncEvents(
+        'vs-001',
+        {
+          usage: [
+            {
+              providerItemId: 'item-resp-1',
+              inputAudioTokens: 1000,
+              inputTextTokens: 0,
+              cachedAudioTokens: 0,
+              cachedTextTokens: 0,
+              outputAudioTokens: 1000,
+              outputTextTokens: 0,
+            },
+          ],
+        },
+        USER,
+      );
 
       expect(mockRequestRepo.create).not.toHaveBeenCalled();
     });
 
-    it('never writes a negative or NaN cost for an unmapped model, matching the pricing util\'s own safe fallback', async () => {
-      mockVoiceSessionRepo.findById.mockResolvedValue(makeVoiceSession({ model: 'some-future-realtime-model' }));
+    it("never writes a negative or NaN cost for an unmapped model, matching the pricing util's own safe fallback", async () => {
+      mockVoiceSessionRepo.findById.mockResolvedValue(
+        makeVoiceSession({ model: 'some-future-realtime-model' }),
+      );
       mockMessageRepo.findByConversation.mockResolvedValue([]);
       mockRequestRepo.create.mockResolvedValue({} as never);
 
-      await service.syncEvents('vs-001', {
-        usage: [{
-          providerItemId: 'item-resp-1',
-          inputAudioTokens: 1000, inputTextTokens: 0, cachedAudioTokens: 0, cachedTextTokens: 0,
-          outputAudioTokens: 1000, outputTextTokens: 0,
-        }],
-      }, USER);
+      await service.syncEvents(
+        'vs-001',
+        {
+          usage: [
+            {
+              providerItemId: 'item-resp-1',
+              inputAudioTokens: 1000,
+              inputTextTokens: 0,
+              cachedAudioTokens: 0,
+              cachedTextTokens: 0,
+              outputAudioTokens: 1000,
+              outputTextTokens: 0,
+            },
+          ],
+        },
+        USER,
+      );
 
       expect(mockRequestRepo.create.mock.calls[0][0].costUsd).toBe(0);
     });
@@ -500,11 +745,16 @@ describe('VoiceSessionService', () => {
   describe('endSession', () => {
     it('ends an active session with MEMBER_ENDED', async () => {
       mockVoiceSessionRepo.findById.mockResolvedValue(makeVoiceSession());
-      mockVoiceSessionRepo.end.mockResolvedValue(makeVoiceSession({ endedAt: NOW, endReason: VoiceSessionEndReason.MEMBER_ENDED }));
+      mockVoiceSessionRepo.end.mockResolvedValue(
+        makeVoiceSession({ endedAt: NOW, endReason: VoiceSessionEndReason.MEMBER_ENDED }),
+      );
 
       const result = await service.endSession('vs-001', USER);
 
-      expect(mockVoiceSessionRepo.end).toHaveBeenCalledWith('vs-001', VoiceSessionEndReason.MEMBER_ENDED);
+      expect(mockVoiceSessionRepo.end).toHaveBeenCalledWith(
+        'vs-001',
+        VoiceSessionEndReason.MEMBER_ENDED,
+      );
       expect(result.endReason).toBe(VoiceSessionEndReason.MEMBER_ENDED);
     });
 
