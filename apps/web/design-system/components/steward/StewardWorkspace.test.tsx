@@ -20,7 +20,12 @@ const mockedVoice = voiceApi as jest.Mocked<typeof voiceApi>;
 function SignedInAs({ children }: { children: React.ReactNode }) {
   const { setSession, session } = useSession();
   if (!session.isAuthenticated) {
-    setSession({ ...session, isAuthenticated: true, accessToken: 'token-123', memberId: 'member-1' });
+    setSession({
+      ...session,
+      isAuthenticated: true,
+      accessToken: 'token-123',
+      memberId: 'member-1',
+    });
   }
   return <>{children}</>;
 }
@@ -46,7 +51,13 @@ function renderWorkspace() {
 describe('StewardWorkspace', () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    mockedRecommendations.listRecommendations.mockResolvedValue({ data: [], total: 0, page: 1, limit: 20, totalPages: 0 });
+    mockedRecommendations.listRecommendations.mockResolvedValue({
+      data: [],
+      total: 0,
+      page: 1,
+      limit: 20,
+      totalPages: 0,
+    });
   });
 
   it('renders collapsed by default, calm and out of the way', () => {
@@ -60,7 +71,9 @@ describe('StewardWorkspace', () => {
 
     await userEvent.click(screen.getByText('Steward'));
     expect(await screen.findByRole('dialog', { name: 'Steward Workspace' })).toBeInTheDocument();
-    expect(screen.getByText('No conversation yet — ask your Steward anything.')).toBeInTheDocument();
+    expect(
+      screen.getByText('No conversation yet — ask your Steward anything.'),
+    ).toBeInTheDocument();
     expect(screen.getByText('Nothing needs your decision right now.')).toBeInTheDocument();
 
     await userEvent.click(screen.getByRole('button', { name: /^Close/ }));
@@ -69,11 +82,24 @@ describe('StewardWorkspace', () => {
 
   it('surfaces a pending recommendation under "Needs your decision"', async () => {
     mockedRecommendations.listRecommendations.mockResolvedValue({
-      data: [{
-        id: 'rec-1', userId: 'member-1', opportunityId: null, resourceId: null, courseId: null, podId: null,
-        rationale: 'This matches your goal.', status: 'PENDING', decidedAt: null, createdAt: 'x',
-      }],
-      total: 1, page: 1, limit: 20, totalPages: 1,
+      data: [
+        {
+          id: 'rec-1',
+          userId: 'member-1',
+          opportunityId: null,
+          resourceId: null,
+          courseId: null,
+          podId: null,
+          rationale: 'This matches your goal.',
+          status: 'PENDING',
+          decidedAt: null,
+          createdAt: 'x',
+        },
+      ],
+      total: 1,
+      page: 1,
+      limit: 20,
+      totalPages: 1,
     });
 
     renderWorkspace();
@@ -84,8 +110,17 @@ describe('StewardWorkspace', () => {
 
   it('shows the voice orb and controls inline, not as a second floating widget, once a voice session is live', async () => {
     mockedVoice.startVoiceSession.mockResolvedValue({
-      id: 'vs-1', conversationId: 'conv-1', clientSecret: 'secret', expiresAt: 'x',
-      model: 'gpt-4o-realtime-preview', voice: 'alloy', turnDetectionMode: 'semantic_vad', startedAt: 'x', endedAt: null,
+      id: 'vs-1',
+      conversationId: 'conv-1',
+      clientSecret: 'secret',
+      expiresAt: 'x',
+      model: 'gpt-4o-realtime-preview',
+      voice: 'alloy',
+      provider: 'OPENAI',
+      transport: 'openai-webrtc',
+      turnDetectionMode: 'semantic_vad',
+      startedAt: 'x',
+      endedAt: null,
     });
 
     renderWorkspace();
