@@ -12,7 +12,11 @@ jest.mock('../../lib/voice/webrtc-client');
 const mockedApi = voiceApi as jest.Mocked<typeof voiceApi>;
 const MockedClient = VoiceWebRtcClient as jest.MockedClass<typeof VoiceWebRtcClient>;
 
-function Harness({ onReady }: { onReady: (value: ReturnType<typeof useVoice> & { setToken: (t: string | null) => void }) => void }) {
+function Harness({
+  onReady,
+}: {
+  onReady: (value: ReturnType<typeof useVoice> & { setToken: (t: string | null) => void }) => void;
+}) {
   const voice = useVoice();
   const { setSession, session } = useSession();
 
@@ -20,7 +24,12 @@ function Harness({ onReady }: { onReady: (value: ReturnType<typeof useVoice> & {
     onReady({
       ...voice,
       setToken: (token: string | null) =>
-        setSession({ ...session, isAuthenticated: !!token, accessToken: token, memberId: token ? 'member-1' : null }),
+        setSession({
+          ...session,
+          isAuthenticated: !!token,
+          accessToken: token,
+          memberId: token ? 'member-1' : null,
+        }),
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [voice, session]);
@@ -49,11 +58,26 @@ describe('VoiceContext', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockedApi.startVoiceSession.mockResolvedValue({
-      id: 'vs-1', conversationId: 'conv-1', clientSecret: 'secret', expiresAt: 'x',
-      model: 'gpt-4o-realtime-preview', voice: 'alloy', turnDetectionMode: 'semantic_vad', startedAt: 'x', endedAt: null,
+      id: 'vs-1',
+      conversationId: 'conv-1',
+      clientSecret: 'secret',
+      expiresAt: 'x',
+      model: 'gpt-4o-realtime-preview',
+      voice: 'alloy',
+      provider: 'OPENAI',
+      transport: 'openai-webrtc',
+      turnDetectionMode: 'semantic_vad',
+      startedAt: 'x',
+      endedAt: null,
     });
     mockedApi.syncVoiceEvents.mockResolvedValue({ messages: [], turnEvents: [] });
-    mockedApi.endVoiceSession.mockResolvedValue({ id: 'vs-1', conversationId: 'conv-1', startedAt: 'x', endedAt: 'y', endReason: 'MEMBER_ENDED' });
+    mockedApi.endVoiceSession.mockResolvedValue({
+      id: 'vs-1',
+      conversationId: 'conv-1',
+      startedAt: 'x',
+      endedAt: 'y',
+      endReason: 'MEMBER_ENDED',
+    });
   });
 
   async function signedInAndConnected() {
@@ -77,7 +101,11 @@ describe('VoiceContext', () => {
     expect(getApi().state.turnState).toBe('listening');
     expect(getApi().state.sessionId).toBe('vs-1');
     expect(getApi().state.conversationId).toBe('conv-1');
-    expect(MockedClient.prototype.connect).toHaveBeenCalledWith('secret', 'gpt-4o-realtime-preview');
+    expect(MockedClient.prototype.connect).toHaveBeenCalledWith(
+      'secret',
+      'gpt-4o-realtime-preview',
+      'alloy',
+    );
   });
 
   it('passes an existing conversationId through to continue a text conversation by voice', async () => {
@@ -102,16 +130,22 @@ describe('VoiceContext', () => {
     const getApi = await signedInAndConnected();
     const callbacks = lastCallbacks();
 
-    act(() => callbacks.onDataChannelMessage({
-      type: 'conversation.item.input_audio_transcription.completed', item_id: 'item-1', transcript: 'What is a Journey?',
-    }));
+    act(() =>
+      callbacks.onDataChannelMessage({
+        type: 'conversation.item.input_audio_transcription.completed',
+        item_id: 'item-1',
+        transcript: 'What is a Journey?',
+      }),
+    );
     await act(async () => {});
 
     expect(getApi().state.transcript).toEqual([
       expect.objectContaining({ role: 'member', content: 'What is a Journey?', status: 'final' }),
     ]);
     expect(mockedApi.syncVoiceEvents).toHaveBeenCalledWith('token-123', 'vs-1', {
-      turnEvents: [expect.objectContaining({ type: 'MEMBER_TURN_FINALIZED', providerItemId: 'item-1' })],
+      turnEvents: [
+        expect.objectContaining({ type: 'MEMBER_TURN_FINALIZED', providerItemId: 'item-1' }),
+      ],
       messages: [{ role: 'USER', content: 'What is a Journey?', providerItemId: 'item-1' }],
       usage: [],
     });
@@ -121,80 +155,142 @@ describe('VoiceContext', () => {
     const getApi = await signedInAndConnected();
     const callbacks = lastCallbacks();
 
-    act(() => callbacks.onDataChannelMessage({ type: 'response.created', response: { id: 'resp-1' } }));
+    act(() =>
+      callbacks.onDataChannelMessage({ type: 'response.created', response: { id: 'resp-1' } }),
+    );
     expect(getApi().state.turnState).toBe('thinking');
 
-    act(() => callbacks.onDataChannelMessage({ type: 'response.audio_transcript.delta', response_id: 'resp-1', delta: 'A Journey' }));
+    act(() =>
+      callbacks.onDataChannelMessage({
+        type: 'response.audio_transcript.delta',
+        response_id: 'resp-1',
+        delta: 'A Journey',
+      }),
+    );
     expect(getApi().state.turnState).toBe('speaking');
     expect(getApi().state.transcript.find((e) => e.id === 'resp-1')?.content).toBe('A Journey');
 
-    act(() => callbacks.onDataChannelMessage({
-      type: 'response.done', response: { id: 'resp-1', status: 'completed', output: [{ id: 'item-2' }] },
-    }));
+    act(() =>
+      callbacks.onDataChannelMessage({
+        type: 'response.done',
+        response: { id: 'resp-1', status: 'completed', output: [{ id: 'item-2' }] },
+      }),
+    );
     await act(async () => {});
 
     expect(getApi().state.turnState).toBe('listening');
     expect(getApi().state.transcript.find((e) => e.id === 'resp-1')?.status).toBe('final');
-    expect(mockedApi.syncVoiceEvents).toHaveBeenCalledWith('token-123', 'vs-1', expect.objectContaining({
-      messages: [expect.objectContaining({ providerItemId: 'item-2', completionStatus: 'COMPLETE' })],
-    }));
+    expect(mockedApi.syncVoiceEvents).toHaveBeenCalledWith(
+      'token-123',
+      'vs-1',
+      expect.objectContaining({
+        messages: [
+          expect.objectContaining({ providerItemId: 'item-2', completionStatus: 'COMPLETE' }),
+        ],
+      }),
+    );
   });
 
   it('forwards response.usage from a completed response to the backend for real cost tracking', async () => {
     await signedInAndConnected();
     const callbacks = lastCallbacks();
 
-    act(() => callbacks.onDataChannelMessage({ type: 'response.created', response: { id: 'resp-1' } }));
-    act(() => callbacks.onDataChannelMessage({
-      type: 'response.done',
-      response: {
-        id: 'resp-1', status: 'completed', output: [{ id: 'item-2' }],
-        usage: {
-          input_token_details: { text_tokens: 0, audio_tokens: 100 },
-          output_token_details: { text_tokens: 0, audio_tokens: 200 },
+    act(() =>
+      callbacks.onDataChannelMessage({ type: 'response.created', response: { id: 'resp-1' } }),
+    );
+    act(() =>
+      callbacks.onDataChannelMessage({
+        type: 'response.done',
+        response: {
+          id: 'resp-1',
+          status: 'completed',
+          output: [{ id: 'item-2' }],
+          usage: {
+            input_token_details: { text_tokens: 0, audio_tokens: 100 },
+            output_token_details: { text_tokens: 0, audio_tokens: 200 },
+          },
         },
-      },
-    }));
+      }),
+    );
     await act(async () => {});
 
-    expect(mockedApi.syncVoiceEvents).toHaveBeenCalledWith('token-123', 'vs-1', expect.objectContaining({
-      usage: [{
-        providerItemId: 'item-2',
-        inputAudioTokens: 100, inputTextTokens: 0, cachedAudioTokens: 0, cachedTextTokens: 0,
-        outputAudioTokens: 200, outputTextTokens: 0,
-      }],
-    }));
+    expect(mockedApi.syncVoiceEvents).toHaveBeenCalledWith(
+      'token-123',
+      'vs-1',
+      expect.objectContaining({
+        usage: [
+          {
+            providerItemId: 'item-2',
+            inputAudioTokens: 100,
+            inputTextTokens: 0,
+            cachedAudioTokens: 0,
+            cachedTextTokens: 0,
+            outputAudioTokens: 200,
+            outputTextTokens: 0,
+          },
+        ],
+      }),
+    );
   });
 
   it('does not report usage at all when a response carries none, rather than a zeroed entry', async () => {
     await signedInAndConnected();
     const callbacks = lastCallbacks();
 
-    act(() => callbacks.onDataChannelMessage({ type: 'response.created', response: { id: 'resp-1' } }));
-    act(() => callbacks.onDataChannelMessage({
-      type: 'response.done', response: { id: 'resp-1', status: 'completed', output: [{ id: 'item-2' }] },
-    }));
+    act(() =>
+      callbacks.onDataChannelMessage({ type: 'response.created', response: { id: 'resp-1' } }),
+    );
+    act(() =>
+      callbacks.onDataChannelMessage({
+        type: 'response.done',
+        response: { id: 'resp-1', status: 'completed', output: [{ id: 'item-2' }] },
+      }),
+    );
     await act(async () => {});
 
-    expect(mockedApi.syncVoiceEvents).toHaveBeenCalledWith('token-123', 'vs-1', expect.objectContaining({ usage: [] }));
+    expect(mockedApi.syncVoiceEvents).toHaveBeenCalledWith(
+      'token-123',
+      'vs-1',
+      expect.objectContaining({ usage: [] }),
+    );
   });
 
   it('marks a barge-in response as interrupted, not complete, and syncs INTERRUPTED accurately', async () => {
     const getApi = await signedInAndConnected();
     const callbacks = lastCallbacks();
 
-    act(() => callbacks.onDataChannelMessage({ type: 'response.created', response: { id: 'resp-1' } }));
-    act(() => callbacks.onDataChannelMessage({ type: 'response.audio_transcript.delta', response_id: 'resp-1', delta: 'Here is what I fou' }));
-    act(() => callbacks.onDataChannelMessage({
-      type: 'response.done', response: { id: 'resp-1', status: 'cancelled', output: [{ id: 'item-2' }] },
-    }));
+    act(() =>
+      callbacks.onDataChannelMessage({ type: 'response.created', response: { id: 'resp-1' } }),
+    );
+    act(() =>
+      callbacks.onDataChannelMessage({
+        type: 'response.audio_transcript.delta',
+        response_id: 'resp-1',
+        delta: 'Here is what I fou',
+      }),
+    );
+    act(() =>
+      callbacks.onDataChannelMessage({
+        type: 'response.done',
+        response: { id: 'resp-1', status: 'cancelled', output: [{ id: 'item-2' }] },
+      }),
+    );
     await act(async () => {});
 
     expect(getApi().state.transcript.find((e) => e.id === 'resp-1')?.status).toBe('interrupted');
-    expect(mockedApi.syncVoiceEvents).toHaveBeenCalledWith('token-123', 'vs-1', expect.objectContaining({
-      turnEvents: expect.arrayContaining([expect.objectContaining({ type: 'STEWARD_RESPONSE_INTERRUPTED', providerItemId: 'item-2' })]),
-      messages: [expect.objectContaining({ completionStatus: 'INTERRUPTED' })],
-    }));
+    expect(mockedApi.syncVoiceEvents).toHaveBeenCalledWith(
+      'token-123',
+      'vs-1',
+      expect.objectContaining({
+        turnEvents: expect.arrayContaining([
+          expect.objectContaining({
+            type: 'STEWARD_RESPONSE_INTERRUPTED',
+            providerItemId: 'item-2',
+          }),
+        ]),
+        messages: [expect.objectContaining({ completionStatus: 'INTERRUPTED' })],
+      }),
+    );
   });
 
   it('mutes via the WebRTC client without tearing down the session', async () => {
@@ -250,14 +346,23 @@ describe('VoiceContext', () => {
       const getApi = await signedInAndConnected();
       const callbacks = lastCallbacks();
 
-      act(() => callbacks.onDataChannelMessage({
-        type: 'response.done',
-        response: {
-          id: 'resp-1',
-          status: 'completed',
-          output: [{ type: 'function_call', call_id: 'call-1', name: 'navigate_to_route', arguments: '{"route":"journey"}' }],
-        },
-      }));
+      act(() =>
+        callbacks.onDataChannelMessage({
+          type: 'response.done',
+          response: {
+            id: 'resp-1',
+            status: 'completed',
+            output: [
+              {
+                type: 'function_call',
+                call_id: 'call-1',
+                name: 'navigate_to_route',
+                arguments: '{"route":"journey"}',
+              },
+            ],
+          },
+        }),
+      );
 
       expect(getApi().state.pendingToolCalls).toEqual([
         { callId: 'call-1', name: 'navigate_to_route', arguments: '{"route":"journey"}' },
@@ -269,22 +374,27 @@ describe('VoiceContext', () => {
       const getApi = await signedInAndConnected();
       const callbacks = lastCallbacks();
 
-      act(() => callbacks.onDataChannelMessage({
-        type: 'response.done',
-        response: {
-          id: 'resp-1',
-          status: 'completed',
-          output: [{ type: 'function_call', call_id: 'call-1', name: 'navigate_to_route', arguments: '{"route":"journey"}' }],
-        },
-      }));
+      act(() =>
+        callbacks.onDataChannelMessage({
+          type: 'response.done',
+          response: {
+            id: 'resp-1',
+            status: 'completed',
+            output: [
+              {
+                type: 'function_call',
+                call_id: 'call-1',
+                name: 'navigate_to_route',
+                arguments: '{"route":"journey"}',
+              },
+            ],
+          },
+        }),
+      );
 
       act(() => getApi().resolveToolCall('call-1', { ok: true }));
 
-      expect(MockedClient.prototype.sendEvent).toHaveBeenCalledWith({
-        type: 'conversation.item.create',
-        item: { type: 'function_call_output', call_id: 'call-1', output: JSON.stringify({ ok: true }) },
-      });
-      expect(MockedClient.prototype.sendEvent).toHaveBeenCalledWith({ type: 'response.create' });
+      expect(MockedClient.prototype.resolveToolCall).toHaveBeenCalledWith('call-1', { ok: true });
       expect(getApi().state.pendingToolCalls).toEqual([]);
     });
 
@@ -293,27 +403,38 @@ describe('VoiceContext', () => {
 
       act(() => getApi().syncInterfaceContext('Currently visible: Home.NextMission'));
 
-      expect(MockedClient.prototype.sendEvent).toHaveBeenCalledWith({
-        type: 'conversation.item.create',
-        item: { type: 'message', role: 'system', content: [{ type: 'input_text', text: 'Currently visible: Home.NextMission' }] },
-      });
+      expect(MockedClient.prototype.syncInterfaceContext).toHaveBeenCalledWith(
+        'Currently visible: Home.NextMission',
+      );
     });
 
     it('handles several simultaneous tool calls from one response', async () => {
       const getApi = await signedInAndConnected();
       const callbacks = lastCallbacks();
 
-      act(() => callbacks.onDataChannelMessage({
-        type: 'response.done',
-        response: {
-          id: 'resp-1',
-          status: 'completed',
-          output: [
-            { type: 'function_call', call_id: 'call-a', name: 'focus_interface_target', arguments: '{"targetId":"Home.NextMission"}' },
-            { type: 'function_call', call_id: 'call-b', name: 'navigate_to_route', arguments: '{"route":"home"}' },
-          ],
-        },
-      }));
+      act(() =>
+        callbacks.onDataChannelMessage({
+          type: 'response.done',
+          response: {
+            id: 'resp-1',
+            status: 'completed',
+            output: [
+              {
+                type: 'function_call',
+                call_id: 'call-a',
+                name: 'focus_interface_target',
+                arguments: '{"targetId":"Home.NextMission"}',
+              },
+              {
+                type: 'function_call',
+                call_id: 'call-b',
+                name: 'navigate_to_route',
+                arguments: '{"route":"home"}',
+              },
+            ],
+          },
+        }),
+      );
 
       expect(getApi().state.pendingToolCalls).toHaveLength(2);
     });
