@@ -6,6 +6,7 @@ import { NodemailerEmailService } from './nodemailer-email.service';
 jest.mock('nodemailer');
 
 const mockSendMail = jest.fn().mockResolvedValue({ messageId: 'msg-001' });
+const mockVerify = jest.fn().mockResolvedValue(true);
 const mockCreateTransport = nodemailer.createTransport as jest.Mock;
 
 const makeConfig = (values: Record<string, unknown> = {}): ConfigService =>
@@ -16,37 +17,51 @@ const makeConfig = (values: Record<string, unknown> = {}): ConfigService =>
 describe('NodemailerEmailService', () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    mockCreateTransport.mockReturnValue({ sendMail: mockSendMail });
+    mockSendMail.mockResolvedValue({ messageId: 'msg-001' });
+    mockVerify.mockResolvedValue(true);
+    mockCreateTransport.mockReturnValue({ sendMail: mockSendMail, verify: mockVerify });
   });
 
   describe('transport selection', () => {
-    it('uses a real SMTP transport when SMTP_HOST is configured', () => {
+    it('uses and verifies a real SMTP transport when SMTP_HOST is configured', async () => {
       const service = new NodemailerEmailService(
         makeConfig({ SMTP_HOST: 'smtp.example.com', SMTP_PORT: 587, SMTP_USER: 'u', SMTP_PASSWORD: 'p' }),
       );
-      service.onModuleInit();
+      await service.onModuleInit();
 
       expect(mockCreateTransport).toHaveBeenCalledWith(
-        expect.objectContaining({ host: 'smtp.example.com', port: 587 }),
+        expect.objectContaining({
+          host: 'smtp.example.com',
+          port: 587,
+          auth: { user: 'u', pass: 'p' },
+        }),
       );
+      expect(mockVerify).toHaveBeenCalledTimes(1);
     });
 
-    it('falls back to jsonTransport when SMTP_HOST is not configured', () => {
+    it('propagates SMTP verification failure so deployment fails before members hit broken email', async () => {
+      mockVerify.mockRejectedValueOnce(new Error('authentication failed'));
+      const service = new NodemailerEmailService(makeConfig({ SMTP_HOST: 'smtp.example.com' }));
+
+      await expect(service.onModuleInit()).rejects.toThrow('authentication failed');
+    });
+
+    it('falls back to jsonTransport when SMTP_HOST is not configured', async () => {
       const service = new NodemailerEmailService(makeConfig({}));
-      service.onModuleInit();
+      await service.onModuleInit();
 
       expect(mockCreateTransport).toHaveBeenCalledWith({ jsonTransport: true });
+      expect(mockVerify).not.toHaveBeenCalled();
     });
 
-    it('warns naming the affected features when SMTP_HOST is absent, in any NODE_ENV', () => {
+    it('warns clearly that email delivery is unavailable when SMTP_HOST is absent', async () => {
       const warnSpy = jest.spyOn(Logger.prototype, 'warn').mockImplementation(() => undefined);
 
-      new NodemailerEmailService(makeConfig({ NODE_ENV: 'production' })).onModuleInit();
+      const service = new NodemailerEmailService(makeConfig({ NODE_ENV: 'development' }));
+      await service.onModuleInit();
 
-      expect(warnSpy).toHaveBeenCalledWith(
-        expect.stringContaining('email verification links, password-reset links'),
-      );
-      expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('does not weaken any'));
+      expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('Email verification'));
+      expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('password-reset'));
 
       warnSpy.mockRestore();
     });
@@ -57,7 +72,7 @@ describe('NodemailerEmailService', () => {
       const service = new NodemailerEmailService(
         makeConfig({ FRONTEND_URL: 'https://app.aureus.test', SMTP_FROM_EMAIL: 'hello@aureus.test' }),
       );
-      service.onModuleInit();
+      await service.onModuleInit();
 
       await service.sendEmailVerification('alice@example.com', 'plain-token-123');
 
@@ -74,7 +89,7 @@ describe('NodemailerEmailService', () => {
 
     it('URL-encodes the token in the link', async () => {
       const service = new NodemailerEmailService(makeConfig({ FRONTEND_URL: 'https://app.aureus.test' }));
-      service.onModuleInit();
+      await service.onModuleInit();
 
       await service.sendEmailVerification('alice@example.com', 'a/b+c');
 
@@ -82,12 +97,24 @@ describe('NodemailerEmailService', () => {
         expect.objectContaining({ text: expect.stringContaining(encodeURIComponent('a/b+c')) }),
       );
     });
+
+    it('logs delivery failure without turning an already-created account into a failed registration', async () => {
+      const errorSpy = jest.spyOn(Logger.prototype, 'error').mockImplementation(() => undefined);
+      mockSendMail.mockRejectedValueOnce(new Error('temporary smtp failure'));
+      const service = new NodemailerEmailService(makeConfig({ FRONTEND_URL: 'https://app.aureus.test' }));
+      await service.onModuleInit();
+
+      await expect(service.sendEmailVerification('alice@example.com', 'token')).resolves.toBeUndefined();
+      expect(errorSpy).toHaveBeenCalledWith(expect.stringContaining('account remains created'));
+
+      errorSpy.mockRestore();
+    });
   });
 
   describe('sendPasswordReset', () => {
     it('sends a password-reset email with a link built from the token', async () => {
       const service = new NodemailerEmailService(makeConfig({ FRONTEND_URL: 'https://app.aureus.test' }));
-      service.onModuleInit();
+      await service.onModuleInit();
 
       await service.sendPasswordReset('alice@example.com', 'reset-token-456');
 
