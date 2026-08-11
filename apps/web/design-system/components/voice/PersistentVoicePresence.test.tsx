@@ -6,7 +6,10 @@ import { SessionProvider, useSession } from '../../../state/session/SessionConte
 import { VoiceProvider, useVoice } from '../../../state/voice/VoiceContext';
 import { PersistentVoicePresence } from './PersistentVoicePresence';
 import * as voiceApi from '../../../lib/api/voice';
-import { VoiceWebRtcClient, type VoiceWebRtcClientCallbacks } from '../../../lib/voice/webrtc-client';
+import {
+  VoiceWebRtcClient,
+  type VoiceWebRtcClientCallbacks,
+} from '../../../lib/voice/webrtc-client';
 
 jest.mock('../../../lib/api/voice');
 jest.mock('../../../lib/voice/webrtc-client');
@@ -20,7 +23,12 @@ const MockedClient = VoiceWebRtcClient as jest.MockedClass<typeof VoiceWebRtcCli
 function SignedInAs({ children }: { children: React.ReactNode }) {
   const { setSession, session } = useSession();
   if (!session.isAuthenticated) {
-    setSession({ ...session, isAuthenticated: true, accessToken: 'token-123', memberId: 'member-1' });
+    setSession({
+      ...session,
+      isAuthenticated: true,
+      accessToken: 'token-123',
+      memberId: 'member-1',
+    });
   }
   return <>{children}</>;
 }
@@ -60,11 +68,26 @@ describe('PersistentVoicePresence', () => {
     jest.clearAllMocks();
     mockPathname = '/home';
     mockedApi.startVoiceSession.mockResolvedValue({
-      id: 'vs-1', conversationId: 'conv-1', clientSecret: 'secret', expiresAt: 'x',
-      model: 'gpt-4o-realtime-preview', voice: 'alloy', turnDetectionMode: 'semantic_vad', startedAt: 'x', endedAt: null,
+      id: 'vs-1',
+      conversationId: 'conv-1',
+      clientSecret: 'secret',
+      expiresAt: 'x',
+      model: 'gpt-4o-realtime-preview',
+      voice: 'alloy',
+      provider: 'OPENAI',
+      transport: 'openai-webrtc',
+      turnDetectionMode: 'semantic_vad',
+      startedAt: 'x',
+      endedAt: null,
     });
     mockedApi.syncVoiceEvents.mockResolvedValue({ messages: [], turnEvents: [] });
-    mockedApi.endVoiceSession.mockResolvedValue({ id: 'vs-1', conversationId: 'conv-1', startedAt: 'x', endedAt: 'y', endReason: 'MEMBER_ENDED' });
+    mockedApi.endVoiceSession.mockResolvedValue({
+      id: 'vs-1',
+      conversationId: 'conv-1',
+      startedAt: 'x',
+      endedAt: 'y',
+      endReason: 'MEMBER_ENDED',
+    });
   });
 
   it('renders nothing when no voice session is live', () => {
@@ -89,7 +112,10 @@ describe('PersistentVoicePresence', () => {
     await renderConnectedPresence();
 
     expect(screen.getByText('Listening…')).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Open conversation' })).toHaveAttribute('href', '/conversation');
+    expect(screen.getByRole('link', { name: 'Open conversation' })).toHaveAttribute(
+      'href',
+      '/conversation',
+    );
   });
 
   it('mute toggles via the same control the full VoiceSurface uses', async () => {
@@ -106,8 +132,16 @@ describe('PersistentVoicePresence', () => {
     expect(screen.queryByRole('button', { name: /Interrupt/ })).not.toBeInTheDocument();
 
     const callbacks = lastCallbacks();
-    act(() => callbacks.onDataChannelMessage({ type: 'response.created', response: { id: 'resp-1' } }));
-    act(() => callbacks.onDataChannelMessage({ type: 'response.audio_transcript.delta', response_id: 'resp-1', delta: 'Hello' }));
+    act(() =>
+      callbacks.onDataChannelMessage({ type: 'response.created', response: { id: 'resp-1' } }),
+    );
+    act(() =>
+      callbacks.onDataChannelMessage({
+        type: 'response.audio_transcript.delta',
+        response_id: 'resp-1',
+        delta: 'Hello',
+      }),
+    );
 
     expect(screen.getByRole('button', { name: /Interrupt/ })).toBeInTheDocument();
   });
