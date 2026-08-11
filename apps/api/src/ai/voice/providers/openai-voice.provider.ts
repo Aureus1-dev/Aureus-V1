@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { AiProvider } from '@prisma/client';
+import { MEMBER_STEWARD_VOICE_SYSTEM_PROMPT } from '../../prompts/member-steward-system-prompt';
 import {
   IVoiceProvider,
   VoiceSessionBrokerInput,
@@ -14,23 +15,14 @@ interface OpenAiRealtimeClientSecretResponse {
 }
 
 /**
- * Brokers a short-lived OpenAI Realtime client secret (Founder Decision 1:
- * "Do not expose the permanent OpenAI API key to the client" — the backend
- * holds OPENAI_API_KEY and exchanges it for a narrowly-scoped, expiring
- * credential; the browser never sees the permanent key). The browser then
- * connects directly to OpenAI over WebRTC with that credential — this
- * class's job ends at issuing it; no audio is proxied through this server.
- * Only ever instantiated when OPENAI_API_KEY is configured
- * (voice-provider.module.ts), matching OpenAiProvider's assumption.
+ * Brokers a short-lived OpenAI Realtime client secret. The browser receives
+ * only the expiring credential and connects directly over WebRTC; the
+ * permanent API key remains server-side.
  *
- * Targets the GA `/v1/realtime/client_secrets` endpoint (the beta
- * `/v1/realtime/sessions` shape — flat `model`/`voice`/`turn_detection` at
- * the request's top level, `{id, client_secret: {...}}` in the response —
- * is deprecated). GA nests everything the beta sent flat under a `session`
- * object, and moves `voice`/`turn_detection` under `session.audio.output`/
- * `session.audio.input` respectively; the client secret itself is now the
- * top-level `value`/`expires_at`, with the echoed session's own id (if
- * present) available at `session.id`.
+ * Voice uses the same real-life Member Steward scope as text. The legacy
+ * caller-supplied instruction still exists for compatibility, but it is not
+ * allowed to reintroduce the old platform-helpdesk boundary that rejected
+ * ordinary member needs such as money, rent, food, or work.
  */
 @Injectable()
 export class OpenAiVoiceProvider implements IVoiceProvider {
@@ -52,7 +44,7 @@ export class OpenAiVoiceProvider implements IVoiceProvider {
         session: {
           type: 'realtime',
           model: input.model,
-          instructions: input.instructions,
+          instructions: MEMBER_STEWARD_VOICE_SYSTEM_PROMPT,
           audio: {
             input: { turn_detection: input.turnDetectionConfig },
             output: { voice: input.voice },
