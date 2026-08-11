@@ -1,6 +1,14 @@
 'use client';
 
-import { createContext, useCallback, useContext, useMemo, useReducer, useRef, useState } from 'react';
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useMemo,
+  useReducer,
+  useRef,
+  useState,
+} from 'react';
 import {
   startVoiceSession,
   syncVoiceEvents,
@@ -11,12 +19,19 @@ import {
 } from '../../lib/api/voice';
 import { ApiError, NetworkError } from '../../lib/api/errors';
 import { VoiceWebRtcClient } from '../../lib/voice/webrtc-client';
-import { RealtimeEventMapper, type NormalizedVoiceEvent } from '../../lib/voice/realtime-event-mapper';
+import { GeminiLiveClient } from '../../lib/voice/gemini-live-client';
+import type { VoiceRealtimeClient } from '../../lib/voice/realtime-client';
+import {
+  RealtimeEventMapper,
+  type NormalizedVoiceEvent,
+} from '../../lib/voice/realtime-event-mapper';
 import { useSession } from '../session/SessionContext';
 
-export type VoiceTurnState = 'idle' | 'connecting' | 'listening' | 'thinking' | 'speaking' | 'ended';
+export type VoiceTurnState =
+  'idle' | 'connecting' | 'listening' | 'thinking' | 'speaking' | 'ended';
 
-export type VoiceErrorKind = 'authentication' | 'permission-denied' | 'connection' | 'unavailable' | 'network' | 'unknown';
+export type VoiceErrorKind =
+  'authentication' | 'permission-denied' | 'connection' | 'unavailable' | 'network' | 'unknown';
 
 export interface VoiceError {
   kind: VoiceErrorKind;
@@ -60,7 +75,12 @@ type Action =
   | { type: 'transcript/member-finalized'; itemId: string; transcript: string }
   | { type: 'transcript/steward-started'; responseId: string }
   | { type: 'transcript/steward-delta'; responseId: string; delta: string }
-  | { type: 'transcript/steward-resolved'; responseId: string; transcript: string; interrupted: boolean }
+  | {
+      type: 'transcript/steward-resolved';
+      responseId: string;
+      transcript: string;
+      interrupted: boolean;
+    }
   | { type: 'tool-call/requested'; callId: string; name: string; arguments: string }
   | { type: 'tool-call/resolved'; callId: string }
   | { type: 'reset' };
@@ -80,7 +100,13 @@ function reducer(state: State, action: Action): State {
     case 'session/connecting':
       return { ...initialState, turnState: 'connecting' };
     case 'session/connected':
-      return { ...state, turnState: 'listening', sessionId: action.sessionId, conversationId: action.conversationId, error: null };
+      return {
+        ...state,
+        turnState: 'listening',
+        sessionId: action.sessionId,
+        conversationId: action.conversationId,
+        error: null,
+      };
     case 'session/ended':
       return { ...initialState, turnState: 'ended' };
     case 'error/set':
@@ -99,7 +125,13 @@ function reducer(state: State, action: Action): State {
         ...state,
         transcript: [
           ...state.transcript,
-          { id: action.itemId, role: 'member', content: action.transcript, status: 'final', createdAt: new Date().toISOString() },
+          {
+            id: action.itemId,
+            role: 'member',
+            content: action.transcript,
+            status: 'final',
+            createdAt: new Date().toISOString(),
+          },
         ],
       };
     case 'transcript/steward-started':
@@ -108,7 +140,13 @@ function reducer(state: State, action: Action): State {
         turnState: 'thinking',
         transcript: [
           ...state.transcript,
-          { id: action.responseId, role: 'steward', content: '', status: 'streaming', createdAt: new Date().toISOString() },
+          {
+            id: action.responseId,
+            role: 'steward',
+            content: '',
+            status: 'streaming',
+            createdAt: new Date().toISOString(),
+          },
         ],
       };
     case 'transcript/steward-delta':
@@ -127,17 +165,27 @@ function reducer(state: State, action: Action): State {
         turnState: 'listening',
         transcript: state.transcript.map((entry) =>
           entry.id === action.responseId
-            ? { ...entry, content: action.transcript || entry.content, status: action.interrupted ? 'interrupted' : 'final' }
+            ? {
+                ...entry,
+                content: action.transcript || entry.content,
+                status: action.interrupted ? 'interrupted' : 'final',
+              }
             : entry,
         ),
       };
     case 'tool-call/requested':
       return {
         ...state,
-        pendingToolCalls: [...state.pendingToolCalls, { callId: action.callId, name: action.name, arguments: action.arguments }],
+        pendingToolCalls: [
+          ...state.pendingToolCalls,
+          { callId: action.callId, name: action.name, arguments: action.arguments },
+        ],
       };
     case 'tool-call/resolved':
-      return { ...state, pendingToolCalls: state.pendingToolCalls.filter((call) => call.callId !== action.callId) };
+      return {
+        ...state,
+        pendingToolCalls: state.pendingToolCalls.filter((call) => call.callId !== action.callId),
+      };
     case 'reset':
       return initialState;
     default:
@@ -158,10 +206,21 @@ function classifyError(error: unknown): VoiceError {
   if (error instanceof NetworkError) {
     return { kind: 'network', message: error.message, retryable: true };
   }
-  if (error instanceof DOMException && (error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError')) {
-    return { kind: 'permission-denied', message: 'Microphone access was not granted.', retryable: true };
+  if (
+    error instanceof DOMException &&
+    (error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError')
+  ) {
+    return {
+      kind: 'permission-denied',
+      message: 'Microphone access was not granted.',
+      retryable: true,
+    };
   }
-  return { kind: 'connection', message: 'The voice connection could not be established.', retryable: true };
+  return {
+    kind: 'connection',
+    message: 'The voice connection could not be established.',
+    retryable: true,
+  };
 }
 
 interface PendingSync {
@@ -195,7 +254,7 @@ export function VoiceProvider({ children }: { children: React.ReactNode }) {
   const [state, dispatch] = useReducer(reducer, initialState);
   const [remoteStream, setRemoteStream] = useState<MediaStream | null>(null);
 
-  const clientRef = useRef<VoiceWebRtcClient | null>(null);
+  const clientRef = useRef<VoiceRealtimeClient | null>(null);
   const mapperRef = useRef(new RealtimeEventMapper());
   const sessionIdRef = useRef<string | null>(null);
   const pendingRef = useRef<PendingSync>(emptyPending());
@@ -204,7 +263,13 @@ export function VoiceProvider({ children }: { children: React.ReactNode }) {
     const accessToken = session.accessToken;
     const sessionId = sessionIdRef.current;
     const pending = pendingRef.current;
-    if (!accessToken || !sessionId || (pending.turnEvents.length === 0 && pending.messages.length === 0 && pending.usage.length === 0)) {
+    if (
+      !accessToken ||
+      !sessionId ||
+      (pending.turnEvents.length === 0 &&
+        pending.messages.length === 0 &&
+        pending.usage.length === 0)
+    ) {
       return;
     }
     pendingRef.current = emptyPending();
@@ -222,50 +287,98 @@ export function VoiceProvider({ children }: { children: React.ReactNode }) {
     (event: NormalizedVoiceEvent) => {
       switch (event.kind) {
         case 'member-speech-started':
-          pendingRef.current.turnEvents.push({ type: 'MEMBER_SPEECH_STARTED', occurredAt: event.occurredAt });
+          pendingRef.current.turnEvents.push({
+            type: 'MEMBER_SPEECH_STARTED',
+            occurredAt: event.occurredAt,
+          });
           dispatch({ type: 'transcript/member-started' });
           break;
         case 'member-speech-stopped':
-          pendingRef.current.turnEvents.push({ type: 'MEMBER_SPEECH_STOPPED', occurredAt: event.occurredAt });
+          pendingRef.current.turnEvents.push({
+            type: 'MEMBER_SPEECH_STOPPED',
+            occurredAt: event.occurredAt,
+          });
           break;
         case 'member-turn-finalized':
           pendingRef.current.turnEvents.push({
-            type: 'MEMBER_TURN_FINALIZED', providerItemId: event.itemId, occurredAt: event.occurredAt,
+            type: 'MEMBER_TURN_FINALIZED',
+            providerItemId: event.itemId,
+            occurredAt: event.occurredAt,
           });
-          pendingRef.current.messages.push({ role: 'USER', content: event.transcript, providerItemId: event.itemId });
-          dispatch({ type: 'transcript/member-finalized', itemId: event.itemId, transcript: event.transcript });
+          pendingRef.current.messages.push({
+            role: 'USER',
+            content: event.transcript,
+            providerItemId: event.itemId,
+          });
+          dispatch({
+            type: 'transcript/member-finalized',
+            itemId: event.itemId,
+            transcript: event.transcript,
+          });
           void flush();
           break;
         case 'steward-response-started':
-          pendingRef.current.turnEvents.push({ type: 'STEWARD_RESPONSE_STARTED', providerItemId: event.responseId, occurredAt: event.occurredAt });
+          pendingRef.current.turnEvents.push({
+            type: 'STEWARD_RESPONSE_STARTED',
+            providerItemId: event.responseId,
+            occurredAt: event.occurredAt,
+          });
           dispatch({ type: 'transcript/steward-started', responseId: event.responseId });
           break;
         case 'steward-transcript-delta':
-          dispatch({ type: 'transcript/steward-delta', responseId: event.responseId, delta: event.delta });
+          dispatch({
+            type: 'transcript/steward-delta',
+            responseId: event.responseId,
+            delta: event.delta,
+          });
           break;
         case 'steward-response-completed': {
           const providerItemId = event.itemId ?? event.responseId;
-          pendingRef.current.turnEvents.push({ type: 'STEWARD_RESPONSE_COMPLETED', providerItemId, occurredAt: event.occurredAt });
+          pendingRef.current.turnEvents.push({
+            type: 'STEWARD_RESPONSE_COMPLETED',
+            providerItemId,
+            occurredAt: event.occurredAt,
+          });
           pendingRef.current.messages.push({
-            role: 'ASSISTANT', content: event.transcript, providerItemId, completionStatus: 'COMPLETE',
+            role: 'ASSISTANT',
+            content: event.transcript,
+            providerItemId,
+            completionStatus: 'COMPLETE',
           });
           if (event.usage) {
             pendingRef.current.usage.push({ providerItemId, ...event.usage });
           }
-          dispatch({ type: 'transcript/steward-resolved', responseId: event.responseId, transcript: event.transcript, interrupted: false });
+          dispatch({
+            type: 'transcript/steward-resolved',
+            responseId: event.responseId,
+            transcript: event.transcript,
+            interrupted: false,
+          });
           void flush();
           break;
         }
         case 'steward-response-interrupted': {
           const providerItemId = event.itemId ?? event.responseId;
-          pendingRef.current.turnEvents.push({ type: 'STEWARD_RESPONSE_INTERRUPTED', providerItemId, occurredAt: event.occurredAt });
+          pendingRef.current.turnEvents.push({
+            type: 'STEWARD_RESPONSE_INTERRUPTED',
+            providerItemId,
+            occurredAt: event.occurredAt,
+          });
           pendingRef.current.messages.push({
-            role: 'ASSISTANT', content: event.transcript, providerItemId, completionStatus: 'INTERRUPTED',
+            role: 'ASSISTANT',
+            content: event.transcript,
+            providerItemId,
+            completionStatus: 'INTERRUPTED',
           });
           if (event.usage) {
             pendingRef.current.usage.push({ providerItemId, ...event.usage });
           }
-          dispatch({ type: 'transcript/steward-resolved', responseId: event.responseId, transcript: event.transcript, interrupted: true });
+          dispatch({
+            type: 'transcript/steward-resolved',
+            responseId: event.responseId,
+            transcript: event.transcript,
+            interrupted: true,
+          });
           void flush();
           break;
         }
@@ -276,10 +389,18 @@ export function VoiceProvider({ children }: { children: React.ReactNode }) {
           // the request and, once told the result, reports it back to
           // the provider. No backend involvement: the client-to-provider
           // data channel is the only party in this exchange.
-          dispatch({ type: 'tool-call/requested', callId: event.callId, name: event.name, arguments: event.arguments });
+          dispatch({
+            type: 'tool-call/requested',
+            callId: event.callId,
+            name: event.name,
+            arguments: event.arguments,
+          });
           break;
         case 'provider-error':
-          dispatch({ type: 'error/set', error: { kind: 'connection', message: event.message, retryable: true } });
+          dispatch({
+            type: 'error/set',
+            error: { kind: 'connection', message: event.message, retryable: true },
+          });
           break;
         default:
           break;
@@ -289,18 +410,22 @@ export function VoiceProvider({ children }: { children: React.ReactNode }) {
   );
 
   const teardown = useCallback(() => {
-    clientRef.current?.disconnect();
+    const client = clientRef.current;
     clientRef.current = null;
     mapperRef.current.reset();
     sessionIdRef.current = null;
     pendingRef.current = emptyPending();
     setRemoteStream(null);
+    client?.disconnect();
   }, []);
 
   const startSession = useCallback(
     async (conversationId?: string) => {
       if (!session.accessToken) {
-        dispatch({ type: 'error/set', error: classifyError(new ApiError(401, 'Sign in required')) });
+        dispatch({
+          type: 'error/set',
+          error: classifyError(new ApiError(401, 'Sign in required')),
+        });
         return;
       }
       dispatch({ type: 'session/connecting' });
@@ -308,23 +433,48 @@ export function VoiceProvider({ children }: { children: React.ReactNode }) {
         const voiceSession = await startVoiceSession(session.accessToken, conversationId);
         sessionIdRef.current = voiceSession.id;
 
-        const client = new VoiceWebRtcClient({
-          onRemoteTrack: (stream) => setRemoteStream(stream),
-          onDataChannelMessage: (raw) => {
-            for (const normalized of mapperRef.current.map(raw)) {
-              handleNormalizedEvent(normalized);
-            }
-          },
-          onConnectionStateChange: (connectionState) => {
-            if (connectionState === 'failed' || connectionState === 'closed') {
-              dispatch({ type: 'error/set', error: { kind: 'connection', message: 'The voice connection was lost.', retryable: true } });
-            }
-          },
-        });
+        const connectionLost = () => {
+          // Expected closes happen during teardown. They must not replace a
+          // more useful error (such as microphone permission denied) or make
+          // an intentionally ended session look like a failure.
+          if (!sessionIdRef.current) return;
+          dispatch({
+            type: 'error/set',
+            error: {
+              kind: 'connection',
+              message: 'The voice connection was lost.',
+              retryable: true,
+            },
+          });
+        };
+        const client: VoiceRealtimeClient =
+          voiceSession.transport === 'gemini-live-websocket'
+            ? new GeminiLiveClient({
+                onEvent: handleNormalizedEvent,
+                onConnectionStateChange: (connectionState) => {
+                  if (connectionState === 'failed' || connectionState === 'closed')
+                    connectionLost();
+                },
+              })
+            : new VoiceWebRtcClient({
+                onRemoteTrack: (stream) => setRemoteStream(stream),
+                onDataChannelMessage: (raw) => {
+                  for (const normalized of mapperRef.current.map(raw))
+                    handleNormalizedEvent(normalized);
+                },
+                onConnectionStateChange: (connectionState) => {
+                  if (connectionState === 'failed' || connectionState === 'closed')
+                    connectionLost();
+                },
+              });
         clientRef.current = client;
 
-        await client.connect(voiceSession.clientSecret, voiceSession.model);
-        dispatch({ type: 'session/connected', sessionId: voiceSession.id, conversationId: voiceSession.conversationId });
+        await client.connect(voiceSession.clientSecret, voiceSession.model, voiceSession.voice);
+        dispatch({
+          type: 'session/connected',
+          sessionId: voiceSession.id,
+          conversationId: voiceSession.conversationId,
+        });
       } catch (error) {
         teardown();
         dispatch({ type: 'error/set', error: classifyError(error) });
@@ -360,19 +510,12 @@ export function VoiceProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const resolveToolCall = useCallback((callId: string, output: Record<string, unknown>) => {
-    clientRef.current?.sendEvent({
-      type: 'conversation.item.create',
-      item: { type: 'function_call_output', call_id: callId, output: JSON.stringify(output) },
-    });
-    clientRef.current?.sendEvent({ type: 'response.create' });
+    clientRef.current?.resolveToolCall(callId, output);
     dispatch({ type: 'tool-call/resolved', callId });
   }, []);
 
   const syncInterfaceContext = useCallback((summary: string) => {
-    clientRef.current?.sendEvent({
-      type: 'conversation.item.create',
-      item: { type: 'message', role: 'system', content: [{ type: 'input_text', text: summary }] },
-    });
+    clientRef.current?.syncInterfaceContext(summary);
   }, []);
 
   const clearError = useCallback(() => {
@@ -391,7 +534,17 @@ export function VoiceProvider({ children }: { children: React.ReactNode }) {
       syncInterfaceContext,
       clearError,
     }),
-    [state, remoteStream, startSession, endSession, setMuted, interrupt, resolveToolCall, syncInterfaceContext, clearError],
+    [
+      state,
+      remoteStream,
+      startSession,
+      endSession,
+      setMuted,
+      interrupt,
+      resolveToolCall,
+      syncInterfaceContext,
+      clearError,
+    ],
   );
 
   return <VoiceContext.Provider value={value}>{children}</VoiceContext.Provider>;
