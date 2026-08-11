@@ -27,6 +27,7 @@ describe('verifyEnv (PD-002)', () => {
       ...validBaseEnv,
       NODE_ENV: 'production',
       AI_PROVIDER: 'openai',
+      VOICE_PROVIDER: 'openai',
     });
 
     expect(ok).toBe(false);
@@ -42,6 +43,8 @@ describe('verifyEnv (PD-002)', () => {
       CORS_ORIGIN: 'https://app.aureus.example',
       SMTP_HOST: 'smtp.example.com',
       AI_PROVIDER: 'stub',
+      VOICE_PROVIDER: 'openai',
+      OPENAI_API_KEY: 'test-key',
     });
 
     expect(ok).toBe(false);
@@ -56,10 +59,26 @@ describe('verifyEnv (PD-002)', () => {
       SMTP_HOST: 'smtp.example.com',
       AI_PROVIDER: 'openai',
       OPENAI_API_KEY: 'test-key',
+      VOICE_PROVIDER: 'openai',
     });
 
     expect(errors).toEqual([]);
     expect(ok).toBe(true);
+  });
+
+  it('rejects a production voice provider whose matching key is absent', () => {
+    const { ok, errors } = verifyEnv({
+      ...validBaseEnv,
+      NODE_ENV: 'production',
+      CORS_ORIGIN: 'https://app.aureus.example',
+      SMTP_HOST: 'smtp.example.com',
+      AI_PROVIDER: 'anthropic',
+      ANTHROPIC_API_KEY: 'test-anthropic-key',
+      VOICE_PROVIDER: 'gemini',
+    });
+
+    expect(ok).toBe(false);
+    expect(errors.some((e) => e.includes('GEMINI_API_KEY'))).toBe(true);
   });
 
   it('treats docker-compose-style empty-string values the same as unset', () => {
