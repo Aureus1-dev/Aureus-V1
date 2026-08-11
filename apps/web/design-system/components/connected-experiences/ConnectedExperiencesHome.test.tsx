@@ -22,25 +22,43 @@ const mockedActivity = stewardActivityApi as jest.Mocked<typeof stewardActivityA
 
 const catalog: ProviderCatalogItemDto[] = [
   {
-    providerType: 'GMAIL', displayName: 'Gmail', category: 'EMAIL',
+    providerType: 'GMAIL',
+    displayName: 'Gmail',
+    category: 'EMAIL',
     whatAureusCanAccess: 'Read access to messages you choose to share.',
     whyItsNeeded: 'So your Steward can notice things that matter.',
-    whatTheAiStewardCanDo: 'Point out relevant messages. It will never send an email on your behalf.',
+    whatTheAiStewardCanDo:
+      'Point out relevant messages. It will never send an email on your behalf.',
     connectionState: 'COMING_SOON',
   },
 ];
 
 const document: DocumentDto = {
-  id: 'doc-1', documentRef: 'AUR-DOC-000001', userId: 'member-1', title: 'Lease Agreement',
-  originalFilename: 'lease.pdf', mimeType: 'application/pdf', sizeBytes: 2048, storageRef: 'local://lease.pdf',
-  category: 'LEASE', extractedText: 'Lease term: 12 months. Rent: $1500/mo.', aiSummary: null,
-  aiSummaryGeneratedAt: null, uploadedAt: 'x', updatedAt: 'x',
+  id: 'doc-1',
+  documentRef: 'AUR-DOC-000001',
+  userId: 'member-1',
+  title: 'Lease Agreement',
+  originalFilename: 'lease.pdf',
+  mimeType: 'application/pdf',
+  sizeBytes: 2048,
+  storageRef: 'local://lease.pdf',
+  category: 'LEASE',
+  extractedText: 'Lease term: 12 months. Rent: $1500/mo.',
+  aiSummary: null,
+  aiSummaryGeneratedAt: null,
+  uploadedAt: 'x',
+  updatedAt: 'x',
 };
 
 function SignedInAs({ children }: { children: React.ReactNode }) {
   const { setSession, session } = useSession();
   if (!session.isAuthenticated) {
-    setSession({ ...session, isAuthenticated: true, accessToken: 'token-123', memberId: 'member-1' });
+    setSession({
+      ...session,
+      isAuthenticated: true,
+      accessToken: 'token-123',
+      memberId: 'member-1',
+    });
   }
   return <>{children}</>;
 }
@@ -61,8 +79,20 @@ describe('ConnectedExperiencesHome', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockedAccounts.listConnectedProviders.mockResolvedValue(catalog);
-    mockedDocuments.listDocuments.mockResolvedValue({ data: [], total: 0, page: 1, limit: 20, totalPages: 0 });
-    mockedActivity.listStewardActivity.mockResolvedValue({ data: [], total: 0, page: 1, limit: 20, totalPages: 0 });
+    mockedDocuments.listDocuments.mockResolvedValue({
+      data: [],
+      total: 0,
+      page: 1,
+      limit: 20,
+      totalPages: 0,
+    });
+    mockedActivity.listStewardActivity.mockResolvedValue({
+      data: [],
+      total: 0,
+      page: 1,
+      limit: 20,
+      totalPages: 0,
+    });
   });
 
   it('asks a signed-out visitor to sign in', () => {
@@ -77,25 +107,22 @@ describe('ConnectedExperiencesHome', () => {
   });
 
   it(
-    "lets a member accomplish the Domain's primary purpose end-to-end: attempt to connect a provider and see an " +
-      'honest Coming Soon status logged to their activity trail, and separately upload, summarize, and delete a ' +
-      'document — never a fabricated connection, always real document handling',
+    "lets a member accomplish the Domain's primary purpose end-to-end: a coming-soon provider is visibly " +
+      'unavailable, while document upload, summary, and deletion remain real and operable',
     async () => {
-      mockedAccounts.connectProvider.mockResolvedValue({
-        providerType: 'GMAIL', status: 'COMING_SOON',
-        message: 'Coming Soon: the architecture for connecting Gmail is complete.',
-      });
       mockedDocuments.uploadDocument.mockResolvedValue(document);
-      mockedDocuments.summarizeDocument.mockResolvedValue({ ...document, aiSummary: 'A 12-month lease at $1500/mo.' });
+      mockedDocuments.summarizeDocument.mockResolvedValue({
+        ...document,
+        aiSummary: 'A 12-month lease at $1500/mo.',
+      });
       mockedDocuments.deleteDocument.mockResolvedValue(undefined);
 
       renderHome();
 
-      // Connected Accounts tab — attempt to connect Gmail, get an honest Coming Soon.
+      // Connected Accounts tab — Coming Soon is information, never a fake action.
       expect(await screen.findByText('Gmail')).toBeInTheDocument();
-      await userEvent.click(screen.getByRole('button', { name: 'Connect' }));
-      expect(mockedAccounts.connectProvider).toHaveBeenCalledWith('token-123', 'GMAIL');
-      expect(await screen.findByText(/Coming Soon: the architecture for connecting Gmail is complete\./)).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Not available yet' })).toBeDisabled();
+      expect(mockedAccounts.connectProvider).not.toHaveBeenCalled();
       expect(screen.queryByRole('button', { name: 'Revoke access' })).not.toBeInTheDocument();
 
       // Documents tab — upload, summarize, and delete a real document.
