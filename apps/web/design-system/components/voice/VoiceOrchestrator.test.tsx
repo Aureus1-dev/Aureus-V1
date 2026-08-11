@@ -2,11 +2,17 @@ import { act, render, screen } from '@testing-library/react';
 import { useEffect } from 'react';
 import { SessionProvider, useSession } from '../../../state/session/SessionContext';
 import { VoiceProvider, useVoice } from '../../../state/voice/VoiceContext';
-import { HighlightRegistryProvider, useRegisterHighlightTarget } from '../../../state/highlight/HighlightRegistryContext';
+import {
+  HighlightRegistryProvider,
+  useRegisterHighlightTarget,
+} from '../../../state/highlight/HighlightRegistryContext';
 import { InterfaceProvider, useInterfaceState } from '../../../state/interface/InterfaceContext';
 import { VoiceOrchestrator } from './VoiceOrchestrator';
 import * as voiceApi from '../../../lib/api/voice';
-import { VoiceWebRtcClient, type VoiceWebRtcClientCallbacks } from '../../../lib/voice/webrtc-client';
+import {
+  VoiceWebRtcClient,
+  type VoiceWebRtcClientCallbacks,
+} from '../../../lib/voice/webrtc-client';
 
 jest.mock('../../../lib/api/voice');
 jest.mock('../../../lib/voice/webrtc-client');
@@ -20,7 +26,12 @@ const MockedClient = VoiceWebRtcClient as jest.MockedClass<typeof VoiceWebRtcCli
 function SignedInAs({ children }: { children: React.ReactNode }) {
   const { setSession, session } = useSession();
   if (!session.isAuthenticated) {
-    setSession({ ...session, isAuthenticated: true, accessToken: 'token-123', memberId: 'member-1' });
+    setSession({
+      ...session,
+      isAuthenticated: true,
+      accessToken: 'token-123',
+      memberId: 'member-1',
+    });
   }
   return <>{children}</>;
 }
@@ -92,8 +103,17 @@ describe('VoiceOrchestrator', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockedApi.startVoiceSession.mockResolvedValue({
-      id: 'vs-1', conversationId: 'conv-1', clientSecret: 'secret', expiresAt: 'x',
-      model: 'gpt-4o-realtime-preview', voice: 'alloy', turnDetectionMode: 'semantic_vad', startedAt: 'x', endedAt: null,
+      id: 'vs-1',
+      conversationId: 'conv-1',
+      clientSecret: 'secret',
+      expiresAt: 'x',
+      model: 'gpt-4o-realtime-preview',
+      voice: 'alloy',
+      provider: 'OPENAI',
+      transport: 'openai-webrtc',
+      turnDetectionMode: 'semantic_vad',
+      startedAt: 'x',
+      endedAt: null,
     });
     mockedApi.syncVoiceEvents.mockResolvedValue({ messages: [], turnEvents: [] });
   });
@@ -104,11 +124,7 @@ describe('VoiceOrchestrator', () => {
     requestToolCall('navigate_to_route', { route: 'journey' });
 
     expect(push).toHaveBeenCalledWith('/journey');
-    expect(MockedClient.prototype.sendEvent).toHaveBeenCalledWith({
-      type: 'conversation.item.create',
-      item: { type: 'function_call_output', call_id: 'call-1', output: JSON.stringify({ ok: true }) },
-    });
-    expect(MockedClient.prototype.sendEvent).toHaveBeenCalledWith({ type: 'response.create' });
+    expect(MockedClient.prototype.resolveToolCall).toHaveBeenCalledWith('call-1', { ok: true });
   });
 
   it('rejects a route outside the approved allow-list without navigating, even if the model somehow requests one', async () => {
@@ -117,10 +133,10 @@ describe('VoiceOrchestrator', () => {
     requestToolCall('navigate_to_route', { route: 'admin-panel' });
 
     expect(push).not.toHaveBeenCalled();
-    expect(MockedClient.prototype.sendEvent).toHaveBeenCalledWith({
-      type: 'conversation.item.create',
-      item: { type: 'function_call_output', call_id: 'call-1', output: expect.stringContaining('"ok":false') },
-    });
+    expect(MockedClient.prototype.resolveToolCall).toHaveBeenCalledWith(
+      'call-1',
+      expect.objectContaining({ ok: false }),
+    );
   });
 
   it('highlights a registered target for focus_interface_target and reports success', async () => {
@@ -129,10 +145,7 @@ describe('VoiceOrchestrator', () => {
     requestToolCall('focus_interface_target', { targetId: 'Home.NextMission' });
 
     expect(screen.getByText('Your next mission')).toHaveAttribute('data-active', 'true');
-    expect(MockedClient.prototype.sendEvent).toHaveBeenCalledWith({
-      type: 'conversation.item.create',
-      item: { type: 'function_call_output', call_id: 'call-1', output: JSON.stringify({ ok: true }) },
-    });
+    expect(MockedClient.prototype.resolveToolCall).toHaveBeenCalledWith('call-1', { ok: true });
   });
 
   it('reports failure, without throwing, when asked to highlight a target that is not currently registered', async () => {
@@ -140,10 +153,10 @@ describe('VoiceOrchestrator', () => {
 
     requestToolCall('focus_interface_target', { targetId: 'Nonexistent.Target' });
 
-    expect(MockedClient.prototype.sendEvent).toHaveBeenCalledWith({
-      type: 'conversation.item.create',
-      item: { type: 'function_call_output', call_id: 'call-1', output: expect.stringContaining('"ok":false') },
-    });
+    expect(MockedClient.prototype.resolveToolCall).toHaveBeenCalledWith(
+      'call-1',
+      expect.objectContaining({ ok: false }),
+    );
   });
 
   it('reports failure for an unrecognized tool name rather than crashing', async () => {
@@ -151,10 +164,13 @@ describe('VoiceOrchestrator', () => {
 
     requestToolCall('delete_everything', {});
 
-    expect(MockedClient.prototype.sendEvent).toHaveBeenCalledWith({
-      type: 'conversation.item.create',
-      item: { type: 'function_call_output', call_id: 'call-1', output: expect.stringContaining('not a recognized tool') },
-    });
+    expect(MockedClient.prototype.resolveToolCall).toHaveBeenCalledWith(
+      'call-1',
+      expect.objectContaining({
+        ok: false,
+        error: expect.stringContaining('not a recognized tool'),
+      }),
+    );
   });
 
   it('reports failure gracefully for malformed tool call arguments', async () => {
@@ -167,15 +183,22 @@ describe('VoiceOrchestrator', () => {
         response: {
           id: 'resp-1',
           status: 'completed',
-          output: [{ type: 'function_call', call_id: 'call-1', name: 'navigate_to_route', arguments: '{not valid json' }],
+          output: [
+            {
+              type: 'function_call',
+              call_id: 'call-1',
+              name: 'navigate_to_route',
+              arguments: '{not valid json',
+            },
+          ],
         },
       });
     });
 
-    expect(MockedClient.prototype.sendEvent).toHaveBeenCalledWith({
-      type: 'conversation.item.create',
-      item: { type: 'function_call_output', call_id: 'call-1', output: expect.stringContaining('Could not parse') },
-    });
+    expect(MockedClient.prototype.resolveToolCall).toHaveBeenCalledWith(
+      'call-1',
+      expect.objectContaining({ ok: false, error: expect.stringContaining('Could not parse') }),
+    );
   });
 
   it('opens an approved panel for open_panel and reports success', async () => {
@@ -184,10 +207,7 @@ describe('VoiceOrchestrator', () => {
     requestToolCall('open_panel', { panelId: 'steward-workspace' });
 
     expect(screen.getByTestId('open-panels')).toHaveTextContent('steward-workspace');
-    expect(MockedClient.prototype.sendEvent).toHaveBeenCalledWith({
-      type: 'conversation.item.create',
-      item: { type: 'function_call_output', call_id: 'call-1', output: JSON.stringify({ ok: true }) },
-    });
+    expect(MockedClient.prototype.resolveToolCall).toHaveBeenCalledWith('call-1', { ok: true });
   });
 
   it('closes a panel for close_panel', async () => {
