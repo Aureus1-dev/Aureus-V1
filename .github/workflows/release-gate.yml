@@ -1,0 +1,48 @@
+name: Founder Release Gate
+
+on:
+  workflow_dispatch:
+    inputs:
+      web_origin:
+        description: Exact deployed web origin
+        required: true
+        default: https://aureus-v1.onrender.com
+      api_origin:
+        description: Exact deployed API origin
+        required: true
+        default: https://aureus-k2c3.onrender.com
+      require_voice:
+        description: Require a real voice-provider brokerage check
+        required: true
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+jobs:
+  deployed-system-gate:
+    name: Exact Deployment Canary
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Run deployed release gate
+        shell: bash
+        env:
+          RELEASE_WEB_ORIGIN: ${{ inputs.web_origin }}
+          RELEASE_API_ORIGIN: ${{ inputs.api_origin }}
+          RELEASE_REQUIRE_VOICE: ${{ inputs.require_voice }}
+          RELEASE_COMMIT_SHA: ${{ github.sha }}
+        run: |
+          set -o pipefail
+          node scripts/release-gate.mjs | tee founder-release-evidence.json
+      - name: Preserve release evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: founder-release-evidence-${{ github.sha }}
+          path: founder-release-evidence.json
+          if-no-files-found: error
