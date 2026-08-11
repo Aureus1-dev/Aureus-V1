@@ -5,7 +5,6 @@ import { useConversation, useSession, useVoice } from '../../../state';
 import { EmptyState } from '../EmptyState/EmptyState';
 import { ErrorState } from '../ErrorState/ErrorState';
 import { Button } from '../Button/Button';
-import { VoiceOrb } from './VoiceOrb';
 import { VoiceStateLabel } from './VoiceStateLabel';
 import { LiveTranscript } from './LiveTranscript';
 import { VoiceControls } from './VoiceControls';
@@ -19,11 +18,9 @@ export interface VoiceSurfaceProps {
 }
 
 /**
- * The Voice Domain surface (AFX-003, DOMAIN-003). Voice and text share
- * one canonical conversation (DOMAIN-002) — this component only ever
- * attaches to `conversationId`, and on close, refreshes the text
- * surface's message cache so the two views stay in sync (text ↔ voice
- * continuity).
+ * The Voice Domain surface. Voice and text share one canonical conversation.
+ * The persistent Living Hall is the visual presence; voice does not introduce
+ * a second mascot, orb, avatar, or glowing object that competes with the room.
  */
 export function VoiceSurface({ conversationId, onClose }: VoiceSurfaceProps) {
   const { session } = useSession();
@@ -35,9 +32,9 @@ export function VoiceSurface({ conversationId, onClose }: VoiceSurfaceProps) {
     if (audioRef.current && remoteStream) {
       audioRef.current.srcObject = remoteStream;
       void audioRef.current.play().catch(() => {
-        // Autoplay may be blocked until further user interaction; the
-        // member has already taken an explicit action to start this
-        // session, so no further prompt is needed here.
+        // Autoplay may be blocked until further user interaction. The member
+        // already chose to start voice, so the controls remain available and
+        // no fake success state is shown.
       });
     }
   }, [remoteStream]);
@@ -102,7 +99,6 @@ export function VoiceSurface({ conversationId, onClose }: VoiceSurfaceProps) {
         />
       ) : (
         <>
-          <VoiceOrb turnState={state.turnState} />
           <VoiceStateLabel turnState={state.turnState} />
           <LiveTranscript entries={state.transcript} />
           <VoiceControls
