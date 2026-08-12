@@ -17,17 +17,20 @@ describe('LoginForm', () => {
     push.mockClear();
   });
 
-  it('signs in and redirects to /welcome on success', async () => {
+  it('signs in and returns directly to the conversation on success', async () => {
     const login = jest.fn().mockResolvedValue(undefined);
     mockedUseSession.mockReturnValue({ login, establishGuestSession: jest.fn() });
 
     render(<LoginForm />);
+    expect(screen.getByRole('heading', { name: 'Welcome' })).toBeInTheDocument();
+    expect(screen.queryByText('Welcome home')).not.toBeInTheDocument();
     await userEvent.type(screen.getByLabelText('Email', { exact: false }), 'member@example.com');
     await userEvent.type(screen.getByLabelText('Password', { exact: false }), 'Str0ng!Passw0rd');
     await userEvent.click(screen.getByRole('button', { name: 'Sign in' }));
 
     expect(login).toHaveBeenCalledWith('member@example.com', 'Str0ng!Passw0rd');
-    expect(push).toHaveBeenCalledWith('/welcome');
+    expect(push).toHaveBeenCalledWith('/conversation');
+    expect(push).not.toHaveBeenCalledWith('/welcome');
   });
 
   it('shows the backend error message on failed login without redirecting', async () => {
