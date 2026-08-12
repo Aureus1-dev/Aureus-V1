@@ -30,7 +30,7 @@ describe('RegisterForm', () => {
     expect(register).not.toHaveBeenCalled();
   });
 
-  it('registers and redirects to /welcome on success', async () => {
+  it('registers and returns directly to the conversation on success', async () => {
     const register = jest.fn().mockResolvedValue(undefined);
     mockedUseSession.mockReturnValue({ register, claimAccount: jest.fn(), session: { isGuest: false } });
 
@@ -40,7 +40,8 @@ describe('RegisterForm', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Create account' }));
 
     expect(register).toHaveBeenCalledWith('member@example.com', 'Str0ng!Passw0rd');
-    expect(push).toHaveBeenCalledWith('/welcome');
+    expect(push).toHaveBeenCalledWith('/conversation');
+    expect(push).not.toHaveBeenCalledWith('/welcome');
   });
 
   it('shows the backend error (e.g. email already registered) without redirecting', async () => {

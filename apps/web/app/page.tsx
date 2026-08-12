@@ -29,10 +29,8 @@ import { ApiError } from '../lib/api/errors';
  * both the guest session and the sequence, so a fast network never cuts
  * the arrival experience short, and a slow one never gets stuck on a
  * bare spinner — the sequence's resting frame carries the wait.
- *
- * A visitor whose session expired is deliberately none of the above: see
- * the `sessionExpired` branch below, which exists so a returning member
- * is never silently replaced by a new guest identity.
+ * Expired saved sessions follow the same help-first rule: Aureus opens a
+ * fresh guest conversation without deleting or overwriting the saved account.
  */
 export default function RootPage() {
   const router = useRouter();
@@ -52,20 +50,9 @@ export default function RootPage() {
       return;
     }
 
-    // A session that existed and failed to refresh is NOT a new visitor.
-    // Silently guesting them here hands their browser a brand-new
-    // identity and orphans everything they already built — the goals,
-    // journey and conversations all still exist, attached to a member
-    // they can no longer reach. `AuthGate` has always drawn this
-    // distinction on every other surface; the root page did not, which
-    // made "/" the one door where a returning member could be quietly
-    // replaced by a stranger. Same rule, same destination, same
-    // explanation the rest of the app already gives ("Your session has
-    // ended", rendered by `LoginForm` from `?expired=1`).
-    if (sessionExpired) {
-      router.replace('/login?expired=1');
-      return;
-    }
+    // An expired saved session must not become an account wall. Start a
+    // fresh guest session so help remains immediate; the saved member
+    // account stays available if the visitor later chooses to sign in.
 
     if (attempted.current) return;
     attempted.current = true;
@@ -86,9 +73,8 @@ export default function RootPage() {
           setAtCapacity(true);
           return;
         }
-        // Any other failure (e.g. the API is unreachable) keeps the
-        // existing sign-in fallback rather than stranding the visitor on
-        // a blank screen.
+        // A network failure stays in the Hall with a retry. Login can never
+        // become the price of asking for help.
         setGuestError(true);
       });
     return () => {
@@ -107,15 +93,30 @@ export default function RootPage() {
     if (guestReady && introFinished) router.replace('/conversation');
   }, [guestReady, introFinished, router]);
 
-  // A separate effect, not a render-time call: redirecting during render
-  // triggers React's "Cannot update a component while rendering a
-  // different component" warning, since it updates the router's state
-  // as a side effect of RootPage's own render.
-  useEffect(() => {
-    if (guestError) router.replace('/login');
-  }, [guestError, router]);
-
-  if (guestError || sessionExpired) return null;
+  if (guestError) {
+    return (
+      <ArrivalRoom>
+        <ArrivalStage stepKey="guest-error">
+          <ErrorState
+            title="We couldn't open the conversation"
+            description="Please try again. You do not need an account to ask for help."
+            action={
+              <Button
+                type="button"
+                onClick={() => {
+                  setGuestError(false);
+                  attempted.current = false;
+                  setRetryToken((n) => n + 1);
+                }}
+              >
+                Try again
+              </Button>
+            }
+          />
+        </ArrivalStage>
+      </ArrivalRoom>
+    );
+  }
 
   if (atCapacity) {
     return (

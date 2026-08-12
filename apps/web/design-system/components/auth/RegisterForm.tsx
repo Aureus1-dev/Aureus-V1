@@ -47,7 +47,7 @@ export function RegisterForm() {
         router.push('/conversation');
       } else {
         await register(email, password);
-        router.push('/welcome');
+        router.push('/conversation');
       }
     } catch (caught) {
       setError(authErrorMessage(caught));
