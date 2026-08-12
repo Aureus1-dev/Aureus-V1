@@ -3,11 +3,14 @@ import { axe } from 'jest-axe';
 import { ArrivalScene } from './ArrivalScene';
 
 describe('ArrivalScene', () => {
-  it('opens directly in the living Hall with the working question', () => {
+  it('opens directly in the living Hall without the obsolete entry card', () => {
     render(<ArrivalScene onFinished={jest.fn()} />);
-    expect(screen.getByRole('heading', { name: 'How can we help?' })).toBeInTheDocument();
+
     expect(screen.getByText('Aureus')).toBeInTheDocument();
-    expect(screen.queryByText('Helping people flourish. Forever.')).not.toBeInTheDocument();
+    expect(screen.getByRole('status')).toHaveTextContent('Preparing a private place to begin…');
+    expect(screen.queryByRole('heading', { name: 'How can we help?' })).not.toBeInTheDocument();
+    expect(screen.queryByText('Type here to begin')).not.toBeInTheDocument();
+    expect(screen.queryByText('Send')).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /skip introduction/i })).not.toBeInTheDocument();
   });
 
