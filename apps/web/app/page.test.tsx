@@ -50,7 +50,7 @@ describe('RootPage — Guest Steward mode', () => {
     expect(screen.getByText('How can we help?')).toBeInTheDocument();
   });
 
-  it('sends an already-authenticated visitor (member or guest) to /welcome, unchanged from prior behavior', async () => {
+  it('sends an already-authenticated visitor into the conversational Hall', async () => {
     const establishGuestSession = jest.fn();
     mockedUseSession.mockReturnValue({
       session: { isAuthenticated: true },
@@ -61,7 +61,8 @@ describe('RootPage — Guest Steward mode', () => {
 
     render(<RootPage />);
 
-    await waitFor(() => expect(replace).toHaveBeenCalledWith('/welcome'));
+    await waitFor(() => expect(replace).toHaveBeenCalledWith('/conversation'));
+    expect(replace).not.toHaveBeenCalledWith('/welcome');
     expect(establishGuestSession).not.toHaveBeenCalled();
   });
 
@@ -187,7 +188,9 @@ describe('RootPage — the front door at capacity', () => {
 
   it('explains that traffic is heavy instead of bouncing the visitor to a login wall', async () => {
     const { ApiError } = jest.requireActual('../lib/api/errors');
-    const establishGuestSession = jest.fn().mockRejectedValue(new ApiError(429, 'Too many requests'));
+    const establishGuestSession = jest
+      .fn()
+      .mockRejectedValue(new ApiError(429, 'Too many requests'));
     mockedUseSession.mockReturnValue({
       session: { isAuthenticated: false },
       isRestoring: false,
@@ -234,7 +237,9 @@ describe('RootPage — the front door at capacity', () => {
     });
 
     render(<RootPage />);
-    await waitFor(() => expect(screen.getByRole('button', { name: 'Try again' })).toBeInTheDocument());
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: 'Try again' })).toBeInTheDocument(),
+    );
 
     fireEvent.click(screen.getByRole('button', { name: 'Try again' }));
 

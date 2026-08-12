@@ -237,10 +237,16 @@ export function ConversationSurface({ initialMode = 'text' }: ConversationSurfac
       ) : (
         <>
           {entries.length === 0 && !state.pendingResponse ? (
-            <EmptyState
-              title="How can we help?"
-              description="Tell us what is happening. We’ll take on as much as we responsibly can, and help you see it through."
-            />
+            <>
+              <EmptyState
+                title="How can we help?"
+                description="Tell us what is happening in your own words—by typing or talking. We’ll take on as much as we responsibly can, and help you see it through."
+              />
+              <p className={styles.privacyNotice}>
+                We use what you share to respond. Aureus will ask before taking action or saving
+                anything as lasting memory.
+              </p>
+            </>
           ) : (
             <ConversationTimeline
               entries={entries}
