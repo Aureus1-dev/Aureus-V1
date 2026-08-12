@@ -35,12 +35,19 @@ export class NodemailerEmailService implements IEmailService, OnModuleInit {
         ...(user || pass ? { auth: { user, pass } } : {}),
       });
 
-      // Fail deployment, not a member interaction, when the configured SMTP
-      // endpoint or credentials cannot establish a usable transport. This is
-      // especially important because registration persists the account before
-      // the verification message is delivered.
-      await this.transport.verify();
-      this.logger.log(`Email transport verified: SMTP (${host})`);
+      // Fail a real deployment, not a member interaction, when the configured
+      // SMTP endpoint or credentials cannot establish a usable transport.
+      // Docker liveness smoke tests may explicitly disable this external probe;
+      // production defaults to verification and must opt out deliberately.
+      const verifyOnStartup = this.config.get<boolean>('SMTP_VERIFY_ON_STARTUP', true);
+      if (verifyOnStartup) {
+        await this.transport.verify();
+        this.logger.log(`Email transport verified: SMTP (${host})`);
+      } else {
+        this.logger.warn(
+          'SMTP startup verification is explicitly disabled; transport health remains unverified.',
+        );
+      }
     } else {
       this.transport = nodemailer.createTransport({ jsonTransport: true });
       this.logger.warn(
