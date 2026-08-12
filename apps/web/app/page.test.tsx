@@ -81,7 +81,7 @@ describe('RootPage — Guest Steward mode', () => {
     await waitFor(() => expect(replace).toHaveBeenCalledWith('/conversation'));
   });
 
-  it('falls back to /login if a guest session cannot be established', async () => {
+  it('keeps the Hall open with a retry if a guest session cannot be established', async () => {
     const establishGuestSession = jest.fn().mockRejectedValue(new Error('network down'));
     mockedUseSession.mockReturnValue({
       session: { isAuthenticated: false },
@@ -92,64 +92,30 @@ describe('RootPage — Guest Steward mode', () => {
 
     render(<RootPage />);
 
-    await waitFor(() => expect(replace).toHaveBeenCalledWith('/login'));
+    await waitFor(() =>
+      expect(screen.getByText("We couldn't open the conversation")).toBeInTheDocument(),
+    );
+    expect(replace).not.toHaveBeenCalledWith('/login');
+    expect(screen.getByRole('button', { name: 'Try again' })).toBeInTheDocument();
   });
 });
 
-describe('RootPage — identity continuity for a returning member', () => {
+describe('RootPage — help-first recovery for a returning member', () => {
   beforeEach(() => {
     replace.mockClear();
   });
 
-  /**
-   * The four ways a member comes back to a session that can no longer be
-   * refreshed: the refresh token expired, the browser restored a tab from
-   * a previous run, a second tab already rotated the token, or the browser
-   * was restarted entirely. Every one of them surfaces to the client the
-   * same way — `sessionExpired` — and every one of them must reach the
-   * same place. None may mint a new guest.
-   */
   it.each([
     ['an expired refresh token'],
     ['a restored browser session'],
     ['a second tab that already rotated the token'],
     ['a browser restart'],
-  ])('never creates a new identity after %s — it explains and sends them to sign in', async () => {
+  ])('opens a fresh guest conversation after %s without forcing sign-in', async () => {
     const establishGuestSession = jest.fn().mockResolvedValue(undefined);
     mockedUseSession.mockReturnValue({
       session: { isAuthenticated: false },
       isRestoring: false,
       sessionExpired: true,
-      establishGuestSession,
-    });
-
-    render(<RootPage />);
-
-    await waitFor(() => expect(replace).toHaveBeenCalledWith('/login?expired=1'));
-    // The whole point: no new guest identity is minted, so the member's
-    // existing goals and journey are never orphaned.
-    expect(establishGuestSession).not.toHaveBeenCalled();
-    expect(replace).not.toHaveBeenCalledWith('/conversation');
-  });
-
-  it('does not show the opening sequence to an expired member — that would read as a first arrival', () => {
-    mockedUseSession.mockReturnValue({
-      session: { isAuthenticated: false },
-      isRestoring: false,
-      sessionExpired: true,
-      establishGuestSession: jest.fn(),
-    });
-
-    render(<RootPage />);
-    expect(screen.queryByText('How can we help?')).not.toBeInTheDocument();
-  });
-
-  it('still guests a genuinely new visitor — the expiry guard must not close the front door', async () => {
-    const establishGuestSession = jest.fn().mockResolvedValue(undefined);
-    mockedUseSession.mockReturnValue({
-      session: { isAuthenticated: false },
-      isRestoring: false,
-      sessionExpired: false,
       establishGuestSession,
     });
 
@@ -158,26 +124,43 @@ describe('RootPage — identity continuity for a returning member', () => {
     await waitFor(() => expect(establishGuestSession).toHaveBeenCalled());
     await waitFor(() => expect(replace).toHaveBeenCalledWith('/conversation'));
     expect(replace).not.toHaveBeenCalledWith('/login?expired=1');
+    expect(replace).not.toHaveBeenCalledWith('/welcome');
   });
 
-  it('sends an expired member to sign in rather than waiting on the session to restore', async () => {
+  it('shows the living Hall while an expired session is replaced with a guest session', () => {
+    mockedUseSession.mockReturnValue({
+      session: { isAuthenticated: false },
+      isRestoring: false,
+      sessionExpired: true,
+      establishGuestSession: jest.fn().mockReturnValue(new Promise(() => undefined)),
+    });
+
+    render(<RootPage />);
+    expect(screen.getByText('How can we help?')).toBeInTheDocument();
+    expect(replace).not.toHaveBeenCalledWith('/login?expired=1');
+  });
+
+  it('waits for restoration to finish before opening the fresh guest conversation', async () => {
+    const establishGuestSession = jest.fn().mockResolvedValue(undefined);
     mockedUseSession.mockReturnValue({
       session: { isAuthenticated: false },
       isRestoring: true,
       sessionExpired: true,
-      establishGuestSession: jest.fn(),
+      establishGuestSession,
     });
     const { rerender } = render(<RootPage />);
-    expect(replace).not.toHaveBeenCalled(); // still restoring: decide nothing yet
+    expect(establishGuestSession).not.toHaveBeenCalled();
 
     mockedUseSession.mockReturnValue({
       session: { isAuthenticated: false },
       isRestoring: false,
       sessionExpired: true,
-      establishGuestSession: jest.fn(),
+      establishGuestSession,
     });
     rerender(<RootPage />);
-    await waitFor(() => expect(replace).toHaveBeenCalledWith('/login?expired=1'));
+
+    await waitFor(() => expect(establishGuestSession).toHaveBeenCalled());
+    await waitFor(() => expect(replace).toHaveBeenCalledWith('/conversation'));
   });
 });
 
@@ -209,7 +192,7 @@ describe('RootPage — the front door at capacity', () => {
     expect(screen.getByRole('button', { name: 'Try again' })).toBeInTheDocument();
   });
 
-  it('still falls back to sign-in when the API is unreachable, not merely busy', async () => {
+  it('does not turn an unreachable API into a sign-in requirement', async () => {
     const establishGuestSession = jest.fn().mockRejectedValue(new Error('network down'));
     mockedUseSession.mockReturnValue({
       session: { isAuthenticated: false },
@@ -220,7 +203,10 @@ describe('RootPage — the front door at capacity', () => {
 
     render(<RootPage />);
 
-    await waitFor(() => expect(replace).toHaveBeenCalledWith('/login'));
+    await waitFor(() =>
+      expect(screen.getByText("We couldn't open the conversation")).toBeInTheDocument(),
+    );
+    expect(replace).not.toHaveBeenCalledWith('/login');
   });
 
   it('retries establishing a session when the visitor asks', async () => {
