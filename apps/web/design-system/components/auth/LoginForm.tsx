@@ -29,7 +29,7 @@ export function LoginForm({ sessionExpired = false }: LoginFormProps) {
     setSubmitting(true);
     try {
       await login(email, password);
-      router.push('/welcome');
+      router.push('/conversation');
     } catch (caught) {
       setError(authErrorMessage(caught));
     } finally {
@@ -49,8 +49,8 @@ export function LoginForm({ sessionExpired = false }: LoginFormProps) {
 
   return (
     <AuthLayout
-      title="Welcome home"
-      description="Sign in to continue your conversation with your steward."
+      title="Welcome"
+      description="Sign in to continue a saved conversation."
       footer={
         <>
           <p>
