@@ -5,6 +5,7 @@ import {
   Injectable,
   Logger,
   NotFoundException,
+  ServiceUnavailableException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { AiCapability, AiMessageRole, AiRequestStatus, VoiceSessionEndReason } from '@prisma/client';
@@ -144,7 +145,13 @@ export class VoiceSessionService {
       });
 
       this.logger.error(`Voice session broker failed for user ${caller.id}: ${errorMessage}`);
-      throw new BadRequestException('Unable to start a voice session. Please try again shortly.');
+      // A broker failure is an upstream/provider problem, not a malformed
+      // request (mirrors AiRequestsService.runCompletion's own 503 for the
+      // same class of failure on the text path) — a 400 here previously
+      // left the frontend's classifyError() with no matching branch,
+      // falling through to a generic "Something went wrong" instead of
+      // the clearer, retryable "Voice is temporarily unavailable" copy.
+      throw new ServiceUnavailableException('Voice is temporarily unavailable. Please try again shortly.');
     }
   }
 

@@ -37,7 +37,7 @@ type PaletteOption =
 export function GlobalActionPalette() {
   const router = useRouter();
   const { activate, describeTargets } = useHighlightRegistry();
-  const { openPanel } = useInterfaceState();
+  const { interfaceState, openPanel } = useInterfaceState();
   const conversation = useConversation();
   const [isOpen, setIsOpen] = useState(false);
   const [query, setQuery] = useState('');
@@ -102,7 +102,13 @@ export function GlobalActionPalette() {
       .join(', ');
     const content = query.trim();
     close();
-    openPanel(STEWARD_PANEL_ID);
+    // On the Conversation Room itself, the reply already renders inline in
+    // the full ConversationSurface below — opening the floating workspace
+    // panel there would show the exact same exchange twice, stacked on top
+    // of the surface it duplicates.
+    if (interfaceState.currentSurfaceId !== 'conversation') {
+      openPanel(STEWARD_PANEL_ID);
+    }
     await conversation.sendMessage(interfaceContext || undefined, content);
   }
 

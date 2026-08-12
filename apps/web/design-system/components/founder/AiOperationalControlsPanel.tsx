@@ -208,6 +208,7 @@ export function AiOperationalControlsPanel() {
                     <th scope="col">Cost</th>
                     <th scope="col">Status</th>
                     <th scope="col">When</th>
+                    <th scope="col">Error</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -218,6 +219,7 @@ export function AiOperationalControlsPanel() {
                       <td>${request.costUsd.toFixed(4)}</td>
                       <td>{request.status}</td>
                       <td>{new Date(request.createdAt).toLocaleString()}</td>
+                      <td>{request.errorMessage ?? '—'}</td>
                     </tr>
                   ))}
                 </tbody>

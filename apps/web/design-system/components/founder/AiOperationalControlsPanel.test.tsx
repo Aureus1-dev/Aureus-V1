@@ -108,6 +108,25 @@ describe('AiOperationalControlsPanel', () => {
     expect(screen.getByText('NEXT_BEST_ACTION')).toBeInTheDocument();
   });
 
+  it('shows the stored error message for a FAILED request, so a Founder can diagnose an outage without server log access', async () => {
+    mockedAiConfigApi.getAiOperationalConfig.mockResolvedValue(makeAiConfig());
+    mockedAiRequestsApi.getAiSpendSummary.mockResolvedValue({
+      totalCostUsd: 0, requestCount: 1, failedCount: 1, globalDailyBudgetUsd: 50, emergencyStop: false,
+    });
+    mockedAiRequestsApi.listAllAiRequests.mockResolvedValue({
+      data: [makeRequest({
+        capability: 'VOICE_CONVERSATION', status: 'FAILED',
+        errorMessage: 'OpenAI realtime session broker failed with status 401',
+      })],
+      total: 1, page: 1, limit: 20, totalPages: 1,
+    });
+    mockedMetricsApi.getFounderMetrics.mockResolvedValue(makeMetrics());
+
+    renderPanel();
+
+    expect(await screen.findByText('OpenAI realtime session broker failed with status 401')).toBeInTheDocument();
+  });
+
   it('saves an updated budget ceiling', async () => {
     mockDefaults();
     mockedAiConfigApi.updateAiOperationalConfig.mockResolvedValue(makeAiConfig({ globalDailyBudgetUsd: 100 }));

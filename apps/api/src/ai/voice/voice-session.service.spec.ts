@@ -1,6 +1,6 @@
 import { Test } from '@nestjs/testing';
 import { ConfigService } from '@nestjs/config';
-import { BadRequestException, ForbiddenException, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, NotFoundException, ServiceUnavailableException } from '@nestjs/common';
 import {
   AiCapability,
   AiMessageCompletionStatus,
@@ -238,7 +238,7 @@ describe('VoiceSessionService', () => {
       mockConversationRepo.create.mockResolvedValue(makeConversation());
       mockVoiceProvider.brokerSession.mockRejectedValue(new Error('upstream 500'));
 
-      await expect(service.startSession({}, USER)).rejects.toThrow(BadRequestException);
+      await expect(service.startSession({}, USER)).rejects.toThrow(ServiceUnavailableException);
       expect(mockRequestRepo.create).toHaveBeenCalledWith(expect.objectContaining({ status: AiRequestStatus.FAILED }));
       expect(mockVoiceSessionRepo.create).not.toHaveBeenCalled();
     });

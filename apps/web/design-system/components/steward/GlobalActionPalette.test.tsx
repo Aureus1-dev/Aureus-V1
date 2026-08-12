@@ -37,17 +37,28 @@ function OpenPanelIds() {
   return <div data-testid="open-panels">{interfaceState.openPanelIds.join(',')}</div>;
 }
 
-function renderPalette() {
+function SetCurrentSurface({ id, children }: { id: string; children: React.ReactNode }) {
+  const { interfaceState, setCurrentSurface } = useInterfaceState();
+  if (interfaceState.currentSurfaceId !== id) {
+    setCurrentSurface(id);
+  }
+  return <>{children}</>;
+}
+
+function renderPalette({ surfaceId }: { surfaceId?: string } = {}) {
+  const body = (
+    <SignedInAs>
+      <TargetButton id="Home.NextMission" label="Your next mission" />
+      <OpenPanelIds />
+      <GlobalActionPalette />
+    </SignedInAs>
+  );
   return render(
     <SessionProvider>
       <InterfaceProvider>
         <HighlightRegistryProvider>
           <ConversationProvider>
-            <SignedInAs>
-              <TargetButton id="Home.NextMission" label="Your next mission" />
-              <OpenPanelIds />
-              <GlobalActionPalette />
-            </SignedInAs>
+            {surfaceId ? <SetCurrentSurface id={surfaceId}>{body}</SetCurrentSurface> : body}
           </ConversationProvider>
         </HighlightRegistryProvider>
       </InterfaceProvider>
@@ -163,6 +174,22 @@ describe('GlobalActionPalette', () => {
       expect.stringContaining('Home.NextMission'),
     );
     expect(screen.getByTestId('open-panels')).toHaveTextContent('steward-workspace');
+  });
+
+  it('does not open the floating workspace panel when already on the Conversation Room (would duplicate the full surface)', async () => {
+    mockedApi.createConversation.mockResolvedValue({ id: 'conv-1', userId: 'member-1', title: null, createdAt: 'x', updatedAt: 'x' });
+    mockedApi.sendMessage.mockResolvedValue({
+      id: 'msg-1', conversationId: 'conv-1', role: 'ASSISTANT', content: 'Here is your journey.', createdAt: 'x',
+    });
+
+    renderPalette({ surfaceId: 'conversation' });
+    await userEvent.click(screen.getByRole('button', { name: /Open the command palette/ }));
+    await userEvent.type(screen.getByRole('combobox'), 'take me to my journey please');
+
+    await userEvent.click(screen.getByRole('option', { name: /Ask your Steward/ }));
+
+    expect(mockedApi.sendMessage).toHaveBeenCalled();
+    expect(screen.getByTestId('open-panels')).toHaveTextContent('');
   });
 
   it('has no accessibility violations when open', async () => {
