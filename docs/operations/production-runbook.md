@@ -67,7 +67,7 @@ Recommended in production (defaulted, but the defaults are dev-shaped):
 | `REDIS_URL` | unset → in-memory rate-limit storage | Set once running more than one API replica (PD-002) — see §3 |
 | `DATABASE_POOL_MAX` / `DATABASE_POOL_MIN` | `10` / `0` (the `pg` driver's own defaults) | Size against your Postgres host's `max_connections` (or a pooler in front of it) once running more than one replica (PD-002) |
 | `SENTRY_DSN` | unset → 5xx errors log to stdout only | Set to a real Sentry DSN to also report uncaught 5xx exceptions and fatal bootstrap failures there (Production Stability) |
-| `VOICE_MODEL` / `VOICE_NAME` | `gpt-4o-realtime-preview` / `alloy` | Reuses `OPENAI_API_KEY` above — no separate credential. Override only to pick a different Realtime model/voice preset |
+| `VOICE_MODEL` / `VOICE_NAME` | `gpt-realtime` / `marin` | Reuses `OPENAI_API_KEY` above — no separate credential. This is a Realtime WebRTC session; text-to-speech-only models such as `gpt-4o-mini-tts` are not compatible here |
 
 Optional, one-time only (see §1):
 

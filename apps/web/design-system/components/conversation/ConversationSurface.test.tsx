@@ -121,6 +121,12 @@ describe('ConversationSurface', () => {
   it('shows an empty state before any message has been sent', async () => {
     renderSurface();
     expect(await screen.findByText('How can we help?')).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        /Aureus will ask before taking action or saving anything as lasting memory/i,
+      ),
+    ).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Talk' })).toBeInTheDocument();
   });
 
   it('sends a message end-to-end and displays the exchange', async () => {

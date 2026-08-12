@@ -17,10 +17,10 @@ import { ApiError } from '../lib/api/errors';
 /**
  * Guest Steward mode (Production Execution Order): the first Aureus
  * experience must never require an account. An already-authenticated
- * visitor (member or guest) keeps the prior behavior exactly — sent to
- * `/welcome`, which already knows how to fast-path a returning member
- * to `/home` (B2) versus walk a genuine first-run member through
- * arrival. A visitor with no session at all is the one case that used
+ * visitor (member or guest) enters the same conversation surface as a
+ * newly established guest. Arrival is progressive and conversational:
+ * nobody is diverted into a form before they can ask for help. A visitor
+ * with no session at all is the one case that used
  * to dead-end at a `/login` redirect (AuthGate); that visitor now
  * silently gets a real guest session — no email, no password, no
  * consent wizard — while the Opening Sequence (AUREA-002 Arrival Canon)
@@ -48,7 +48,7 @@ export default function RootPage() {
     if (isRestoring) return;
 
     if (session.isAuthenticated) {
-      router.replace('/welcome');
+      router.replace('/conversation');
       return;
     }
 
@@ -94,7 +94,14 @@ export default function RootPage() {
     return () => {
       cancelled = true;
     };
-  }, [isRestoring, session.isAuthenticated, sessionExpired, establishGuestSession, router, retryToken]);
+  }, [
+    isRestoring,
+    session.isAuthenticated,
+    sessionExpired,
+    establishGuestSession,
+    router,
+    retryToken,
+  ]);
 
   useEffect(() => {
     if (guestReady && introFinished) router.replace('/conversation');
