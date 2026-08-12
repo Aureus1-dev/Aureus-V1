@@ -1,4 +1,5 @@
 import { ConfigService } from '@nestjs/config';
+import { MEMBER_STEWARD_VOICE_SYSTEM_PROMPT } from '../../prompts/member-steward-system-prompt';
 import { OpenAiVoiceProvider } from './openai-voice.provider';
 import type { VoiceSessionBrokerInput } from './voice-provider.interface';
 
@@ -10,7 +11,7 @@ function makeConfig(overrides: Record<string, string> = {}): ConfigService {
 const INPUT: VoiceSessionBrokerInput = {
   model: 'gpt-realtime',
   voice: 'marin',
-  instructions: 'Be a calm Steward.',
+  instructions: 'Legacy platform-only instruction that must not govern live member help.',
   turnDetectionConfig: { type: 'semantic_vad', eagerness: 'low', create_response: true, interrupt_response: true },
   tools: [{ type: 'function', name: 'navigate_to_route', description: 'Navigate.', parameters: {} }],
 };
@@ -23,7 +24,7 @@ describe('OpenAiVoiceProvider', () => {
     jest.restoreAllMocks();
   });
 
-  it('posts to the GA client_secrets endpoint with model/voice/turn_detection nested under session', async () => {
+  it('posts to the GA client_secrets endpoint with governed Member Steward instructions', async () => {
     const fetchMock = jest.fn().mockResolvedValue({
       ok: true,
       json: async () => ({ value: 'ek_123', expires_at: 1735689600, session: { id: 'sess_abc' } }),
@@ -42,7 +43,7 @@ describe('OpenAiVoiceProvider', () => {
       session: {
         type: 'realtime',
         model: INPUT.model,
-        instructions: INPUT.instructions,
+        instructions: MEMBER_STEWARD_VOICE_SYSTEM_PROMPT,
         audio: {
           input: { turn_detection: INPUT.turnDetectionConfig },
           output: { voice: INPUT.voice },
@@ -51,6 +52,9 @@ describe('OpenAiVoiceProvider', () => {
         tool_choice: 'auto',
       },
     });
+    expect(body.session.instructions).toContain('real-life need');
+    expect(body.session.instructions).toContain('money');
+    expect(body.session.instructions).not.toBe(INPUT.instructions);
   });
 
   it('maps the GA response (value/expires_at/session.id) into the provider-neutral broker output', async () => {

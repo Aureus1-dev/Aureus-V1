@@ -3,6 +3,7 @@ import { AiCapability, AiRequestStatus } from '@prisma/client';
 import { AuthenticatedUser } from '../../auth/strategies/jwt.strategy';
 import { hasRole } from '../../auth/utils/has-role.util';
 import { PLATFORM_ADMIN_ROLES } from '../common/ai-roles.util';
+import { MEMBER_STEWARD_SYSTEM_PROMPT } from '../prompts/member-steward-system-prompt';
 import { AI_PROVIDER, AiCompletionMessage, AiToolCallRequest, AiToolDefinition, IAiProvider } from '../providers/ai-provider.interface';
 import { computeCostUsd } from './ai-pricing.util';
 import { AiOperationalConfigService } from './ai-operational-config.service';
@@ -32,13 +33,10 @@ export interface CompletionResult {
 const SPEND_WINDOW_MS = 24 * 60 * 60 * 1000;
 
 /**
- * Unifies "AI request history," "cost tracking," and "audit logging" into
- * one code path (ADR-015 Decision 3, mirroring ADR-014 Decision 7's single
- * completion/certification path): every capability service calls
- * runCompletion() instead of the provider directly, so exactly one
- * AiRequest row is written per provider call regardless of which of the
- * seven capabilities triggered it, and no capability can accidentally skip
- * audit logging or cost tracking.
+ * Unifies AI request history, cost tracking, and audit logging into one
+ * completion path. Member QUESTION_ANSWERING also receives its governing
+ * Member Steward scope here so no caller can accidentally send a real-life
+ * need through the obsolete platform-helpdesk system prompt.
  */
 @Injectable()
 export class AiRequestsService {
@@ -54,9 +52,25 @@ export class AiRequestsService {
     await this.assertWithinBudget(params.userId);
     const startedAt = Date.now();
 
+    // ConversationsService historically supplies PLATFORM_ASSISTANT_SYSTEM_PROMPT
+    // as message zero. That prompt scopes the Steward to explaining Aureus and
+    // explicitly declines ordinary life needs. For member Q&A, replace that
+    // first system instruction at this central audited boundary so text cannot
+    // regress to help-desk behavior even if an older caller still imports it.
+    // Additional system messages (for example visible interface context) are
+    // retained unchanged.
+    const messages =
+      params.capability === AiCapability.QUESTION_ANSWERING
+        ? params.messages.map((message, index) =>
+            index === 0 && message.role === 'system'
+              ? { ...message, content: MEMBER_STEWARD_SYSTEM_PROMPT }
+              : message,
+          )
+        : params.messages;
+
     try {
       const output = await this.provider.complete({
-        messages: params.messages,
+        messages,
         maxTokens: params.maxTokens,
         temperature: params.temperature,
         tools: params.tools,
@@ -100,22 +114,6 @@ export class AiRequestsService {
     }
   }
 
-  /**
-   * AI spend limits, quotas, and emergency budget controls (PR-002, made
-   * live-editable in PR-003). Checked before every provider call so an
-   * over-budget request is refused up front — no provider call is made and
-   * no additional cost is incurred. Reads the DB-backed
-   * `AiOperationalConfig` singleton (env-var-seeded on first read, then
-   * DB-authoritative — see `AiOperationalConfigService`) rather than
-   * `ConfigService` directly, so a Founder-facing toggle takes effect on
-   * the very next request, no restart required.
-   *
-   * Public (not just runCompletion's internal helper) so VoiceSessionService
-   * can apply the exact same pre-flight ceiling check before brokering a
-   * voice session — `sumCostSince` reads AiRequest.costUsd across every
-   * capability, voice's own included, so the two paths already share one
-   * ledger; this just makes voice check it too, not only accrue into it.
-   */
   async assertWithinBudget(userId: string): Promise<void> {
     const opConfig = await this.operationalConfig.getEffective();
 
@@ -166,7 +164,6 @@ export class AiRequestsService {
     return AiRequestResponseDto.fromEntity(request);
   }
 
-  /** Platform-wide AI request audit log (PR-003 Founder Operating System — no per-caller scope). */
   async findAllAdmin(query: ListAiRequestsQueryDto, caller: AuthenticatedUser): Promise<PaginatedAiRequestsResponseDto> {
     if (!hasRole(caller, PLATFORM_ADMIN_ROLES)) {
       throw new ForbiddenException('Only a Platform or System Administrator may view the platform-wide AI request log');
@@ -185,7 +182,6 @@ export class AiRequestsService {
     };
   }
 
-  /** Platform-wide spend summary over the current rolling-24h ceiling window (PR-003 Founder dashboard tile). */
   async getSpendSummary(caller: AuthenticatedUser): Promise<AiSpendSummaryResponseDto> {
     if (!hasRole(caller, PLATFORM_ADMIN_ROLES)) {
       throw new ForbiddenException('Only a Platform or System Administrator may view the platform-wide AI spend summary');
@@ -200,7 +196,6 @@ export class AiRequestsService {
     return AiSpendSummaryResponseDto.fromSummary(summary, opConfig.globalDailyBudgetUsd, opConfig.emergencyStop);
   }
 
-  /** Platform-wide AI spend over the current rolling-24h window, grouped by capability (PR-004 Founder visibility). */
   async getSpendByCapability(caller: AuthenticatedUser): Promise<AiCapabilitySpendResponseDto[]> {
     if (!hasRole(caller, PLATFORM_ADMIN_ROLES)) {
       throw new ForbiddenException('Only a Platform or System Administrator may view AI spend by capability');

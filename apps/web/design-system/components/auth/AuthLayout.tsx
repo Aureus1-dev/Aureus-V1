@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import { LivingHallEnvironment } from '../living-hall/LivingHallEnvironment';
 import styles from './AuthLayout.module.css';
 
 export interface AuthLayoutProps {
@@ -9,13 +10,15 @@ export interface AuthLayoutProps {
 }
 
 /**
- * Shared shell for every pre-authentication screen. Deliberately renders
- * without the member navigation chrome (`AppShell`) — those 20 surfaces
- * are gated behind authentication and would be meaningless to show here.
+ * Shared pre-authentication shell. Navigation chrome stays out of the way,
+ * but the Living Hall does not disappear just because the member is signing
+ * in, registering, verifying email, or recovering access. Authentication is
+ * a doorway into the same place, not a separate generic product surface.
  */
 export function AuthLayout({ title, description, children, footer }: AuthLayoutProps) {
   return (
     <div className={styles.page}>
+      <LivingHallEnvironment room="hall" wakeOnMount />
       <div className={styles.card}>
         <h1 className={styles.title}>{title}</h1>
         {description ? <p className={styles.description}>{description}</p> : null}

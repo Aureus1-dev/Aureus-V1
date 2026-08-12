@@ -6,16 +6,10 @@ import { IEmailService } from './email.service.interface';
 /**
  * SMTP-backed transactional email delivery.
  *
- * When SMTP_HOST is configured, mail is sent through a real SMTP transport
- * (works with any SMTP-speaking provider — SES, SendGrid, Postmark, etc.,
- * per ADR-005 §7's "SES/SendGrid" follow-up note — without binding the
- * codebase to a vendor-specific SDK). When it is not configured in local
- * development or test, nodemailer's own `jsonTransport` is used instead:
- * the real send path still
- * runs end-to-end, but the message is captured rather than handed to a
- * network socket, and is logged for visibility. This is nodemailer's own
- * supported mechanism for exactly this situation, not a hand-rolled
- * stand-in — see nodemailer's transports docs.
+ * Production validates the configured SMTP transport during API startup so
+ * Aureus never waits for a member's registration or password-recovery attempt
+ * to discover that the mail provider cannot authenticate. Development/test
+ * continue to use nodemailer's jsonTransport when SMTP_HOST is absent.
  */
 @Injectable()
 export class NodemailerEmailService implements IEmailService, OnModuleInit {
@@ -26,49 +20,69 @@ export class NodemailerEmailService implements IEmailService, OnModuleInit {
 
   constructor(private readonly config: ConfigService) {}
 
-  onModuleInit(): void {
+  async onModuleInit(): Promise<void> {
     const host = this.config.get<string>('SMTP_HOST');
     this.fromAddress = this.config.get<string>('SMTP_FROM_EMAIL', 'no-reply@aureus.app');
     this.frontendUrl = this.config.get<string>('FRONTEND_URL', 'http://localhost:3001');
 
     if (host) {
+      const user = this.config.get<string>('SMTP_USER');
+      const pass = this.config.get<string>('SMTP_PASSWORD');
       this.transport = nodemailer.createTransport({
         host,
         port: this.config.get<number>('SMTP_PORT', 587),
         secure: this.config.get<boolean>('SMTP_SECURE', false),
-        auth: {
-          user: this.config.get<string>('SMTP_USER'),
-          pass: this.config.get<string>('SMTP_PASSWORD'),
-        },
+        ...(user || pass ? { auth: { user, pass } } : {}),
       });
-      this.logger.log(`Email transport: SMTP (${host})`);
+
+      // Fail a real deployment, not a member interaction, when the configured
+      // SMTP endpoint or credentials cannot establish a usable transport.
+      // Docker liveness smoke tests may explicitly disable this external probe;
+      // production defaults to verification and must opt out deliberately.
+      const verifyOnStartup = this.config.get<boolean>('SMTP_VERIFY_ON_STARTUP', true);
+      if (verifyOnStartup) {
+        await this.transport.verify();
+        this.logger.log(`Email transport verified: SMTP (${host})`);
+      } else {
+        this.logger.warn(
+          'SMTP startup verification is explicitly disabled; transport health remains unverified.',
+        );
+      }
     } else {
       this.transport = nodemailer.createTransport({ jsonTransport: true });
       this.logger.warn(
         'SMTP_HOST is not configured — emails will be captured locally, not delivered. ' +
-          'The following features are unavailable until SMTP_HOST/SMTP_PORT/SMTP_USER/SMTP_PASSWORD are set: ' +
-          'email verification links, password-reset links, and the email channel of Communication System ' +
-          'notifications (in-app notifications and every other feature are unaffected). This does not weaken any ' +
-          'security control — accounts still require a verified email to log in; they just have no way to ' +
-          'receive that verification until SMTP is configured.',
+          'Email verification, password-reset delivery, and notification email are unavailable until SMTP is configured.',
       );
     }
   }
 
   async sendEmailVerification(to: string, token: string): Promise<void> {
     const link = `${this.frontendUrl}/verify-email?token=${encodeURIComponent(token)}`;
-    await this.send({
-      to,
-      subject: 'Verify your Aureus account',
-      text: `Welcome to Aureus. Verify your email address by visiting: ${link}\n\nThis link expires in 48 hours.`,
-      html: this.wrapHtml(
-        'Verify your email address',
-        `Welcome to Aureus. Click the button below to verify your email address.`,
-        link,
-        'Verify Email',
-        'This link expires in 48 hours.',
-      ),
-    });
+    try {
+      await this.send({
+        to,
+        subject: 'Verify your Aureus account',
+        text: `Welcome to Aureus. Verify your email address by visiting: ${link}\n\nThis link expires in 48 hours.`,
+        html: this.wrapHtml(
+          'Verify your email address',
+          'Welcome to Aureus. Click the button below to verify your email address.',
+          link,
+          'Verify Email',
+          'This link expires in 48 hours.',
+        ),
+      });
+    } catch (error) {
+      // Registration/guest-claim has already persisted the account before this
+      // call. Throwing here would make the client report that account creation
+      // failed even though it succeeded, and a retry would then collide with
+      // the now-registered email. Preserve the truthful successful account
+      // state and leave the verification token valid for resend/recovery.
+      const message = error instanceof Error ? error.message : String(error);
+      this.logger.error(
+        `Verification email delivery failed for ${to}; the account remains created and the verification token can be resent: ${message}`,
+      );
+    }
   }
 
   async sendPasswordReset(to: string, token: string): Promise<void> {

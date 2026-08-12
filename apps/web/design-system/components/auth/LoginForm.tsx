@@ -37,11 +37,6 @@ export function LoginForm({ sessionExpired = false }: LoginFormProps) {
     }
   }
 
-  // Guest Steward mode: nothing here should be a true dead end,
-  // including for a guest whose own session already lapsed (a guest has
-  // no password to sign back in with). This is the same "How can we
-  // help?" first-touch experience the root landing page offers, reached
-  // from wherever a visitor happened to land on a login wall instead.
   async function handleContinueAsGuest() {
     setContinuingAsGuest(true);
     try {
@@ -54,7 +49,7 @@ export function LoginForm({ sessionExpired = false }: LoginFormProps) {
 
   return (
     <AuthLayout
-      title="Welcome back"
+      title="Welcome home"
       description="Sign in to continue your conversation with your steward."
       footer={
         <>

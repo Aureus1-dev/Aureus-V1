@@ -139,9 +139,9 @@ jobs:
         run: |
           # The image bakes in NODE_ENV=production, so the boot-time Joi
           # validation requires an explicit CORS_ORIGIN and SMTP_HOST here
-          # too (PD-001) — dummy-but-well-formed values are fine, this
-          # smoke test only needs the container to boot and serve /health,
-          # not to actually send email.
+          # too (PD-001). This liveness-only smoke test explicitly disables
+          # the external SMTP probe; real production deployments retain the
+          # fail-fast default and must verify their configured transport.
           #
           # AI_PROVIDER joins them for the same reason: production now
           # refuses to boot on the stub provider, because StubAiProvider
@@ -154,6 +154,7 @@ jobs:
             -e JWT_ACCESS_SECRET="ci-only-secret-do-not-use-in-production-min-32-chars" \
             -e CORS_ORIGIN="http://localhost:3001" \
             -e SMTP_HOST="smtp.example.com" \
+            -e SMTP_VERIFY_ON_STARTUP="false" \
             -e AI_PROVIDER="openai" \
             -e OPENAI_API_KEY="ci-only-not-a-real-key" \
             aureus-api:ci

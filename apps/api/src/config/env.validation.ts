@@ -18,14 +18,8 @@ export const envValidationSchema = Joi.object({
   DATABASE_URL: Joi.string().required(),
   PORT:         Joi.number().default(3000),
   NODE_ENV:     Joi.string().valid('development', 'production', 'test').default('development'),
-  // Swagger/OpenAPI docs are on by default outside production, off by
-  // default in it (main.ts) — this opts back in for a production
-  // deployment that wants the schema public anyway.
   ENABLE_API_DOCS: Joi.boolean().default(false),
 
-  // '*' is fine for local dev/CI; in production it disables credentialed
-  // CORS silently (see main.ts) rather than the operator ever intending
-  // that, so it's rejected outright once NODE_ENV=production.
   CORS_ORIGIN: Joi.string().default('*').when('NODE_ENV', {
     is: 'production',
     then: Joi.string().invalid('*').required().messages({
@@ -34,39 +28,21 @@ export const envValidationSchema = Joi.object({
   }),
 
   // ── Authentication (OAS-SEC-003) ────────────────────────────────────────
-  JWT_ACCESS_SECRET:      Joi.string().min(32).required(),
-  JWT_ACCESS_EXPIRY:      Joi.string().default('15m'),
+  JWT_ACCESS_SECRET:       Joi.string().min(32).required(),
+  JWT_ACCESS_EXPIRY:       Joi.string().default('15m'),
   JWT_REFRESH_EXPIRY_DAYS: Joi.number().default(30),
-
-  // ── Guest Steward mode privacy lifecycle ─────────────────────────────
-  // How long an abandoned guest account (no email/password ever added)
-  // may go without any activity before it, and everything it created —
-  // conversations, stated needs, goals — is permanently deleted, not
-  // merely soft-deleted. "Creating a free account is only to preserve
-  // progress" is the stated principle; a guest who never claims one
-  // should not have their story kept indefinitely by default. Well
-  // under JWT_REFRESH_EXPIRY_DAYS above, so a guest's data is gone
-  // before their own browser-held token would have expired anyway.
   GUEST_SESSION_RETENTION_DAYS: Joi.number().default(7),
 
   // ── Email delivery (ADR-009, hardened PD-001) ────────────────────────────
-  // SMTP is a production launch requirement because login enforces email
-  // verification and password recovery is delivered by email. Without a
-  // real transport, a new member cannot complete the normal account
-  // lifecycle. Development/test retain the local jsonTransport fallback.
-  // .empty('') treats an explicitly-empty-string value the same as an
-  // absent one — docker-compose.yml's `${SMTP_HOST:-}` substitution sets
-  // literally "" rather than omitting the key when the operator hasn't
-  // provided a real value.
-  // .empty('') below on SMTP_PORT/SMTP_SECURE (and OPENAI_MODEL/
-  // ANTHROPIC_MODEL further down) for the same docker-compose.yml
-  // `${VAR:-}` empty-string reason as SMTP_HOST above — an unset value
-  // must fall through to Joi's own .default(), not fail validation outright.
+  // Production authentication requires working verification/password-recovery
+  // email. An app that accepts registration but cannot deliver the next step
+  // is a false-capability state, so production fails closed here.
   SMTP_HOST: Joi.string().empty('').when('NODE_ENV', {
     is: 'production',
     then: Joi.required(),
     otherwise: Joi.optional(),
   }),
+  SMTP_VERIFY_ON_STARTUP: Joi.boolean().empty('').default(true),
   SMTP_PORT:       Joi.number().empty('').default(587),
   SMTP_SECURE:     Joi.boolean().empty('').default(false),
   SMTP_USER:       Joi.string().empty('').optional(),
@@ -75,18 +51,6 @@ export const envValidationSchema = Joi.object({
   FRONTEND_URL:    Joi.string().default('http://localhost:3001'),
 
   // ── AI Intelligence Engine (ADR-015, hardened PD-001) ────────────────────
-  // AI_PROVIDER defaults to 'stub': unset (local dev, CI, this
-  // environment) falls back to a deterministic local completion, never
-  // an external network call. Once a real provider is selected, its own
-  // API key becomes required — previously it stayed optional even then,
-  // silently degrading requests to StubAiProvider (or a runtime provider
-  // resolution error at request time) rather than failing at boot.
-  // 'stub' is rejected once NODE_ENV=production: StubAiProvider returns a
-  // literal "[stub AI response] Acknowledged: ..." string, and with the
-  // Steward's replies rendered straight into arrival, a misconfigured
-  // production deploy would show a member in crisis that placeholder text
-  // where an answer should be. Failing at boot is the only way that is
-  // caught before a person reads it. Mirrors the CORS_ORIGIN rule above.
   AI_PROVIDER: Joi.when('NODE_ENV', {
     is: 'production',
     then: Joi.string().valid('openai', 'anthropic').required().messages({
@@ -95,48 +59,42 @@ export const envValidationSchema = Joi.object({
     }),
     otherwise: Joi.string().valid('openai', 'anthropic', 'stub').default('stub'),
   }),
-  OPENAI_API_KEY: Joi.string().empty('').when('AI_PROVIDER', { is: 'openai', then: Joi.required() }),
+
+  // Voice is currently a launch-enabled V1 feature on both API and web.
+  // Realtime voice has no Anthropic fallback: VoiceProviderModule uses OpenAI
+  // whenever this key is present and otherwise produces a local stub secret.
+  // The browser necessarily sends that ephemeral secret to OpenAI Realtime.
+  // Therefore a production deployment without OPENAI_API_KEY would advertise
+  // a working Talk path, broker a fake secret, and fail only after the member
+  // grants microphone access. Fail at boot instead. If voice is deliberately
+  // removed from launch later, this production requirement should be changed
+  // together with both V1 feature-scope flags rather than silently diverging.
+  OPENAI_API_KEY: Joi.string()
+    .empty('')
+    .when('NODE_ENV', {
+      is: 'production',
+      then: Joi.required().messages({
+        'any.required': 'OPENAI_API_KEY is required in production while V1 voice is enabled.',
+        'string.empty': 'OPENAI_API_KEY is required in production while V1 voice is enabled.',
+      }),
+      otherwise: Joi.optional(),
+    }),
   OPENAI_MODEL:       Joi.string().empty('').default('gpt-5-mini'),
   ANTHROPIC_API_KEY: Joi.string().empty('').when('AI_PROVIDER', { is: 'anthropic', then: Joi.required() }),
   ANTHROPIC_MODEL:    Joi.string().empty('').default('claude-3-5-haiku-20241022'),
 
   // ── Infrastructure (PD-002) ──────────────────────────────────────────────
-  // Optional in every environment: absent, rate limiting falls back to
-  // in-memory storage, which is correct for a single instance and only
-  // becomes wrong once there's more than one API replica (see
-  // RedisThrottlerStorageService for why). Not made production-required
-  // like SMTP/CORS above because a single-instance production
-  // deployment is still a legitimate, fully-correct configuration
-  // without it — main.ts logs a one-time warning instead of failing
-  // boot, since this is a scaling concern, not a broken-on-its-own one.
   REDIS_URL: Joi.string().empty('').optional(),
-  // Prisma's pg Pool — defaults match the `pg` driver's own defaults
-  // (max 10) so an operator who never sets these sees identical
-  // behavior to before this option existed.
   DATABASE_POOL_MAX: Joi.number().empty('').default(10),
   DATABASE_POOL_MIN: Joi.number().empty('').default(0),
-
-  // Error tracking (Production Stability). Optional in every environment —
-  // absent, AllExceptionsFilter still logs every 5xx to stdout as before,
-  // it just never leaves the process. Not made production-required like
-  // SMTP/CORS above: a production deploy without Sentry configured is a
-  // legitimate (if less observable) choice, not a broken one.
   SENTRY_DSN: Joi.string().empty('').optional(),
 
-  // AI spend controls (PR-002/PR-003, Production Environment Variable
-  // Audit). These three only ever seed AiOperationalConfig's singleton DB
-  // row on first read — see AiOperationalConfigService for why — so a
-  // missing/malformed value here is not boot-fatal in the way OPENAI_API_KEY
-  // is. Added to this schema anyway so a typo (e.g. AI_GLOBAL_DAILY_BUDGET_USD
-  // set to a non-numeric string) fails loudly at boot instead of silently
-  // falling through to ConfigService's own default.
+  // AI spend controls.
   AI_EMERGENCY_STOP:          Joi.boolean().empty('').default(false),
   AI_GLOBAL_DAILY_BUDGET_USD: Joi.number().empty('').default(50),
   AI_USER_DAILY_BUDGET_USD:   Joi.number().empty('').default(2),
 
-  // Voice Domain (ADR-016). Reuses OPENAI_API_KEY above — no separate
-  // credential. Optional in every environment: absent, VoiceSessionService
-  // falls back to these same literal defaults itself.
+  // Voice Domain (ADR-016). Reuses OPENAI_API_KEY above.
   VOICE_MODEL: Joi.string().empty('').default('gpt-realtime'),
   VOICE_NAME:  Joi.string().empty('').default('marin'),
 });
