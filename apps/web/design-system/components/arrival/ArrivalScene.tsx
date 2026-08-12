@@ -10,10 +10,10 @@ export interface ArrivalSceneProps {
 }
 
 /**
- * The front door is already the Hall. The member can see what Aureus is for
- * immediately while the anonymous session is established in the background.
- * No logo, promise, tutorial, countdown, or skip control stands between a
- * person and asking for help.
+ * The front door is already the Hall. While the anonymous session is
+ * established, the person remains in that same place instead of being covered
+ * by a duplicate conversation card. The real conversation surface appears as
+ * soon as it is ready.
  */
 export function ArrivalScene({ onFinished }: ArrivalSceneProps) {
   const finishedRef = useRef(false);
@@ -25,17 +25,12 @@ export function ArrivalScene({ onFinished }: ArrivalSceneProps) {
   }, [onFinished]);
 
   return (
-    <main className={styles.scene} aria-labelledby="arrival-question">
+    <main className={styles.scene} aria-label="Aureus Living Hall">
       <LivingHallEnvironment wakeOnMount />
       <p className={styles.wordmark}>Aureus</p>
-      <section className={styles.entry} aria-label="Begin with Aureus">
-        <h1 id="arrival-question">How can we help?</h1>
-        <div className={styles.previewComposer} aria-hidden="true">
-          <span>Type here to begin</span>
-          <span className={styles.send}>Send</span>
-        </div>
-        <p className={styles.status}>Preparing a private place to begin…</p>
-      </section>
+      <p className={styles.status} role="status">
+        Preparing a private place to begin…
+      </p>
     </main>
   );
 }
