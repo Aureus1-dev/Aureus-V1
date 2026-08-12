@@ -39,6 +39,19 @@ describe('NodemailerEmailService', () => {
       expect(mockVerify).toHaveBeenCalledTimes(1);
     });
 
+    it('allows an explicit liveness-only smoke test to skip the external SMTP probe', async () => {
+      const warnSpy = jest.spyOn(Logger.prototype, 'warn').mockImplementation(() => undefined);
+      const service = new NodemailerEmailService(
+        makeConfig({ SMTP_HOST: 'smtp.example.com', SMTP_VERIFY_ON_STARTUP: false }),
+      );
+
+      await service.onModuleInit();
+
+      expect(mockVerify).not.toHaveBeenCalled();
+      expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('explicitly disabled'));
+      warnSpy.mockRestore();
+    });
+
     it('propagates SMTP verification failure so deployment fails before members hit broken email', async () => {
       mockVerify.mockRejectedValueOnce(new Error('authentication failed'));
       const service = new NodemailerEmailService(makeConfig({ SMTP_HOST: 'smtp.example.com' }));
