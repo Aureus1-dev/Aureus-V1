@@ -1,13 +1,17 @@
 import { Test } from '@nestjs/testing';
 import { ConfigService } from '@nestjs/config';
 import { ForbiddenException } from '@nestjs/common';
-import { UserRole } from '@prisma/client';
-import type { AiOperationalConfig } from '@prisma/client';
+import { AiCapability, UserRole } from '@prisma/client';
+import type { AiCapabilityBudget, AiOperationalConfig } from '@prisma/client';
 import { AiOperationalConfigService } from './ai-operational-config.service';
 import {
   AI_OPERATIONAL_CONFIG_REPOSITORY,
   IAiOperationalConfigRepository,
 } from './repositories/ai-operational-config.repository.interface';
+import {
+  AI_CAPABILITY_BUDGET_REPOSITORY,
+  IAiCapabilityBudgetRepository,
+} from './repositories/ai-capability-budget.repository.interface';
 import type { AuthenticatedUser } from '../../auth/strategies/jwt.strategy';
 
 const NOW = new Date('2026-01-01T00:00:00.000Z');
@@ -19,8 +23,16 @@ const makeConfig = (o: Partial<AiOperationalConfig> = {}): AiOperationalConfig =
   updatedById: null, updatedAt: NOW, ...o,
 });
 
+const makeCapabilityBudget = (o: Partial<AiCapabilityBudget> = {}): AiCapabilityBudget => ({
+  id: 'budget-001', capability: AiCapability.VOICE_CONVERSATION, dailyBudgetUsd: null, dailyRequestLimit: 50,
+  updatedById: null, updatedAt: NOW, ...o,
+});
+
 const mockRepo: jest.Mocked<IAiOperationalConfigRepository> = {
   getOrCreate: jest.fn(), update: jest.fn(),
+};
+const mockCapabilityBudgetRepo: jest.Mocked<IAiCapabilityBudgetRepository> = {
+  findAll: jest.fn(), findByCapability: jest.fn(), upsert: jest.fn(), remove: jest.fn(),
 };
 const mockConfig = {
   get: jest.fn((_key: string, fallback?: unknown) => fallback),
@@ -34,6 +46,7 @@ describe('AiOperationalConfigService', () => {
       providers: [
         AiOperationalConfigService,
         { provide: AI_OPERATIONAL_CONFIG_REPOSITORY, useValue: mockRepo },
+        { provide: AI_CAPABILITY_BUDGET_REPOSITORY, useValue: mockCapabilityBudgetRepo },
         { provide: ConfigService, useValue: mockConfig },
       ],
     }).compile();
@@ -76,6 +89,68 @@ describe('AiOperationalConfigService', () => {
       expect(mockRepo.getOrCreate).toHaveBeenCalled();
       expect(mockRepo.update).toHaveBeenCalledWith({ emergencyStop: true, updatedById: ADMIN.id });
       expect(result.emergencyStop).toBe(true);
+    });
+  });
+
+  describe('getCapabilityBudgets', () => {
+    it('returns every configured per-capability ceiling', async () => {
+      mockCapabilityBudgetRepo.findAll.mockResolvedValue([makeCapabilityBudget()]);
+
+      const result = await service.getCapabilityBudgets();
+
+      expect(result).toHaveLength(1);
+      expect(mockCapabilityBudgetRepo.findAll).toHaveBeenCalled();
+    });
+  });
+
+  describe('getCapabilityBudget', () => {
+    it('returns null when no ceiling is configured for the capability', async () => {
+      mockCapabilityBudgetRepo.findByCapability.mockResolvedValue(null);
+
+      const result = await service.getCapabilityBudget(AiCapability.VOICE_CONVERSATION);
+
+      expect(result).toBeNull();
+      expect(mockCapabilityBudgetRepo.findByCapability).toHaveBeenCalledWith(AiCapability.VOICE_CONVERSATION);
+    });
+  });
+
+  describe('setCapabilityBudget', () => {
+    it('forbids a non-admin caller', async () => {
+      await expect(
+        service.setCapabilityBudget({ capability: AiCapability.VOICE_CONVERSATION, dailyRequestLimit: 50 }, MEMBER),
+      ).rejects.toThrow(ForbiddenException);
+      expect(mockCapabilityBudgetRepo.upsert).not.toHaveBeenCalled();
+    });
+
+    it('upserts the ceiling for an Administrator', async () => {
+      mockCapabilityBudgetRepo.upsert.mockResolvedValue(
+        makeCapabilityBudget({ dailyRequestLimit: 50, updatedById: ADMIN.id }),
+      );
+
+      const result = await service.setCapabilityBudget(
+        { capability: AiCapability.VOICE_CONVERSATION, dailyRequestLimit: 50 },
+        ADMIN,
+      );
+
+      expect(mockCapabilityBudgetRepo.upsert).toHaveBeenCalledWith({
+        capability: AiCapability.VOICE_CONVERSATION,
+        dailyBudgetUsd: null,
+        dailyRequestLimit: 50,
+        updatedById: ADMIN.id,
+      });
+      expect(result.dailyRequestLimit).toBe(50);
+    });
+  });
+
+  describe('removeCapabilityBudget', () => {
+    it('forbids a non-admin caller', async () => {
+      await expect(service.removeCapabilityBudget(AiCapability.VOICE_CONVERSATION, MEMBER)).rejects.toThrow(ForbiddenException);
+      expect(mockCapabilityBudgetRepo.remove).not.toHaveBeenCalled();
+    });
+
+    it('removes the ceiling for an Administrator', async () => {
+      await service.removeCapabilityBudget(AiCapability.VOICE_CONVERSATION, ADMIN);
+      expect(mockCapabilityBudgetRepo.remove).toHaveBeenCalledWith(AiCapability.VOICE_CONVERSATION);
     });
   });
 });

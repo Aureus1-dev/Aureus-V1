@@ -1,18 +1,22 @@
 import { BadRequestException, ConflictException, ForbiddenException, Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { ConversationType, StewardshipRelationshipStatus } from '@prisma/client';
-import type { Conversation } from '@prisma/client';
+import type { Conversation, Message } from '@prisma/client';
 import { AuthenticatedUser } from '../../auth/strategies/jwt.strategy';
 import { hasRole } from '../../auth/utils/has-role.util';
 import { sanitizePlainText } from '../../common/utils/sanitize-text';
 import { PLATFORM_ADMIN_ROLES } from '../common/communication-roles.util';
 import { SendMessageDto } from './dto/send-message.dto';
 import { ListMessagesQueryDto } from './dto/list-messages-query.dto';
+import { ReportMessageDto } from './dto/report-message.dto';
+import { ResolveReportDto } from './dto/resolve-report.dto';
 import { ConversationResponseDto } from './dto/conversation-response.dto';
 import { PaginatedConversationsResponseDto } from './dto/paginated-conversations-response.dto';
 import { MessageResponseDto } from './dto/message-response.dto';
+import { MessageReportResponseDto } from './dto/message-report-response.dto';
 import { PaginatedMessagesResponseDto } from './dto/paginated-messages-response.dto';
 import { CONVERSATION_REPOSITORY, IConversationRepository } from './repositories/conversation.repository.interface';
 import { IMessageRepository, MESSAGE_REPOSITORY } from './repositories/message.repository.interface';
+import { IMessageReportRepository, MESSAGE_REPORT_REPOSITORY } from './repositories/message-report.repository.interface';
 import {
   IStewardshipRelationshipRepository,
   STEWARDSHIP_RELATIONSHIP_REPOSITORY,
@@ -27,6 +31,7 @@ export class ConversationsService {
   constructor(
     @Inject(CONVERSATION_REPOSITORY) private readonly repo: IConversationRepository,
     @Inject(MESSAGE_REPOSITORY) private readonly messageRepo: IMessageRepository,
+    @Inject(MESSAGE_REPORT_REPOSITORY) private readonly reportRepo: IMessageReportRepository,
     @Inject(STEWARDSHIP_RELATIONSHIP_REPOSITORY) private readonly relationshipRepo: IStewardshipRelationshipRepository,
     @Inject(ORGANIZATION_MEMBER_REPOSITORY) private readonly orgMemberRepo: IOrganizationMemberRepository,
   ) {}
@@ -136,6 +141,79 @@ export class ConversationsService {
     await this.assertParticipant(conversationId, caller);
     await this.repo.markRead(conversationId, caller.id, new Date());
     return { success: true };
+  }
+
+  /** PD-008 — a member may remove their own message; a Platform/System Administrator may remove any message in any conversation. */
+  async deleteMessage(conversationId: string, messageId: string, caller: AuthenticatedUser): Promise<MessageResponseDto> {
+    await this.assertParticipant(conversationId, caller);
+    const message = await this.getOwnedMessageOrThrow(conversationId, messageId);
+    if (message.senderId !== caller.id && !hasRole(caller, PLATFORM_ADMIN_ROLES)) {
+      throw new ForbiddenException('You may only delete your own messages');
+    }
+    const deleted = await this.messageRepo.softDelete(message.id, caller.id);
+    return MessageResponseDto.fromEntity(deleted);
+  }
+
+  /**
+   * PD-008 — trusted-caller variant for Pod-Steward moderation
+   * (`PodMessagesService`). No participant/sender check is performed here:
+   * the caller has already verified the acting user is this Pod's Steward
+   * or an Administrator via `PodAuthorizationService` before reaching this
+   * method. Communication does not depend on Pods (one-way dependency,
+   * mirrored from `startPodConversation`'s own comment), so it has no
+   * membership data of its own to re-derive that check — this mirrors the
+   * "internal caller, already authorized upstream" precedent recorded in
+   * PD-001 §4 rather than inventing a new pattern.
+   */
+  async moderatorDeleteMessage(conversationId: string, messageId: string, moderatorId: string): Promise<MessageResponseDto> {
+    const message = await this.getOwnedMessageOrThrow(conversationId, messageId);
+    const deleted = await this.messageRepo.softDelete(message.id, moderatorId);
+    return MessageResponseDto.fromEntity(deleted);
+  }
+
+  /** PD-008 — any participant may report a message (never only the sender's counterpart — reporting one's own conversation, any role). */
+  async reportMessage(
+    conversationId: string, messageId: string, dto: ReportMessageDto, caller: AuthenticatedUser,
+  ): Promise<MessageReportResponseDto> {
+    await this.assertParticipant(conversationId, caller);
+    await this.getOwnedMessageOrThrow(conversationId, messageId);
+    const report = await this.reportRepo.create({
+      messageId, conversationId, reporterId: caller.id, reason: sanitizePlainText(dto.reason),
+    });
+    return MessageReportResponseDto.fromEntity(report);
+  }
+
+  /** PD-008 — platform-wide OPEN moderation queue, every conversation type (Administrator only). */
+  async listReportsForAdmin(caller: AuthenticatedUser): Promise<MessageReportResponseDto[]> {
+    if (!hasRole(caller, PLATFORM_ADMIN_ROLES)) {
+      throw new ForbiddenException('Only a Platform or System Administrator may view the platform-wide moderation queue');
+    }
+    const reports = await this.reportRepo.findOpen();
+    return reports.map(MessageReportResponseDto.fromEntity);
+  }
+
+  /** PD-008 — trusted-caller variant for Pod-Steward moderation, mirroring `moderatorDeleteMessage`'s own precedent. */
+  async findReportsForPod(podId: string): Promise<MessageReportResponseDto[]> {
+    const reports = await this.reportRepo.findOpenByPodId(podId);
+    return reports.map(MessageReportResponseDto.fromEntity);
+  }
+
+  /** PD-008 — resolves or dismisses a report (Administrator only in this increment; see PD-008 follow-up notes for Pod-Steward resolution). */
+  async resolveReport(reportId: string, dto: ResolveReportDto, caller: AuthenticatedUser): Promise<MessageReportResponseDto> {
+    if (!hasRole(caller, PLATFORM_ADMIN_ROLES)) {
+      throw new ForbiddenException('Only a Platform or System Administrator may resolve a moderation report');
+    }
+    const resolved = await this.reportRepo.resolve(reportId, caller.id, dto.status);
+    if (!resolved) throw new NotFoundException(`Report '${reportId}' not found`);
+    return MessageReportResponseDto.fromEntity(resolved);
+  }
+
+  private async getOwnedMessageOrThrow(conversationId: string, messageId: string): Promise<Message> {
+    const message = await this.messageRepo.findById(messageId);
+    if (!message || message.conversationId !== conversationId) {
+      throw new NotFoundException(`Message '${messageId}' not found in this conversation`);
+    }
+    return message;
   }
 
   /** Loads the conversation and enforces participant-only access — the single cross-member/cross-organization isolation checkpoint. */

@@ -9,6 +9,8 @@ export class MessageResponseDto {
   @ApiProperty() body: string;
   @ApiProperty({ enum: MessageStatus }) status: MessageStatus;
   @ApiProperty() createdAt: Date;
+  @ApiProperty({ description: 'PD-008 — true once removed (own delete or steward/admin moderation). Deleted messages are never returned by list endpoints.' })
+  deleted: boolean;
 
   static fromEntity(m: Message): MessageResponseDto {
     const dto = new MessageResponseDto();
@@ -18,6 +20,7 @@ export class MessageResponseDto {
     dto.body = m.body;
     dto.status = m.status;
     dto.createdAt = m.createdAt;
+    dto.deleted = m.deletedAt != null;
     return dto;
   }
 }

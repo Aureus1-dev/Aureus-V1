@@ -165,6 +165,10 @@ Domains are numbered in **recommended implementation order** — PD-001 is the s
 
 ## PD-007 — AI Safety: Content Moderation & Prompt-Injection Defense
 
+**Status: Complete for text-based capabilities.** See `docs/work-orders/PD-007-AI-Safety-Moderation.md` for the full readiness report: a `ModerationService` checks every `user`-role message routed through `AiRequestsService.runCompletion()` (the single choke point every capability already shares), preferring the real OpenAI moderation endpoint when `AI_PROVIDER=openai` and falling back to a deterministic phrase-list check otherwise; prompt-injection mitigation (delimiting + neutralizing override phrases) is applied to the same choke point; a new `AiRequestStatus.MODERATION_BLOCKED` value keeps a block distinct from a normal `SUCCESS`/`FAILED` request in the audit log. **Known limitation, not silently expanded around:** `VoiceSessionService` does not call `runCompletion()` — it writes directly to the AI request repository via its own realtime broker — so this does not yet cover Voice traffic; that remains open, tracked in that report.
+
+**Original scope (for historical record, now delivered per the above):**
+
 **Objective:** Member-supplied text never reaches an AI provider (and provider output never reaches a member) without a safety check.
 
 **Scope:** Confirmed: `ConversationsService.ask()` and `VoiceSessionService` push member input straight into provider prompts with **zero filtering** — no moderation-endpoint call, no profanity/PII scrub, no prompt-injection defense beyond the system prompt's own (unenforced) instructional boundaries (`system-prompts.util.ts`). This is the highest-severity Intelligence Layer finding in this audit: a consumer-facing AI surface with no safety layer at all. This PD: (1) adds a moderation-endpoint call (OpenAI's moderation API, or an equivalent for Anthropic) as a required pre-check before any member text is sent to a completion call, wired through the single `AiRequestsService.runCompletion()` choke point so every capability gets it automatically, (2) adds basic prompt-injection mitigation (e.g., wrapping member content in clearly-delimited untrusted-input blocks, stripping instruction-like patterns aimed at overriding the system prompt), (3) decides and documents a PII-handling policy for AI inputs (likely: don't attempt to strip PII pre-hoc, but ensure retention policy in PD-010 covers it).
@@ -185,6 +189,10 @@ Domains are numbered in **recommended implementation order** — PD-001 is the s
 
 ## PD-008 — Content Moderation & Trust/Safety (Platform-Wide User-Generated Content)
 
+**Status: Complete.** See `docs/work-orders/PD-008-Platform-Wide-Content-Moderation.md` for the full readiness report. Delete + report endpoints and an Administrator moderation queue now exist for every conversation type (Stewardship, Organization, Pod), with a Pod-Steward-scoped delete/queue wrapper matching this PD's own acceptance criterion exactly. Sanitization: PD-001 already covered Pod messages, announcements, notes, and knowledge articles before this PD started (its own scope text below predates that and is stale); this PD additionally closed the remaining Pods-domain gaps (Pod name/description, escalations, requests, invitations, service projects).
+
+**Original scope (for historical record, now delivered per the above):**
+
 **Objective:** Abusive or harmful user-generated content (outside the AI system) can be removed, and stored free-text is not a stored-XSS vector.
 
 **Scope:** Existing "moderation" is limited to steward/admin verification authority over Resources/Organizations/Knowledge/Academy content — a content-quality gate, not an abuse-response mechanism. `PodMessagesController` exposes only `@Post()` — **no delete or report endpoint exists for Pod messages at all**, so abusive content posted in a Pod cannot be removed via the API by anyone, member or admin. No HTML/rich-text sanitization exists anywhere in the backend (`sanitize-html`/`dompurify`/`xss` — zero hits in either `package.json`), so Pod messages, announcements, notes, and knowledge-article bodies are stored and returned as raw free text. This PD: (1) adds delete + report endpoints to `PodMessagesController` with appropriate authorization (own message, or steward/admin), (2) adds a lightweight admin moderation queue for reported content, (3) adds server-side sanitization for all free-text fields that are ever rendered as rich content on the frontend.
@@ -204,6 +212,10 @@ Domains are numbered in **recommended implementation order** — PD-001 is the s
 ---
 
 ## PD-009 — AI Provider Resilience & Cost Governance Maturity
+
+**Status: Complete.** See `docs/work-orders/PD-009-AI-Provider-Resilience.md` for the full readiness report: `OpenAiProvider`/`AnthropicProvider` now retry transient failures (timeout/network error/429/5xx, never a 4xx) with backoff and a per-provider circuit breaker; `FallbackAiProvider` fails over to the secondary provider when both are configured, tried strictly in sequence; a new `AiCapabilityBudget` model adds an independently-configurable per-capability daily dollar and/or request-count ceiling, with the request-count lever specifically enabling Voice (whose `AiRequest` rows always log `costUsd: 0` per ADR-017 Decision 6) to be capped even though a dollar ceiling alone never could. **A related defect found and fixed in the same pass:** `VoiceSessionService` had no integration with the emergency stop or the existing platform-wide/per-user budget ceilings at all — it now calls the same `AiRequestsService.enforceSpendCeilings()` authority the text pipeline already used, closing a real gap rather than leaving it for a later PD. A new diagnostic `GET /health/ai` endpoint reports each configured provider's circuit-breaker state (deliberately outside `/health/ready`, so an AI outage never pulls the whole app from a load balancer's rotation).
+
+**Original scope (for historical record, now delivered per the above):**
 
 **Objective:** A transient provider outage degrades gracefully instead of hard-failing every AI request, and cost governance is proactive rather than purely reactive.
 
@@ -374,20 +386,21 @@ Domains are numbered in **recommended implementation order** — PD-001 is the s
 | PD-004 | ~~Account Security & Auth Hardening~~ (absorbed into PD-001) | ✅ **Complete** (as part of PD-001) | None | Delivered | — |
 | — | ↳ *Remainder of this audit's original PD-005 (CD pipeline + staging + k6 load testing)* | 🔴 Critical | Indirect | Medium (5-6d) | Hosting decision |
 | — | ↳ *Remainder of this audit's original PD-006 (scheduled, provider-managed backup policy)* | 🟠 High | Indirect | Small (1-2d) | Hosting decision |
-| PD-007 | AI Safety: Content Moderation & Prompt-Injection Defense | 🔴 Critical (IL) | **Direct** | Medium (3-5d) | — |
-| PD-008 | Content Moderation & Trust/Safety (Platform-Wide) | 🟠 High | None | Medium (3-5d) | — |
-| PD-009 | AI Provider Resilience & Cost Governance Maturity | 🟠 High | **Direct** | Medium (4-6d) | — |
+| PD-007 | AI Safety: Content Moderation & Prompt-Injection Defense (text capabilities) | ✅ **Complete** | **Direct** | Delivered | — |
+| — | ↳ *Remainder of PD-007 (Voice traffic, which bypasses `AiRequestsService.runCompletion()` via its own realtime broker)* | 🟠 High | **Direct** | Not yet estimated | — |
+| PD-008 | Content Moderation & Trust/Safety (Platform-Wide) | ✅ **Complete** | None | Delivered | — |
+| PD-009 | AI Provider Resilience & Cost Governance Maturity | ✅ **Complete** | **Direct** | Delivered | — |
 | PD-010 | AI Data Retention & Conversation Memory Management | 🟡 Medium | **Direct** | Medium (3-5d) | PD-003 |
-| PD-011 | Intelligence Layer Integration Testing & Prompt Evaluation | 🟡 Medium | **Direct** | Med-Large (5-7d) | PD-009 |
+| PD-011 | Intelligence Layer Integration Testing & Prompt Evaluation | 🟡 Medium | **Direct** | Med-Large (5-7d) | ~~PD-009~~ (done) |
 | PD-012 | Document Storage Backend (Real File Handling) | 🟠 High | Indirect | Large (6-8d) | PD-005 remainder |
 | PD-013 | Frontend Quality, Resilience & Test Coverage | 🟡 Medium | None | Medium (4-6d) | PD-002 remainder |
 | PD-014 | Frontend Domain Completeness | 🟡 Medium | None | Small–Large (varies) | Founder decision (Track A) |
 | PD-015 | Member-Facing Next Best Action Surface | 🟢 Low | **Direct** | Medium (4-5d) | PD-007, PD-011 |
 | PD-016 | Governance Documentation Consolidation | 🟢 Low (ops) / 🟠 High (governance) | None | Not estimable | Founder decision |
 
-**Total estimated engineering effort remaining (excluding delivered PD-001/PD-002/PD-004, non-estimable legal drafting, and PD-016):** approximately **35-51 engineer-days**, sequenced with real dependencies — the PD-002/PD-005 remainders are both gated on a hosting-provider decision the Founder has not yet made; PD-003/007/008/009 have no dependencies on each other and could run concurrently with separate work streams if more than one engineer/session is available.
+**Total estimated engineering effort remaining (excluding delivered PD-001/PD-002/PD-004/PD-007 text-capability scope/PD-008/PD-009, non-estimable legal drafting, and PD-016):** approximately **23-37 engineer-days**, sequenced with real dependencies — the PD-002/PD-005 remainders are both gated on a hosting-provider decision the Founder has not yet made; PD-003 has no dependency on any other remaining PD and could run concurrently with a separate work stream if more than one engineer/session is available; the PD-007 Voice remainder is not yet estimated (see `docs/work-orders/PD-007-AI-Safety-Moderation.md`).
 
-**Critical-path minimum before any real-user production launch:** ~~PD-001~~ (done) → ~~PD-002~~ (done) → PD-003 → PD-005 remainder → PD-006 remainder, plus PD-007 if AI features remain enabled for real users at launch. See `docs/work-orders/PD-002-Production-Infrastructure-Deployment.md` §14 for why a **private beta** is judged ready now, ahead of that full critical path. PD-008, PD-009 through PD-015 materially improve safety/quality/completeness but do not block a first launch to a limited/trusted user set the way the critical-path items do.
+**Critical-path minimum before any real-user production launch:** ~~PD-001~~ (done) → ~~PD-002~~ (done) → PD-003 → PD-005 remainder → PD-006 remainder. ~~PD-007~~ is done for all text-based AI capabilities (Conversations, Insights, Recommendations, Orchestrator, Pod Insights); its Voice-traffic remainder must still land before Voice can be enabled for real users, since Voice bypasses this fix's choke point entirely. ~~PD-008~~ is done. ~~PD-009~~ is done. See `docs/work-orders/PD-002-Production-Infrastructure-Deployment.md` §14 for why a **private beta** is judged ready now, ahead of that full critical path. PD-010 through PD-015 materially improve safety/quality/completeness but do not block a first launch to a limited/trusted user set the way the critical-path items do.
 
 ---
 

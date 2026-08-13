@@ -2,7 +2,10 @@ import { ForbiddenException, Inject, Injectable, Logger, NotFoundException, Serv
 import { AiCapability, AiRequestStatus } from '@prisma/client';
 import { AuthenticatedUser } from '../../auth/strategies/jwt.strategy';
 import { hasRole } from '../../auth/utils/has-role.util';
+import { CRISIS_REDIRECT_MESSAGE } from '../../needs/crisis-detection.util';
 import { PLATFORM_ADMIN_ROLES } from '../common/ai-roles.util';
+import { ModerationService } from '../moderation/moderation.service';
+import { wrapUntrustedUserContent } from '../moderation/prompt-injection.util';
 import { MEMBER_STEWARD_SYSTEM_PROMPT } from '../prompts/member-steward-system-prompt';
 import { AI_PROVIDER, AiCompletionMessage, AiToolCallRequest, AiToolDefinition, IAiProvider } from '../providers/ai-provider.interface';
 import { computeCostUsd } from './ai-pricing.util';
@@ -13,6 +16,8 @@ import { AiCapabilitySpendResponseDto } from './dto/ai-capability-spend-response
 import { ListAiRequestsQueryDto } from './dto/list-ai-requests-query.dto';
 import { PaginatedAiRequestsResponseDto } from './dto/paginated-ai-requests-response.dto';
 import { AI_REQUEST_REPOSITORY, IAiRequestRepository } from './repositories/ai-request.repository.interface';
+
+const MODERATION_REFUSAL_MESSAGE = "I'm not able to help with that. If you'd like, tell me more about what you're actually trying to get done, and I'll do my best to help with that instead.";
 
 export interface RunCompletionParams {
   userId: string;
@@ -46,10 +51,11 @@ export class AiRequestsService {
     @Inject(AI_PROVIDER) private readonly provider: IAiProvider,
     @Inject(AI_REQUEST_REPOSITORY) private readonly repo: IAiRequestRepository,
     private readonly operationalConfig: AiOperationalConfigService,
+    private readonly moderation: ModerationService,
   ) {}
 
   async runCompletion(params: RunCompletionParams): Promise<CompletionResult> {
-    await this.assertWithinBudget(params.userId);
+    await this.assertWithinBudget(params.userId, params.capability);
     const startedAt = Date.now();
 
     // ConversationsService historically supplies PLATFORM_ASSISTANT_SYSTEM_PROMPT
@@ -68,9 +74,16 @@ export class AiRequestsService {
           )
         : params.messages;
 
+    const moderationResult = await this.moderation.checkMessages(messages);
+    if (moderationResult.flagged) {
+      return this.recordModerationBlock(params, moderationResult.categories);
+    }
+
+    const safeMessages = wrapUntrustedUserContent(messages);
+
     try {
       const output = await this.provider.complete({
-        messages,
+        messages: safeMessages,
         maxTokens: params.maxTokens,
         temperature: params.temperature,
         tools: params.tools,
@@ -114,7 +127,31 @@ export class AiRequestsService {
     }
   }
 
-  async assertWithinBudget(userId: string): Promise<void> {
+  private async recordModerationBlock(
+    params: RunCompletionParams, categories: string[],
+  ): Promise<CompletionResult> {
+    const request = await this.repo.create({
+      userId: params.userId,
+      conversationId: params.conversationId,
+      capability: params.capability,
+      provider: this.provider.provider,
+      model: 'moderation-block',
+      promptTokens: 0,
+      completionTokens: 0,
+      costUsd: 0,
+      latencyMs: 0,
+      status: AiRequestStatus.MODERATION_BLOCKED,
+      errorMessage: `Blocked by content moderation: ${categories.join(', ') || 'unspecified'}`,
+    });
+
+    this.logger.warn(`AI request blocked by moderation for capability ${params.capability}: ${categories.join(', ')}`);
+
+    const isSelfHarm = categories.includes('self-harm');
+    return { content: isSelfHarm ? CRISIS_REDIRECT_MESSAGE : MODERATION_REFUSAL_MESSAGE, requestId: request.id };
+  }
+
+
+  async assertWithinBudget(userId: string, capability: AiCapability): Promise<void> {
     const opConfig = await this.operationalConfig.getEffective();
 
     if (opConfig.emergencyStop) {
@@ -138,7 +175,35 @@ export class AiRequestsService {
       this.logger.warn(`User AI daily quota reached for ${userId}: $${userSpend.toFixed(4)} >= $${opConfig.userDailyBudgetUsd}`);
       throw new ForbiddenException('You have reached your daily AI usage quota. Please try again tomorrow.');
     }
+
+    await this.enforceCapabilityCeiling(capability, since);
   }
+
+  private async enforceCapabilityCeiling(capability: AiCapability, since: Date): Promise<void> {
+    const budget = await this.operationalConfig.getCapabilityBudget(capability);
+    if (!budget) return;
+
+    if (budget.dailyBudgetUsd != null) {
+      const spend = await this.repo.sumCostSince(since, undefined, capability);
+      if (spend >= budget.dailyBudgetUsd) {
+        this.logger.warn(`AI capability daily budget reached for ${capability}: ${spend.toFixed(4)} >= ${budget.dailyBudgetUsd}`);
+        throw new ServiceUnavailableException(
+          `The daily AI budget for this feature has been reached. Please try again tomorrow.`,
+        );
+      }
+    }
+
+    if (budget.dailyRequestLimit != null) {
+      const count = await this.repo.countSince(since, capability);
+      if (count >= budget.dailyRequestLimit) {
+        this.logger.warn(`AI capability daily request limit reached for ${capability}: ${count} >= ${budget.dailyRequestLimit}`);
+        throw new ServiceUnavailableException(
+          `The daily usage limit for this feature has been reached. Please try again tomorrow.`,
+        );
+      }
+    }
+  }
+
 
   async findMine(query: ListAiRequestsQueryDto, caller: AuthenticatedUser): Promise<PaginatedAiRequestsResponseDto> {
     const page = query.page ?? 1;
