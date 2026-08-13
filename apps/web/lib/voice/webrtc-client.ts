@@ -1,6 +1,6 @@
 import type { RawRealtimeEvent } from './realtime-event-mapper';
 
-const REALTIME_API_URL = 'https://api.openai.com/v1/realtime';
+const REALTIME_API_URL = 'https://api.openai.com/v1/realtime/calls';
 
 export interface VoiceWebRtcClientCallbacks {
   onRemoteTrack: (stream: MediaStream) => void;
@@ -24,7 +24,7 @@ export class VoiceWebRtcClient {
 
   constructor(private readonly callbacks: VoiceWebRtcClientCallbacks) {}
 
-  async connect(clientSecret: string, model: string): Promise<void> {
+  async connect(clientSecret: string, _model: string): Promise<void> {
     this.micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
 
     const pc = new RTCPeerConnection();
@@ -58,7 +58,7 @@ export class VoiceWebRtcClient {
     const offer = await pc.createOffer();
     await pc.setLocalDescription(offer);
 
-    const response = await fetch(`${REALTIME_API_URL}?model=${encodeURIComponent(model)}`, {
+    const response = await fetch(REALTIME_API_URL, {
       method: 'POST',
       body: offer.sdp,
       headers: {
