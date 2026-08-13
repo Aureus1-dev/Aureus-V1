@@ -1,5 +1,15 @@
 # Launch Scoreboard
 
+> **Product-first status notice — 2026-08-13:** This dashboard preserves the
+> First Members execution track, but it is not the active cross-repository
+> product queue. It was last substantively updated on 2026-07-27 and predates
+> later Hall, voice, safety, CI, Docker, and release-gate merges. Do not use its
+> historical test counts or readiness percentage as a current repository-health
+> claim. Current product execution and exact repository baselines live in
+> `docs/product-first/PRODUCT-V1-EXECUTION-ORDER.md` and
+> `docs/product-first/THREE-REPOSITORY-HEALTH-REGISTER.md`. The member-launch
+> plan remains preserved and may resume without being reconstructed.
+
 Living dashboard for the First Members launch. Source of truth for scope and sequencing is `LAUNCH-001-First-Members.md`; the task breakdown is `WORKORDERS.md`. This file reflects status only — it does not decide anything.
 
 **Last updated:** 2026-07-27
