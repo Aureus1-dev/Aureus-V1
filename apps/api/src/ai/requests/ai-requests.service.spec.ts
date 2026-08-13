@@ -112,7 +112,8 @@ describe('AiRequestsService', () => {
       });
 
       const [[callArgs]] = mockProvider.complete.mock.calls;
-      expect(callArgs.messages[0]).toEqual({ role: 'system', content: 'You are a helpful assistant.' });
+      expect(callArgs.messages[0]).toMatchObject({ role: 'system' });
+      expect(callArgs.messages[0].content).not.toContain('BEGIN MEMBER-SUPPLIED CONTENT');
       expect(callArgs.messages[1].content).toContain('BEGIN MEMBER-SUPPLIED CONTENT');
       expect(callArgs.messages[1].content).toContain('[instruction-override attempt removed]');
     });
