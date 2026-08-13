@@ -6,6 +6,7 @@ import {
 import { ConversationsService } from './conversations.service';
 import { CONVERSATION_REPOSITORY, IConversationRepository } from './repositories/conversation.repository.interface';
 import { IMessageRepository, MESSAGE_REPOSITORY } from './repositories/message.repository.interface';
+import { IMessageReportRepository, MESSAGE_REPORT_REPOSITORY } from './repositories/message-report.repository.interface';
 import {
   IStewardshipRelationshipRepository,
   STEWARDSHIP_RELATIONSHIP_REPOSITORY,
@@ -48,7 +49,10 @@ const mockRepo: jest.Mocked<IConversationRepository> = {
   findForUser: jest.fn(), isParticipant: jest.fn(), touchLastMessageAt: jest.fn(), markRead: jest.fn(),
 };
 const mockMessageRepo: jest.Mocked<IMessageRepository> = {
-  create: jest.fn(), findByConversation: jest.fn(),
+  create: jest.fn(), findByConversation: jest.fn(), findById: jest.fn(), softDelete: jest.fn(),
+};
+const mockMessageReportRepo: jest.Mocked<IMessageReportRepository> = {
+  create: jest.fn(), findOpen: jest.fn(), findOpenByPodId: jest.fn(), resolve: jest.fn(),
 };
 const mockRelationshipRepo: jest.Mocked<IStewardshipRelationshipRepository> = {
   create: jest.fn(), findById: jest.fn(), findAll: jest.fn(), countActiveByStewardId: jest.fn(), update: jest.fn(),
@@ -66,6 +70,7 @@ describe('ConversationsService', () => {
         ConversationsService,
         { provide: CONVERSATION_REPOSITORY, useValue: mockRepo },
         { provide: MESSAGE_REPOSITORY, useValue: mockMessageRepo },
+        { provide: MESSAGE_REPORT_REPOSITORY, useValue: mockMessageReportRepo },
         { provide: STEWARDSHIP_RELATIONSHIP_REPOSITORY, useValue: mockRelationshipRepo },
         { provide: ORGANIZATION_MEMBER_REPOSITORY, useValue: mockOrgMemberRepo },
       ],
@@ -186,6 +191,121 @@ describe('ConversationsService', () => {
       mockRepo.isParticipant.mockResolvedValue(true);
       await expect(service.markRead('convo-001', MEMBER)).resolves.toEqual({ success: true });
       expect(mockRepo.markRead).toHaveBeenCalledWith('convo-001', MEMBER.id, expect.any(Date));
+    });
+  });
+
+  describe('deleteMessage (PD-008)', () => {
+    it('allows the sender to delete their own message', async () => {
+      mockRepo.findById.mockResolvedValue(makeConversation());
+      mockRepo.isParticipant.mockResolvedValue(true);
+      mockMessageRepo.findById.mockResolvedValue(makeMessage());
+      mockMessageRepo.softDelete.mockResolvedValue(makeMessage({ deletedAt: NOW, deletedById: MEMBER.id }));
+
+      const result = await service.deleteMessage('convo-001', 'msg-001', MEMBER);
+      expect(mockMessageRepo.softDelete).toHaveBeenCalledWith('msg-001', MEMBER.id);
+      expect(result.deleted).toBe(true);
+    });
+
+    it('allows a Platform Administrator to delete any message', async () => {
+      mockRepo.findById.mockResolvedValue(makeConversation());
+      mockRepo.isParticipant.mockResolvedValue(true);
+      mockMessageRepo.findById.mockResolvedValue(makeMessage());
+      mockMessageRepo.softDelete.mockResolvedValue(makeMessage({ deletedAt: NOW, deletedById: ADMIN.id }));
+
+      await service.deleteMessage('convo-001', 'msg-001', ADMIN);
+      expect(mockMessageRepo.softDelete).toHaveBeenCalledWith('msg-001', ADMIN.id);
+    });
+
+    it('forbids a member from deleting another member\'s message', async () => {
+      mockRepo.findById.mockResolvedValue(makeConversation());
+      mockRepo.isParticipant.mockResolvedValue(true);
+      mockMessageRepo.findById.mockResolvedValue(makeMessage({ senderId: STEWARD.id }));
+
+      await expect(service.deleteMessage('convo-001', 'msg-001', MEMBER)).rejects.toThrow(ForbiddenException);
+      expect(mockMessageRepo.softDelete).not.toHaveBeenCalled();
+    });
+
+    it('throws NotFoundException when the message does not belong to the conversation', async () => {
+      mockRepo.findById.mockResolvedValue(makeConversation());
+      mockRepo.isParticipant.mockResolvedValue(true);
+      mockMessageRepo.findById.mockResolvedValue(makeMessage({ conversationId: 'other-convo' }));
+
+      await expect(service.deleteMessage('convo-001', 'msg-001', MEMBER)).rejects.toThrow(NotFoundException);
+    });
+  });
+
+  describe('moderatorDeleteMessage (PD-008 — trusted-caller, Pod-Steward moderation)', () => {
+    it('deletes the message without any participant/sender check', async () => {
+      mockMessageRepo.findById.mockResolvedValue(makeMessage({ senderId: OTHER.id }));
+      mockMessageRepo.softDelete.mockResolvedValue(makeMessage({ senderId: OTHER.id, deletedAt: NOW, deletedById: STEWARD.id }));
+
+      const result = await service.moderatorDeleteMessage('convo-001', 'msg-001', STEWARD.id);
+      expect(mockMessageRepo.softDelete).toHaveBeenCalledWith('msg-001', STEWARD.id);
+      expect(result.deleted).toBe(true);
+      expect(mockRepo.isParticipant).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('reportMessage (PD-008)', () => {
+    it('allows a participant to report a message and sanitizes the reason', async () => {
+      mockRepo.findById.mockResolvedValue(makeConversation());
+      mockRepo.isParticipant.mockResolvedValue(true);
+      mockMessageRepo.findById.mockResolvedValue(makeMessage());
+      mockMessageReportRepo.create.mockResolvedValue({
+        id: 'report-001', messageId: 'msg-001', conversationId: 'convo-001', reporterId: MEMBER.id,
+        reason: 'Abusive content', status: 'OPEN' as never, resolvedById: null, resolvedAt: null, createdAt: NOW,
+      });
+
+      await service.reportMessage('convo-001', 'msg-001', { reason: '<b>Abusive</b> content' }, MEMBER);
+      expect(mockMessageReportRepo.create).toHaveBeenCalledWith(
+        expect.objectContaining({ messageId: 'msg-001', conversationId: 'convo-001', reporterId: MEMBER.id, reason: 'Abusive content' }),
+      );
+    });
+
+    it('forbids a non-participant from reporting a message', async () => {
+      mockRepo.findById.mockResolvedValue(makeConversation());
+      mockRepo.isParticipant.mockResolvedValue(false);
+      await expect(service.reportMessage('convo-001', 'msg-001', { reason: 'x' }, OTHER)).rejects.toThrow(ForbiddenException);
+    });
+  });
+
+  describe('listReportsForAdmin (PD-008)', () => {
+    it('returns the platform-wide OPEN queue for an Administrator', async () => {
+      mockMessageReportRepo.findOpen.mockResolvedValue([]);
+      await service.listReportsForAdmin(ADMIN);
+      expect(mockMessageReportRepo.findOpen).toHaveBeenCalled();
+    });
+
+    it('forbids a non-administrator', async () => {
+      await expect(service.listReportsForAdmin(MEMBER)).rejects.toThrow(ForbiddenException);
+    });
+  });
+
+  describe('findReportsForPod (PD-008 — trusted-caller, Pod-Steward moderation)', () => {
+    it('delegates directly to the repository with no authorization check of its own', async () => {
+      mockMessageReportRepo.findOpenByPodId.mockResolvedValue([]);
+      await service.findReportsForPod('pod-001');
+      expect(mockMessageReportRepo.findOpenByPodId).toHaveBeenCalledWith('pod-001');
+    });
+  });
+
+  describe('resolveReport (PD-008)', () => {
+    it('resolves a report for an Administrator', async () => {
+      mockMessageReportRepo.resolve.mockResolvedValue({
+        id: 'report-001', messageId: 'msg-001', conversationId: 'convo-001', reporterId: MEMBER.id,
+        reason: 'x', status: 'RESOLVED' as never, resolvedById: ADMIN.id, resolvedAt: NOW, createdAt: NOW,
+      });
+      const result = await service.resolveReport('report-001', { status: 'RESOLVED' as never }, ADMIN);
+      expect(result.status).toBe('RESOLVED');
+    });
+
+    it('forbids a non-administrator', async () => {
+      await expect(service.resolveReport('report-001', { status: 'DISMISSED' as never }, MEMBER)).rejects.toThrow(ForbiddenException);
+    });
+
+    it('throws NotFoundException when the report does not exist', async () => {
+      mockMessageReportRepo.resolve.mockResolvedValue(null);
+      await expect(service.resolveReport('ghost', { status: 'RESOLVED' as never }, ADMIN)).rejects.toThrow(NotFoundException);
     });
   });
 });

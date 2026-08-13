@@ -55,6 +55,17 @@ describe('PodEscalationsService — confidential care-request, never an accusati
     expect(createCall.relationshipId).toBeUndefined();
   });
 
+  it('strips markup from title/description before persisting (PD-008)', async () => {
+    mockMembershipRepo.isActiveMember.mockResolvedValue(true);
+    mockRepo.create.mockResolvedValue(makeEscalation());
+    await service.create(
+      'pod-001', { title: '<script>alert(1)</script>Concern', description: '<b>A</b> long enough description here' }, MEMBER,
+    );
+    expect(mockRepo.create).toHaveBeenCalledWith(
+      expect.objectContaining({ title: 'Concern', description: 'A long enough description here' }),
+    );
+  });
+
   it('rejects a non-member from raising a concern about a Pod they do not belong to', async () => {
     mockMembershipRepo.isActiveMember.mockResolvedValue(false);
     await expect(service.create('pod-001', { title: 'X', description: 'Some long enough description here' }, OUTSIDER)).rejects.toThrow(ForbiddenException);

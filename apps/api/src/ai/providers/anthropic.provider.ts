@@ -2,6 +2,8 @@ import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { AiProvider } from '@prisma/client';
 import { AiCompletionInput, AiCompletionOutput, AiToolDefinition, IAiProvider } from './ai-provider.interface';
+import { CircuitBreaker, CircuitState } from './resilience/circuit-breaker';
+import { resilientFetch } from './resilience/resilient-fetch.util';
 
 interface AnthropicMessagesResponse {
   model: string;
@@ -21,13 +23,28 @@ function toAnthropicTool(def: AiToolDefinition) {
  * system messages are extracted from the conversation and joined
  * separately. Only ever instantiated by the AI_PROVIDER factory when
  * ANTHROPIC_API_KEY is actually configured (ai.module.ts).
+ *
+ * PD-009 (AI Provider Resilience): see `OpenAiProvider`'s own doc comment —
+ * identical `resilientFetch` + `CircuitBreaker` treatment, so the two
+ * providers' resilience behavior can never drift apart.
  */
 @Injectable()
 export class AnthropicProvider implements IAiProvider {
   readonly provider = AiProvider.ANTHROPIC;
   private readonly logger = new Logger(AnthropicProvider.name);
+  private readonly circuitBreaker: CircuitBreaker;
 
-  constructor(private readonly config: ConfigService) {}
+  constructor(private readonly config: ConfigService) {
+    this.circuitBreaker = new CircuitBreaker({
+      failureThreshold: this.config.get<number>('AI_CIRCUIT_BREAKER_FAILURE_THRESHOLD', 3),
+      cooldownMs: this.config.get<number>('AI_CIRCUIT_BREAKER_COOLDOWN_MS', 30_000),
+    });
+  }
+
+  /** PD-009 — surfaces this instance's circuit-breaker state for `AiProviderHealthIndicator` (`/health/ai`). */
+  getCircuitState(): CircuitState {
+    return this.circuitBreaker.getState();
+  }
 
   async complete(input: AiCompletionInput): Promise<AiCompletionOutput> {
     const apiKey = this.config.get<string>('ANTHROPIC_API_KEY');
@@ -38,28 +55,34 @@ export class AnthropicProvider implements IAiProvider {
       .filter((m) => m.role !== 'system')
       .map((m) => ({ role: m.role, content: m.content }));
 
-    const res = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': apiKey ?? '',
-        'anthropic-version': '2023-06-01',
-      },
-      body: JSON.stringify({
-        model,
-        system: systemPrompt || undefined,
-        messages: conversation,
-        max_tokens: input.maxTokens ?? 500,
-        temperature: input.temperature ?? 0.3,
-        ...(input.tools?.length ? { tools: input.tools.map(toAnthropicTool) } : {}),
-      }),
-    });
-
-    if (!res.ok) {
-      const body = await res.text();
-      this.logger.error(`Anthropic request failed (${res.status}): ${body}`);
-      throw new Error(`Anthropic request failed with status ${res.status}`);
-    }
+    const res = await this.circuitBreaker.execute(() =>
+      resilientFetch(
+        'https://api.anthropic.com/v1/messages',
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-api-key': apiKey ?? '',
+            'anthropic-version': '2023-06-01',
+          },
+          body: JSON.stringify({
+            model,
+            system: systemPrompt || undefined,
+            messages: conversation,
+            max_tokens: input.maxTokens ?? 500,
+            temperature: input.temperature ?? 0.3,
+            ...(input.tools?.length ? { tools: input.tools.map(toAnthropicTool) } : {}),
+          }),
+        },
+        {
+          timeoutMs: this.config.get<number>('AI_PROVIDER_TIMEOUT_MS', 30_000),
+          maxAttempts: this.config.get<number>('AI_PROVIDER_MAX_ATTEMPTS', 3),
+          baseDelayMs: this.config.get<number>('AI_PROVIDER_RETRY_BASE_DELAY_MS', 500),
+          logger: this.logger,
+          providerName: 'Anthropic',
+        },
+      ),
+    );
 
     const data = (await res.json()) as AnthropicMessagesResponse;
     const content = data.content.filter((block) => block.type === 'text').map((block) => block.text ?? '').join('');

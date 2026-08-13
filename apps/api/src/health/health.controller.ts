@@ -3,6 +3,7 @@ import { HealthCheck, HealthCheckService } from '@nestjs/terminus';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { SkipThrottle } from '@nestjs/throttler';
 import { PrismaHealthIndicator } from './prisma-health.indicator';
+import { AiProviderHealthIndicator } from './ai-provider-health.indicator';
 
 @ApiTags('health')
 @Controller('health')
@@ -11,6 +12,7 @@ export class HealthController {
   constructor(
     private readonly health: HealthCheckService,
     private readonly prismaHealth: PrismaHealthIndicator,
+    private readonly aiProviderHealth: AiProviderHealthIndicator,
   ) {}
 
   // Kept as an alias of /health/ready (PD-002) — existing Docker
@@ -46,6 +48,19 @@ export class HealthController {
   ready() {
     return this.health.check([
       () => this.prismaHealth.isHealthy('database'),
+    ]);
+  }
+
+  // PD-009: diagnostic only, deliberately not part of /ready — an AI
+  // outage (the exact transient condition PD-009 exists to survive) must
+  // never take the whole app out of a load balancer's rotation, since
+  // most member-facing routes don't depend on AI at all.
+  @Get('ai')
+  @HealthCheck()
+  @ApiOperation({ summary: 'AI provider circuit-breaker state (diagnostic — does not gate readiness)' })
+  ai() {
+    return this.health.check([
+      () => this.aiProviderHealth.isHealthy('aiProvider'),
     ]);
   }
 }

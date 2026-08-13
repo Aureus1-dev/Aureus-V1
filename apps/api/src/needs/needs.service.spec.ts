@@ -99,10 +99,11 @@ describe('NeedsService', () => {
   });
 
   describe('Gate C — C4: Resource discovery', () => {
-    it('matches active City Sheet resources whose category matches the need content', async () => {
+    it('matches active, verified City Sheet resources whose category matches the need content', async () => {
       mockRepo.findById.mockResolvedValue(makeNeed({ content: 'I need help finding food for my family' }));
       mockCitySheet.findAll.mockResolvedValue({
-        data: [makeCitySheetEntry()], total: 1, page: 1, limit: 50, totalPages: 1,
+        data: [makeCitySheetEntry({ verificationStatus: CitySheetVerificationStatus.VERIFIED })],
+        total: 1, page: 1, limit: 50, totalPages: 1,
       });
 
       const result = await service.findMatchingResources('need-001', 'user-001');
@@ -125,7 +126,9 @@ describe('NeedsService', () => {
 
     it('deduplicates a resource matched by more than one category', async () => {
       mockRepo.findById.mockResolvedValue(makeNeed({ content: 'I got an eviction notice and need legal help with housing' }));
-      const entry = makeCitySheetEntry({ id: 'entry-002', category: CitySheetCategory.LEGAL_AID });
+      const entry = makeCitySheetEntry({
+        id: 'entry-002', category: CitySheetCategory.LEGAL_AID, verificationStatus: CitySheetVerificationStatus.VERIFIED,
+      });
       mockCitySheet.findAll.mockResolvedValue({ data: [entry], total: 1, page: 1, limit: 50, totalPages: 1 });
 
       const result = await service.findMatchingResources('need-001', 'user-001');
@@ -148,11 +151,89 @@ describe('NeedsService', () => {
     });
   });
 
+  describe('Gate C — C9: Production verification (real members, verified data only)', () => {
+    it('excludes a real (non-fixture) candidate that is not yet verified, even though its category matches', async () => {
+      mockRepo.findById.mockResolvedValue(makeNeed({ content: 'I need help finding food for my family' }));
+      mockCitySheet.findAll.mockResolvedValue({
+        data: [makeCitySheetEntry({ verificationStatus: CitySheetVerificationStatus.UNVERIFIED, isTestFixture: false })],
+        total: 1, page: 1, limit: 50, totalPages: 1,
+      });
+
+      const result = await service.findMatchingResources('need-001', 'user-001');
+
+      expect(result).toEqual([]);
+    });
+
+    it('excludes a real candidate flagged for review or rejected, even though its category matches', async () => {
+      mockRepo.findById.mockResolvedValue(makeNeed({ content: 'I need help finding food for my family' }));
+      mockCitySheet.findAll.mockResolvedValue({
+        data: [
+          makeCitySheetEntry({ id: 'needs-review', verificationStatus: CitySheetVerificationStatus.NEEDS_REVIEW, isTestFixture: false }),
+          makeCitySheetEntry({ id: 'rejected', verificationStatus: CitySheetVerificationStatus.REJECTED, isTestFixture: false }),
+        ],
+        total: 2, page: 1, limit: 50, totalPages: 1,
+      });
+
+      const result = await service.findMatchingResources('need-001', 'user-001');
+
+      expect(result).toEqual([]);
+    });
+
+    it('still includes an explicitly labeled test fixture even though it is unverified (Gate C build/test needs this, per C4–C8)', async () => {
+      mockRepo.findById.mockResolvedValue(makeNeed({ content: 'I need help finding food for my family' }));
+      mockCitySheet.findAll.mockResolvedValue({
+        data: [makeCitySheetEntry({ verificationStatus: CitySheetVerificationStatus.UNVERIFIED, isTestFixture: true })],
+        total: 1, page: 1, limit: 50, totalPages: 1,
+      });
+
+      const result = await service.findMatchingResources('need-001', 'user-001');
+
+      expect(result).toHaveLength(1);
+      expect(result[0].isTestFixture).toBe(true);
+    });
+
+    it('includes a real candidate once it is verified', async () => {
+      mockRepo.findById.mockResolvedValue(makeNeed({ content: 'I need help finding food for my family' }));
+      mockCitySheet.findAll.mockResolvedValue({
+        data: [makeCitySheetEntry({ verificationStatus: CitySheetVerificationStatus.VERIFIED, isTestFixture: false })],
+        total: 1, page: 1, limit: 50, totalPages: 1,
+      });
+
+      const result = await service.findMatchingResources('need-001', 'user-001');
+
+      expect(result).toHaveLength(1);
+      expect(result[0].verificationStatus).toBe(CitySheetVerificationStatus.VERIFIED);
+    });
+
+    it('refuses to offer a real (non-fixture) unverified candidate directly by ID, even without going through discovery', async () => {
+      mockRepo.findById.mockResolvedValue(makeNeed());
+      mockCitySheet.findById.mockResolvedValue(
+        makeCitySheetEntry({ verificationStatus: CitySheetVerificationStatus.UNVERIFIED, isTestFixture: false }),
+      );
+
+      await expect(service.offerResource('need-001', 'entry-001', 'user-001')).rejects.toThrow(NotFoundException);
+      expect(mockOffers.create).not.toHaveBeenCalled();
+    });
+
+    it('allows offering a test fixture directly by ID even though it is unverified', async () => {
+      mockRepo.findById.mockResolvedValue(makeNeed());
+      mockCitySheet.findById.mockResolvedValue(
+        makeCitySheetEntry({ verificationStatus: CitySheetVerificationStatus.UNVERIFIED, isTestFixture: true }),
+      );
+      mockOffers.create.mockResolvedValue(makeOffer());
+
+      const result = await service.offerResource('need-001', 'entry-001', 'user-001');
+
+      expect(mockOffers.create).toHaveBeenCalled();
+      expect(result.response).toBe('PENDING');
+    });
+  });
+
   describe('Gate C — C5: Verified resource presentation', () => {
     describe('offerResource', () => {
       it('records a new offer for the caller\'s own stated need', async () => {
         mockRepo.findById.mockResolvedValue(makeNeed());
-        mockCitySheet.findById.mockResolvedValue(makeCitySheetEntry());
+        mockCitySheet.findById.mockResolvedValue(makeCitySheetEntry({ verificationStatus: CitySheetVerificationStatus.VERIFIED }));
         mockOffers.create.mockResolvedValue(makeOffer());
 
         const result = await service.offerResource('need-001', 'entry-001', 'user-001');

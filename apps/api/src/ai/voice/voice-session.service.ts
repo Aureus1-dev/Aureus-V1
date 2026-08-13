@@ -70,7 +70,7 @@ export class VoiceSessionService {
     // through (AiRequestsService.runCompletion) — voice previously had no
     // check here at all, only ever contributing to the ledger, never
     // reading it back before granting a session.
-    await this.aiRequests.assertWithinBudget(caller.id);
+    await this.aiRequests.assertWithinBudget(caller.id, AiCapability.VOICE_CONVERSATION);
 
     const conversation = dto.conversationId
       ? await this.getOwnedConversationOrThrow(dto.conversationId, caller)

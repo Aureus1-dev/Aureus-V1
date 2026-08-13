@@ -139,6 +139,10 @@ describe('VoiceSessionService', () => {
       mockAiRequests.assertWithinBudget.mockRejectedValue(new ForbiddenException('quota reached'));
 
       await expect(service.startSession({}, USER)).rejects.toThrow(ForbiddenException);
+      expect(mockAiRequests.assertWithinBudget).toHaveBeenCalledWith(
+        USER.id,
+        AiCapability.VOICE_CONVERSATION,
+      );
       expect(mockVoiceProvider.brokerSession).not.toHaveBeenCalled();
       expect(mockConversationRepo.create).not.toHaveBeenCalled();
     });
