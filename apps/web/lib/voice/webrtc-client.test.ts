@@ -95,7 +95,8 @@ describe('VoiceWebRtcClient', () => {
 
     expect(fetchMock).toHaveBeenCalledTimes(1);
     const [url, init] = fetchMock.mock.calls[0];
-    expect(url).toContain('gpt-4o-realtime-preview');
+    expect(url).toBe('https://api.openai.com/v1/realtime/calls');
+    expect(url).not.toContain('?model=');
     expect(init.body).toBe('fake-offer-sdp');
     expect(init.headers.Authorization).toBe('Bearer ephemeral-secret-abc');
     expect(init.headers['Content-Type']).toBe('application/sdp');
