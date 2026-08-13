@@ -25,7 +25,9 @@ The table below is an early, partial snapshot (six of the platform's domains, re
 
 ## Governance & Execution Authority
 
-The active execution track is `docs/launch/LAUNCH-001-First-Members.md` — the Founder-approved plan for Aureus's first 25 members, organized into sequential Gates (A–F). The full authority hierarchy for that track (what document governs scope vs. registry vs. current status vs. historical evidence) is recorded in `docs/launch/EXECUTION-AUTHORITY.md`. `docs/ai/REPOSITORY_STEWARD.md` defines the operating rules for any session acting as Repository Steward on this repository.
+The active build program is now the product-first three-repository convergence track in `docs/product-first/`. It prioritizes the business-facing product, member/public usability, and the operational connections among Aureus-V1, Aureus-Foundry, and Aureus-Library. Existing constitutional, safety, consent, privacy, accessibility, and human-approval safeguards remain in force; active product work does not expand succession, electoral, or permanent institutional power design.
+
+The First Members track remains preserved at `docs/launch/LAUNCH-001-First-Members.md`; it is not revoked, but its unfinished institutional and public-launch work is not the lead engineering queue during the product-first phase. Its internal authority hierarchy remains recorded in `docs/launch/EXECUTION-AUTHORITY.md`. `docs/ai/REPOSITORY_STEWARD.md` continues to define the safety rules for a Repository Steward.
 
 ## Frontend Governance
 
