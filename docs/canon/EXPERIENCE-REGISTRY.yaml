@@ -1,0 +1,223 @@
+# Experience Architecture Registry
+#
+# Governed by: FOUNDATION-004 — Repository Architecture & Canon Governance
+# Companion to: docs/00-foundation/registry/family-registry.yaml (institutional
+# family-level registry). This file is the document-level registry for the
+# Experience Architecture Consolidation Program specifically.
+#
+# Per FOUNDATION-004 §5 and the Founder's "registry first, redirects second"
+# ruling, every entry below reflects the PLANNED end state, recorded before
+# Groups B through F execute. Redirect notices added during those groups
+# reference these entries as their source of truth. This registry is updated
+# to "complete" status per entry as each group lands — it is not regenerated
+# from scratch after the fact.
+
+registry_version: 1.0
+program: Experience Architecture Consolidation Program
+decision_record: Decision Sessions 1 and 2, Founder-approved
+status: planned — precedes Group B execution
+
+documents:
+
+  # --- Group B: AEX -> AXC ---
+
+  - id: AXC-000
+    title: Experience Constitution
+    action: create
+    source: "AEX-000 - Experience Constitution.md (content adapted, citation conventions updated)"
+    target_path: docs/03-member-experience/experience-canon/AXC-000 — Experience Constitution.md
+    status: planned
+    note: Fills the dangling AXC-000 reference every existing AXC-001 through AXC-010 file has carried since drafting.
+
+  - id: AEX-000
+    title: Experience Constitution (retiring)
+    action: retire
+    target: AXC-000
+    target_path: docs/architecture/experience/AEX-000 - Experience Constitution.md
+    status: planned
+    note: Becomes a redirect notice pointing to AXC-000. Original text preserved in git history.
+
+  - id: AEX-001
+    title: Living Hall Canon (retiring)
+    action: retire
+    target: AXC-002
+    target_path: docs/architecture/experience/AEX-001 - Living Hall Canon.md
+    status: planned
+    note: Unique vocabulary (Long Steward Table, Neighborhoods framing) extracted to a reference note in AXC-008 before retirement. Original text preserved in git history.
+
+  - id: AXC-README
+    title: "Experience Canon README (index)"
+    action: update
+    target_path: docs/03-member-experience/experience-canon/README.md
+    status: planned
+    note: Add AXC-000 and AXC-010 entries, currently absent from the Canon Structure index.
+
+  # --- Group C: Series-2 FPB -> AXB rename ---
+
+  - id: "FPB-000 through FPB-016 (Series 2)"
+    title: "Experience Implementation Framework through Frontend Architecture & Technical Standards"
+    action: rename
+    source_path: docs/03-member-experience/frontend-blueprints/
+    target_prefix: AXB
+    target_path: docs/03-member-experience/ (directory name pending Group C confirmation)
+    status: planned
+    note: Same numbers, same titles, prefix only changes. Zero external citations found to update (confirmed via full work-order and product-architecture audit).
+
+  - id: FPB-017
+    title: "Welcome Experience & Living Home (splitting)"
+    action: split
+    status: planned
+    note: >
+      Phases 1-3 (the ceremony) removed in favor of citing AXC-001 once AXC-001
+      absorbs OC-001/MJC-002's unique content. Phase 4 + Hall-arrival content
+      (Hearth references renamed to Hall) becomes the retained, renumbered
+      AXB-017, retitled to reflect Living Home arrival specifically.
+
+  # --- Group D: Steward canon ---
+
+  - id: "SC-001 (docs/canon/steward/foundation/)"
+    title: Steward Constitution
+    action: keep — surviving fork
+    target_path: docs/canon/steward/foundation/SC-001-steward-constitution.md
+    status: planned
+    note: >
+      Survives as base per content comparison (Decision Session 2, §2.0):
+      structurally consistent with SC-002 through SC-008. Gains the Articles
+      fork's sharper Truth-section prohibitions and its Non-Judgment
+      dignity-markers list. Does NOT adopt the Articles fork's metadata
+      fields (Approved By, Classification, etc.) per Founder ruling —
+      metadata standardization deferred to a future institution-wide pass.
+
+  - id: "SC-001 (docs/steward/foundation/)"
+    title: Steward Constitution (retiring fork)
+    action: retire
+    target: "SC-001 (docs/canon/steward/foundation/)"
+    target_path: docs/steward/foundation/SC-001-Steward-Constitution.md
+    status: planned
+    note: Becomes a redirect notice. Original text (including its unique Truth/Non-Judgment language, now folded into the surviving SC-001) preserved in git history.
+
+  - id: SC-002
+    title: Steward Identity Canon
+    action: update
+    target_path: docs/canon/steward/foundation/SC-002-steward-identity-canon.md
+    status: planned
+    note: >
+      Absorbs ST-001's "Consistency across AI, Human, and institutional
+      Stewards" section and Constitutional Question phrasing. This merge
+      also closes SC-002's own structural gap — it is currently the one SC
+      document without a closing Constitutional Question.
+
+  - id: ST-001
+    title: Personality of the Steward Canon (retiring)
+    action: retire
+    target: SC-002
+    target_path: docs/canon/steward/ST-001-personality-of-the-steward-canon.md
+    status: planned
+    note: Becomes a redirect notice. Original text preserved in git history.
+
+  - id: "SC-003 through SC-008"
+    title: "Steward Mind Canon through Outcomes & Flourishing Canon"
+    action: cross-reference only, no structural change
+    target_path: docs/canon/steward/foundation/
+    status: planned
+    note: >
+      SC-006 <-> AFX-001 §11 (Member Sovereignty). SC-007, SC-008 <-> AFX-006
+      §3-4 (Capability, Flourishing). SC-004 <-> AXC-003 (bidirectional
+      scope-boundary note — same-tier overlap resolved by explicit boundary
+      per FOUNDATION-004 §2, not by merge, since they serve different
+      governing series).
+
+  # --- Group E: Naming resolution ---
+
+  - id: AXC-010
+    title: The Living Home Canon
+    action: update
+    target_path: docs/03-member-experience/experience-canon/AXC-010 — The Living Home Canon.md
+    status: planned
+    note: >
+      "The Hearth" references renamed to "the Hall" throughout — arrival
+      INTO the Hall, not a second room. Repositioned as the whole-institution
+      umbrella framing sitting above AXC-008's room roster, with an added
+      cross-reference to AXC-002 clarifying the relationship.
+
+  - id: "OC-001 (opening-ceremony)"
+    title: Opening Ceremony Canon (retiring)
+    action: retire, pending uniqueness check
+    target: AXC-001
+    target_path: docs/canon/experience/OC-001-opening-ceremony-canon.md
+    status: planned — uniqueness check outstanding
+    note: >
+      Line-by-line comparison against AXC-001 promised, not yet performed.
+      Candidate unique content: specific Mark-reveal staging detail.
+
+  - id: MJC-002
+    title: Opening Ceremony Canon (retiring)
+    action: retire, pending uniqueness check
+    target: AXC-001
+    target_path: docs/canon/member-journey/MJC-002-opening-ceremony-canon.md
+    status: planned — uniqueness check outstanding
+    note: >
+      Line-by-line comparison against AXC-001 promised, not yet performed.
+      Candidate unique content: explicit accessibility-as-stewardship framing.
+
+  - id: BR-004
+    title: Symbols, Ceremonies & Traditions Canon
+    action: cross-reference only, no structural change
+    target_path: docs/canon/brand-and-identity/BR-004-symbols-ceremonies-and-traditions-canon.md
+    status: planned
+    note: Cross-reference added to AXC-001 for the Mark-reveal ceremony specifically. Document itself is not retired.
+
+  # --- Group F: MJC and adjacent families ---
+
+  - id: MJC-001
+    title: Member Journey Canon
+    action: cross-reference only, no structural change
+    target_path: docs/canon/member-journey/MJC-001-member-journey-canon.md
+    status: planned
+    note: >
+      Cross-referenced to AFX-005 (also titled "Member Journey Canon" — a
+      title collision between an aspirational-methodology document and an
+      engineering-authoritative one, disambiguated by a one-line note in
+      both rather than a rename, per Founder ruling to keep MJC as-is.
+
+  - id: "MJC-003 through MJC-007"
+    title: "Discovery & Mission Alignment Canon through Proactive Stewardship Canon"
+    action: cross-reference only, no structural change
+    target_path: docs/canon/member-journey/
+    status: planned
+    note: Kept per Founder ruling — aspirational member-journey methodology, not engineering authority, cross-referenced to AFX-005.
+
+  - id: EF-006
+    title: Hospitality
+    action: cross-reference only, no structural change
+    target_path: docs/canon/branding/emotional-foundations/EF-006-hospitality.md
+    status: planned
+    note: Cross-referenced from AXC-010 and AXB-017 (renamed FPB-017).
+
+  - id: BRAND-005
+    title: Onboarding Philosophy
+    action: cross-reference only, no structural change
+    target_path: docs/canon/branding/BRAND-005-onboarding-philosophy.md
+    status: planned
+    note: Cross-referenced with the Welcome-scope documents in AXC and MS.
+
+  - id: PA-005
+    title: Member Experience Architecture (internally titled "User Journey Architecture")
+    action: cross-reference only, no structural change
+    target_path: docs/product-architecture/PA-005-member-experience-architecture.md
+    status: planned
+    note: Cross-referenced with AFX-005 and MJC-001, without merging.
+
+  # --- Explicitly flagged, not part of this program's disposition ---
+
+  - id: "OC-001 (opportunity-center)"
+    title: Opportunity Center Canon
+    action: out of scope
+    target_path: docs/canon/opportunity-center/OC-001-opportunity-center-canon.md
+    status: flagged only
+    note: >
+      Unrelated document sharing the OC-001 identifier with the (retiring)
+      Opening Ceremony Canon. Collision resolves naturally once the Opening
+      Ceremony OC-001 retires, but is recorded per FOUNDATION-004 §4
+      (Identifier Uniqueness) so it is not forgotten if retirement is
+      delayed for any reason.
