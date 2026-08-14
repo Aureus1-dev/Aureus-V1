@@ -1,0 +1,52 @@
+{
+  "schemaVersion": "pf012-founder-walkthrough-receipt-v1",
+  "releaseDecision": "NOT_RUN",
+  "deployed": {
+    "v1Sha": "REQUIRED_EXACT_DEPLOYED_SHA",
+    "foundrySha": "e6c0a4558145c6f00d5e7734be95af08daf8241a",
+    "librarySha": "e217284d0b9d4e8e9cbca119c8257d202a34a5c7",
+    "webOrigin": "REQUIRED",
+    "apiOrigin": "REQUIRED",
+    "tenant": "REQUIRED"
+  },
+  "phoneSms": {
+    "status": "NOT_CONFIGURED",
+    "providerDrillEvidence": null
+  },
+  "runs": {
+    "MOBILE": {
+      "deviceBrowser": "REQUIRED",
+      "startedAt": null,
+      "completedAt": null,
+      "steps": []
+    },
+    "DESKTOP": {
+      "deviceBrowser": "REQUIRED",
+      "startedAt": null,
+      "completedAt": null,
+      "steps": []
+    }
+  },
+  "requiredStepShape": {
+    "step": "ONE_OF_MANIFEST_REQUIRED_STEPS",
+    "result": "PASS_OR_FAIL",
+    "observedAt": "ISO_TIMESTAMP",
+    "evidence": "NON_EMPTY_WRITTEN_OBSERVATION",
+    "artifactReference": "OPTIONAL_SCREENSHOT_OR_VIDEO_REFERENCE"
+  },
+  "operabilityEvidence": {
+    "environmentVerified": false,
+    "realEmailCyclePassed": false,
+    "restoreDrillPassed": false,
+    "alertReceiptPassed": false,
+    "privacyProcessorReviewCompleted": false,
+    "mobileAccessibilityReviewCompleted": false,
+    "desktopAccessibilityReviewCompleted": false
+  },
+  "unresolvedSeverity1Defects": [],
+  "founderSignoff": {
+    "signed": false,
+    "signedAt": null,
+    "statement": "I completed the required mobile and desktop walkthrough against the exact deployed V1 SHA recorded above and the evidence in this receipt is accurate."
+  }
+}
