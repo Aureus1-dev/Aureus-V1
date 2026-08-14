@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "nest start --watch",
     "build": "rm -rf dist && tsc -p tsconfig.json",
-    "start": "node dist/main.js",
+    "start": "node scripts/start-production.mjs",
     "lint": "eslint . --ext .ts",
     "check-types": "tsc --noEmit",
     "test": "jest",
@@ -45,7 +45,7 @@
   },
   "devDependencies": {
     "@nestjs/cli": "^11.0.24",
-    "@nestjs/schematics": "^11.1.0",
+    "@nestjs/schematics": "^11.0.0",
     "@nestjs/testing": "^11.1.28",
     "@types/bcryptjs": "^2.4.6",
     "@types/express": "^5.0.6",
