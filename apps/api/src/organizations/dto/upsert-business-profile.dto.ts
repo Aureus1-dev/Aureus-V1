@@ -4,6 +4,7 @@ import { Type } from 'class-transformer';
 import {
   ArrayMaxSize,
   IsArray,
+  IsBoolean,
   IsEmail,
   IsEnum,
   IsIn,
@@ -11,7 +12,6 @@ import {
   IsObject,
   IsOptional,
   IsString,
-  IsUrl,
   Matches,
   Max,
   MaxLength,
@@ -33,7 +33,7 @@ export class ServiceAreaDto {
   postalCodes?: string[];
 
   @ApiPropertyOptional({ default: false })
-  @IsOptional()
+  @IsOptional() @IsBoolean()
   remote?: boolean;
 }
 
