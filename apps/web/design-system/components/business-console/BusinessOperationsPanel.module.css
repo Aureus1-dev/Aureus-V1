@@ -1,0 +1,171 @@
+.surface {
+  width: min(1080px, calc(100% - 2rem));
+  margin: 1.5rem auto 3rem;
+  padding: clamp(1.15rem, 3vw, 2rem);
+  border: 1px solid rgba(108, 76, 49, 0.22);
+  border-radius: 1.4rem;
+  background: rgba(252, 248, 239, 0.94);
+  color: #2d241d;
+}
+
+.header,
+.row,
+.actions,
+.toolbar {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.header {
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 1.25rem;
+}
+
+.header h2,
+.card h3,
+.detail h3,
+.detail h4,
+.card p {
+  margin-top: 0;
+}
+
+.eyebrow {
+  margin: 0 0 0.3rem;
+  color: #8f421c;
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+.card,
+.detail {
+  padding: 1rem;
+  border: 1px solid #c9b9a7;
+  border-radius: 1rem;
+  background: #fffdf8;
+}
+
+.metricGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.6rem;
+}
+
+.metric {
+  padding: 0.7rem;
+  border-radius: 0.75rem;
+  background: #f4ecdf;
+}
+
+.metric strong,
+.metric span {
+  display: block;
+}
+
+.metric strong {
+  font-size: 1.25rem;
+}
+
+.subtle,
+.basis {
+  color: #6a5b50;
+  line-height: 1.45;
+}
+
+.inbox {
+  display: grid;
+  gap: 0.65rem;
+  max-height: 28rem;
+  overflow: auto;
+}
+
+.leadButton {
+  width: 100%;
+  padding: 0.8rem;
+  border: 1px solid #c9b9a7;
+  border-radius: 0.75rem;
+  background: #fffaf2;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.leadButton[aria-pressed='true'] {
+  border-color: #8f421c;
+  box-shadow: 0 0 0 2px rgba(143, 66, 28, 0.16);
+}
+
+.message {
+  padding: 0.8rem;
+  border-left: 3px solid #b9a997;
+  background: #faf5eb;
+}
+
+.source {
+  margin-top: 0.4rem;
+  padding: 0.45rem 0.6rem;
+  border-radius: 0.5rem;
+  background: #ece5d9;
+  font-size: 0.86rem;
+}
+
+.actions button,
+.toolbar button,
+.actions select,
+.actions input {
+  min-height: 2.6rem;
+  padding: 0.6rem 0.8rem;
+  border: 1px solid #9f8d7c;
+  border-radius: 0.65rem;
+  background: #fffdf8;
+  color: inherit;
+  font: inherit;
+}
+
+.actions button,
+.toolbar button {
+  cursor: pointer;
+  font-weight: 750;
+}
+
+.error {
+  color: #8d1e14;
+  font-weight: 700;
+}
+
+.status {
+  display: inline-block;
+  padding: 0.2rem 0.55rem;
+  border-radius: 999px;
+  background: #ece5d9;
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+.queue {
+  margin: 0;
+  padding-left: 1.2rem;
+}
+
+@media (max-width: 760px) {
+  .surface {
+    width: calc(100% - 1rem);
+    margin: 0.5rem auto 1.5rem;
+    border-radius: 1rem;
+  }
+
+  .grid,
+  .metricGrid {
+    grid-template-columns: 1fr;
+  }
+}
