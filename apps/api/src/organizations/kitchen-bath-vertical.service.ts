@@ -95,6 +95,7 @@ const PACK_TEMPLATES: Array<{
       'DRAFT TEMPLATE — Describe the actual human follow-up process: who reviews requests, what information they need, whether an on-site or virtual consultation is typical, how scheduling occurs, and what the visitor should expect next. Do not claim an appointment is booked unless an integrated scheduling system has confirmed it.',
   },
 ];
+const PACK_KEYS = PACK_TEMPLATES.map((template) => template.key);
 
 @Injectable()
 export class KitchenBathVerticalService {
@@ -182,7 +183,7 @@ export class KitchenBathVerticalService {
   }
 
   async hasCurrentApprovedPack(organizationId: string, at = new Date()): Promise<boolean> {
-    const count = await this.prisma.db.businessKnowledgeRecord.count({
+    const approved = await this.prisma.db.businessKnowledgeRecord.findMany({
       where: {
         organizationId,
         deletedAt: null,
@@ -191,8 +192,12 @@ export class KitchenBathVerticalService {
         reviewedAt: { not: null },
         nextReviewAt: { gt: at },
       },
+      select: { sourceReference: true },
     });
-    return count > 0;
+    const approvedKeys = new Set(
+      approved.map((record) => record.sourceReference.slice(PACK_PREFIX.length).split('|')[0]),
+    );
+    return PACK_KEYS.every((key) => approvedKeys.has(key));
   }
 
   static intakeSignals(intake: {
