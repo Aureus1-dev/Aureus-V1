@@ -1,5 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { WardLeadContactMethod, WardLeadDesiredTiming } from '@prisma/client';
+import { Type } from 'class-transformer';
 import {
   Equals,
   IsEnum,
@@ -8,8 +9,10 @@ import {
   Matches,
   MaxLength,
   MinLength,
+  ValidateNested,
 } from 'class-validator';
 import { WARD_LEAD_CONSENT_VERSION } from '../ward-lead-consent';
+import { KitchenBathIntakeDto } from './kitchen-bath-intake.dto';
 
 export class CreateWardLeadDto {
   @ApiProperty({ maxLength: 120 })
@@ -45,6 +48,12 @@ export class CreateWardLeadDto {
   @IsOptional()
   @IsEnum(WardLeadDesiredTiming)
   desiredTiming?: WardLeadDesiredTiming;
+
+  @ApiPropertyOptional({ type: KitchenBathIntakeDto })
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => KitchenBathIntakeDto)
+  kitchenBath?: KitchenBathIntakeDto;
 
   @ApiProperty({ enum: [WARD_LEAD_CONSENT_VERSION] })
   @Equals(WARD_LEAD_CONSENT_VERSION)
