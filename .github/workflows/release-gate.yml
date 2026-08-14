@@ -6,7 +6,7 @@ on:
       web_origin:
         description: Exact deployed web origin
         required: true
-        default: https://v1.onrender.com
+        default: https://aureus-v1.onrender.com
       api_origin:
         description: Exact deployed API origin
         required: true
