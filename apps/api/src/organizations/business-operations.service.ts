@@ -160,8 +160,9 @@ export class BusinessOperationsService {
         counts: pipeline,
         awaitingNotification: leads.filter((lead) => !lead.assignmentNotifiedAt).length,
         oldestOpenSubmittedAt:
-          leads.find((lead) => ![WardLeadStatus.CLOSED, WardLeadStatus.LOST].includes(lead.status))
-            ?.submittedAt ?? null,
+          leads.find(
+            (lead) => lead.status !== WardLeadStatus.CLOSED && lead.status !== WardLeadStatus.LOST,
+          )?.submittedAt ?? null,
       },
       routing: {
         publicStatus: profile?.publicStatus ?? 'PRIVATE',
