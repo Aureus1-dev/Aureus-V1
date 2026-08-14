@@ -30,7 +30,10 @@ export class PrismaOrganizationMemberRepository implements IOrganizationMemberRe
 
   async countAdmins(organizationId: string): Promise<number> {
     return this.prisma.db.organizationMember.count({
-      where: { organizationId, role: OrganizationMemberRole.ADMIN },
+      where: {
+        organizationId,
+        role: { in: [OrganizationMemberRole.OWNER, OrganizationMemberRole.ADMIN] },
+      },
     });
   }
 

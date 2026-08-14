@@ -22,7 +22,7 @@ const STEWARD: AuthenticatedUser = { id: 'steward-001', email: 'steward@example.
 const makeOrg = (o: Partial<Organization> = {}): Organization => ({
   id: 'org-uuid', sequenceNumber: 1, organizationRef: 'AUR-ORG-000001',
   name: 'Community Legal Aid Society', shortDescription: 'Free legal help', fullDescription: 'Full details here',
-  organizationType: OrganizationType.NONPROFIT,
+  organizationType: OrganizationType.NONPROFIT, tenantVersion: 1,
   websiteUrl: 'https://legalaid.example.org', contactEmail: null, contactPhone: null,
   location: null, country: null, state: null, city: null,
   status: OrganizationStatus.DRAFT, verificationStatus: VerificationStatus.DRAFT, rejectionReason: null,
@@ -33,7 +33,7 @@ const makeOrg = (o: Partial<Organization> = {}): Organization => ({
 
 const makeMembership = (o: Partial<OrganizationMember> = {}): OrganizationMember => ({
   id: 'member-row-001', organizationId: 'org-uuid', userId: ADMIN_REP.id,
-  role: OrganizationMemberRole.ADMIN, createdAt: NOW, ...o,
+  role: OrganizationMemberRole.ADMIN, createdAt: NOW, updatedAt: NOW, ...o,
 });
 
 const mockRepo: jest.Mocked<IOrganizationRepository> = {
@@ -70,7 +70,7 @@ describe('OrganizationsService', () => {
 
       const result = await service.create({
         name: 'Community Legal Aid Society', shortDescription: 'S', fullDescription: 'F',
-        organizationType: OrganizationType.NONPROFIT, websiteUrl: 'https://legalaid.example.org',
+        organizationType: OrganizationType.NONPROFIT, tenantVersion: 1, websiteUrl: 'https://legalaid.example.org',
       }, ADMIN_REP);
 
       expect(result).toBeInstanceOf(OrganizationResponseDto);

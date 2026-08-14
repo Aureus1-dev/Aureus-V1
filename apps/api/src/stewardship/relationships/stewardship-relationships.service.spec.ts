@@ -56,7 +56,7 @@ const makeCapacity = (o: Partial<StewardCapacity> = {}): StewardCapacity => ({
 
 const makeOrg = (o: Partial<Organization> = {}): Organization => ({
   id: 'org-001', sequenceNumber: 1, organizationRef: 'AUR-ORG-000001',
-  name: 'Org', shortDescription: 'S', fullDescription: 'F', organizationType: OrganizationType.NONPROFIT,
+  name: 'Org', shortDescription: 'S', fullDescription: 'F', organizationType: OrganizationType.NONPROFIT, tenantVersion: 1,
   websiteUrl: 'https://example.test', contactEmail: null, contactPhone: null,
   location: null, country: null, state: null, city: null,
   status: OrganizationStatus.ACTIVE, verificationStatus: VerificationStatus.VERIFIED, rejectionReason: null,
@@ -66,7 +66,7 @@ const makeOrg = (o: Partial<Organization> = {}): Organization => ({
 
 const makeOrgMembership = (o: Partial<OrganizationMember> = {}): OrganizationMember => ({
   id: 'orgmem-001', organizationId: 'org-001', userId: ORG_ADMIN.id, role: OrganizationMemberRole.ADMIN,
-  createdAt: NOW, ...o,
+  createdAt: NOW, updatedAt: NOW, ...o,
 });
 
 const mockRepo: jest.Mocked<IStewardshipRelationshipRepository> = {

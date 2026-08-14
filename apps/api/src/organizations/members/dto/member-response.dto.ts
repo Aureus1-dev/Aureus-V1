@@ -8,6 +8,7 @@ export class MemberResponseDto {
   @ApiProperty() userId: string;
   @ApiProperty({ enum: OrganizationMemberRole }) role: OrganizationMemberRole;
   @ApiProperty() createdAt: Date;
+  @ApiProperty() updatedAt: Date;
 
   static fromEntity(m: OrganizationMember): MemberResponseDto {
     const dto = new MemberResponseDto();

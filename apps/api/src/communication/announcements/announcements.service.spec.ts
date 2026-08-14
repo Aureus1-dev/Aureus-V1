@@ -35,14 +35,14 @@ const makeAnnouncement = (o: Partial<Announcement> = {}): Announcement => ({
 
 const makeOrg = (o: Partial<Organization> = {}): Organization => ({
   id: 'org-001', sequenceNumber: 1, organizationRef: 'AUR-ORG-000001', name: 'Acme', shortDescription: 'x', fullDescription: 'y',
-  organizationType: OrganizationType.BUSINESS, websiteUrl: 'https://acme.test', contactEmail: null, contactPhone: null,
+  organizationType: OrganizationType.BUSINESS, tenantVersion: 1, websiteUrl: 'https://acme.test', contactEmail: null, contactPhone: null,
   location: null, country: null, state: null, city: null, status: OrganizationStatus.ACTIVE, verificationStatus: VerificationStatus.VERIFIED,
   rejectionReason: null, datePublished: null, dateLastVerified: null, createdById: ORG_ADMIN.id, lastUpdatedById: ORG_ADMIN.id,
   createdAt: NOW, updatedAt: NOW, deletedAt: null, ...o,
 });
 
 const makeMembership = (o: Partial<OrganizationMember> = {}): OrganizationMember => ({
-  id: 'mem-001', organizationId: 'org-001', userId: ORG_ADMIN.id, role: OrganizationMemberRole.ADMIN, createdAt: NOW, ...o,
+  id: 'mem-001', organizationId: 'org-001', userId: ORG_ADMIN.id, role: OrganizationMemberRole.ADMIN, createdAt: NOW, updatedAt: NOW, ...o,
 });
 
 const makeRelationship = (o: Partial<StewardshipRelationship> = {}): StewardshipRelationship => ({

@@ -648,8 +648,27 @@ enum OrganizationStatus {
 }
 
 enum OrganizationMemberRole {
+  OWNER
   ADMIN
+  MANAGER
+  OPERATOR
+  VIEWER
   MEMBER
+}
+
+enum BusinessPublicStatus {
+  PRIVATE
+  PUBLISHED
+  PAUSED
+}
+
+enum TenantAuditAction {
+  PROFILE_CREATED
+  PROFILE_UPDATED
+  ONBOARDING_COMPLETED
+  MEMBER_ADDED
+  MEMBER_ROLE_CHANGED
+  MEMBER_REMOVED
 }
 
 // ===========================================================================
@@ -688,8 +707,14 @@ model Organization {
   updatedAt       DateTime  @updatedAt
   deletedAt       DateTime?
 
-  members       OrganizationMember[]
-  announcements Announcement[]
+  // Canonical tenant boundary: Organization.id is the tenant_id carried by
+  // every business-console request and audit event.
+  tenantVersion Int @default(1)
+
+  members           OrganizationMember[]
+  businessProfile   BusinessProfile?
+  tenantAuditEvents TenantAuditEvent[]
+  announcements     Announcement[]
   conversations Conversation[]
   courses       Course[]
 
@@ -712,6 +737,7 @@ model OrganizationMember {
   userId         String                 @db.Uuid
   role           OrganizationMemberRole @default(MEMBER)
   createdAt      DateTime               @default(now())
+  updatedAt      DateTime               @updatedAt
 
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -719,6 +745,44 @@ model OrganizationMember {
   @@unique([organizationId, userId])
   @@index([organizationId])
   @@index([userId])
+  @@index([organizationId, role])
+}
+
+// One business operating profile per tenant. Structured JSON is deliberately
+// bounded by DTO validation and database shape checks in the PF-004 migration.
+model BusinessProfile {
+  id                    String               @id @default(uuid()) @db.Uuid
+  organizationId        String               @unique @db.Uuid
+  publicSlug             String?              @unique
+  publicStatus           BusinessPublicStatus @default(PRIVATE)
+  serviceArea            Json
+  businessHours          Json
+  contactRoutes          Json
+  escalationTarget       Json?
+  onboardingStep         Int                  @default(0)
+  onboardingCompletedAt DateTime?
+  createdAt              DateTime             @default(now())
+  updatedAt              DateTime             @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+}
+
+// Append-only tenant-scoped audit context. Application code creates events;
+// there are intentionally no update/delete routes.
+model TenantAuditEvent {
+  id             String            @id @default(uuid()) @db.Uuid
+  organizationId String            @db.Uuid
+  actorId        String            @db.Uuid
+  action         TenantAuditAction
+  resourceType   String
+  resourceId     String?
+  context        Json
+  occurredAt     DateTime          @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, occurredAt])
+  @@index([organizationId, actorId])
 }
 
 // ===========================================================================

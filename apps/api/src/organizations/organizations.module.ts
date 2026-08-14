@@ -8,16 +8,33 @@ import { OrganizationMembersController } from './members/organization-members.co
 import { OrganizationMembersService } from './members/organization-members.service';
 import { PrismaOrganizationMemberRepository } from './members/repositories/prisma-organization-member.repository';
 import { ORGANIZATION_MEMBER_REPOSITORY } from './members/repositories/organization-member.repository.interface';
+import {
+  BusinessTenantController,
+  BusinessTenantDirectoryController,
+} from './business-tenant.controller';
+import { BusinessTenantService } from './business-tenant.service';
 
 @Module({
   imports: [AuthGuardsModule],
-  controllers: [OrganizationsController, OrganizationMembersController],
+  controllers: [
+    OrganizationsController,
+    OrganizationMembersController,
+    BusinessTenantController,
+    BusinessTenantDirectoryController,
+  ],
   providers: [
     OrganizationsService,
+    BusinessTenantService,
     { provide: ORGANIZATION_REPOSITORY, useClass: PrismaOrganizationRepository },
     OrganizationMembersService,
     { provide: ORGANIZATION_MEMBER_REPOSITORY, useClass: PrismaOrganizationMemberRepository },
   ],
-  exports: [OrganizationsService, OrganizationMembersService, ORGANIZATION_REPOSITORY, ORGANIZATION_MEMBER_REPOSITORY],
+  exports: [
+    OrganizationsService,
+    OrganizationMembersService,
+    BusinessTenantService,
+    ORGANIZATION_REPOSITORY,
+    ORGANIZATION_MEMBER_REPOSITORY,
+  ],
 })
 export class OrganizationsModule {}

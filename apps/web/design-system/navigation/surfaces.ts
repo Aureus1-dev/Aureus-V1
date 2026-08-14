@@ -37,6 +37,7 @@ const ALL_SURFACES: SurfaceDefinition[] = [
   { id: 'notifications', label: 'Notifications', href: '/notifications', tier: 'secondary' },
   { id: 'messages', label: 'Messages', href: '/messages', tier: 'secondary' },
   { id: 'resources', label: 'Resources', href: '/resources', tier: 'secondary' },
+  { id: 'business', label: 'Business', href: '/business', tier: 'secondary' },
   { id: 'profile', label: 'Profile', href: '/profile', tier: 'secondary' },
   { id: 'settings', label: 'Settings', href: '/settings', tier: 'primary' },
   { id: 'permissions', label: 'Connected Experiences', href: '/permissions', tier: 'secondary' },
