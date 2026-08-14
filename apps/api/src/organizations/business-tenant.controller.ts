@@ -3,12 +3,13 @@ import { ApiBearerAuth, ApiOperation, ApiParam, ApiTags } from '@nestjs/swagger'
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { AuthenticatedUser } from '../auth/strategies/jwt.strategy';
+import { BusinessTenantMembershipGuard } from './guards/business-tenant-membership.guard';
 import { BusinessTenantService } from './business-tenant.service';
 import { UpsertBusinessProfileDto } from './dto/upsert-business-profile.dto';
 
 @ApiTags('business-console')
 @ApiBearerAuth()
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, BusinessTenantMembershipGuard)
 @Controller('organizations/:organizationId/business-console')
 export class BusinessTenantController {
   constructor(private readonly service: BusinessTenantService) {}

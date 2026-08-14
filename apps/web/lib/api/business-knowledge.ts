@@ -48,6 +48,10 @@ export interface CreateBusinessKnowledgeInput {
   freshnessIntervalDays: number;
 }
 
+export interface CreateBusinessKnowledgeCorrectionInput extends CreateBusinessKnowledgeInput {
+  correctionReason: string;
+}
+
 export interface ImportBusinessKnowledgeInput extends CreateBusinessKnowledgeInput {
   fileName: string;
   mimeType: 'text/plain' | 'text/markdown';
@@ -69,6 +73,23 @@ export function createBusinessKnowledge(
   input: CreateBusinessKnowledgeInput,
 ): Promise<BusinessKnowledgeRecord> {
   return apiRequest(base(tenantId), { method: 'POST', accessToken, body: input });
+}
+
+export function createBusinessKnowledgeCorrection(
+  accessToken: string,
+  tenantId: string,
+  id: string,
+  input: CreateBusinessKnowledgeCorrectionInput,
+): Promise<BusinessKnowledgeRecord & {
+  correctionOf: string;
+  correctionReason: string;
+  originalRemainsLive: true;
+}> {
+  return apiRequest(`${base(tenantId)}/${id}/correction`, {
+    method: 'POST',
+    accessToken,
+    body: input,
+  });
 }
 
 export function importBusinessKnowledge(
