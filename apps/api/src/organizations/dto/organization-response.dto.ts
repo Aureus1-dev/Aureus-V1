@@ -6,6 +6,7 @@ export class OrganizationResponseDto {
   @ApiProperty() id: string;
   @ApiProperty({ description: 'Stable human-readable ID, e.g. AUR-ORG-000001' })
   organizationRef: string | null;
+  @ApiProperty({ description: 'Version of the canonical tenant context' }) tenantVersion: number;
   @ApiProperty() name: string;
   @ApiProperty() shortDescription: string;
   @ApiProperty() fullDescription: string;
