@@ -1,8 +1,9 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import {
   BusinessKnowledgeSourceKind,
   BusinessKnowledgeStatus,
   BusinessKnowledgeType,
+  OrganizationMemberRole,
   OrganizationType,
   Prisma,
 } from '@prisma/client';
@@ -10,6 +11,12 @@ import type { AuthenticatedUser } from '../auth/strategies/jwt.strategy';
 import { PrismaService } from '../prisma/prisma.service';
 
 const PACK_PREFIX = 'PF009_KITCHEN_BATH:';
+const PACK_EDIT_ROLES: OrganizationMemberRole[] = [
+  OrganizationMemberRole.OWNER,
+  OrganizationMemberRole.ADMIN,
+  OrganizationMemberRole.MANAGER,
+  OrganizationMemberRole.OPERATOR,
+];
 
 export const KITCHEN_BATH_ESTIMATION_BOUNDARY =
   'Never fabricate a project quote, allowance, schedule, permit requirement, or scope commitment. Use only current business-approved knowledge. When the approved information does not support an answer, say so and offer a human handoff.';
@@ -120,11 +127,18 @@ export class KitchenBathVerticalService {
         id: organizationId,
         organizationType: OrganizationType.BUSINESS,
         deletedAt: null,
-        members: { some: { userId: caller.id } },
       },
-      select: { id: true },
+      select: {
+        id: true,
+        members: { where: { userId: caller.id }, select: { role: true }, take: 1 },
+      },
     });
-    if (!organization) throw new NotFoundException(`Organization '${organizationId}' not found`);
+    if (!organization?.members[0]) {
+      throw new NotFoundException(`Organization '${organizationId}' not found`);
+    }
+    if (!PACK_EDIT_ROLES.includes(organization.members[0].role)) {
+      throw new ForbiddenException('You do not have permission to install business knowledge templates');
+    }
 
     const existing = await this.prisma.db.businessKnowledgeRecord.findMany({
       where: { organizationId, deletedAt: null, sourceReference: { startsWith: PACK_PREFIX } },
