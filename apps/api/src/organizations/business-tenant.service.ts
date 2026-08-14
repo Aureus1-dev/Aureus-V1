@@ -34,6 +34,27 @@ const PRIVILEGED_ROLES: UserRole[] = [
 export class BusinessTenantService {
   constructor(private readonly prisma: PrismaService) {}
 
+  async listMyTenants(caller: AuthenticatedUser) {
+    return this.prisma.db.organization.findMany({
+      where: {
+        deletedAt: null,
+        organizationType: OrganizationType.BUSINESS,
+        members: { some: { userId: caller.id } },
+      },
+      select: {
+        id: true,
+        organizationRef: true,
+        name: true,
+        status: true,
+        verificationStatus: true,
+        businessProfile: {
+          select: { publicStatus: true, onboardingStep: true },
+        },
+      },
+      orderBy: { name: 'asc' },
+    });
+  }
+
   async getConsole(organizationId: string, caller: AuthenticatedUser) {
     const access = await this.getTenantAccessOrThrow(organizationId, caller);
     return {
