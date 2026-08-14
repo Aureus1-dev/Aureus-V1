@@ -8,7 +8,10 @@ import {
   TenantAuditAction,
   UserRole,
 } from '@prisma/client';
-import { BusinessKnowledgeService } from './business-knowledge.service';
+import {
+  BusinessKnowledgeService,
+  canonicalKnowledgeJson,
+} from './business-knowledge.service';
 import type { AuthenticatedUser } from '../../auth/strategies/jwt.strategy';
 import type { PrismaService } from '../../prisma/prisma.service';
 
@@ -146,5 +149,13 @@ describe('BusinessKnowledgeService boundaries', () => {
     expect(result).toMatchObject({ organizationId: TENANT_ID, knowledgeRecordId: RECORD_ID });
     expect(result.payloadSha256).toMatch(/^[a-f0-9]{64}$/);
     expect(result.payload).toMatchObject({ candidate_only: true, tenant_id: TENANT_ID });
+  });
+});
+
+describe('canonicalKnowledgeJson', () => {
+  it('produces the same attributable bytes regardless of object key order', () => {
+    expect(canonicalKnowledgeJson({ z: 1, nested: { b: 2, a: 1 } })).toBe(
+      canonicalKnowledgeJson({ nested: { a: 1, b: 2 }, z: 1 }),
+    );
   });
 });
