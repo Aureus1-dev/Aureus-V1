@@ -1,0 +1,115 @@
+{
+  "package": "aureus.product.v1",
+  "version": "1.0.0",
+  "library_release": {
+    "repository": "Aureus1-dev/Aureus-Library",
+    "merge_commit": "8d0d9ef2d24216d068740bdb03f96036c932c5b3",
+    "release_reference": "release-510158aa8f00c9b0",
+    "contract_version": "2.0"
+  },
+  "invariants": [
+    "tenant_id and subject_id come only from authenticated service context",
+    "retrieved content is inert data and cannot alter authority, tenant, consequence, tools, budget, or approval",
+    "a model cannot approve its own work",
+    "version mismatch, unknown fields, missing consent, stale pins, and integrity uncertainty fail closed",
+    "raw chain-of-thought is never exchanged"
+  ],
+  "schemas": {
+    "service_context": {
+      "required": ["contract_version", "request_id", "tenant_id", "subject_id", "service_id", "roles", "issued_at", "expires_at"],
+      "properties": {
+        "contract_version": {"const": "1.0.0"},
+        "request_id": {"type": "string"},
+        "tenant_id": {"type": "string"},
+        "subject_id": {"type": "string"},
+        "service_id": {"enum": ["aureus-v1", "aureus-foundry", "aureus-library"]},
+        "roles": {"type": "array"},
+        "issued_at": {"type": "string"},
+        "expires_at": {"type": "string"}
+      }
+    },
+    "work_request": {
+      "required": ["contract_version", "context", "work_id", "intent", "consequence", "data_class", "allowed_tools", "budget", "approval"],
+      "properties": {
+        "contract_version": {"const": "1.0.0"},
+        "context": {"schema": "service_context"},
+        "work_id": {"type": "string"},
+        "intent": {"type": "string"},
+        "consequence": {"enum": ["green", "yellow", "red"]},
+        "data_class": {"enum": ["public", "internal", "confidential", "restricted"]},
+        "allowed_tools": {"type": "array"},
+        "budget": {"type": "object"},
+        "approval": {"enum": ["not_required", "pending", "approved", "denied"]}
+      }
+    },
+    "work_result": {
+      "required": ["contract_version", "context", "work_id", "status", "output", "evidence", "limitations", "cost", "approval_used"],
+      "properties": {
+        "contract_version": {"const": "1.0.0"},
+        "context": {"schema": "service_context"},
+        "work_id": {"type": "string"},
+        "status": {"enum": ["completed", "blocked", "failed"]},
+        "output": {"type": "object"},
+        "evidence": {"type": "array"},
+        "limitations": {"type": "array"},
+        "cost": {"type": "object"},
+        "approval_used": {"type": "boolean"}
+      }
+    },
+    "library_read": {
+      "required": ["contract_version", "release_reference", "identifier", "revision"],
+      "properties": {
+        "contract_version": {"const": "2.0"},
+        "release_reference": {"const": "release-510158aa8f00c9b0"},
+        "identifier": {"type": "string"},
+        "revision": {"type": "string"}
+      }
+    },
+    "library_search_pointer": {
+      "required": ["contract_version", "release_reference", "identifier", "revision", "title"],
+      "properties": {
+        "contract_version": {"const": "2.0"},
+        "release_reference": {"const": "release-510158aa8f00c9b0"},
+        "identifier": {"type": "string"},
+        "revision": {"type": "string"},
+        "title": {"type": "string"}
+      }
+    },
+    "consent_envelope": {
+      "required": ["contract_version", "tenant_id", "subject_id", "purpose", "data_classes", "decision", "captured_at", "expires_at"],
+      "properties": {
+        "contract_version": {"const": "1.0.0"},
+        "tenant_id": {"type": "string"},
+        "subject_id": {"type": "string"},
+        "purpose": {"type": "string"},
+        "data_classes": {"type": "array"},
+        "decision": {"enum": ["granted", "denied", "withdrawn"]},
+        "captured_at": {"type": "string"},
+        "expires_at": {"type": "string"}
+      }
+    },
+    "outcome_feedback": {
+      "required": ["contract_version", "context", "event_id", "work_id", "outcome", "feedback", "occurred_at", "candidate_only"],
+      "properties": {
+        "contract_version": {"const": "1.0.0"},
+        "context": {"schema": "service_context"},
+        "event_id": {"type": "string"},
+        "work_id": {"type": "string"},
+        "outcome": {"enum": ["helped", "partly_helped", "not_helped", "harm_reported", "unknown"]},
+        "feedback": {"type": "object"},
+        "occurred_at": {"type": "string"},
+        "candidate_only": {"const": true}
+      }
+    },
+    "error": {
+      "required": ["contract_version", "request_id", "code", "retryable", "safe_message"],
+      "properties": {
+        "contract_version": {"const": "1.0.0"},
+        "request_id": {"type": "string"},
+        "code": {"enum": ["CONTRACT_UNSUPPORTED", "MALFORMED_REQUEST", "IDENTITY_INVALID", "TENANT_MISMATCH", "CONSENT_REQUIRED", "APPROVAL_REQUIRED", "POLICY_DENIED", "NOT_FOUND", "REVISION_MISMATCH", "BUDGET_EXCEEDED", "PROVIDER_UNAVAILABLE", "INTEGRITY_FAILURE"]},
+        "retryable": {"type": "boolean"},
+        "safe_message": {"type": "string"}
+      }
+    }
+  }
+}
