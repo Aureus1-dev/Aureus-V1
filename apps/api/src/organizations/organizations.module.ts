@@ -19,6 +19,8 @@ import { BusinessTenantMembershipGuard } from './guards/business-tenant-membersh
 import { BusinessKnowledgeCorrectionService } from './knowledge/business-knowledge-correction.service';
 import { BusinessKnowledgeController } from './knowledge/business-knowledge.controller';
 import { BusinessKnowledgeService } from './knowledge/business-knowledge.service';
+import { KitchenBathVerticalController } from './kitchen-bath-vertical.controller';
+import { KitchenBathVerticalService } from './kitchen-bath-vertical.service';
 
 @Module({
   imports: [AuthGuardsModule],
@@ -29,6 +31,7 @@ import { BusinessKnowledgeService } from './knowledge/business-knowledge.service
     BusinessTenantDirectoryController,
     BusinessOperationsController,
     BusinessKnowledgeController,
+    KitchenBathVerticalController,
   ],
   providers: [
     OrganizationsService,
@@ -37,6 +40,7 @@ import { BusinessKnowledgeService } from './knowledge/business-knowledge.service
     BusinessTenantMembershipGuard,
     BusinessKnowledgeService,
     BusinessKnowledgeCorrectionService,
+    KitchenBathVerticalService,
     { provide: ORGANIZATION_REPOSITORY, useClass: PrismaOrganizationRepository },
     OrganizationMembersService,
     { provide: ORGANIZATION_MEMBER_REPOSITORY, useClass: PrismaOrganizationMemberRepository },
@@ -49,6 +53,7 @@ import { BusinessKnowledgeService } from './knowledge/business-knowledge.service
     BusinessTenantMembershipGuard,
     BusinessKnowledgeService,
     BusinessKnowledgeCorrectionService,
+    KitchenBathVerticalService,
     ORGANIZATION_REPOSITORY,
     ORGANIZATION_MEMBER_REPOSITORY,
   ],
