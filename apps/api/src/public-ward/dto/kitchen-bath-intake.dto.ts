@@ -5,9 +5,12 @@ import {
   ArrayMinSize,
   IsArray,
   IsEnum,
+  IsInt,
   IsOptional,
   IsString,
+  Max,
   MaxLength,
+  Min,
   MinLength,
   ValidateNested,
 } from 'class-validator';
@@ -33,6 +36,36 @@ export enum KitchenBathBudgetRange {
   FROM_100000_TO_200000 = 'FROM_100000_TO_200000',
   OVER_200000 = 'OVER_200000',
   UNSURE = 'UNSURE',
+}
+
+export class KitchenBathAttachmentReferenceDto {
+  @ApiProperty({ maxLength: 160 })
+  @IsString()
+  @MinLength(1)
+  @MaxLength(160)
+  fileName: string;
+
+  @ApiProperty({ maxLength: 120, example: 'image/jpeg' })
+  @IsString()
+  @MinLength(1)
+  @MaxLength(120)
+  mimeType: string;
+
+  @ApiProperty({ minimum: 1, maximum: 20_000_000 })
+  @IsInt()
+  @Min(1)
+  @Max(20_000_000)
+  sizeBytes: number;
+
+  @ApiProperty({
+    maxLength: 1000,
+    description:
+      'Opaque storage pointer created by the deployment storage adapter. Aureus does not infer or fetch arbitrary visitor URLs here.',
+  })
+  @IsString()
+  @MinLength(1)
+  @MaxLength(1000)
+  storageRef: string;
 }
 
 export class KitchenBathIntakeDto {
@@ -73,11 +106,12 @@ export class KitchenBathIntakeDto {
   @IsString()
   @MaxLength(1000)
   designNeeds?: string;
-}
 
-export class KitchenBathHandoffDto {
-  @ApiProperty({ type: KitchenBathIntakeDto })
-  @ValidateNested()
-  @Type(() => KitchenBathIntakeDto)
-  intake: KitchenBathIntakeDto;
+  @ApiPropertyOptional({ type: [KitchenBathAttachmentReferenceDto], maxItems: 6 })
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(6)
+  @ValidateNested({ each: true })
+  @Type(() => KitchenBathAttachmentReferenceDto)
+  attachments?: KitchenBathAttachmentReferenceDto[];
 }
