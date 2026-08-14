@@ -12,6 +12,7 @@ import { ApiBearerAuth, ApiOperation, ApiParam, ApiTags } from '@nestjs/swagger'
 import { CurrentUser } from '../../auth/decorators/current-user.decorator';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { AuthenticatedUser } from '../../auth/strategies/jwt.strategy';
+import { BusinessTenantMembershipGuard } from '../guards/business-tenant-membership.guard';
 import {
   BUSINESS_KNOWLEDGE_NOTICE,
   BusinessKnowledgeService,
@@ -24,7 +25,7 @@ import { UpdateBusinessKnowledgeDto } from './dto/update-business-knowledge.dto'
 
 @ApiTags('business-knowledge')
 @ApiBearerAuth()
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, BusinessTenantMembershipGuard)
 @Controller('organizations/:organizationId/business-knowledge')
 export class BusinessKnowledgeController {
   constructor(private readonly service: BusinessKnowledgeService) {}
