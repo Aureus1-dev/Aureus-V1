@@ -1,0 +1,49 @@
+{
+  "schemaVersion": "pf010-pilot-manifest-v1",
+  "release": "PF-010",
+  "productScope": "Kitchen & Bath sellable web pilot",
+  "repositories": {
+    "Aureus-V1": {
+      "repository": "Aureus1-dev/Aureus-V1",
+      "releaseCommit": "THIS_ACCEPTED_PF010_COMMIT",
+      "requiredParent": "bea7287cc9f0681002c30ba7918f2f20c256c5f3"
+    },
+    "Aureus-Foundry": {
+      "repository": "Aureus1-dev/Aureus-Foundry",
+      "releaseCommit": "e6c0a4558145c6f00d5e7734be95af08daf8241a"
+    },
+    "Aureus-Library": {
+      "repository": "Aureus1-dev/Aureus-Library",
+      "releaseCommit": "e217284d0b9d4e8e9cbca119c8257d202a34a5c7"
+    }
+  },
+  "hosting": {
+    "provider": "Render",
+    "blueprint": "render.yaml",
+    "autoDeploy": false,
+    "apiHealth": "/health/ready",
+    "webHealth": "/"
+  },
+  "pilot": {
+    "durationDays": 30,
+    "vertical": "KITCHEN_BATH",
+    "phoneSmsIncluded": false,
+    "phoneSmsSuccessor": "PF-011",
+    "externalClientAllowed": false,
+    "externalClientGate": "PF-012 Founder walkthrough on this exact deployment manifest"
+  },
+  "operationalGates": [
+    "exact V1 accepted SHA has full CI and Docker success",
+    "production environment passes pnpm verify:env",
+    "real registration verification and password-reset email cycle passes",
+    "database backup is taken before production migration",
+    "restore procedure has been drill-verified against a non-production database",
+    "SENTRY_DSN or an equivalent production alert path is configured and tested",
+    "tenant knowledge is reviewed and approved before Ward publication",
+    "provider spend and emergency-stop controls are visible to the operator",
+    "privacy/data-processing disclosure is reviewed before external pilot",
+    "accessibility manual review is completed on mobile and desktop",
+    "PF-012 Founder walkthrough passes on this exact manifest"
+  ],
+  "acceptanceRecordRule": "The PF-010 PR acceptance comment MUST replace THIS_ACCEPTED_PF010_COMMIT conceptually with the exact frozen PR head. The committed manifest cannot self-contain its own Git commit SHA without changing that SHA; the acceptance record is therefore the authoritative binding of this file to the exact V1 release commit."
+}
