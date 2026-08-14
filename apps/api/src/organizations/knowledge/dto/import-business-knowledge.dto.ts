@@ -1,10 +1,10 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { Equals, IsIn, IsString, MaxLength } from 'class-validator';
+import { Equals, IsIn, IsString, MaxLength, MinLength } from 'class-validator';
 import { CreateBusinessKnowledgeDto } from './create-business-knowledge.dto';
 
 export class ImportBusinessKnowledgeDto extends CreateBusinessKnowledgeDto {
   @ApiProperty({ example: 'services.md', maxLength: 200 })
-  @IsString() @MaxLength(200)
+  @IsString() @MinLength(1) @MaxLength(200)
   fileName: string;
 
   @ApiProperty({ enum: ['text/plain', 'text/markdown'] })
