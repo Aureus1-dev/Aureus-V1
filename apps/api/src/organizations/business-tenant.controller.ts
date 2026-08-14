@@ -42,3 +42,17 @@ export class BusinessTenantController {
     return this.service.listAudit(organizationId, caller);
   }
 }
+
+@ApiTags('business-console')
+@ApiBearerAuth()
+@UseGuards(JwtAuthGuard)
+@Controller('business-console')
+export class BusinessTenantDirectoryController {
+  constructor(private readonly service: BusinessTenantService) {}
+
+  @Get('tenants')
+  @ApiOperation({ summary: 'List business tenants represented by the caller' })
+  listMyTenants(@CurrentUser() caller: AuthenticatedUser) {
+    return this.service.listMyTenants(caller);
+  }
+}
