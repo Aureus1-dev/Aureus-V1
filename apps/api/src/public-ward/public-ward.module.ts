@@ -9,17 +9,30 @@ import { KitchenBathPublicController } from './kitchen-bath-public.controller';
 import { KitchenBathPublicService } from './kitchen-bath-public.service';
 import { PublicWardController } from './public-ward.controller';
 import { PublicWardService } from './public-ward.service';
+import { TelephonyContinuityController } from './telephony-continuity.controller';
+import { TelephonyContinuityService } from './telephony-continuity.service';
 import { WardLeadService } from './ward-lead.service';
 
 @Module({
   imports: [AiModule, AuthGuardsModule, CommunicationModule, OrganizationsModule],
-  controllers: [PublicWardController, KitchenBathPublicController, BusinessWardLeadController],
+  controllers: [
+    PublicWardController,
+    KitchenBathPublicController,
+    TelephonyContinuityController,
+    BusinessWardLeadController,
+  ],
   providers: [
     PublicWardService,
     WardLeadService,
     KitchenBathPublicService,
+    TelephonyContinuityService,
     BusinessTenantMembershipGuard,
   ],
-  exports: [PublicWardService, WardLeadService, KitchenBathPublicService],
+  exports: [
+    PublicWardService,
+    WardLeadService,
+    KitchenBathPublicService,
+    TelephonyContinuityService,
+  ],
 })
 export class PublicWardModule {}
