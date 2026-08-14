@@ -52,6 +52,18 @@ const PRIVILEGED_ROLES: UserRole[] = [
 export const BUSINESS_KNOWLEDGE_NOTICE =
   'This is tenant-provided source material. Upload or approval does not make it legal advice, establish objective truth, or admit it to the Aureus Library.';
 
+export function canonicalKnowledgeJson(value: unknown): string {
+  if (value === null || typeof value !== 'object') return JSON.stringify(value);
+  if (Array.isArray(value)) {
+    return `[${value.map((entry) => canonicalKnowledgeJson(entry)).join(',')}]`;
+  }
+  const object = value as Record<string, unknown>;
+  return `{${Object.keys(object)
+    .sort()
+    .map((key) => `${JSON.stringify(key)}:${canonicalKnowledgeJson(object[key])}`)
+    .join(',')}}`;
+}
+
 @Injectable()
 export class BusinessKnowledgeService {
   constructor(private readonly prisma: PrismaService) {}
@@ -286,7 +298,7 @@ export class BusinessKnowledgeService {
       },
       notice: BUSINESS_KNOWLEDGE_NOTICE,
     };
-    const serialized = JSON.stringify(payload);
+    const serialized = canonicalKnowledgeJson(payload);
     const payloadSha256 = createHash('sha256').update(serialized).digest('hex');
 
     return this.prisma.db.$transaction(async (tx) => {
