@@ -21,6 +21,10 @@ import {
 } from '../repositories/organization.repository.interface';
 
 const MODERATOR_ROLES: UserRole[] = [UserRole.STEWARD, UserRole.PLATFORM_ADMINISTRATOR, UserRole.SYSTEM_ADMINISTRATOR];
+const MANAGING_MEMBER_ROLES: OrganizationMemberRole[] = [
+  OrganizationMemberRole.OWNER,
+  OrganizationMemberRole.ADMIN,
+];
 
 @Injectable()
 export class OrganizationMembersService {
@@ -70,8 +74,8 @@ export class OrganizationMembersService {
     if (!target) throw new NotFoundException(`User '${userId}' is not a member of this organization`);
 
     if (
-      [OrganizationMemberRole.OWNER, OrganizationMemberRole.ADMIN].includes(target.role)
-      && ![OrganizationMemberRole.OWNER, OrganizationMemberRole.ADMIN].includes(dto.role)
+      MANAGING_MEMBER_ROLES.includes(target.role)
+      && !MANAGING_MEMBER_ROLES.includes(dto.role)
     ) {
       const adminCount = await this.repo.countAdmins(organizationId);
       if (adminCount <= 1) {
@@ -94,7 +98,7 @@ export class OrganizationMembersService {
     const target = await this.repo.findByOrgAndUser(organizationId, userId);
     if (!target) throw new NotFoundException(`User '${userId}' is not a member of this organization`);
 
-    if ([OrganizationMemberRole.OWNER, OrganizationMemberRole.ADMIN].includes(target.role)) {
+    if (MANAGING_MEMBER_ROLES.includes(target.role)) {
       const adminCount = await this.repo.countAdmins(organizationId);
       if (adminCount <= 1) {
         throw new ConflictException('Cannot remove the organization\'s last remaining ADMIN representative');
@@ -115,7 +119,7 @@ export class OrganizationMembersService {
     const membership = await this.repo.findByOrgAndUser(organizationId, caller.id);
     if (
       !membership
-      || ![OrganizationMemberRole.OWNER, OrganizationMemberRole.ADMIN].includes(membership.role)
+      || !MANAGING_MEMBER_ROLES.includes(membership.role)
     ) {
       throw new ForbiddenException('You do not have permission to manage this organization\'s members');
     }
