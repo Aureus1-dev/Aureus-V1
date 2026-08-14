@@ -1,14 +1,36 @@
 /**
  * Member Arrival outcome check. This remains distinct from ambiguity, but a
- * member who has already answered "What would help most right now?" with a
- * recognizable category such as "money" must not be asked the same question
- * again. The Steward can orient immediately and ask one narrower question.
+ * member who has already supplied either an explicit goal or a concrete
+ * hardship with an obvious stabilizing default must not be asked the generic
+ * arrival question again. The Steward can respond to the real need and ask a
+ * narrower question only when it is actually useful.
  */
 const OUTCOME_INDICATOR_PHRASES = [
   'i need', 'i want', 'i would like', "i'd like", 'i wanna', 'i wish',
   'looking for', 'trying to', 'hoping to', 'want to', 'need to',
   'help me', 'so i can', 'so that i can', 'in order to',
   'i have to', "i've got to", 'need help with', 'need help finding',
+];
+
+const CONCRETE_HARDSHIP_PHRASES = [
+  'past due',
+  'overdue',
+  'being shut off',
+  'getting shut off',
+  'shut off',
+  'disconnected',
+  'being disconnected',
+  'behind on',
+  "can't pay",
+  'cannot pay',
+  'unable to pay',
+  'eviction',
+  'being evicted',
+  'getting evicted',
+  'foreclosure',
+  'being foreclosed',
+  'repossession',
+  'being repossessed',
 ];
 
 const COMMAND_PREFIXES = [
@@ -58,6 +80,7 @@ export function isOutcomeUnclear(content: string): boolean {
   if (normalized.endsWith('?')) return false;
   if (COMMAND_PREFIXES.some((prefix) => normalized.startsWith(prefix))) return false;
   if (CONCISE_NEEDS_WITH_ACTIONABLE_DEFAULTS.has(normalized)) return false;
+  if (CONCRETE_HARDSHIP_PHRASES.some((phrase) => normalized.includes(phrase))) return false;
   return !OUTCOME_INDICATOR_PHRASES.some((phrase) => normalized.includes(phrase));
 }
 
