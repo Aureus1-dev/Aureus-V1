@@ -32,6 +32,11 @@ const EDIT_ROLES: OrganizationMemberRole[] = [
   OrganizationMemberRole.OPERATOR,
 ];
 
+const EDITABLE_STATUSES: BusinessKnowledgeStatus[] = [
+  BusinessKnowledgeStatus.DRAFT,
+  BusinessKnowledgeStatus.REJECTED,
+];
+
 const REVIEW_ROLES: OrganizationMemberRole[] = [
   OrganizationMemberRole.OWNER,
   OrganizationMemberRole.ADMIN,
@@ -119,7 +124,7 @@ export class BusinessKnowledgeService {
     this.requireRole(access.membership?.role, caller, EDIT_ROLES, 'edit');
     const existing = await this.findScopedRecord(organizationId, id);
 
-    if (![BusinessKnowledgeStatus.DRAFT, BusinessKnowledgeStatus.REJECTED].includes(existing.status)) {
+    if (!EDITABLE_STATUSES.includes(existing.status)) {
       throw new ConflictException('Only DRAFT or REJECTED knowledge can be edited');
     }
 
@@ -161,7 +166,7 @@ export class BusinessKnowledgeService {
     this.requireRole(access.membership?.role, caller, EDIT_ROLES, 'submit');
     const existing = await this.findScopedRecord(organizationId, id);
 
-    if (![BusinessKnowledgeStatus.DRAFT, BusinessKnowledgeStatus.REJECTED].includes(existing.status)) {
+    if (!EDITABLE_STATUSES.includes(existing.status)) {
       throw new ConflictException('Only DRAFT or REJECTED knowledge can be submitted');
     }
 
