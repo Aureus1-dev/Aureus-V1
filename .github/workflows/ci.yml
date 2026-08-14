@@ -61,6 +61,9 @@ jobs:
       - name: Install dependencies
         run: pnpm install
 
+      - name: Validate Product Contract v1
+        run: node contracts/product-v1/v1/validate-product-contracts.mjs
+
       # A green build is not launch-ready if a newly disclosed high/critical
       # vulnerability is already present in the resolved dependency graph.
       - name: Audit dependencies (high and critical)
