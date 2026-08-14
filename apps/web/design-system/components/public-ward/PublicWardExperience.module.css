@@ -15,7 +15,7 @@
 
 .shell {
   display: grid;
-  grid-template-rows: auto auto minmax(15rem, 1fr) auto auto;
+  grid-template-rows: auto auto minmax(15rem, 1fr) auto auto auto;
   width: min(880px, 100%);
   min-height: calc(100dvh - clamp(1.3rem, 6vw, 4rem));
   margin: 0 auto;
@@ -24,6 +24,172 @@
   border-radius: 1.4rem;
   background: rgba(255, 253, 248, 0.96);
   box-shadow: 0 1rem 3rem rgba(52, 39, 25, 0.13);
+}
+
+.handoffOffer,
+.handoffReceipt {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1rem clamp(1rem, 3vw, 1.7rem);
+  border-top: 1px solid rgba(79, 61, 43, 0.16);
+  background: #f6efdf;
+}
+
+.handoffOffer div,
+.handoffReceipt div {
+  display: grid;
+  gap: 0.25rem;
+}
+
+.handoffOffer span,
+.handoffReceipt p,
+.handoffReceipt small {
+  margin: 0;
+  color: #64584c;
+}
+
+.handoffOffer button,
+.submitHandoff {
+  min-height: 2.85rem;
+  padding: 0.75rem 1rem;
+  border: 0;
+  border-radius: 0.8rem;
+  background: #823f1c;
+  color: white;
+  font: inherit;
+  font-weight: 850;
+  cursor: pointer;
+}
+
+.handoffForm {
+  display: grid;
+  gap: 1rem;
+  padding: 1.2rem clamp(1rem, 3vw, 1.7rem);
+  border-top: 1px solid rgba(79, 61, 43, 0.16);
+  background: #fffdf8;
+}
+
+.handoffHeading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.handoffHeading h2,
+.handoffReceipt h2 {
+  margin: 0.1rem 0 0;
+  font-size: 1.25rem;
+}
+
+.closeHandoff,
+.deleteHandoff {
+  padding: 0.65rem 0.8rem;
+  border: 1px solid #8c7965;
+  border-radius: 0.7rem;
+  background: transparent;
+  color: #4b3f34;
+  font: inherit;
+  font-weight: 750;
+  cursor: pointer;
+}
+
+.deleteHandoff {
+  color: #74251d;
+  border-color: #a95c52;
+}
+
+.handoffFields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.85rem;
+}
+
+.handoffFields label {
+  display: grid;
+  gap: 0.4rem;
+  color: #3f352d;
+  font-weight: 800;
+}
+
+.handoffFields label span {
+  color: #716457;
+  font-size: 0.82rem;
+  font-weight: 500;
+}
+
+.handoffFields input,
+.handoffFields select,
+.handoffFields textarea {
+  width: 100%;
+  padding: 0.72rem;
+  border: 1px solid #ad9d88;
+  border-radius: 0.7rem;
+  background: white;
+  color: inherit;
+  font: inherit;
+  font-weight: 500;
+}
+
+.handoffFields input:focus,
+.handoffFields select:focus,
+.handoffFields textarea:focus {
+  border-color: #8c451e;
+  outline: 3px solid rgba(140, 69, 30, 0.2);
+}
+
+.fullField {
+  grid-column: 1 / -1;
+}
+
+.consent {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.7rem;
+  align-items: flex-start;
+  padding: 0.85rem;
+  border: 1px solid #c9bda9;
+  border-radius: 0.8rem;
+  line-height: 1.45;
+}
+
+.consent input {
+  width: 1.25rem;
+  height: 1.25rem;
+  margin-top: 0.1rem;
+  accent-color: #823f1c;
+}
+
+.noInference {
+  margin: -0.35rem 0 0;
+  color: #6b5d50;
+  font-size: 0.82rem;
+}
+
+.submitHandoff {
+  justify-self: start;
+}
+
+.submitHandoff:disabled,
+.deleteHandoff:disabled {
+  cursor: not-allowed;
+  opacity: 0.58;
+}
+
+.handoffComplete {
+  margin: 0.55rem 0 0;
+  color: #46613e;
+  font-weight: 750;
+}
+
+.deletedReceipt {
+  align-self: center;
+  justify-self: center;
+  max-width: 32rem;
+  padding: 2rem;
+  text-align: center;
 }
 
 .embedded .shell {
@@ -272,6 +438,20 @@
 
   .footer {
     display: grid;
+  }
+
+  .handoffOffer,
+  .handoffReceipt,
+  .handoffHeading {
+    display: grid;
+  }
+
+  .handoffFields {
+    grid-template-columns: 1fr;
+  }
+
+  .fullField {
+    grid-column: auto;
   }
 }
 

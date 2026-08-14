@@ -1,11 +1,7 @@
 import { apiRequest } from './http';
 
 export type WardConversationStatus =
-  | 'OPEN'
-  | 'ESCALATION_OFFERED'
-  | 'ESCALATED'
-  | 'CLOSED'
-  | 'EXPIRED';
+  'OPEN' | 'ESCALATION_OFFERED' | 'ESCALATED' | 'CLOSED' | 'EXPIRED';
 
 export type WardResponseKind = 'OPENING' | 'GROUNDED' | 'UNKNOWN' | 'ESCALATION' | 'SAFETY';
 
@@ -23,7 +19,45 @@ export interface PublicWardProfile {
   serviceArea: { cities?: string[]; states?: string[]; postalCodes?: string[]; remote?: boolean };
   businessHours: Record<string, string>;
   contactRoutes: PublicWardContact[];
+  handoff: {
+    consentVersion: 'lead-handoff-v1';
+    consentText: string;
+    consentTextSha256: string;
+    dataClasses: ['identity', 'contact', 'project', 'conversation'];
+    retentionDays: number;
+    minimumFields: string[];
+  };
   notice: string;
+}
+
+export type WardLeadStatus = 'SUBMITTED' | 'ACCEPTED' | 'CONTACTED' | 'CLOSED' | 'LOST';
+export type WardLeadContactMethod = 'EMAIL' | 'PHONE' | 'SMS';
+export type WardLeadDesiredTiming =
+  | 'AS_SOON_AS_POSSIBLE'
+  | 'WITHIN_ONE_MONTH'
+  | 'ONE_TO_THREE_MONTHS'
+  | 'THREE_TO_SIX_MONTHS'
+  | 'EXPLORING';
+
+export interface PublicWardHandoff {
+  handoffId: string;
+  status: WardLeadStatus;
+  preferredContactMethod: WardLeadContactMethod;
+  submittedAt: string;
+  retentionExpiresAt: string;
+  confirmation: string;
+}
+
+export interface CreatePublicWardHandoff {
+  displayName: string;
+  contactMethod: WardLeadContactMethod;
+  contactValue: string;
+  projectSummary: string;
+  projectLocation?: string;
+  desiredTiming?: WardLeadDesiredTiming;
+  consentVersion: 'lead-handoff-v1';
+  consentTextSha256: string;
+  consentGranted: true;
 }
 
 export interface PublicWardMessage {
@@ -40,6 +74,7 @@ export interface PublicWardConversation {
   status: WardConversationStatus;
   remainingTurns: number;
   profile: PublicWardProfile;
+  handoff: PublicWardHandoff | null;
   messages: PublicWardMessage[];
 }
 
@@ -93,5 +128,31 @@ export function sendPublicWardMessage(
     headers: { 'x-ward-token': accessToken },
     retryOn401: false,
     body: { content },
+  });
+}
+
+export function createPublicWardHandoff(
+  slug: string,
+  conversationId: string,
+  accessToken: string,
+  handoff: CreatePublicWardHandoff,
+): Promise<PublicWardHandoff> {
+  return apiRequest(`${path(slug)}/conversations/${encodeURIComponent(conversationId)}/handoff`, {
+    method: 'POST',
+    headers: { 'x-ward-token': accessToken },
+    retryOn401: false,
+    body: handoff,
+  });
+}
+
+export function deletePublicWardHandoff(
+  slug: string,
+  conversationId: string,
+  accessToken: string,
+): Promise<{ deleted: true }> {
+  return apiRequest(`${path(slug)}/conversations/${encodeURIComponent(conversationId)}/handoff`, {
+    method: 'DELETE',
+    headers: { 'x-ward-token': accessToken },
+    retryOn401: false,
   });
 }

@@ -153,6 +153,7 @@ model User {
   aiRequests                 AiRequest[]
   aiRecommendations          AiRecommendation[]
   aiVoiceSessions            AiVoiceSession[]
+  wardLeadEvents             WardLeadEvent[]           @relation("WardLeadEventActor")
   podMemberships             PodMembership[]
   podEventRsvps              PodEventRsvp[]
   podRequests                PodRequest[]
@@ -698,6 +699,35 @@ enum WardResponseKind {
   SAFETY
 }
 
+enum WardLeadContactMethod {
+  EMAIL
+  PHONE
+  SMS
+}
+
+enum WardLeadDesiredTiming {
+  AS_SOON_AS_POSSIBLE
+  WITHIN_ONE_MONTH
+  ONE_TO_THREE_MONTHS
+  THREE_TO_SIX_MONTHS
+  EXPLORING
+}
+
+enum WardLeadStatus {
+  SUBMITTED
+  ACCEPTED
+  CONTACTED
+  CLOSED
+  LOST
+}
+
+enum WardLeadEventType {
+  SUBMITTED
+  ASSIGNED
+  REASSIGNED
+  STATUS_CHANGED
+}
+
 enum BusinessKnowledgeType {
   SERVICE
   FAQ
@@ -773,6 +803,7 @@ model Organization {
   businessKnowledgeRecords BusinessKnowledgeRecord[]
   libraryCandidateExports  LibraryCandidateExport[]
   wardConversations        WardConversation[]
+  wardLeads                WardLead[]
   announcements            Announcement[]
   conversations            Conversation[]
   courses                  Course[]
@@ -798,8 +829,9 @@ model OrganizationMember {
   createdAt      DateTime               @default(now())
   updatedAt      DateTime               @updatedAt
 
-  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  organization      Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user              User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  assignedWardLeads WardLead[]   @relation("WardLeadAssignee")
 
   @@unique([organizationId, userId])
   @@index([organizationId])
@@ -922,10 +954,79 @@ model WardConversation {
   organization Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   messages     WardMessage[]
   aiRequests   AiRequest[]
+  lead         WardLead?
 
   @@unique([organizationId, id])
   @@index([organizationId, status, lastActivityAt])
   @@index([expiresAt])
+}
+
+// A visitor creates a lead only by granting the exact server-owned consent
+// copy. Contact details are never inferred from chat. The related Ward
+// conversation is retained for the same bounded period so the business sees
+// the attributable context the visitor explicitly agreed to share.
+model WardLead {
+  id                      String                 @id @default(uuid()) @db.Uuid
+  organizationId          String                 @db.Uuid
+  conversationId          String                 @unique @db.Uuid
+  displayName             String
+  contactMethod           WardLeadContactMethod
+  contactValue            String
+  projectSummary          String
+  projectLocation         String?
+  desiredTiming           WardLeadDesiredTiming?
+  consentPurpose          String
+  consentVersion          String
+  consentText             String
+  consentTextSha256       String
+  consentDataClasses      String[]
+  consentGrantedAt        DateTime
+  consentExpiresAt        DateTime
+  submissionFingerprint   String
+  qualificationSignals    Json
+  assignedToId            String                 @db.Uuid
+  status                  WardLeadStatus         @default(SUBMITTED)
+  acceptedAt              DateTime?
+  contactedAt             DateTime?
+  closedAt                DateTime?
+  outcomeReason           String?
+  notificationAttemptedAt DateTime?
+  assignmentNotifiedAt    DateTime?
+  lastStateChangedAt      DateTime               @default(now())
+  retentionExpiresAt      DateTime
+  submittedAt             DateTime               @default(now())
+  updatedAt               DateTime               @updatedAt
+
+  organization Organization       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  conversation WardConversation   @relation(fields: [organizationId, conversationId], references: [organizationId, id], onDelete: Cascade)
+  assignee     OrganizationMember @relation("WardLeadAssignee", fields: [organizationId, assignedToId], references: [organizationId, userId], onDelete: Restrict)
+  events       WardLeadEvent[]
+
+  @@unique([organizationId, id])
+  @@unique([organizationId, conversationId])
+  @@index([organizationId, status, submittedAt])
+  @@index([organizationId, assignedToId, status])
+  @@index([retentionExpiresAt])
+}
+
+// Append-only operational history. It deliberately excludes contact PII;
+// deleting a lead also deletes its history and attributed conversation.
+model WardLeadEvent {
+  id             String            @id @default(uuid()) @db.Uuid
+  organizationId String            @db.Uuid
+  leadId         String            @db.Uuid
+  type           WardLeadEventType
+  actorId        String?           @db.Uuid
+  fromStatus     WardLeadStatus?
+  toStatus       WardLeadStatus?
+  reason         String?
+  occurredAt     DateTime          @default(now())
+
+  lead  WardLead @relation(fields: [organizationId, leadId], references: [organizationId, id], onDelete: Cascade)
+  actor User?    @relation("WardLeadEventActor", fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId, leadId, occurredAt])
+  @@index([actorId])
 }
 
 model WardMessage {

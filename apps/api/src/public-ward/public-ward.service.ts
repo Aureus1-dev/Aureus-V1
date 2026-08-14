@@ -28,6 +28,12 @@ import {
   validateGroundedWardAnswer,
   type RankedWardSource,
 } from './ward-grounding.util';
+import {
+  WARD_LEAD_CONSENT_DATA_CLASSES,
+  WARD_LEAD_CONSENT_VERSION,
+  WARD_LEAD_RETENTION_DAYS,
+  wardLeadConsentText,
+} from './ward-lead-consent';
 
 const TOKEN_TTL_MS = 24 * 60 * 60 * 1000;
 const RETENTION_MS = 7 * 24 * 60 * 60 * 1000;
@@ -102,6 +108,7 @@ export class PublicWardService {
       status: conversation.status,
       remainingTurns: MAX_TURNS,
       profile: this.toPublicProfile(tenant),
+      handoff: null,
       messages: [this.toPublicMessage(opening, [])],
     };
   }
@@ -109,17 +116,39 @@ export class PublicWardService {
   async getConversation(slug: string, conversationId: string, token: string | undefined) {
     const tenant = await this.findPublishedTenant(slug);
     const conversation = await this.requireConversation(tenant.id, conversationId, token);
-    const messages = await this.prisma.db.wardMessage.findMany({
-      where: { organizationId: tenant.id, conversationId },
-      include: { sources: { orderBy: { createdAt: 'asc' } } },
-      orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
-    });
+    const [messages, handoff] = await Promise.all([
+      this.prisma.db.wardMessage.findMany({
+        where: { organizationId: tenant.id, conversationId },
+        include: { sources: { orderBy: { createdAt: 'asc' } } },
+        orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+      }),
+      this.prisma.db.wardLead.findUnique({
+        where: { conversationId },
+        select: {
+          id: true,
+          status: true,
+          contactMethod: true,
+          submittedAt: true,
+          retentionExpiresAt: true,
+        },
+      }),
+    ]);
 
     return {
       conversationId,
       status: conversation.status,
       remainingTurns: Math.max(0, MAX_TURNS - conversation.turnCount),
       profile: this.toPublicProfile(tenant),
+      handoff: handoff
+        ? {
+            handoffId: handoff.id,
+            status: handoff.status,
+            preferredContactMethod: handoff.contactMethod,
+            submittedAt: handoff.submittedAt,
+            retentionExpiresAt: handoff.retentionExpiresAt,
+            confirmation: `Your request and this Ward conversation were shared with ${tenant.name}. A team member can now review them.`,
+          }
+        : null,
       messages: messages.map((message) => this.toPublicMessage(message, message.sources)),
     };
   }
@@ -209,7 +238,7 @@ export class PublicWardService {
       take: HISTORY_MESSAGES,
     });
     const history = historyRows.reverse().map((message) => ({
-      role: message.role === WardMessageRole.VISITOR ? 'user' as const : 'assistant' as const,
+      role: message.role === WardMessageRole.VISITOR ? ('user' as const) : ('assistant' as const),
       content: message.content.slice(0, 1800),
     }));
 
@@ -374,7 +403,9 @@ export class PublicWardService {
         where: { id: conversation.id, organizationId },
         data: { status: WardConversationStatus.EXPIRED },
       });
-      throw new GoneException('This private conversation link has expired. Start a new conversation.');
+      throw new GoneException(
+        'This private conversation link has expired. Start a new conversation.',
+      );
     }
 
     return conversation;
@@ -416,6 +447,7 @@ export class PublicWardService {
   }
 
   private toPublicProfile(tenant: PublishedWardTenant) {
+    const consentText = wardLeadConsentText(tenant.name);
     return {
       slug: tenant.businessProfile!.publicSlug,
       name: tenant.name,
@@ -424,7 +456,16 @@ export class PublicWardService {
       serviceArea: tenant.businessProfile!.serviceArea,
       businessHours: tenant.businessProfile!.businessHours,
       contactRoutes: this.publicContacts(tenant.businessProfile!.contactRoutes),
-      notice: 'This Ward answers from business-approved information. It can be wrong or incomplete, cannot make commitments, and is not an emergency service.',
+      handoff: {
+        consentVersion: WARD_LEAD_CONSENT_VERSION,
+        consentText,
+        consentTextSha256: this.hashToken(consentText),
+        dataClasses: [...WARD_LEAD_CONSENT_DATA_CLASSES],
+        retentionDays: WARD_LEAD_RETENTION_DAYS,
+        minimumFields: ['name', 'preferred contact', 'project summary'],
+      },
+      notice:
+        'This Ward answers from business-approved information. It can be wrong or incomplete, cannot make commitments, and is not an emergency service.',
     };
   }
 
@@ -458,22 +499,26 @@ export class PublicWardService {
 
   private publicContacts(value: unknown): PublicContact[] {
     if (!Array.isArray(value)) return [];
-    return value.flatMap((entry) => {
-      if (!entry || typeof entry !== 'object') return [];
-      const route = entry as Record<string, unknown>;
-      if (!['PHONE', 'SMS', 'EMAIL', 'WEBSITE'].includes(String(route.type))) return [];
-      if (typeof route.value !== 'string' || !route.value.trim()) return [];
-      const type = route.type as PublicContact['type'];
-      const value = sanitizePlainText(route.value).slice(0, 500);
-      if (type === 'WEBSITE' && !this.safeHttpUrl(value)) return [];
-      return [{
-        type,
-        value,
-        ...(typeof route.label === 'string' && route.label.trim()
-          ? { label: sanitizePlainText(route.label).slice(0, 80) }
-          : {}),
-      }];
-    }).slice(0, 12);
+    return value
+      .flatMap((entry) => {
+        if (!entry || typeof entry !== 'object') return [];
+        const route = entry as Record<string, unknown>;
+        if (!['PHONE', 'SMS', 'EMAIL', 'WEBSITE'].includes(String(route.type))) return [];
+        if (typeof route.value !== 'string' || !route.value.trim()) return [];
+        const type = route.type as PublicContact['type'];
+        const value = sanitizePlainText(route.value).slice(0, 500);
+        if (type === 'WEBSITE' && !this.safeHttpUrl(value)) return [];
+        return [
+          {
+            type,
+            value,
+            ...(typeof route.label === 'string' && route.label.trim()
+              ? { label: sanitizePlainText(route.label).slice(0, 80) }
+              : {}),
+          },
+        ];
+      })
+      .slice(0, 12);
   }
 
   private publicContact(value: unknown): PublicContact | null {
