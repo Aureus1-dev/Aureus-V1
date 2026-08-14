@@ -1,0 +1,58 @@
+{
+  "schemaVersion": "pf012-founder-walkthrough-v1",
+  "release": "PF-012",
+  "productScope": "Kitchen & Bath founding business web pilot",
+  "repositories": {
+    "Aureus-V1": {
+      "repository": "Aureus1-dev/Aureus-V1",
+      "walkthroughCommit": "THIS_ACCEPTED_PF012_COMMIT",
+      "requiredParent": "c2aef81aad3f7b640c009acf6e10d4e315d94db9"
+    },
+    "Aureus-Foundry": {
+      "repository": "Aureus1-dev/Aureus-Foundry",
+      "releaseCommit": "e6c0a4558145c6f00d5e7734be95af08daf8241a"
+    },
+    "Aureus-Library": {
+      "repository": "Aureus1-dev/Aureus-Library",
+      "releaseCommit": "e217284d0b9d4e8e9cbca119c8257d202a34a5c7"
+    }
+  },
+  "deployment": {
+    "provider": "Render",
+    "apiHealth": "/health/ready",
+    "webHealth": "/",
+    "sameDeploymentRequiredForAllSteps": true,
+    "automaticReleaseAllowed": false
+  },
+  "deviceClasses": ["MOBILE", "DESKTOP"],
+  "requiredSteps": [
+    "BUSINESS_ONBOARDING",
+    "KNOWLEDGE_SETUP_AND_APPROVAL",
+    "PUBLIC_WARD_QUESTION",
+    "WARD_CLARIFICATION",
+    "CONSENTED_LEAD",
+    "BUSINESS_NOTIFICATION",
+    "HUMAN_ACCEPTANCE_AND_HANDOFF",
+    "OUTCOME_RECORDING",
+    "CORRECTION_AND_DELETION",
+    "FAILURE_MODE_AND_PROVIDER_OUTAGE_DRILL"
+  ],
+  "releaseRules": {
+    "everyStepMustPassOnBothDeviceClasses": true,
+    "evidenceRequiredForEveryStep": true,
+    "externalBusinessAllowedBeforeFounderSignoff": false,
+    "phoneSmsMayBeAdvertisedWithoutProviderDrill": false,
+    "webPilotMayPassWhilePhoneSmsIsExplicitlyNotConfigured": true
+  },
+  "externalEnvironmentGates": [
+    "production environment verification",
+    "real email verification/reset delivery cycle",
+    "restore drill evidence",
+    "production alert receipt evidence",
+    "privacy/processor review",
+    "manual accessibility observations",
+    "Founder mobile walkthrough receipt",
+    "Founder desktop walkthrough receipt"
+  ],
+  "acceptanceRecordRule": "The PF-012 PR acceptance comment binds this manifest to the exact frozen PF-012 head. Human walkthrough evidence must then name that exact deployed V1 SHA; changing the deployed code invalidates the walkthrough receipt."
+}
