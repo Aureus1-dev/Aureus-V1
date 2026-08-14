@@ -3,6 +3,7 @@ import { ApiBearerAuth, ApiOperation, ApiParam, ApiTags } from '@nestjs/swagger'
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { AuthenticatedUser } from '../auth/strategies/jwt.strategy';
+import { BusinessTenantMembershipGuard } from '../organizations/guards/business-tenant-membership.guard';
 import { AssignWardLeadDto } from './dto/assign-ward-lead.dto';
 import { ListWardLeadsQueryDto } from './dto/list-ward-leads-query.dto';
 import { TransitionWardLeadDto } from './dto/transition-ward-lead.dto';
@@ -10,7 +11,7 @@ import { WardLeadService } from './ward-lead.service';
 
 @ApiTags('business-leads')
 @ApiBearerAuth()
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, BusinessTenantMembershipGuard)
 @Controller('organizations/:organizationId/business-leads')
 export class BusinessWardLeadController {
   constructor(private readonly leads: WardLeadService) {}
