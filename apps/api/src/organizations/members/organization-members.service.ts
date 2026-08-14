@@ -69,7 +69,10 @@ export class OrganizationMembersService {
     const target = await this.repo.findByOrgAndUser(organizationId, userId);
     if (!target) throw new NotFoundException(`User '${userId}' is not a member of this organization`);
 
-    if (target.role === OrganizationMemberRole.ADMIN && dto.role !== OrganizationMemberRole.ADMIN) {
+    if (
+      [OrganizationMemberRole.OWNER, OrganizationMemberRole.ADMIN].includes(target.role)
+      && ![OrganizationMemberRole.OWNER, OrganizationMemberRole.ADMIN].includes(dto.role)
+    ) {
       const adminCount = await this.repo.countAdmins(organizationId);
       if (adminCount <= 1) {
         throw new ConflictException('Cannot demote the organization\'s last remaining ADMIN representative');
@@ -91,7 +94,7 @@ export class OrganizationMembersService {
     const target = await this.repo.findByOrgAndUser(organizationId, userId);
     if (!target) throw new NotFoundException(`User '${userId}' is not a member of this organization`);
 
-    if (target.role === OrganizationMemberRole.ADMIN) {
+    if ([OrganizationMemberRole.OWNER, OrganizationMemberRole.ADMIN].includes(target.role)) {
       const adminCount = await this.repo.countAdmins(organizationId);
       if (adminCount <= 1) {
         throw new ConflictException('Cannot remove the organization\'s last remaining ADMIN representative');
@@ -110,7 +113,10 @@ export class OrganizationMembersService {
     if (hasRole(caller, MODERATOR_ROLES)) return;
 
     const membership = await this.repo.findByOrgAndUser(organizationId, caller.id);
-    if (!membership || membership.role !== OrganizationMemberRole.ADMIN) {
+    if (
+      !membership
+      || ![OrganizationMemberRole.OWNER, OrganizationMemberRole.ADMIN].includes(membership.role)
+    ) {
       throw new ForbiddenException('You do not have permission to manage this organization\'s members');
     }
   }
