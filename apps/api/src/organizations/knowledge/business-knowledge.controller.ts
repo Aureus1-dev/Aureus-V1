@@ -13,10 +13,12 @@ import { CurrentUser } from '../../auth/decorators/current-user.decorator';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { AuthenticatedUser } from '../../auth/strategies/jwt.strategy';
 import { BusinessTenantMembershipGuard } from '../guards/business-tenant-membership.guard';
+import { BusinessKnowledgeCorrectionService } from './business-knowledge-correction.service';
 import {
   BUSINESS_KNOWLEDGE_NOTICE,
   BusinessKnowledgeService,
 } from './business-knowledge.service';
+import { CreateBusinessKnowledgeCorrectionDto } from './dto/create-business-knowledge-correction.dto';
 import { CreateBusinessKnowledgeDto } from './dto/create-business-knowledge.dto';
 import { ImportBusinessKnowledgeDto } from './dto/import-business-knowledge.dto';
 import { ListBusinessKnowledgeQueryDto } from './dto/list-business-knowledge-query.dto';
@@ -28,7 +30,10 @@ import { UpdateBusinessKnowledgeDto } from './dto/update-business-knowledge.dto'
 @UseGuards(JwtAuthGuard, BusinessTenantMembershipGuard)
 @Controller('organizations/:organizationId/business-knowledge')
 export class BusinessKnowledgeController {
-  constructor(private readonly service: BusinessKnowledgeService) {}
+  constructor(
+    private readonly service: BusinessKnowledgeService,
+    private readonly corrections: BusinessKnowledgeCorrectionService,
+  ) {}
 
   @Get('notice')
   @ApiOperation({ summary: 'Return the source-assurance boundary shown in the workspace' })
@@ -66,6 +71,19 @@ export class BusinessKnowledgeController {
     @CurrentUser() caller: AuthenticatedUser,
   ) {
     return this.service.importText(organizationId, dto, caller);
+  }
+
+  @Post(':id/correction')
+  @ApiOperation({
+    summary: 'Create a separate correction draft while the approved source remains live',
+  })
+  createCorrection(
+    @Param('organizationId') organizationId: string,
+    @Param('id') id: string,
+    @Body() dto: CreateBusinessKnowledgeCorrectionDto,
+    @CurrentUser() caller: AuthenticatedUser,
+  ) {
+    return this.corrections.createCorrection(organizationId, id, dto, caller);
   }
 
   @Get(':id')
