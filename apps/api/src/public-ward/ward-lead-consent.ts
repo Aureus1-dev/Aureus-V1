@@ -1,11 +1,10 @@
-export const WARD_LEAD_CONSENT_VERSION = 'lead-handoff-v2';
+export const WARD_LEAD_CONSENT_VERSION = 'lead-handoff-v1';
 export const WARD_LEAD_CONSENT_PURPOSE = 'lead_handoff';
 export const WARD_LEAD_CONSENT_DATA_CLASSES = [
   'identity',
   'contact',
   'project',
   'conversation',
-  'optional_project_files',
 ] as const;
 export const WARD_LEAD_RETENTION_DAYS = 90;
 
