@@ -2,6 +2,8 @@ import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { axe } from 'jest-axe';
 import {
+  createPublicWardHandoff,
+  deletePublicWardHandoff,
   resumePublicWardConversation,
   sendPublicWardMessage,
   startPublicWardConversation,
@@ -9,14 +11,26 @@ import {
 import { PublicWardExperience } from './PublicWardExperience';
 
 jest.mock('../../../lib/api/public-ward', () => ({
+  createPublicWardHandoff: jest.fn(),
+  deletePublicWardHandoff: jest.fn(),
   resumePublicWardConversation: jest.fn(),
   sendPublicWardMessage: jest.fn(),
   startPublicWardConversation: jest.fn(),
 }));
 
-const mockStart = startPublicWardConversation as jest.MockedFunction<typeof startPublicWardConversation>;
-const mockResume = resumePublicWardConversation as jest.MockedFunction<typeof resumePublicWardConversation>;
+const mockStart = startPublicWardConversation as jest.MockedFunction<
+  typeof startPublicWardConversation
+>;
+const mockResume = resumePublicWardConversation as jest.MockedFunction<
+  typeof resumePublicWardConversation
+>;
 const mockSend = sendPublicWardMessage as jest.MockedFunction<typeof sendPublicWardMessage>;
+const mockCreateHandoff = createPublicWardHandoff as jest.MockedFunction<
+  typeof createPublicWardHandoff
+>;
+const mockDeleteHandoff = deletePublicWardHandoff as jest.MockedFunction<
+  typeof deletePublicWardHandoff
+>;
 
 const started = {
   conversationId: 'conversation-1',
@@ -33,16 +47,33 @@ const started = {
     serviceArea: { cities: ['Philadelphia'] },
     businessHours: { summary: 'Weekdays' },
     contactRoutes: [{ type: 'PHONE' as const, value: '+1 215 555 0100' }],
+    handoff: {
+      consentVersion: 'lead-handoff-v1' as const,
+      consentText:
+        'I agree to share my name, contact details, project summary, and this Ward conversation with Example Kitchens so its team can contact me about this request. This is not consent to unrelated marketing. Aureus will delete this handoff after 90 days unless I delete it sooner.',
+      consentTextSha256: 'a'.repeat(64),
+      dataClasses: ['identity', 'contact', 'project', 'conversation'] as [
+        'identity',
+        'contact',
+        'project',
+        'conversation',
+      ],
+      retentionDays: 90,
+      minimumFields: ['name', 'preferred contact', 'project summary'],
+    },
     notice: 'Approved information only.',
   },
-  messages: [{
-    id: 'opening',
-    role: 'WARD' as const,
-    content: 'How can we help?',
-    responseKind: 'OPENING' as const,
-    createdAt: '2026-08-13T12:00:00.000Z',
-    sources: [],
-  }],
+  handoff: null,
+  messages: [
+    {
+      id: 'opening',
+      role: 'WARD' as const,
+      content: 'How can we help?',
+      responseKind: 'OPENING' as const,
+      createdAt: '2026-08-13T12:00:00.000Z',
+      sources: [],
+    },
+  ],
 };
 
 describe('PublicWardExperience', () => {
@@ -87,11 +118,13 @@ describe('PublicWardExperience', () => {
         content: 'We install cabinets [S1].',
         responseKind: 'GROUNDED',
         createdAt: '2026-08-13T12:01:01.000Z',
-        sources: [{
-          title: 'Cabinet installation',
-          url: 'https://example.com/cabinets',
-          reviewedAt: '2026-08-13T00:00:00.000Z',
-        }],
+        sources: [
+          {
+            title: 'Cabinet installation',
+            url: 'https://example.com/cabinets',
+            reviewedAt: '2026-08-13T00:00:00.000Z',
+          },
+        ],
       },
     });
 
@@ -117,18 +150,122 @@ describe('PublicWardExperience', () => {
   });
 
   it('resumes only with the tab-scoped opaque token', async () => {
-    window.sessionStorage.setItem('aureus:ward:example-kitchens', JSON.stringify({
-      conversationId: 'conversation-1',
-      accessToken: 'opaque-token',
-    }));
+    window.sessionStorage.setItem(
+      'aureus:ward:example-kitchens',
+      JSON.stringify({
+        conversationId: 'conversation-1',
+        accessToken: 'opaque-token',
+      }),
+    );
     mockResume.mockResolvedValue(started);
 
     render(<PublicWardExperience slug="example-kitchens" embedded />);
-    await waitFor(() => expect(mockResume).toHaveBeenCalledWith(
+    await waitFor(() =>
+      expect(mockResume).toHaveBeenCalledWith('example-kitchens', 'conversation-1', 'opaque-token'),
+    );
+    expect(mockStart).not.toHaveBeenCalled();
+  });
+
+  it('shares no contact data until the visitor completes and checks the exact consent', async () => {
+    mockSend.mockResolvedValue({
+      conversationId: started.conversationId,
+      status: 'ESCALATION_OFFERED',
+      remainingTurns: 19,
+      humanContact: started.profile.contactRoutes[0],
+      visitorMessage: {
+        id: 'visitor-1',
+        role: 'VISITOR',
+        content: 'Could someone help plan my kitchen?',
+        responseKind: null,
+        createdAt: '2026-08-13T12:01:00.000Z',
+        sources: [],
+      },
+      message: {
+        id: 'ward-1',
+        role: 'WARD',
+        content: 'A person can help with that.',
+        responseKind: 'ESCALATION',
+        createdAt: '2026-08-13T12:01:01.000Z',
+        sources: [],
+      },
+    });
+    mockCreateHandoff.mockResolvedValue({
+      handoffId: 'handoff-1',
+      status: 'SUBMITTED',
+      preferredContactMethod: 'EMAIL',
+      submittedAt: '2026-08-13T12:02:00.000Z',
+      retentionExpiresAt: '2026-11-11T12:02:00.000Z',
+      confirmation:
+        'Your request and this Ward conversation were shared with Example Kitchens. A team member can now review them.',
+    });
+
+    const { container } = render(<PublicWardExperience slug="example-kitchens" />);
+    const user = userEvent.setup();
+    await screen.findByRole('heading', { name: 'Example Kitchens' });
+    await user.type(
+      screen.getByLabelText('How can we help?'),
+      'Could someone help plan my kitchen?',
+    );
+    await user.click(screen.getByRole('button', { name: 'Send' }));
+    await user.click(await screen.findByRole('button', { name: 'Ask for human follow-up' }));
+
+    expect(mockCreateHandoff).not.toHaveBeenCalled();
+    const submit = screen.getByRole('button', { name: 'Share with the business' });
+    expect(submit).toBeDisabled();
+    expect(screen.getByRole('checkbox')).not.toBeChecked();
+    expect(await axe(container)).toHaveNoViolations();
+
+    await user.type(screen.getByLabelText('Your name'), 'Jordan');
+    await user.type(screen.getByLabelText('Email address'), 'jordan@example.com');
+    await user.type(
+      screen.getByLabelText('What would you like help with?'),
+      'Plan a complete kitchen remodel.',
+    );
+    await user.click(screen.getByRole('checkbox'));
+    await user.click(submit);
+
+    expect(mockCreateHandoff).toHaveBeenCalledWith(
       'example-kitchens',
       'conversation-1',
       'opaque-token',
-    ));
-    expect(mockStart).not.toHaveBeenCalled();
+      expect.objectContaining({
+        displayName: 'Jordan',
+        contactValue: 'jordan@example.com',
+        projectSummary: 'Plan a complete kitchen remodel.',
+        consentVersion: 'lead-handoff-v1',
+        consentTextSha256: 'a'.repeat(64),
+        consentGranted: true,
+      }),
+    );
+    expect(await screen.findByText(/shared with Example Kitchens/i)).toBeInTheDocument();
+  });
+
+  it('deletes the consented handoff and attributed conversation from its receipt', async () => {
+    mockDeleteHandoff.mockResolvedValue({ deleted: true });
+    mockStart.mockResolvedValue({
+      ...started,
+      status: 'ESCALATED',
+      handoff: {
+        handoffId: 'handoff-1',
+        status: 'SUBMITTED',
+        preferredContactMethod: 'EMAIL',
+        submittedAt: '2026-08-13T12:02:00.000Z',
+        retentionExpiresAt: '2026-11-11T12:02:00.000Z',
+        confirmation:
+          'Your request and this Ward conversation were shared with Example Kitchens. A team member can now review them.',
+      },
+    });
+
+    render(<PublicWardExperience slug="example-kitchens" />);
+    const user = userEvent.setup();
+    await user.click(
+      await screen.findByRole('button', { name: 'Delete handoff and conversation' }),
+    );
+    expect(mockDeleteHandoff).toHaveBeenCalledWith(
+      'example-kitchens',
+      'conversation-1',
+      'opaque-token',
+    );
+    expect(await screen.findByRole('heading', { name: 'Handoff deleted' })).toBeInTheDocument();
   });
 });

@@ -3,12 +3,16 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { FormEvent } from 'react';
 import {
+  createPublicWardHandoff,
+  deletePublicWardHandoff,
   resumePublicWardConversation,
   sendPublicWardMessage,
   startPublicWardConversation,
   type PublicWardContact,
   type PublicWardConversation,
   type PublicWardProfile,
+  type WardLeadContactMethod,
+  type WardLeadDesiredTiming,
 } from '../../../lib/api/public-ward';
 import styles from './PublicWardExperience.module.css';
 
@@ -75,6 +79,19 @@ export function PublicWardExperience({ slug, embedded = false }: PublicWardExper
   const [draft, setDraft] = useState('');
   const [state, setState] = useState<'loading' | 'ready' | 'sending' | 'error'>('loading');
   const [error, setError] = useState('');
+  const [handoffOpen, setHandoffOpen] = useState(false);
+  const [handoffBusy, setHandoffBusy] = useState(false);
+  const [handoffError, setHandoffError] = useState('');
+  const [deleted, setDeleted] = useState(false);
+  const [handoffDraft, setHandoffDraft] = useState({
+    displayName: '',
+    contactMethod: 'EMAIL' as WardLeadContactMethod,
+    contactValue: '',
+    projectSummary: '',
+    projectLocation: '',
+    desiredTiming: '' as WardLeadDesiredTiming | '',
+    consentGranted: false,
+  });
   const endRef = useRef<HTMLDivElement>(null);
 
   const primaryContact = useMemo(() => profile?.contactRoutes[0] ?? null, [profile]);
@@ -119,7 +136,9 @@ export function PublicWardExperience({ slug, embedded = false }: PublicWardExper
 
     void open().catch(() => {
       if (!active) return;
-      setError('This Ward is not available right now. You can still contact the business directly.');
+      setError(
+        'This Ward is not available right now. You can still contact the business directly.',
+      );
       setState('error');
     });
 
@@ -146,17 +165,79 @@ export function PublicWardExperience({ slug, embedded = false }: PublicWardExper
         accessToken,
         content,
       );
-      setConversation((current) => current ? {
-        ...current,
-        status: result.status,
-        remainingTurns: result.remainingTurns,
-        messages: [...current.messages, result.visitorMessage, result.message],
-      } : current);
+      setConversation((current) =>
+        current
+          ? {
+              ...current,
+              status: result.status,
+              remainingTurns: result.remainingTurns,
+              messages: [...current.messages, result.visitorMessage, result.message],
+            }
+          : current,
+      );
       setDraft('');
       setState('ready');
     } catch {
-      setError('The Ward could not answer that message. Nothing was sent to the business. Please try again or contact a person.');
+      setError(
+        'The Ward could not answer that message. Nothing was sent to the business. Please try again or contact a person.',
+      );
       setState('error');
+    }
+  };
+
+  const submitHandoff = async (event: FormEvent) => {
+    event.preventDefault();
+    if (!conversation || !accessToken || handoffBusy || !handoffDraft.consentGranted) return;
+    setHandoffBusy(true);
+    setHandoffError('');
+    try {
+      const handoff = await createPublicWardHandoff(
+        slug,
+        conversation.conversationId,
+        accessToken,
+        {
+          displayName: handoffDraft.displayName,
+          contactMethod: handoffDraft.contactMethod,
+          contactValue: handoffDraft.contactValue,
+          projectSummary: handoffDraft.projectSummary,
+          ...(handoffDraft.projectLocation && { projectLocation: handoffDraft.projectLocation }),
+          ...(handoffDraft.desiredTiming && { desiredTiming: handoffDraft.desiredTiming }),
+          consentVersion: profile!.handoff.consentVersion,
+          consentTextSha256: profile!.handoff.consentTextSha256,
+          consentGranted: true,
+        },
+      );
+      setConversation((current) =>
+        current
+          ? {
+              ...current,
+              status: 'ESCALATED',
+              handoff,
+            }
+          : current,
+      );
+      setHandoffOpen(false);
+    } catch {
+      setHandoffError(
+        'The handoff was not created. Nothing new was shared with the business. Please review the fields or use the direct contact route.',
+      );
+    } finally {
+      setHandoffBusy(false);
+    }
+  };
+
+  const deleteHandoff = async () => {
+    if (!conversation || !accessToken || handoffBusy) return;
+    setHandoffBusy(true);
+    setHandoffError('');
+    try {
+      await deletePublicWardHandoff(slug, conversation.conversationId, accessToken);
+      clearSession(slug);
+      setDeleted(true);
+    } catch {
+      setHandoffError('We could not delete the handoff right now. Please try again.');
+    } finally {
+      setHandoffBusy(false);
     }
   };
 
@@ -165,6 +246,20 @@ export function PublicWardExperience({ slug, embedded = false }: PublicWardExper
       <main className={`${styles.page} ${embedded ? styles.embedded : ''}`}>
         <section className={styles.shell} aria-busy="true" aria-label="Opening business Ward">
           <p className={styles.loading}>Opening a private conversation…</p>
+        </section>
+      </main>
+    );
+  }
+
+  if (deleted) {
+    return (
+      <main className={`${styles.page} ${embedded ? styles.embedded : ''}`}>
+        <section className={styles.shell} role="status">
+          <div className={styles.deletedReceipt}>
+            <p className={styles.eyebrow}>Aureus Ward</p>
+            <h1>Handoff deleted</h1>
+            <p>The contact request and its attributed Ward conversation have been deleted.</p>
+          </div>
         </section>
       </main>
     );
@@ -218,13 +313,21 @@ export function PublicWardExperience({ slug, embedded = false }: PublicWardExper
               <p>{message.content}</p>
               {message.sources.length > 0 ? (
                 <details className={styles.sources}>
-                  <summary>{message.sources.length === 1 ? '1 approved source' : `${message.sources.length} approved sources`}</summary>
+                  <summary>
+                    {message.sources.length === 1
+                      ? '1 approved source'
+                      : `${message.sources.length} approved sources`}
+                  </summary>
                   <ul>
                     {message.sources.map((source, index) => (
                       <li key={`${source.title}-${index}`}>
                         {source.url ? (
-                          <a href={source.url} target="_blank" rel="noreferrer">{source.title}</a>
-                        ) : source.title}
+                          <a href={source.url} target="_blank" rel="noreferrer">
+                            {source.title}
+                          </a>
+                        ) : (
+                          source.title
+                        )}
                         <small>Reviewed {new Date(source.reviewedAt).toLocaleDateString()}</small>
                       </li>
                     ))}
@@ -236,6 +339,184 @@ export function PublicWardExperience({ slug, embedded = false }: PublicWardExper
           <div ref={endRef} />
         </div>
 
+        {conversation.handoff ? (
+          <section className={styles.handoffReceipt} aria-label="Human handoff confirmation">
+            <div>
+              <p className={styles.eyebrow}>Shared with your permission</p>
+              <h2>A person can take it from here</h2>
+              <p>{conversation.handoff.confirmation}</p>
+              <small>
+                Status: {conversation.handoff.status.toLowerCase()} · Scheduled for deletion by{' '}
+                {new Date(conversation.handoff.retentionExpiresAt).toLocaleDateString()}
+              </small>
+            </div>
+            <button
+              type="button"
+              className={styles.deleteHandoff}
+              onClick={() => void deleteHandoff()}
+              disabled={handoffBusy}
+            >
+              {handoffBusy ? 'Deleting…' : 'Delete handoff and conversation'}
+            </button>
+            {handoffError ? (
+              <p className={styles.error} role="alert">
+                {handoffError}
+              </p>
+            ) : null}
+          </section>
+        ) : handoffOpen ? (
+          <form className={styles.handoffForm} onSubmit={(event) => void submitHandoff(event)}>
+            <div className={styles.handoffHeading}>
+              <div>
+                <p className={styles.eyebrow}>Optional human follow-up</p>
+                <h2>Ask {profile.name} to contact you</h2>
+              </div>
+              <button
+                type="button"
+                className={styles.closeHandoff}
+                onClick={() => setHandoffOpen(false)}
+              >
+                Keep chatting
+              </button>
+            </div>
+
+            <div className={styles.handoffFields}>
+              <label>
+                Your name
+                <input
+                  value={handoffDraft.displayName}
+                  onChange={(event) =>
+                    setHandoffDraft((current) => ({ ...current, displayName: event.target.value }))
+                  }
+                  maxLength={120}
+                  autoComplete="name"
+                  required
+                />
+              </label>
+              <label>
+                How should they contact you?
+                <select
+                  value={handoffDraft.contactMethod}
+                  onChange={(event) =>
+                    setHandoffDraft((current) => ({
+                      ...current,
+                      contactMethod: event.target.value as WardLeadContactMethod,
+                      contactValue: '',
+                    }))
+                  }
+                >
+                  <option value="EMAIL">Email</option>
+                  <option value="PHONE">Phone call</option>
+                  <option value="SMS">Text message</option>
+                </select>
+              </label>
+              <label>
+                {handoffDraft.contactMethod === 'EMAIL' ? 'Email address' : 'Phone number'}
+                <input
+                  type={handoffDraft.contactMethod === 'EMAIL' ? 'email' : 'tel'}
+                  value={handoffDraft.contactValue}
+                  onChange={(event) =>
+                    setHandoffDraft((current) => ({ ...current, contactValue: event.target.value }))
+                  }
+                  maxLength={320}
+                  autoComplete={handoffDraft.contactMethod === 'EMAIL' ? 'email' : 'tel'}
+                  required
+                />
+              </label>
+              <label>
+                Project location <span>(optional)</span>
+                <input
+                  value={handoffDraft.projectLocation}
+                  onChange={(event) =>
+                    setHandoffDraft((current) => ({
+                      ...current,
+                      projectLocation: event.target.value,
+                    }))
+                  }
+                  maxLength={200}
+                  autoComplete="address-level2"
+                />
+              </label>
+              <label className={styles.fullField}>
+                What would you like help with?
+                <textarea
+                  value={handoffDraft.projectSummary}
+                  onChange={(event) =>
+                    setHandoffDraft((current) => ({
+                      ...current,
+                      projectSummary: event.target.value,
+                    }))
+                  }
+                  minLength={10}
+                  maxLength={2000}
+                  rows={3}
+                  required
+                />
+              </label>
+              <label className={styles.fullField}>
+                Desired timing <span>(optional)</span>
+                <select
+                  value={handoffDraft.desiredTiming}
+                  onChange={(event) =>
+                    setHandoffDraft((current) => ({
+                      ...current,
+                      desiredTiming: event.target.value as WardLeadDesiredTiming | '',
+                    }))
+                  }
+                >
+                  <option value="">Choose only if useful</option>
+                  <option value="AS_SOON_AS_POSSIBLE">As soon as possible</option>
+                  <option value="WITHIN_ONE_MONTH">Within one month</option>
+                  <option value="ONE_TO_THREE_MONTHS">One to three months</option>
+                  <option value="THREE_TO_SIX_MONTHS">Three to six months</option>
+                  <option value="EXPLORING">I am exploring</option>
+                </select>
+              </label>
+            </div>
+
+            <label className={styles.consent}>
+              <input
+                type="checkbox"
+                checked={handoffDraft.consentGranted}
+                onChange={(event) =>
+                  setHandoffDraft((current) => ({
+                    ...current,
+                    consentGranted: event.target.checked,
+                  }))
+                }
+                required
+              />
+              <span>{profile.handoff.consentText}</span>
+            </label>
+            <p className={styles.noInference}>
+              Contact details are not taken from your chat. Only the fields above and this
+              conversation are shared after you check the box.
+            </p>
+            <button
+              type="submit"
+              className={styles.submitHandoff}
+              disabled={handoffBusy || !handoffDraft.consentGranted}
+            >
+              {handoffBusy ? 'Sharing…' : 'Share with the business'}
+            </button>
+            {handoffError ? (
+              <p className={styles.error} role="alert">
+                {handoffError}
+              </p>
+            ) : null}
+          </form>
+        ) : conversation.messages.some((message) => message.role === 'VISITOR') ? (
+          <section className={styles.handoffOffer}>
+            <div>
+              <strong>Want a person at {profile.name} to follow up?</strong>
+              <span>Nothing is shared unless you review the fields and consent.</span>
+            </div>
+            <button type="button" onClick={() => setHandoffOpen(true)}>
+              Ask for human follow-up
+            </button>
+          </section>
+        ) : null}
+
         <form className={styles.composer} onSubmit={(event) => void send(event)}>
           <label htmlFor={`ward-message-${slug}`}>How can we help?</label>
           <div>
@@ -246,22 +527,43 @@ export function PublicWardExperience({ slug, embedded = false }: PublicWardExper
               maxLength={1200}
               rows={embedded ? 2 : 3}
               placeholder="Ask about services, service area, policies, pricing boundaries, or how to reach a person."
-              disabled={state === 'sending' || conversation.remainingTurns <= 0}
+              disabled={
+                state === 'sending' ||
+                conversation.remainingTurns <= 0 ||
+                Boolean(conversation.handoff)
+              }
             />
             <button
               type="submit"
-              disabled={!draft.trim() || state === 'sending' || conversation.remainingTurns <= 0}
+              disabled={
+                !draft.trim() ||
+                state === 'sending' ||
+                conversation.remainingTurns <= 0 ||
+                Boolean(conversation.handoff)
+              }
             >
               {state === 'sending' ? 'Checking…' : 'Send'}
             </button>
           </div>
           <small>
-            No Aureus account is required. This private link remains in this browser tab and expires automatically.
+            No Aureus account is required. This private link remains in this browser tab and expires
+            automatically.
           </small>
-          {conversation.remainingTurns <= 0 ? (
-            <p className={styles.error} role="status">This conversation has reached its limit. Please contact a person.</p>
+          {conversation.handoff ? (
+            <p className={styles.handoffComplete} role="status">
+              This conversation is now with the business team.
+            </p>
           ) : null}
-          {error ? <p className={styles.error} role="alert">{error}</p> : null}
+          {conversation.remainingTurns <= 0 ? (
+            <p className={styles.error} role="status">
+              This conversation has reached its limit. Please contact a person.
+            </p>
+          ) : null}
+          {error ? (
+            <p className={styles.error} role="alert">
+              {error}
+            </p>
+          ) : null}
         </form>
 
         <footer className={styles.footer}>

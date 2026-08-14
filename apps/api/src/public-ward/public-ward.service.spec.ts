@@ -77,6 +77,7 @@ describe('PublicWardService boundaries', () => {
       findUniqueOrThrow: jest.fn(),
     },
     wardMessageSource: { createMany: jest.fn() },
+    wardLead: { findUnique: jest.fn() },
     businessKnowledgeRecord: { findMany: jest.fn() },
     $transaction: jest.fn(),
   };
@@ -115,13 +116,16 @@ describe('PublicWardService boundaries', () => {
       content: 'We install cabinets [S1].',
       responseKind: WardResponseKind.GROUNDED,
       createdAt: NOW,
-      sources: [{
-        sourceTitle: 'Cabinet installation',
-        sourceUrl: 'https://example.com/cabinets',
-        sourceReviewedAt: NOW,
-      }],
+      sources: [
+        {
+          sourceTitle: 'Cabinet installation',
+          sourceUrl: 'https://example.com/cabinets',
+          sourceReviewedAt: NOW,
+        },
+      ],
     }));
     db.wardMessageSource.createMany.mockResolvedValue({ count: 1 });
+    db.wardLead.findUnique.mockResolvedValue(null);
     db.$transaction.mockImplementation(async (work: (tx: typeof db) => unknown) => work(db));
     service = new PublicWardService(
       { db } as unknown as PrismaService,
@@ -130,23 +134,28 @@ describe('PublicWardService boundaries', () => {
   });
 
   it('stores only a digest of the opaque conversation token', async () => {
-    db.wardConversation.create.mockImplementation(async ({ data }: { data: Record<string, unknown> }) => ({
-      ...conversation,
-      accessTokenHash: data.accessTokenHash,
-      messages: [{
-        id: WARD_ID,
-        role: WardMessageRole.WARD,
-        content: 'How can we help?',
-        responseKind: WardResponseKind.OPENING,
-        createdAt: NOW,
-      }],
-    }));
+    db.wardConversation.create.mockImplementation(
+      async ({ data }: { data: Record<string, unknown> }) => ({
+        ...conversation,
+        accessTokenHash: data.accessTokenHash,
+        messages: [
+          {
+            id: WARD_ID,
+            role: WardMessageRole.WARD,
+            content: 'How can we help?',
+            responseKind: WardResponseKind.OPENING,
+            createdAt: NOW,
+          },
+        ],
+      }),
+    );
 
     const result = await service.startConversation('example-kitchens');
     const createData = db.wardConversation.create.mock.calls[0][0].data;
     expect(result.accessToken).toBeDefined();
     expect(createData.accessTokenHash).toMatch(/^[a-f0-9]{64}$/);
     expect(createData.accessTokenHash).not.toBe(result.accessToken);
+    expect(result.profile.handoff.consentTextSha256).toMatch(/^[a-f0-9]{64}$/);
   });
 
   it('conceals a conversation when the token or tenant scope does not match', async () => {
@@ -162,7 +171,8 @@ describe('PublicWardService boundaries', () => {
     db.wardMessage.findUniqueOrThrow.mockResolvedValue({
       id: WARD_ID,
       role: WardMessageRole.WARD,
-      content: "I don't know from Example Kitchens's approved information. A person at the business can help with that.",
+      content:
+        "I don't know from Example Kitchens's approved information. A person at the business can help with that.",
       responseKind: WardResponseKind.UNKNOWN,
       createdAt: NOW,
       sources: [],
@@ -185,17 +195,19 @@ describe('PublicWardService boundaries', () => {
   });
 
   it('queries only current approved tenant knowledge and snapshots exact cited attribution', async () => {
-    db.businessKnowledgeRecord.findMany.mockResolvedValue([{
-      id: '66666666-6666-4666-8666-666666666666',
-      organizationId: TENANT_ID,
-      title: 'Cabinet installation',
-      summary: 'Cabinet installation is available.',
-      content: 'We install cabinets for kitchen remodeling projects.',
-      knowledgeType: BusinessKnowledgeType.SERVICE,
-      status: BusinessKnowledgeStatus.APPROVED,
-      sourceUrl: 'https://example.com/cabinets',
-      reviewedAt: NOW,
-    }]);
+    db.businessKnowledgeRecord.findMany.mockResolvedValue([
+      {
+        id: '66666666-6666-4666-8666-666666666666',
+        organizationId: TENANT_ID,
+        title: 'Cabinet installation',
+        summary: 'Cabinet installation is available.',
+        content: 'We install cabinets for kitchen remodeling projects.',
+        knowledgeType: BusinessKnowledgeType.SERVICE,
+        status: BusinessKnowledgeStatus.APPROVED,
+        sourceUrl: 'https://example.com/cabinets',
+        reviewedAt: NOW,
+      },
+    ]);
     ai.runWardCompletion.mockResolvedValue({
       content: 'We install cabinets [S1].',
       requestId: 'request-1',
@@ -208,23 +220,29 @@ describe('PublicWardService boundaries', () => {
       'Do you install cabinets?',
     );
 
-    expect(db.businessKnowledgeRecord.findMany).toHaveBeenCalledWith(expect.objectContaining({
-      where: expect.objectContaining({
-        organizationId: TENANT_ID,
-        status: BusinessKnowledgeStatus.APPROVED,
-        nextReviewAt: expect.objectContaining({ gt: expect.any(Date) }),
+    expect(db.businessKnowledgeRecord.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          organizationId: TENANT_ID,
+          status: BusinessKnowledgeStatus.APPROVED,
+          nextReviewAt: expect.objectContaining({ gt: expect.any(Date) }),
+        }),
       }),
-    }));
-    expect(ai.runWardCompletion).toHaveBeenCalledWith(expect.objectContaining({
-      organizationId: TENANT_ID,
-      wardConversationId: CONVERSATION_ID,
-    }));
-    expect(db.wardMessageSource.createMany).toHaveBeenCalledWith({
-      data: [expect.objectContaining({
+    );
+    expect(ai.runWardCompletion).toHaveBeenCalledWith(
+      expect.objectContaining({
         organizationId: TENANT_ID,
-        knowledgeRecordId: '66666666-6666-4666-8666-666666666666',
-        sourceContentSha256: expect.stringMatching(/^[a-f0-9]{64}$/),
-      })],
+        wardConversationId: CONVERSATION_ID,
+      }),
+    );
+    expect(db.wardMessageSource.createMany).toHaveBeenCalledWith({
+      data: [
+        expect.objectContaining({
+          organizationId: TENANT_ID,
+          knowledgeRecordId: '66666666-6666-4666-8666-666666666666',
+          sourceContentSha256: expect.stringMatching(/^[a-f0-9]{64}$/),
+        }),
+      ],
     });
     expect(result.message.sources[0].title).toBe('Cabinet installation');
   });
@@ -262,18 +280,22 @@ describe('PublicWardService boundaries', () => {
     const profile = await service.getPublicProfile('example-kitchens');
     expect(profile.contactRoutes).toEqual([]);
 
-    db.wardMessage.findMany.mockResolvedValue([{
-      id: WARD_ID,
-      role: WardMessageRole.WARD,
-      content: 'Cabinets are available [S1].',
-      responseKind: WardResponseKind.GROUNDED,
-      createdAt: NOW,
-      sources: [{
-        sourceTitle: 'Cabinet installation',
-        sourceUrl: 'javascript:alert(1)',
-        sourceReviewedAt: NOW,
-      }],
-    }]);
+    db.wardMessage.findMany.mockResolvedValue([
+      {
+        id: WARD_ID,
+        role: WardMessageRole.WARD,
+        content: 'Cabinets are available [S1].',
+        responseKind: WardResponseKind.GROUNDED,
+        createdAt: NOW,
+        sources: [
+          {
+            sourceTitle: 'Cabinet installation',
+            sourceUrl: 'javascript:alert(1)',
+            sourceReviewedAt: NOW,
+          },
+        ],
+      },
+    ]);
     const resumed = await service.getConversation('example-kitchens', CONVERSATION_ID, TOKEN);
     expect(resumed.messages[0].sources[0].url).toBeNull();
   });
