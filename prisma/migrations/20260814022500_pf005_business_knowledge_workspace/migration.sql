@@ -62,12 +62,12 @@ CREATE TABLE "BusinessKnowledgeRecord" (
   CONSTRAINT "BusinessKnowledgeRecord_import_shape_check" CHECK (
     ("sourceKind" = 'MANUAL' AND "sourceFileName" IS NULL AND "sourceMimeType" IS NULL)
     OR
-    ("sourceKind" = 'IMPORT' AND "sourceFileName" IS NOT NULL
+    ("sourceKind" = 'IMPORT' AND length("sourceFileName") BETWEEN 1 AND 200
       AND "sourceMimeType" IN ('text/plain', 'text/markdown'))
   ),
   CONSTRAINT "BusinessKnowledgeRecord_review_state_check" CHECK (
-    ("status" = 'DRAFT')
-    OR ("status" = 'UNDER_REVIEW' AND "submittedAt" IS NOT NULL)
+    ("status" = 'DRAFT' AND "submittedAt" IS NULL AND "reviewedAt" IS NULL AND "rejectionReason" IS NULL)
+    OR ("status" = 'UNDER_REVIEW' AND "submittedAt" IS NOT NULL AND "reviewedAt" IS NULL AND "rejectionReason" IS NULL)
     OR ("status" = 'APPROVED' AND "submittedAt" IS NOT NULL AND "reviewedAt" IS NOT NULL AND "rejectionReason" IS NULL)
     OR ("status" = 'REJECTED' AND "submittedAt" IS NOT NULL AND "reviewedAt" IS NOT NULL AND length("rejectionReason") >= 3)
     OR ("status" = 'ARCHIVED')
@@ -110,6 +110,9 @@ CREATE INDEX "LibraryCandidateExport_organizationId_status_idx"
   ON "LibraryCandidateExport"("organizationId", "status");
 CREATE INDEX "LibraryCandidateExport_knowledgeRecordId_idx"
   ON "LibraryCandidateExport"("knowledgeRecordId");
+CREATE UNIQUE INDEX "LibraryCandidateExport_one_pending_per_record_key"
+  ON "LibraryCandidateExport"("organizationId", "knowledgeRecordId")
+  WHERE "status" = 'PENDING';
 
 ALTER TABLE "BusinessKnowledgeRecord"
   ADD CONSTRAINT "BusinessKnowledgeRecord_organizationId_fkey"
@@ -126,3 +129,25 @@ ALTER TABLE "LibraryCandidateExport"
   FOREIGN KEY ("organizationId", "knowledgeRecordId")
   REFERENCES "BusinessKnowledgeRecord"("organizationId", "id")
   ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- Candidate attribution and payload bytes are immutable after creation. A
+-- later admission workflow may update only decision fields.
+CREATE FUNCTION "protect_library_candidate_snapshot"()
+RETURNS trigger AS $$
+BEGIN
+  IF NEW."organizationId" IS DISTINCT FROM OLD."organizationId"
+    OR NEW."knowledgeRecordId" IS DISTINCT FROM OLD."knowledgeRecordId"
+    OR NEW."payload" IS DISTINCT FROM OLD."payload"
+    OR NEW."payloadSha256" IS DISTINCT FROM OLD."payloadSha256"
+    OR NEW."createdById" IS DISTINCT FROM OLD."createdById"
+    OR NEW."createdAt" IS DISTINCT FROM OLD."createdAt"
+  THEN
+    RAISE EXCEPTION 'Library candidate snapshot attribution and payload are immutable';
+  END IF;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER "LibraryCandidateExport_immutable_snapshot"
+BEFORE UPDATE ON "LibraryCandidateExport"
+FOR EACH ROW EXECUTE FUNCTION "protect_library_candidate_snapshot"();
