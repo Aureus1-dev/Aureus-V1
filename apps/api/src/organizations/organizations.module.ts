@@ -13,6 +13,8 @@ import {
   BusinessTenantDirectoryController,
 } from './business-tenant.controller';
 import { BusinessTenantService } from './business-tenant.service';
+import { BusinessKnowledgeController } from './knowledge/business-knowledge.controller';
+import { BusinessKnowledgeService } from './knowledge/business-knowledge.service';
 
 @Module({
   imports: [AuthGuardsModule],
@@ -21,10 +23,12 @@ import { BusinessTenantService } from './business-tenant.service';
     OrganizationMembersController,
     BusinessTenantController,
     BusinessTenantDirectoryController,
+    BusinessKnowledgeController,
   ],
   providers: [
     OrganizationsService,
     BusinessTenantService,
+    BusinessKnowledgeService,
     { provide: ORGANIZATION_REPOSITORY, useClass: PrismaOrganizationRepository },
     OrganizationMembersService,
     { provide: ORGANIZATION_MEMBER_REPOSITORY, useClass: PrismaOrganizationMemberRepository },
@@ -33,6 +37,7 @@ import { BusinessTenantService } from './business-tenant.service';
     OrganizationsService,
     OrganizationMembersService,
     BusinessTenantService,
+    BusinessKnowledgeService,
     ORGANIZATION_REPOSITORY,
     ORGANIZATION_MEMBER_REPOSITORY,
   ],
