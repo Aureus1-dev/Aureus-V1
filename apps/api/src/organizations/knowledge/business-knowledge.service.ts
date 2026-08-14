@@ -53,6 +53,7 @@ export const BUSINESS_KNOWLEDGE_NOTICE =
   'This is tenant-provided source material. Upload or approval does not make it legal advice, establish objective truth, or admit it to the Aureus Library.';
 
 export function canonicalKnowledgeJson(value: unknown): string {
+  if (value === undefined) throw new TypeError('Undefined is not valid candidate JSON');
   if (value === null || typeof value !== 'object') return JSON.stringify(value);
   if (Array.isArray(value)) {
     return `[${value.map((entry) => canonicalKnowledgeJson(entry)).join(',')}]`;
