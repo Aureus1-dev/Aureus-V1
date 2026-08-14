@@ -13,6 +13,7 @@ import {
   BusinessTenantDirectoryController,
 } from './business-tenant.controller';
 import { BusinessTenantService } from './business-tenant.service';
+import { BusinessTenantMembershipGuard } from './guards/business-tenant-membership.guard';
 import { BusinessKnowledgeController } from './knowledge/business-knowledge.controller';
 import { BusinessKnowledgeService } from './knowledge/business-knowledge.service';
 
@@ -28,6 +29,7 @@ import { BusinessKnowledgeService } from './knowledge/business-knowledge.service
   providers: [
     OrganizationsService,
     BusinessTenantService,
+    BusinessTenantMembershipGuard,
     BusinessKnowledgeService,
     { provide: ORGANIZATION_REPOSITORY, useClass: PrismaOrganizationRepository },
     OrganizationMembersService,
@@ -37,6 +39,7 @@ import { BusinessKnowledgeService } from './knowledge/business-knowledge.service
     OrganizationsService,
     OrganizationMembersService,
     BusinessTenantService,
+    BusinessTenantMembershipGuard,
     BusinessKnowledgeService,
     ORGANIZATION_REPOSITORY,
     ORGANIZATION_MEMBER_REPOSITORY,
