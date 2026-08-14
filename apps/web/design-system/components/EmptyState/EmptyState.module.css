@@ -7,6 +7,11 @@
   border: 1px dashed var(--color-border);
   border-radius: var(--radius-lg);
   color: var(--color-text-secondary);
+  /* Keep the Hall visible while preventing photography from swallowing
+     member-facing copy. This is a soft local scrim, not a full conversation
+     panel, and it remains transparent enough to preserve the room. */
+  background: linear-gradient(90deg, rgba(12, 12, 12, 0.48), rgba(12, 12, 12, 0.18));
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.55);
 }
 
 .title {
@@ -23,4 +28,11 @@
 
 .action {
   margin-top: var(--space-2);
+}
+
+@media (max-width: 640px) {
+  .emptyState {
+    padding: var(--space-5);
+    background: linear-gradient(90deg, rgba(10, 10, 10, 0.62), rgba(10, 10, 10, 0.28));
+  }
 }
