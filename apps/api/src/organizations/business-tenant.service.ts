@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import {
   BusinessPublicStatus,
+  BusinessKnowledgeStatus,
   OrganizationMemberRole,
   OrganizationType,
   Prisma,
@@ -89,6 +90,20 @@ export class BusinessTenantService {
       }
       if (nextStep !== 5) {
         throw new ConflictException('Complete business onboarding before publishing');
+      }
+      const approvedKnowledgeCount = await this.prisma.db.businessKnowledgeRecord.count({
+        where: {
+          organizationId,
+          status: BusinessKnowledgeStatus.APPROVED,
+          deletedAt: null,
+          reviewedAt: { not: null },
+          nextReviewAt: { gt: new Date() },
+        },
+      });
+      if (approvedKnowledgeCount === 0) {
+        throw new ConflictException(
+          'Approve at least one current business knowledge source before publishing the Ward',
+        );
       }
     }
 

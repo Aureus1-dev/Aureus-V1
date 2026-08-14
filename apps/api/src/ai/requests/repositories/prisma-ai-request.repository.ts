@@ -35,9 +35,19 @@ export class PrismaAiRequestRepository implements IAiRequestRepository {
     return { data, total, page, limit };
   }
 
-  async sumCostSince(since: Date, userId?: string, capability?: AiCapability): Promise<number> {
+  async sumCostSince(
+    since: Date,
+    userId?: string,
+    capability?: AiCapability,
+    organizationId?: string,
+  ): Promise<number> {
     const result = await this.prisma.db.aiRequest.aggregate({
-      where: { createdAt: { gte: since }, ...(userId && { userId }), ...(capability && { capability }) },
+      where: {
+        createdAt: { gte: since },
+        ...(userId && { userId }),
+        ...(capability && { capability }),
+        ...(organizationId && { organizationId }),
+      },
       _sum: { costUsd: true },
     });
     return result._sum.costUsd ?? 0;

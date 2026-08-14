@@ -29,10 +29,20 @@ export interface RunCompletionParams {
   tools?: AiToolDefinition[];
 }
 
+export interface RunWardCompletionParams {
+  organizationId: string;
+  wardConversationId: string;
+  messages: AiCompletionMessage[];
+  maxTokens?: number;
+  temperature?: number;
+}
+
 export interface CompletionResult {
   content: string;
   requestId: string;
   toolCalls?: AiToolCallRequest[];
+  moderationBlocked?: boolean;
+  moderationCategories?: string[];
 }
 
 const SPEND_WINDOW_MS = 24 * 60 * 60 * 1000;
@@ -127,6 +137,96 @@ export class AiRequestsService {
     }
   }
 
+  /**
+   * Public Ward completion path. Anonymous visitors never become synthetic
+   * Users and never inherit member memory or permissions. Their provider
+   * calls still enter the same AiRequest ledger, global emergency stop,
+   * platform ceiling, and per-capability ceiling as authenticated traffic.
+   * The live per-user ceiling is conservatively reused as the per-tenant
+   * Ward ceiling so one public business cannot consume the platform budget.
+   */
+  async runWardCompletion(params: RunWardCompletionParams): Promise<CompletionResult> {
+    const capability = AiCapability.PUBLIC_WARD_CONVERSATION;
+    await this.assertWardWithinBudget(params.organizationId, capability);
+    const startedAt = Date.now();
+
+    const moderationResult = await this.moderation.checkMessages(params.messages);
+    if (moderationResult.flagged) {
+      const request = await this.repo.create({
+        organizationId: params.organizationId,
+        wardConversationId: params.wardConversationId,
+        capability,
+        provider: this.provider.provider,
+        model: 'moderation-block',
+        promptTokens: 0,
+        completionTokens: 0,
+        costUsd: 0,
+        latencyMs: 0,
+        status: AiRequestStatus.MODERATION_BLOCKED,
+        errorMessage: `Blocked by content moderation: ${moderationResult.categories.join(', ') || 'unspecified'}`,
+      });
+
+      return {
+        content: moderationResult.categories.includes('self-harm')
+          ? CRISIS_REDIRECT_MESSAGE
+          : MODERATION_REFUSAL_MESSAGE,
+        requestId: request.id,
+        moderationBlocked: true,
+        moderationCategories: moderationResult.categories,
+      };
+    }
+
+    const safeMessages = wrapUntrustedUserContent(params.messages);
+
+    try {
+      const output = await this.provider.complete({
+        messages: safeMessages,
+        maxTokens: params.maxTokens,
+        temperature: params.temperature,
+        // Public Ward has no tools. It can explain or offer a human route;
+        // it cannot navigate private UI or take an action for a visitor.
+      });
+      const latencyMs = Date.now() - startedAt;
+      const request = await this.repo.create({
+        organizationId: params.organizationId,
+        wardConversationId: params.wardConversationId,
+        capability,
+        provider: output.provider,
+        model: output.model,
+        promptTokens: output.promptTokens,
+        completionTokens: output.completionTokens,
+        costUsd: computeCostUsd(output.model, output.promptTokens, output.completionTokens),
+        latencyMs,
+        status: AiRequestStatus.SUCCESS,
+      });
+
+      return { content: output.content, requestId: request.id };
+    } catch (err) {
+      const latencyMs = Date.now() - startedAt;
+      const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+      await this.repo.create({
+        organizationId: params.organizationId,
+        wardConversationId: params.wardConversationId,
+        capability,
+        provider: this.provider.provider,
+        model: 'unknown',
+        promptTokens: 0,
+        completionTokens: 0,
+        costUsd: 0,
+        latencyMs,
+        status: AiRequestStatus.FAILED,
+        errorMessage,
+      });
+
+      this.logger.error(
+        `Public Ward completion failed for tenant ${params.organizationId}: ${errorMessage}`,
+      );
+      throw new ServiceUnavailableException(
+        'The Ward is temporarily unavailable. Your message was not sent to the business.',
+      );
+    }
+  }
+
   private async recordModerationBlock(
     params: RunCompletionParams, categories: string[],
   ): Promise<CompletionResult> {
@@ -174,6 +274,47 @@ export class AiRequestsService {
     if (userSpend >= opConfig.userDailyBudgetUsd) {
       this.logger.warn(`User AI daily quota reached for ${userId}: $${userSpend.toFixed(4)} >= $${opConfig.userDailyBudgetUsd}`);
       throw new ForbiddenException('You have reached your daily AI usage quota. Please try again tomorrow.');
+    }
+
+    await this.enforceCapabilityCeiling(capability, since);
+  }
+
+  async assertWardWithinBudget(
+    organizationId: string,
+    capability: AiCapability,
+  ): Promise<void> {
+    const opConfig = await this.operationalConfig.getEffective();
+
+    if (opConfig.emergencyStop) {
+      throw new ServiceUnavailableException(
+        'AI features are temporarily disabled by an emergency budget control. Please try again later.',
+      );
+    }
+
+    const since = new Date(Date.now() - SPEND_WINDOW_MS);
+    const globalSpend = await this.repo.sumCostSince(since);
+    if (globalSpend >= opConfig.globalDailyBudgetUsd) {
+      this.logger.warn(
+        `Platform-wide AI daily budget reached: $${globalSpend.toFixed(4)} >= $${opConfig.globalDailyBudgetUsd}`,
+      );
+      throw new ServiceUnavailableException(
+        'The platform-wide AI budget for today has been reached. Please try again tomorrow.',
+      );
+    }
+
+    const tenantSpend = await this.repo.sumCostSince(
+      since,
+      undefined,
+      undefined,
+      organizationId,
+    );
+    if (tenantSpend >= opConfig.userDailyBudgetUsd) {
+      this.logger.warn(
+        `Tenant Ward daily budget reached for ${organizationId}: $${tenantSpend.toFixed(4)} >= $${opConfig.userDailyBudgetUsd}`,
+      );
+      throw new ServiceUnavailableException(
+        'This business has reached its Ward usage limit for today. Please use the human contact route.',
+      );
     }
 
     await this.enforceCapabilityCeiling(capability, since);

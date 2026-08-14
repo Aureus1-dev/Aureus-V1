@@ -15,10 +15,24 @@ const nextConfig: NextConfig = {
       {
         source: '/:path*',
         headers: [
-          { key: 'X-Frame-Options', value: 'DENY' },
           { key: 'X-Content-Type-Options', value: 'nosniff' },
           { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
           { key: 'Permissions-Policy', value: 'camera=(), microphone=(self), geolocation=()' },
+        ],
+      },
+      {
+        // PF-006's dedicated embed surface is the only page that may be
+        // framed. Every private/member/public non-embed route stays closed.
+        source: '/((?!embed/ward(?:/|$)).*)',
+        headers: [
+          { key: 'X-Frame-Options', value: 'DENY' },
+          { key: 'Content-Security-Policy', value: "frame-ancestors 'none'" },
+        ],
+      },
+      {
+        source: '/embed/ward/:path*',
+        headers: [
+          { key: 'Content-Security-Policy', value: 'frame-ancestors *' },
         ],
       },
     ];

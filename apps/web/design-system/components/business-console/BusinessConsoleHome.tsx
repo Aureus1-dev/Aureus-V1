@@ -7,6 +7,7 @@ import {
   listMyBusinessTenants,
   updateBusinessProfile,
   type BusinessConsole,
+  type BusinessPublicStatus,
 } from '../../../lib/api/business-console';
 import { useSession } from '../../../state';
 import { businessOnboardingStep } from './onboarding-progress';
@@ -36,6 +37,11 @@ export function BusinessConsoleHome() {
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
   const [state, setState] = useState<'loading' | 'ready' | 'empty' | 'saving' | 'saved' | 'error'>('loading');
   const [error, setError] = useState('');
+  const [publicOrigin, setPublicOrigin] = useState('');
+
+  useEffect(() => {
+    setPublicOrigin(window.location.origin);
+  }, []);
 
   useEffect(() => {
     if (!session.accessToken) return;
@@ -99,6 +105,38 @@ export function BusinessConsoleHome() {
       setState('saved');
     } catch {
       setError('Nothing was published. Check each field and try saving again.');
+      setState('error');
+    }
+  };
+
+  const setPublication = async (publicStatus: BusinessPublicStatus) => {
+    if (!session.accessToken || !consoleData || !consoleData.canManage) return;
+    setState('saving');
+    setError('');
+
+    try {
+      const step = businessOnboardingStep(form);
+      const profile = await updateBusinessProfile(session.accessToken, consoleData.tenantId, {
+        publicSlug: form.slug || undefined,
+        publicStatus,
+        serviceArea: {
+          cities: form.cities.split(',').map((city) => city.trim()).filter(Boolean),
+        },
+        businessHours: { summary: form.hours },
+        contactRoutes: form.contactValue
+          ? [{ type: form.contactType, value: form.contactValue }]
+          : [],
+        escalationTarget: form.escalationEmail ? { email: form.escalationEmail } : undefined,
+        onboardingStep: step,
+      });
+      setConsoleData((current) => current ? { ...current, profile } : current);
+      setState('saved');
+    } catch {
+      setError(
+        publicStatus === 'PUBLISHED'
+          ? 'The Ward was not published. Complete setup, verify the business, and approve at least one current knowledge source.'
+          : 'The publication status could not be changed. Please try again.',
+      );
       setState('error');
     }
   };
@@ -229,6 +267,46 @@ export function BusinessConsoleHome() {
           {state === 'saving' ? 'Saving…' : 'Save business setup'}
         </button>
       </form>
+
+      <section className={styles.publication} aria-labelledby="ward-publication-title">
+        <div>
+          <h2 id="ward-publication-title">Public Ward</h2>
+          <p>
+            Publishing opens an account-free, source-grounded conversation at this business address.
+            Nothing publishes automatically.
+          </p>
+        </div>
+
+        <div className={styles.publicationActions}>
+          {consoleData.profile?.publicStatus === 'PUBLISHED' && form.slug ? (
+            <>
+              <a href={`/ward/${form.slug}`} target="_blank" rel="noreferrer">Open public Ward</a>
+              <a href={`/embed/ward/${form.slug}`} target="_blank" rel="noreferrer">Open embed</a>
+              <button
+                type="button"
+                onClick={() => void setPublication('PAUSED')}
+                disabled={!consoleData.canManage || state === 'saving'}
+              >
+                Pause Ward
+              </button>
+            </>
+          ) : (
+            <button
+              type="button"
+              onClick={() => void setPublication('PUBLISHED')}
+              disabled={!consoleData.canManage || state === 'saving' || currentStep !== 5}
+            >
+              Publish Ward
+            </button>
+          )}
+        </div>
+
+        {form.slug && publicOrigin ? (
+          <code className={styles.embedCode}>
+            {`<iframe src="${publicOrigin}/embed/ward/${form.slug}" title="${consoleData.organization.name} Ward"></iframe>`}
+          </code>
+        ) : null}
+      </section>
     </section>
   );
 }

@@ -4,8 +4,10 @@ import type { AiRequest } from '@prisma/client';
 
 export class AiRequestResponseDto {
   @ApiProperty() id: string;
-  @ApiProperty() userId: string;
+  @ApiPropertyOptional({ nullable: true }) userId: string | null;
   @ApiPropertyOptional({ nullable: true }) conversationId: string | null;
+  @ApiPropertyOptional({ nullable: true }) organizationId: string | null;
+  @ApiPropertyOptional({ nullable: true }) wardConversationId: string | null;
   @ApiProperty({ enum: AiCapability }) capability: AiCapability;
   @ApiProperty({ enum: AiProvider }) provider: AiProvider;
   @ApiProperty() model: string;

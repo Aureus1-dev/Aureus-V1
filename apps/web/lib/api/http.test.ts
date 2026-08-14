@@ -24,6 +24,25 @@ describe('apiRequest', () => {
     expect(init.headers.Authorization).toBe('Bearer token-123');
   });
 
+  it('passes an opaque public Ward token without requiring an Aureus bearer token', async () => {
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({ id: 'ward-message' }),
+    }) as unknown as typeof fetch;
+
+    await apiRequest('/public/wards/example/conversations/1/messages', {
+      method: 'POST',
+      headers: { 'x-ward-token': 'opaque-token' },
+      retryOn401: false,
+      body: { content: 'Hello' },
+    });
+
+    const [, init] = (global.fetch as jest.Mock).mock.calls[0];
+    expect(init.headers['x-ward-token']).toBe('opaque-token');
+    expect(init.headers.Authorization).toBeUndefined();
+  });
+
   it('throws ApiError with the parsed message on a non-2xx response', async () => {
     global.fetch = jest.fn().mockResolvedValue({
       ok: false,

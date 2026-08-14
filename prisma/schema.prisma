@@ -677,6 +677,27 @@ enum TenantAuditAction {
   LIBRARY_CANDIDATE_CREATED
 }
 
+enum WardConversationStatus {
+  OPEN
+  ESCALATION_OFFERED
+  ESCALATED
+  CLOSED
+  EXPIRED
+}
+
+enum WardMessageRole {
+  VISITOR
+  WARD
+}
+
+enum WardResponseKind {
+  OPENING
+  GROUNDED
+  UNKNOWN
+  ESCALATION
+  SAFETY
+}
+
 enum BusinessKnowledgeType {
   SERVICE
   FAQ
@@ -746,14 +767,15 @@ model Organization {
   // every business-console request and audit event.
   tenantVersion Int @default(1)
 
-  members           OrganizationMember[]
-  businessProfile   BusinessProfile?
-  tenantAuditEvents         TenantAuditEvent[]
-  businessKnowledgeRecords  BusinessKnowledgeRecord[]
-  libraryCandidateExports   LibraryCandidateExport[]
-  announcements             Announcement[]
-  conversations Conversation[]
-  courses       Course[]
+  members                  OrganizationMember[]
+  businessProfile          BusinessProfile?
+  tenantAuditEvents        TenantAuditEvent[]
+  businessKnowledgeRecords BusinessKnowledgeRecord[]
+  libraryCandidateExports  LibraryCandidateExport[]
+  wardConversations        WardConversation[]
+  announcements            Announcement[]
+  conversations            Conversation[]
+  courses                  Course[]
 
   @@index([organizationType])
   @@index([verificationStatus])
@@ -790,16 +812,16 @@ model OrganizationMember {
 model BusinessProfile {
   id                    String               @id @default(uuid()) @db.Uuid
   organizationId        String               @unique @db.Uuid
-  publicSlug             String?              @unique
-  publicStatus           BusinessPublicStatus @default(PRIVATE)
-  serviceArea            Json
-  businessHours          Json
-  contactRoutes          Json
-  escalationTarget       Json?
-  onboardingStep         Int                  @default(0)
+  publicSlug            String?              @unique
+  publicStatus          BusinessPublicStatus @default(PRIVATE)
+  serviceArea           Json
+  businessHours         Json
+  contactRoutes         Json
+  escalationTarget      Json?
+  onboardingStep        Int                  @default(0)
   onboardingCompletedAt DateTime?
-  createdAt              DateTime             @default(now())
-  updatedAt              DateTime             @updatedAt
+  createdAt             DateTime             @default(now())
+  updatedAt             DateTime             @updatedAt
 
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 }
@@ -849,8 +871,9 @@ model BusinessKnowledgeRecord {
   updatedAt             DateTime                    @updatedAt
   deletedAt             DateTime?
 
-  organization    Organization             @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  libraryExports  LibraryCandidateExport[] @relation("BusinessKnowledgeLibraryExports")
+  organization       Organization             @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  libraryExports     LibraryCandidateExport[] @relation("BusinessKnowledgeLibraryExports")
+  wardMessageSources WardMessageSource[]
 
   @@unique([organizationId, id])
   @@index([organizationId, status])
@@ -878,6 +901,68 @@ model LibraryCandidateExport {
 
   @@index([organizationId, status])
   @@index([knowledgeRecordId])
+}
+
+// Public, tenant-isolated Ward conversations. The bearer secret returned to
+// the browser is never stored; only its SHA-256 digest is retained here.
+// A Ward conversation is deliberately separate from AiConversation, whose
+// identity and memory belong to an authenticated Aureus member.
+model WardConversation {
+  id              String                 @id @default(uuid()) @db.Uuid
+  organizationId  String                 @db.Uuid
+  accessTokenHash String                 @unique
+  status          WardConversationStatus @default(OPEN)
+  turnCount       Int                    @default(0)
+  tokenExpiresAt  DateTime
+  expiresAt       DateTime
+  lastActivityAt  DateTime               @default(now())
+  createdAt       DateTime               @default(now())
+  updatedAt       DateTime               @updatedAt
+
+  organization Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  messages     WardMessage[]
+  aiRequests   AiRequest[]
+
+  @@unique([organizationId, id])
+  @@index([organizationId, status, lastActivityAt])
+  @@index([expiresAt])
+}
+
+model WardMessage {
+  id             String            @id @default(uuid()) @db.Uuid
+  organizationId String            @db.Uuid
+  conversationId String            @db.Uuid
+  role           WardMessageRole
+  content        String
+  responseKind   WardResponseKind?
+  createdAt      DateTime          @default(now())
+
+  conversation WardConversation    @relation(fields: [organizationId, conversationId], references: [organizationId, id], onDelete: Cascade)
+  sources      WardMessageSource[]
+
+  @@unique([organizationId, id])
+  @@index([conversationId, createdAt])
+  @@index([organizationId, createdAt])
+}
+
+// Exact approved tenant sources attributed to one public answer. The
+// organizationId is part of both foreign keys so cross-tenant citation is
+// structurally impossible even if application code regresses.
+model WardMessageSource {
+  organizationId      String   @db.Uuid
+  wardMessageId       String   @db.Uuid
+  knowledgeRecordId   String   @db.Uuid
+  sourceTitle         String
+  sourceUrl           String?
+  sourceReviewedAt    DateTime
+  sourceContentSha256 String
+  createdAt           DateTime @default(now())
+
+  message         WardMessage             @relation(fields: [organizationId, wardMessageId], references: [organizationId, id], onDelete: Cascade)
+  knowledgeRecord BusinessKnowledgeRecord @relation(fields: [organizationId, knowledgeRecordId], references: [organizationId, id], onDelete: Cascade)
+
+  @@id([wardMessageId, knowledgeRecordId])
+  @@index([organizationId, knowledgeRecordId])
 }
 
 // ===========================================================================
@@ -1864,6 +1949,7 @@ enum AiCapability {
   DOCUMENT_SUMMARY
   NEXT_BEST_ACTION
   STEWARD_ESCALATION
+  PUBLIC_WARD_CONVERSATION
 }
 
 enum AiRequestStatus {
@@ -2017,12 +2103,19 @@ model AiTurnEvent {
 // reasoning as ADR-014 Decision 7's single completion/certification code
 // path: they are one event, not three independently-invoked mechanisms.
 model AiRequest {
-  id     String @id @default(uuid()) @db.Uuid
-  userId String @db.Uuid
-  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id     String  @id @default(uuid()) @db.Uuid
+  userId String? @db.Uuid
+  user   User?   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   conversationId String?         @db.Uuid
   conversation   AiConversation? @relation(fields: [conversationId], references: [id], onDelete: SetNull)
+
+  // Exactly one identity context is present: an authenticated member
+  // (userId/conversationId) or a public tenant Ward conversation. The PF-006
+  // migration enforces this invariant at the database layer.
+  organizationId     String?           @db.Uuid
+  wardConversationId String?           @db.Uuid
+  wardConversation   WardConversation? @relation(fields: [organizationId, wardConversationId], references: [organizationId, id], onDelete: Cascade)
 
   capability       AiCapability
   provider         AiProvider
@@ -2039,6 +2132,8 @@ model AiRequest {
   recommendations AiRecommendation[]
 
   @@index([userId])
+  @@index([organizationId, createdAt])
+  @@index([wardConversationId])
   @@index([capability])
   @@index([createdAt])
 }

@@ -3,8 +3,10 @@ import { AiCapability, AiProvider, AiRequest, AiRequestStatus } from '@prisma/cl
 export const AI_REQUEST_REPOSITORY = 'AI_REQUEST_REPOSITORY';
 
 export interface CreateAiRequestInput {
-  userId: string;
+  userId?: string;
   conversationId?: string;
+  organizationId?: string;
+  wardConversationId?: string;
   capability: AiCapability;
   provider: AiProvider;
   model: string;
@@ -54,7 +56,12 @@ export interface IAiRequestRepository {
    * ceiling adds the optional `capability` scope, an additive parameter —
    * every existing call site that omits it is unaffected).
    */
-  sumCostSince(since: Date, userId?: string, capability?: AiCapability): Promise<number>;
+  sumCostSince(
+    since: Date,
+    userId?: string,
+    capability?: AiCapability,
+    organizationId?: string,
+  ): Promise<number>;
 
   /**
    * Count of requests created at or after `since`, optionally scoped to

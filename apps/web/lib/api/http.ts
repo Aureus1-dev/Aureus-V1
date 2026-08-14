@@ -6,6 +6,7 @@ export interface RequestOptions {
   body?: unknown;
   accessToken?: string | null;
   signal?: AbortSignal;
+  headers?: Record<string, string>;
   /**
    * Whether a 401 should trigger one silent token refresh + retry before
    * surfacing the error. Defaults to true so every existing domain client
@@ -54,7 +55,10 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
 }
 
 async function performRequest(path: string, options: RequestOptions): Promise<Response> {
-  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    ...options.headers,
+  };
   if (options.accessToken) {
     headers.Authorization = `Bearer ${options.accessToken}`;
   }
