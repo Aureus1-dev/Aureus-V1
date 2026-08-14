@@ -1,0 +1,95 @@
+.surface {
+  width: min(860px, calc(100% - 2rem));
+  margin: 1.5rem auto 3rem;
+  padding: clamp(1.1rem, 3vw, 1.75rem);
+  border: 1px solid #c9b9a7;
+  border-radius: 1.2rem;
+  background: #fffdf8;
+  color: #2d241d;
+}
+
+.header h2,
+.header p {
+  margin-top: 0;
+}
+
+.notice {
+  padding: 0.9rem;
+  border-radius: 0.8rem;
+  background: #f4ecdf;
+  line-height: 1.5;
+}
+
+.records {
+  display: grid;
+  gap: 0.65rem;
+  margin: 1rem 0;
+}
+
+.record {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  align-items: center;
+  padding: 0.8rem;
+  border: 1px solid #d8cabb;
+  border-radius: 0.75rem;
+}
+
+.record button,
+.form button {
+  min-height: 2.6rem;
+  padding: 0.6rem 0.85rem;
+  border: 1px solid #8f421c;
+  border-radius: 0.65rem;
+  background: #fffaf2;
+  color: #733514;
+  font: inherit;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.form {
+  display: grid;
+  gap: 0.9rem;
+  padding-top: 1rem;
+  border-top: 1px solid #d8cabb;
+}
+
+.form label {
+  display: grid;
+  gap: 0.35rem;
+  font-weight: 700;
+}
+
+.form input,
+.form textarea {
+  width: 100%;
+  padding: 0.7rem;
+  border: 1px solid #aa9988;
+  border-radius: 0.65rem;
+  background: white;
+  color: inherit;
+  font: inherit;
+}
+
+.message {
+  color: #245c34;
+  font-weight: 700;
+}
+
+.error {
+  color: #8d1e14;
+  font-weight: 700;
+}
+
+@media (max-width: 620px) {
+  .surface {
+    width: calc(100% - 1rem);
+    margin: 0.5rem auto 1.5rem;
+  }
+
+  .record {
+    display: grid;
+  }
+}
