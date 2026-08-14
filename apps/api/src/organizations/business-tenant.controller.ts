@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Put, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Param, Patch, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiParam, ApiTags } from '@nestjs/swagger';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -23,7 +23,7 @@ export class BusinessTenantController {
     return this.service.getConsole(organizationId, caller);
   }
 
-  @Put('profile')
+  @Patch('profile')
   @ApiOperation({ summary: 'Create or update the tenant business profile and onboarding state' })
   upsertProfile(
     @Param('organizationId') organizationId: string,
