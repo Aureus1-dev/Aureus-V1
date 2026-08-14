@@ -9,5 +9,5 @@ export const WARD_LEAD_CONSENT_DATA_CLASSES = [
 export const WARD_LEAD_RETENTION_DAYS = 90;
 
 export function wardLeadConsentText(businessName: string): string {
-  return `I agree to share my name, contact details, project summary, and this Ward conversation with ${businessName} so its team can contact me about this request. This is not consent to unrelated marketing. Aureus will delete this handoff after ${WARD_LEAD_RETENTION_DAYS} days unless I delete it sooner.`;
+  return `I agree to share my name, contact details, project information, any optional photo/file references I choose to add, and this Ward conversation with ${businessName} so its team can contact me about this request. This is not consent to unrelated marketing. Aureus will delete this handoff and its retained project intake after ${WARD_LEAD_RETENTION_DAYS} days unless I delete it sooner.`;
 }
