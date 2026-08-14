@@ -8,6 +8,7 @@ import {
   type BusinessConsole,
 } from '../../../lib/api/business-console';
 import { useSession } from '../../../state';
+import { businessOnboardingStep } from './onboarding-progress';
 import styles from './BusinessConsoleHome.module.css';
 
 interface FormState {
@@ -27,15 +28,6 @@ const EMPTY_FORM: FormState = {
   contactValue: '',
   escalationEmail: '',
 };
-
-function stepFor(form: FormState): number {
-  if (!form.slug) return 0;
-  if (!form.cities) return 1;
-  if (!form.hours) return 2;
-  if (!form.contactValue) return 3;
-  if (!form.escalationEmail) return 4;
-  return 5;
-}
 
 export function BusinessConsoleHome() {
   const { session } = useSession();
@@ -88,7 +80,7 @@ export function BusinessConsoleHome() {
     setError('');
 
     try {
-      const step = stepFor(form);
+      const step = businessOnboardingStep(form);
       const profile = await updateBusinessProfile(session.accessToken, consoleData.tenantId, {
         publicSlug: form.slug || undefined,
         publicStatus: consoleData.profile?.publicStatus ?? 'PRIVATE',
@@ -133,7 +125,7 @@ export function BusinessConsoleHome() {
     );
   }
 
-  const currentStep = consoleData.profile?.onboardingStep ?? stepFor(form);
+  const currentStep = consoleData.profile?.onboardingStep ?? businessOnboardingStep(form);
 
   return (
     <section className={styles.surface}>
