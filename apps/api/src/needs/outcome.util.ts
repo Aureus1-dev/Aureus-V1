@@ -1,9 +1,9 @@
 /**
  * Member Arrival outcome check. This remains distinct from ambiguity, but a
  * member who has already supplied either an explicit goal or a concrete
- * hardship with an obvious stabilizing default must not be asked the generic
- * arrival question again. The Steward can respond to the real need and ask a
- * narrower question only when it is actually useful.
+ * payment/utility hardship with an obvious stabilizing default must not be
+ * asked the generic arrival question again. The Steward can respond to the
+ * real need and ask a narrower question only when it is actually useful.
  */
 const OUTCOME_INDICATOR_PHRASES = [
   'i need', 'i want', 'i would like', "i'd like", 'i wanna', 'i wish',
@@ -24,13 +24,6 @@ const CONCRETE_HARDSHIP_PHRASES = [
   "can't pay",
   'cannot pay',
   'unable to pay',
-  'eviction',
-  'being evicted',
-  'getting evicted',
-  'foreclosure',
-  'being foreclosed',
-  'repossession',
-  'being repossessed',
 ];
 
 const COMMAND_PREFIXES = [
