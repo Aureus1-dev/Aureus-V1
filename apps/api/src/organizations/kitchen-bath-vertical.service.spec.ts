@@ -1,14 +1,15 @@
-import { BusinessKnowledgeStatus } from '@prisma/client';
+import { BusinessKnowledgeStatus, OrganizationMemberRole } from '@prisma/client';
 import { KitchenBathVerticalService } from './kitchen-bath-vertical.service';
 
 describe('KitchenBathVerticalService', () => {
   const caller = { id: '11111111-1111-4111-8111-111111111111', roles: [] } as any;
+  const editableTenant = { id: 'tenant', members: [{ role: OrganizationMemberRole.MANAGER }] };
 
   it('installs governed templates as DRAFT only and never auto-approves them', async () => {
     const create = jest.fn().mockImplementation(({ data }) => Promise.resolve({ id: data.title, ...data }));
     const prisma = {
       db: {
-        organization: { findFirst: jest.fn().mockResolvedValue({ id: 'tenant' }) },
+        organization: { findFirst: jest.fn().mockResolvedValue(editableTenant) },
         businessKnowledgeRecord: {
           findMany: jest.fn().mockResolvedValue([]),
           create,
@@ -32,7 +33,7 @@ describe('KitchenBathVerticalService', () => {
     const create = jest.fn();
     const prisma = {
       db: {
-        organization: { findFirst: jest.fn().mockResolvedValue({ id: 'tenant' }) },
+        organization: { findFirst: jest.fn().mockResolvedValue(editableTenant) },
         businessKnowledgeRecord: {
           findMany: jest.fn().mockResolvedValue([
             { sourceReference: 'PF009_KITCHEN_BATH:services|TEMPLATE:kitchen-bath-v1' },
@@ -50,6 +51,22 @@ describe('KitchenBathVerticalService', () => {
     const result = await service.installDraftPack('tenant', caller);
     expect(result.createdCount).toBe(0);
     expect(create).not.toHaveBeenCalled();
+  });
+
+  it('does not let a VIEWER write vertical templates', async () => {
+    const prisma = {
+      db: {
+        organization: {
+          findFirst: jest.fn().mockResolvedValue({
+            id: 'tenant',
+            members: [{ role: OrganizationMemberRole.VIEWER }],
+          }),
+        },
+      },
+    } as any;
+    await expect(new KitchenBathVerticalService(prisma).installDraftPack('tenant', caller)).rejects.toThrow(
+      'permission',
+    );
   });
 
   it('keeps qualification transparent and labels optional budget as visitor-supplied', () => {
