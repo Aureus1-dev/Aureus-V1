@@ -19,11 +19,9 @@ const DIALOG_TITLE_ID = 'urgent-help-title';
  *
  * Scope boundary: this affordance only needs to be reachable and honest.
  * It does not perform crisis-language detection, urgency assessment, or
- * resource discovery/matching against the City Sheet — those are Gate C's
- * C1/C3/C4 and are not yet built. Its content is static, universally true
- * regardless of Aureus's own verification status (A4), and names that
- * status honestly rather than implying a capability Aureus doesn't have
- * yet (no live steward paging — that's Gate C's C6, also not yet built).
+ * resource discovery/matching against the City Sheet. Its content is
+ * static and universally true regardless of Aureus's own local-resource
+ * verification status.
  */
 export function UrgentHelpAffordance() {
   const [isOpen, setIsOpen] = useState(false);
@@ -77,9 +75,8 @@ export function UrgentHelpAffordance() {
               <strong>Crisis Text Line</strong> — text HOME to 741741.
             </p>
             <p className={styles.honestNote}>
-              Aureus&apos;s own local resource guide for Chester and Delaware County is still
-              being verified and isn&apos;t ready to rely on yet. The numbers above are always
-              real and available right now.
+              Aureus&apos;s local resource guide is still being verified and should not be relied
+              on for an emergency. The services above are available right now.
             </p>
             <button type="button" className={styles.closeButton} onClick={close}>
               Close

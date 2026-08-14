@@ -76,7 +76,12 @@
 @media (max-width: 640px) {
   .trigger {
     left: var(--space-3);
-    bottom: calc(var(--space-3) + env(safe-area-inset-bottom, 0px));
+    /* Reserve the lower interaction zone for the composer, retry controls,
+       and the phone safe area. This keeps the persistent safety control
+       reachable without physically covering the active task. */
+    bottom: calc(5.25rem + env(safe-area-inset-bottom, 0px));
     max-width: calc(50vw - var(--space-4));
+    background: rgba(18, 18, 18, 0.82);
+    backdrop-filter: blur(8px);
   }
 }
