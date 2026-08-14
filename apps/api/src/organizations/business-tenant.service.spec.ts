@@ -1,5 +1,6 @@
 import { ConflictException, ForbiddenException, NotFoundException } from '@nestjs/common';
 import {
+  BusinessKnowledgeStatus,
   BusinessPublicStatus,
   OrganizationMemberRole,
   OrganizationType,
@@ -29,6 +30,7 @@ describe('BusinessTenantService tenant isolation', () => {
   const db = {
     organization: { findFirst: jest.fn(), findMany: jest.fn() },
     businessProfile: { upsert: jest.fn() },
+    businessKnowledgeRecord: { count: jest.fn() },
     tenantAuditEvent: { create: jest.fn(), findMany: jest.fn() },
     $transaction: jest.fn(),
   };
@@ -36,6 +38,7 @@ describe('BusinessTenantService tenant isolation', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    db.businessKnowledgeRecord.count.mockResolvedValue(1);
     db.$transaction.mockImplementation(async (work: (tx: typeof db) => unknown) => work(db));
     service = new BusinessTenantService({ db } as unknown as PrismaService);
   });
@@ -75,6 +78,29 @@ describe('BusinessTenantService tenant isolation', () => {
       escalationTarget: { email: 'human@example.com' },
       onboardingStep: 5,
     }, CALLER)).rejects.toThrow(ConflictException);
+    expect(db.businessProfile.upsert).not.toHaveBeenCalled();
+  });
+
+  it('denies publication until at least one current approved source can ground the Ward', async () => {
+    db.organization.findFirst.mockResolvedValue(organization());
+    db.businessKnowledgeRecord.count.mockResolvedValue(0);
+
+    await expect(service.upsertProfile(organization().id, {
+      publicSlug: 'safe-business',
+      publicStatus: BusinessPublicStatus.PUBLISHED,
+      serviceArea: { cities: ['Dayton'] },
+      businessHours: { summary: 'Weekdays' },
+      contactRoutes: [{ type: 'PHONE', value: '+1 555 0100' }],
+      escalationTarget: { email: 'human@example.com' },
+      onboardingStep: 5,
+    }, CALLER)).rejects.toThrow(ConflictException);
+
+    expect(db.businessKnowledgeRecord.count).toHaveBeenCalledWith({
+      where: expect.objectContaining({
+        organizationId: organization().id,
+        status: BusinessKnowledgeStatus.APPROVED,
+      }),
+    });
     expect(db.businessProfile.upsert).not.toHaveBeenCalled();
   });
 

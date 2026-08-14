@@ -185,3 +185,60 @@
   color: #6a5b50;
   line-height: 1.4;
 }
+
+.publication {
+  display: grid;
+  gap: 1rem;
+  margin-top: 1.5rem;
+  padding: 1.15rem;
+  border: 1px solid #b9a997;
+  border-radius: 0.9rem;
+  background: #f7efe0;
+}
+
+.publication h2,
+.publication p {
+  margin: 0;
+}
+
+.publication p {
+  margin-top: 0.35rem;
+  color: #625447;
+  line-height: 1.5;
+}
+
+.publicationActions {
+  display: flex;
+  gap: 0.65rem;
+  flex-wrap: wrap;
+}
+
+.publicationActions a,
+.publicationActions button {
+  min-height: 2.75rem;
+  padding: 0.7rem 1rem;
+  border: 1px solid #8f421c;
+  border-radius: 0.7rem;
+  background: #fffaf2;
+  color: #733514;
+  font: inherit;
+  font-weight: 800;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.publicationActions button:disabled {
+  cursor: not-allowed;
+  opacity: 0.52;
+}
+
+.embedCode {
+  display: block;
+  overflow-x: auto;
+  padding: 0.8rem;
+  border-radius: 0.6rem;
+  background: #302820;
+  color: #fff6e8;
+  font-size: 0.78rem;
+  white-space: nowrap;
+}

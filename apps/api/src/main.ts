@@ -82,6 +82,7 @@ async function bootstrap(): Promise<void> {
       .addTag('health',         'Liveness and readiness endpoints')
       .addTag('consent',        'Arrival consent endpoints (Gate B — B3: consent and expectations captured)')
       .addTag('needs',          'Stated need endpoints (Gate C — C1: Understanding)')
+      .addTag('public-ward',    'Published business Ward endpoints — account-free, tenant-isolated, approved-source-grounded')
       .addBearerAuth({ type: 'http', scheme: 'bearer', bearerFormat: 'JWT' })
       .build();
 

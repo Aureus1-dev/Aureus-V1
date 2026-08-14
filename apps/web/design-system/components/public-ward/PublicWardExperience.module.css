@@ -1,0 +1,282 @@
+.page {
+  min-height: 100dvh;
+  padding: clamp(0.65rem, 3vw, 2rem);
+  background:
+    radial-gradient(circle at 15% 0%, rgba(255, 241, 203, 0.8), transparent 32rem),
+    linear-gradient(150deg, #f4efe4 0%, #e8dfcf 100%);
+  color: #29231e;
+}
+
+.embedded {
+  min-height: 100%;
+  padding: 0;
+  background: transparent;
+}
+
+.shell {
+  display: grid;
+  grid-template-rows: auto auto minmax(15rem, 1fr) auto auto;
+  width: min(880px, 100%);
+  min-height: calc(100dvh - clamp(1.3rem, 6vw, 4rem));
+  margin: 0 auto;
+  overflow: hidden;
+  border: 1px solid rgba(79, 61, 43, 0.2);
+  border-radius: 1.4rem;
+  background: rgba(255, 253, 248, 0.96);
+  box-shadow: 0 1rem 3rem rgba(52, 39, 25, 0.13);
+}
+
+.embedded .shell {
+  min-height: 100dvh;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  gap: 1.25rem;
+  align-items: flex-start;
+  padding: clamp(1rem, 3vw, 1.7rem);
+  border-bottom: 1px solid rgba(79, 61, 43, 0.13);
+}
+
+.header h1 {
+  margin: 0.1rem 0 0.35rem;
+  font-size: clamp(1.55rem, 5vw, 2.35rem);
+  line-height: 1.05;
+}
+
+.header p {
+  max-width: 38rem;
+  margin: 0;
+  color: #64584c;
+}
+
+.eyebrow {
+  color: #8c451e !important;
+  font-size: 0.72rem;
+  font-weight: 850;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+}
+
+.humanLink {
+  flex: 0 0 auto;
+  min-height: 2.75rem;
+  padding: 0.72rem 1rem;
+  border: 1px solid #8c451e;
+  border-radius: 999px;
+  color: #713715;
+  font-weight: 800;
+  text-decoration: none;
+}
+
+.notice {
+  display: flex;
+  gap: 0.45rem 0.85rem;
+  flex-wrap: wrap;
+  padding: 0.8rem clamp(1rem, 3vw, 1.7rem);
+  background: #f6efdf;
+  color: #55493e;
+  font-size: 0.85rem;
+  line-height: 1.45;
+}
+
+.notice strong {
+  color: #342b24;
+}
+
+.timeline {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  overflow-y: auto;
+  padding: clamp(1rem, 3vw, 1.7rem);
+  scroll-behavior: smooth;
+}
+
+.timeline article {
+  width: fit-content;
+  max-width: min(42rem, 88%);
+  padding: 0.85rem 1rem;
+  border-radius: 1.1rem;
+  line-height: 1.55;
+}
+
+.timeline article p {
+  margin: 0;
+  white-space: pre-wrap;
+}
+
+.wardMessage {
+  align-self: flex-start;
+  border: 1px solid #ded2c1;
+  border-bottom-left-radius: 0.3rem !important;
+  background: #fffaf0;
+}
+
+.visitorMessage {
+  align-self: flex-end;
+  border-bottom-right-radius: 0.3rem !important;
+  background: #823f1c;
+  color: #fffdf8;
+}
+
+.sources {
+  margin-top: 0.65rem;
+  padding-top: 0.6rem;
+  border-top: 1px solid #ded2c1;
+  font-size: 0.82rem;
+}
+
+.sources summary {
+  cursor: pointer;
+  font-weight: 800;
+}
+
+.sources ul {
+  display: grid;
+  gap: 0.45rem;
+  margin: 0.55rem 0 0;
+  padding-left: 1.2rem;
+}
+
+.sources li small {
+  display: block;
+  color: #716457;
+}
+
+.sources a {
+  color: #713715;
+}
+
+.composer {
+  padding: 1rem clamp(1rem, 3vw, 1.7rem);
+  border-top: 1px solid rgba(79, 61, 43, 0.16);
+  background: #fffdf8;
+}
+
+.composer > label {
+  display: block;
+  margin-bottom: 0.5rem;
+  font-weight: 850;
+}
+
+.composer > div {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 0.65rem;
+  align-items: stretch;
+}
+
+.composer textarea {
+  width: 100%;
+  min-height: 3.2rem;
+  resize: vertical;
+  padding: 0.8rem;
+  border: 1px solid #ad9d88;
+  border-radius: 0.8rem;
+  background: white;
+  color: inherit;
+  font: inherit;
+  line-height: 1.45;
+}
+
+.composer textarea:focus {
+  border-color: #8c451e;
+  outline: 3px solid rgba(140, 69, 30, 0.2);
+}
+
+.composer button {
+  min-width: 6.4rem;
+  padding: 0.8rem 1rem;
+  border: 0;
+  border-radius: 0.8rem;
+  background: #823f1c;
+  color: white;
+  font: inherit;
+  font-weight: 850;
+  cursor: pointer;
+}
+
+.composer button:disabled,
+.composer textarea:disabled {
+  cursor: not-allowed;
+  opacity: 0.58;
+}
+
+.composer > small {
+  display: block;
+  margin-top: 0.55rem;
+  color: #6b5d50;
+}
+
+.error {
+  margin: 0.65rem 0 0;
+  color: #8d251b;
+  font-weight: 750;
+}
+
+.footer {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.75rem clamp(1rem, 3vw, 1.7rem);
+  background: #302820;
+  color: #f7efe2;
+  font-size: 0.76rem;
+}
+
+.footer span:first-child {
+  font-weight: 850;
+}
+
+.loading {
+  align-self: center;
+  justify-self: center;
+  color: #64584c;
+}
+
+@media (max-width: 620px) {
+  .page {
+    padding: 0;
+  }
+
+  .shell {
+    min-height: 100dvh;
+    border: 0;
+    border-radius: 0;
+  }
+
+  .header {
+    display: grid;
+  }
+
+  .humanLink {
+    width: fit-content;
+  }
+
+  .timeline article {
+    max-width: 92%;
+  }
+
+  .composer > div {
+    grid-template-columns: 1fr;
+  }
+
+  .composer button {
+    min-height: 3rem;
+  }
+
+  .footer {
+    display: grid;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .timeline {
+    scroll-behavior: auto;
+  }
+}

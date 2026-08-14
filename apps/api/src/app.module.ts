@@ -32,6 +32,7 @@ import { AdministrationModule } from './administration/administration.module';
 import { UserInterestsModule } from './users/interests/user-interests.module';
 import { HealthModule } from './health/health.module';
 import { ConsentModule } from './consent/consent.module';
+import { PublicWardModule } from './public-ward/public-ward.module';
 
 @Module({
   imports: [
@@ -114,6 +115,7 @@ import { ConsentModule } from './consent/consent.module';
     UserInterestsModule,
     HealthModule,
     ConsentModule,
+    PublicWardModule,
   ],
 
   providers: [
