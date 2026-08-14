@@ -157,3 +157,31 @@
     grid-template-columns: 1fr;
   }
 }
+
+.knowledgeLink {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  align-items: center;
+  margin: 1rem 0 1.5rem;
+  padding: 1rem 1.1rem;
+  border: 1px solid #b9a997;
+  border-radius: 0.9rem;
+  background: #fffaf2;
+  color: #342b24;
+  text-decoration: none;
+}
+
+.knowledgeLink:hover {
+  border-color: #a43f17;
+}
+
+.knowledgeLink span:first-child {
+  display: grid;
+  gap: 0.25rem;
+}
+
+.knowledgeLink small {
+  color: #6a5b50;
+  line-height: 1.4;
+}

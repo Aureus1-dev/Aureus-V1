@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import {
   getBusinessConsole,
@@ -140,6 +141,14 @@ export function BusinessConsoleHome() {
           <span>{consoleData.profile?.publicStatus ?? 'PRIVATE'}</span>
         </div>
       </header>
+
+      <Link href="/business/knowledge" className={styles.knowledgeLink}>
+        <span>
+          <strong>Business knowledge</strong>
+          <small>Services, FAQs, policies, pricing boundaries, geography, qualification, and escalation.</small>
+        </span>
+        <span aria-hidden="true">→</span>
+      </Link>
 
       <form className={styles.form} onSubmit={(event) => void save(event)}>
         <fieldset disabled={!consoleData.canManage || state === 'saving'}>

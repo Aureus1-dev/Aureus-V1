@@ -669,6 +669,41 @@ enum TenantAuditAction {
   MEMBER_ADDED
   MEMBER_ROLE_CHANGED
   MEMBER_REMOVED
+  KNOWLEDGE_CREATED
+  KNOWLEDGE_UPDATED
+  KNOWLEDGE_SUBMITTED
+  KNOWLEDGE_APPROVED
+  KNOWLEDGE_REJECTED
+  LIBRARY_CANDIDATE_CREATED
+}
+
+enum BusinessKnowledgeType {
+  SERVICE
+  FAQ
+  POLICY
+  PRICING_BOUNDARY
+  GEOGRAPHY
+  QUALIFICATION
+  ESCALATION
+}
+
+enum BusinessKnowledgeStatus {
+  DRAFT
+  UNDER_REVIEW
+  APPROVED
+  REJECTED
+  ARCHIVED
+}
+
+enum BusinessKnowledgeSourceKind {
+  MANUAL
+  IMPORT
+}
+
+enum LibraryCandidateExportStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
 }
 
 // ===========================================================================
@@ -713,8 +748,10 @@ model Organization {
 
   members           OrganizationMember[]
   businessProfile   BusinessProfile?
-  tenantAuditEvents TenantAuditEvent[]
-  announcements     Announcement[]
+  tenantAuditEvents         TenantAuditEvent[]
+  businessKnowledgeRecords  BusinessKnowledgeRecord[]
+  libraryCandidateExports   LibraryCandidateExport[]
+  announcements             Announcement[]
   conversations Conversation[]
   courses       Course[]
 
@@ -783,6 +820,64 @@ model TenantAuditEvent {
 
   @@index([organizationId, occurredAt])
   @@index([organizationId, actorId])
+}
+
+// Tenant-owned operating knowledge. Approval here means approved by this
+// business for its Ward; it never means admitted to the Aureus Library.
+model BusinessKnowledgeRecord {
+  id                    String                      @id @default(uuid()) @db.Uuid
+  organizationId        String                      @db.Uuid
+  title                 String
+  summary               String
+  content               String
+  knowledgeType         BusinessKnowledgeType
+  status                BusinessKnowledgeStatus     @default(DRAFT)
+  sourceKind            BusinessKnowledgeSourceKind
+  sourceReference       String
+  sourceUrl             String?
+  sourceFileName        String?
+  sourceMimeType        String?
+  freshnessIntervalDays Int
+  nextReviewAt          DateTime
+  accountableReviewerId String                      @db.Uuid
+  submittedAt           DateTime?
+  reviewedAt            DateTime?
+  rejectionReason       String?
+  createdById           String                      @db.Uuid
+  lastUpdatedById       String                      @db.Uuid
+  createdAt             DateTime                    @default(now())
+  updatedAt             DateTime                    @updatedAt
+  deletedAt             DateTime?
+
+  organization    Organization             @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  libraryExports  LibraryCandidateExport[] @relation("BusinessKnowledgeLibraryExports")
+
+  @@unique([organizationId, id])
+  @@index([organizationId, status])
+  @@index([organizationId, knowledgeType])
+  @@index([organizationId, nextReviewAt])
+  @@index([accountableReviewerId])
+}
+
+// A bounded snapshot offered for later Library admission review. Creating a
+// candidate does not publish, approve, or transmit it outside V1.
+model LibraryCandidateExport {
+  id                String                       @id @default(uuid()) @db.Uuid
+  organizationId    String                       @db.Uuid
+  knowledgeRecordId String                       @db.Uuid
+  status            LibraryCandidateExportStatus @default(PENDING)
+  payload           Json
+  payloadSha256     String
+  createdById       String                       @db.Uuid
+  createdAt         DateTime                     @default(now())
+  decidedAt         DateTime?
+  decisionReason    String?
+
+  organization    Organization            @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  knowledgeRecord BusinessKnowledgeRecord @relation("BusinessKnowledgeLibraryExports", fields: [organizationId, knowledgeRecordId], references: [organizationId, id], onDelete: Cascade)
+
+  @@index([organizationId, status])
+  @@index([knowledgeRecordId])
 }
 
 // ===========================================================================
