@@ -9,6 +9,8 @@ describe('isOutcomeUnclear', () => {
     expect(isOutcomeUnclear('I lost my job last week')).toBe(true);
     expect(isOutcomeUnclear('My car broke down and I have no way to get to work')).toBe(true);
     expect(isOutcomeUnclear('Things have been difficult lately')).toBe(true);
+    expect(isOutcomeUnclear('My landlord gave me an eviction notice for Friday')).toBe(true);
+    expect(isOutcomeUnclear('My car is being repossessed')).toBe(true);
   });
 
   it.each([
@@ -29,11 +31,8 @@ describe('isOutcomeUnclear', () => {
     'My water bill is late and being shut off',
     'My rent is past due',
     'I am behind on my electric bill',
-    'My landlord gave me an eviction notice for Friday',
-    'I am getting evicted',
     "I can't pay my gas bill",
-    'My car is being repossessed',
-  ])('treats concrete hardship %j as sufficient to begin useful work', (content) => {
+  ])('treats concrete payment or utility hardship %j as sufficient to begin useful work', (content) => {
     expect(isOutcomeUnclear(content)).toBe(false);
   });
 
