@@ -25,9 +25,17 @@ function linkRuntimeAsset(source, destination) {
 linkRuntimeAsset(resolve(appDir, 'public'), resolve(standaloneAppDir, 'public'));
 linkRuntimeAsset(resolve(appDir, '.next/static'), resolve(standaloneAppDir, '.next/static'));
 
+// Render's proxy reaches the service through the container/network interface,
+// so the standalone Next server must bind to all interfaces rather than the
+// instance hostname. Preserve Render's injected PORT and every other env var.
+const serverEnv = {
+  ...process.env,
+  HOSTNAME: '0.0.0.0',
+};
+
 const server = spawn(process.execPath, [serverPath], {
   cwd: standaloneAppDir,
-  env: process.env,
+  env: serverEnv,
   stdio: 'inherit',
 });
 
