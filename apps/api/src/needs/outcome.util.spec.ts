@@ -5,10 +5,12 @@ describe('isOutcomeUnclear', () => {
     expect(isOutcomeUnclear(content)).toBe(true);
   });
 
-  it('treats a need that only describes a situation, with no stated result, as unclear', () => {
-    expect(isOutcomeUnclear('My landlord gave me an eviction notice for Friday')).toBe(true);
+  it('still asks when a statement supplies neither a goal nor a concrete hardship', () => {
     expect(isOutcomeUnclear('I lost my job last week')).toBe(true);
     expect(isOutcomeUnclear('My car broke down and I have no way to get to work')).toBe(true);
+    expect(isOutcomeUnclear('Things have been difficult lately')).toBe(true);
+    expect(isOutcomeUnclear('My landlord gave me an eviction notice for Friday')).toBe(true);
+    expect(isOutcomeUnclear('My car is being repossessed')).toBe(true);
   });
 
   it.each([
@@ -25,6 +27,15 @@ describe('isOutcomeUnclear', () => {
     expect(isOutcomeUnclear(content)).toBe(false);
   });
 
+  it.each([
+    'My water bill is late and being shut off',
+    'My rent is past due',
+    'I am behind on my electric bill',
+    "I can't pay my gas bill",
+  ])('treats concrete payment or utility hardship %j as sufficient to begin useful work', (content) => {
+    expect(isOutcomeUnclear(content)).toBe(false);
+  });
+
   it.each(['money', 'rent', 'food', 'job', 'housing', 'benefits', 'medicine', 'utilities'])(
     'treats concise need %j as sufficient to begin useful work without repeating the broad arrival question',
     (content) => {
@@ -35,6 +46,7 @@ describe('isOutcomeUnclear', () => {
   it('is case-insensitive', () => {
     expect(isOutcomeUnclear('I NEED HELP FINDING A JOB')).toBe(false);
     expect(isOutcomeUnclear('MONEY')).toBe(false);
+    expect(isOutcomeUnclear('MY WATER IS BEING SHUT OFF')).toBe(false);
   });
 
   it('treats a direct question as already clear — Aureus should answer it, not ask what would help', () => {
