@@ -22,7 +22,7 @@ describe('UrgentHelpAffordance', () => {
     expect(dialog.textContent).toMatch(/741741/);
     // Must not claim a capability Aureus doesn't have yet (Gate C's steward
     // paging/resource discovery isn't built) — the note says so honestly.
-    expect(dialog.textContent).toMatch(/still being verified and isn.t ready to rely on yet/i);
+    expect(dialog.textContent).toMatch(/still being verified and should not be relied on for an emergency/i);
   });
 
   it('closes on Escape and returns focus to the trigger', async () => {
