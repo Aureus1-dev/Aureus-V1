@@ -91,12 +91,14 @@ export class VoiceWebRtcClient {
       throw new Error('Unable to create the voice connection offer.');
     }
 
-    // Current OpenAI Realtime create-call API accepts the SDP as a multipart
-    // `sdp` field. Do not set Content-Type manually: the browser must add the
-    // multipart boundary. The short-lived client secret remains the only
-    // credential exposed to the browser.
+    // OpenAI's Realtime create-call contract expects the multipart `sdp`
+    // part to be `application/sdp`. Appending a raw string makes browsers
+    // serialize that part as plain text, which can be rejected even though
+    // the backend already brokered a valid ephemeral client secret.
+    // Do not set the request Content-Type manually: FormData must add the
+    // multipart boundary itself.
     const formData = new FormData();
-    formData.append('sdp', localSdp);
+    formData.append('sdp', new Blob([localSdp], { type: 'application/sdp' }), 'offer.sdp');
 
     const response = await fetch(REALTIME_API_URL, {
       method: 'POST',
