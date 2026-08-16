@@ -33,6 +33,47 @@ describe('OpenAiProvider', () => {
     jest.restoreAllMocks();
   });
 
+  it('uses modern GPT-5 Chat Completions token fields and omits unsupported temperature by default', async () => {
+    const fetchMock = jest.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        model: 'gpt-5-mini',
+        choices: [{ message: { content: 'Hello there.' } }],
+        usage: { prompt_tokens: 10, completion_tokens: 5 },
+      }),
+    });
+    global.fetch = fetchMock as unknown as typeof fetch;
+
+    const provider = new OpenAiProvider(makeConfig());
+    await provider.complete({ messages: [{ role: 'user', content: 'Hi' }], maxTokens: 700, temperature: 0.2 });
+
+    const body = JSON.parse((fetchMock.mock.calls[0][1] as RequestInit).body as string);
+    expect(body.model).toBe('gpt-5-mini');
+    expect(body.max_completion_tokens).toBe(700);
+    expect(body.max_tokens).toBeUndefined();
+    expect(body.temperature).toBeUndefined();
+  });
+
+  it('keeps legacy token and temperature fields for GPT-4-class Chat Completions models', async () => {
+    const fetchMock = jest.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        model: 'gpt-4o-mini',
+        choices: [{ message: { content: 'Hello there.' } }],
+        usage: { prompt_tokens: 10, completion_tokens: 5 },
+      }),
+    });
+    global.fetch = fetchMock as unknown as typeof fetch;
+
+    const provider = new OpenAiProvider(makeConfig({ OPENAI_MODEL: 'gpt-4o-mini' }));
+    await provider.complete({ messages: [{ role: 'user', content: 'Hi' }], maxTokens: 700, temperature: 0.2 });
+
+    const body = JSON.parse((fetchMock.mock.calls[0][1] as RequestInit).body as string);
+    expect(body.max_tokens).toBe(700);
+    expect(body.max_completion_tokens).toBeUndefined();
+    expect(body.temperature).toBe(0.2);
+  });
+
   it('completes without tools when none are offered, and omits tool_choice entirely', async () => {
     const fetchMock = jest.fn().mockResolvedValue({
       ok: true,

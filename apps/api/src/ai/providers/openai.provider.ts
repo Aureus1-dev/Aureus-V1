@@ -20,6 +20,10 @@ function toOpenAiTool(def: AiToolDefinition) {
   return { type: 'function' as const, function: { name: def.name, description: def.description, parameters: def.parameters } };
 }
 
+function usesModernCompletionTokenField(model: string): boolean {
+  return /^(gpt-5(?:[.-]|$)|o[134](?:[.-]|$))/.test(model);
+}
+
 /**
  * OpenAI Chat Completions provider. Calls the real REST API via the
  * platform-standard runtime `fetch` — no vendor SDK dependency, matching
@@ -55,6 +59,7 @@ export class OpenAiProvider implements IAiProvider {
   async complete(input: AiCompletionInput): Promise<AiCompletionOutput> {
     const apiKey = this.config.get<string>('OPENAI_API_KEY');
     const model = this.config.get<string>('OPENAI_MODEL', 'gpt-5-mini');
+    const modernCompletionFields = usesModernCompletionTokenField(model);
 
     const res = await this.circuitBreaker.execute(() =>
       resilientFetch(
@@ -68,8 +73,9 @@ export class OpenAiProvider implements IAiProvider {
           body: JSON.stringify({
             model,
             messages: input.messages.map((m) => ({ role: m.role, content: m.content })),
-            max_tokens: input.maxTokens ?? 500,
-            temperature: input.temperature ?? 0.3,
+            ...(modernCompletionFields
+              ? { max_completion_tokens: input.maxTokens ?? 500 }
+              : { max_tokens: input.maxTokens ?? 500, temperature: input.temperature ?? 0.3 }),
             ...(input.tools?.length ? { tools: input.tools.map(toOpenAiTool), tool_choice: 'auto' } : {}),
           }),
         },
