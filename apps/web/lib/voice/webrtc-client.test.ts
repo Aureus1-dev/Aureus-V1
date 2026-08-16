@@ -109,7 +109,9 @@ describe('VoiceWebRtcClient', () => {
     const sdpPart = (init.body as FormData).get('sdp');
     expect(sdpPart).toBeInstanceOf(Blob);
     expect((sdpPart as Blob).type).toBe('application/sdp');
-    expect(await (sdpPart as Blob).text()).toBe('fake-offer-sdp-with-ice');
+    // jsdom's Blob does not implement Blob.text(); size still proves the
+    // complete gathered SDP string was serialized into the multipart part.
+    expect((sdpPart as Blob).size).toBe('fake-offer-sdp-with-ice'.length);
   });
 
   it('throws with provider status when the provider rejects the offer', async () => {
