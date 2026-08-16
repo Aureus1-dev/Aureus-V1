@@ -16,7 +16,10 @@ class FakeRTCPeerConnection {
   static instances: FakeRTCPeerConnection[] = [];
   onconnectionstatechange: (() => void) | null = null;
   ontrack: ((event: { streams: MediaStream[] }) => void) | null = null;
+  onicegatheringstatechange: (() => void) | null = null;
   connectionState: RTCPeerConnectionState = 'new';
+  iceGatheringState: RTCIceGatheringState = 'complete';
+  localDescription: RTCSessionDescription | null = null;
   dataChannel: FakeDataChannel | null = null;
   addedTracks: MediaStreamTrack[] = [];
   closed = false;
@@ -38,7 +41,9 @@ class FakeRTCPeerConnection {
     return { type: 'offer' as const, sdp: 'fake-offer-sdp' };
   }
 
-  async setLocalDescription() {}
+  async setLocalDescription(description: RTCSessionDescriptionInit) {
+    this.localDescription = { type: description.type, sdp: `${description.sdp}-with-ice` } as RTCSessionDescription;
+  }
   async setRemoteDescription() {}
 
   close() {
@@ -67,7 +72,7 @@ describe('VoiceWebRtcClient', () => {
     Object.defineProperty(global, 'RTCPeerConnection', { value: FakeRTCPeerConnection, configurable: true });
     Object.defineProperty(navigator, 'mediaDevices', { value: { getUserMedia: getUserMediaMock }, configurable: true });
 
-    fetchMock = jest.fn().mockResolvedValue({ ok: true, text: async () => 'fake-answer-sdp' });
+    fetchMock = jest.fn().mockResolvedValue({ ok: true, status: 200, text: async () => 'fake-answer-sdp' });
     global.fetch = fetchMock as unknown as typeof fetch;
   });
 
@@ -84,9 +89,9 @@ describe('VoiceWebRtcClient', () => {
     expect(getUserMediaMock).not.toHaveBeenCalled();
   });
 
-  it('performs the full offer/answer exchange with the ephemeral client secret, never the permanent key', async () => {
+  it('uses the gathered local SDP in the multipart create-call exchange with only the ephemeral client secret', async () => {
     const client = makeClient();
-    await client.connect('ephemeral-secret-abc', 'gpt-4o-realtime-preview');
+    await client.connect('ephemeral-secret-abc', 'gpt-realtime');
 
     expect(getUserMediaMock).toHaveBeenCalledWith({ audio: true });
     const pc = FakeRTCPeerConnection.instances[0];
@@ -97,15 +102,16 @@ describe('VoiceWebRtcClient', () => {
     const [url, init] = fetchMock.mock.calls[0];
     expect(url).toBe('https://api.openai.com/v1/realtime/calls');
     expect(url).not.toContain('?model=');
-    expect(init.body).toBe('fake-offer-sdp');
     expect(init.headers.Authorization).toBe('Bearer ephemeral-secret-abc');
-    expect(init.headers['Content-Type']).toBe('application/sdp');
+    expect(init.headers['Content-Type']).toBeUndefined();
+    expect(init.body).toBeInstanceOf(FormData);
+    expect((init.body as FormData).get('sdp')).toBe('fake-offer-sdp-with-ice');
   });
 
-  it('throws when the provider rejects the offer', async () => {
-    fetchMock.mockResolvedValue({ ok: false, text: async () => '' });
+  it('throws with provider status when the provider rejects the offer', async () => {
+    fetchMock.mockResolvedValue({ ok: false, status: 400, text: async () => '' });
     const client = makeClient();
-    await expect(client.connect('secret', 'model')).rejects.toThrow();
+    await expect(client.connect('secret', 'model')).rejects.toThrow('provider status 400');
   });
 
   it('forwards parsed data-channel events to onDataChannelMessage', async () => {
