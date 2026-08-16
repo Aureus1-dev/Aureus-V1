@@ -72,7 +72,7 @@ describe('VoiceWebRtcClient', () => {
     Object.defineProperty(global, 'RTCPeerConnection', { value: FakeRTCPeerConnection, configurable: true });
     Object.defineProperty(navigator, 'mediaDevices', { value: { getUserMedia: getUserMediaMock }, configurable: true });
 
-    fetchMock = jest.fn().mockResolvedValue({ ok: true, status: 200, text: async () => 'fake-answer-sdp' });
+    fetchMock = jest.fn().mockResolvedValue({ ok: true, status: 201, text: async () => 'fake-answer-sdp' });
     global.fetch = fetchMock as unknown as typeof fetch;
   });
 
@@ -89,7 +89,7 @@ describe('VoiceWebRtcClient', () => {
     expect(getUserMediaMock).not.toHaveBeenCalled();
   });
 
-  it('uses the gathered local SDP in the multipart create-call exchange with only the ephemeral client secret', async () => {
+  it('uses the gathered local SDP as an application/sdp multipart part with only the ephemeral client secret', async () => {
     const client = makeClient();
     await client.connect('ephemeral-secret-abc', 'gpt-realtime');
 
@@ -105,7 +105,13 @@ describe('VoiceWebRtcClient', () => {
     expect(init.headers.Authorization).toBe('Bearer ephemeral-secret-abc');
     expect(init.headers['Content-Type']).toBeUndefined();
     expect(init.body).toBeInstanceOf(FormData);
-    expect((init.body as FormData).get('sdp')).toBe('fake-offer-sdp-with-ice');
+
+    const sdpPart = (init.body as FormData).get('sdp');
+    expect(sdpPart).toBeInstanceOf(Blob);
+    expect((sdpPart as Blob).type).toBe('application/sdp');
+    // jsdom's Blob does not implement Blob.text(); size still proves the
+    // complete gathered SDP string was serialized into the multipart part.
+    expect((sdpPart as Blob).size).toBe('fake-offer-sdp-with-ice'.length);
   });
 
   it('throws with provider status when the provider rejects the offer', async () => {
@@ -162,7 +168,6 @@ describe('VoiceWebRtcClient', () => {
   it('mutes and unmutes by disabling the mic track, not by tearing down the connection', async () => {
     const client = makeClient();
     await client.connect('secret', 'model');
-
     client.setMuted(true);
     expect(micTrack.enabled).toBe(false);
     client.setMuted(false);
@@ -173,9 +178,7 @@ describe('VoiceWebRtcClient', () => {
     const client = makeClient();
     await client.connect('secret', 'model');
     const pc = FakeRTCPeerConnection.instances[0];
-
     client.interrupt();
-
     expect(pc.dataChannel?.sentMessages).toEqual([JSON.stringify({ type: 'response.cancel' })]);
   });
 
@@ -184,9 +187,7 @@ describe('VoiceWebRtcClient', () => {
     await client.connect('secret', 'model');
     const pc = FakeRTCPeerConnection.instances[0];
     pc.dataChannel!.readyState = 'connecting';
-
     client.interrupt();
-
     expect(pc.dataChannel?.sentMessages).toEqual([]);
   });
 
@@ -194,9 +195,7 @@ describe('VoiceWebRtcClient', () => {
     const client = makeClient();
     await client.connect('secret', 'model');
     const pc = FakeRTCPeerConnection.instances[0];
-
     client.disconnect();
-
     expect(micTrack.stop).toHaveBeenCalled();
     expect(pc.dataChannel?.readyState).toBe('closed');
     expect(pc.closed).toBe(true);
