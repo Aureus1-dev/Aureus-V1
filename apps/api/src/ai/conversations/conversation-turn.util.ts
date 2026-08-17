@@ -1,4 +1,4 @@
-import type { ToolCallDto } from './dto/message-response.dto';
+import type { ToolCallResponseDto } from './dto/message-response.dto';
 
 const GREETING_PATTERNS = [
   /^(?:hi|hello|hey|hiya|howdy)[.!?]*$/i,
@@ -24,7 +24,7 @@ export function isConversationalTurnWithoutNeed(content: string): boolean {
  */
 export function ensureVisibleAssistantContent(
   content: string | null | undefined,
-  toolCalls?: readonly ToolCallDto[] | null,
+  toolCalls?: readonly ToolCallResponseDto[] | null,
 ): string {
   const visible = content?.trim();
   if (visible) return visible;
