@@ -15,7 +15,7 @@ describe('BusinessTenantDirectoryController', () => {
         name: 'Example Business',
         shortDescription: 'Example business',
         fullDescription: 'Example business workspace',
-        organizationType: OrganizationType.COMMUNITY_ORGANIZATION,
+        organizationType: 'UNRELATED_TYPE' as OrganizationType,
         websiteUrl: 'https://example.com',
       },
       { id: 'guest-1', email: 'guest@example.invalid', roles: [], isGuest: true },
@@ -30,7 +30,7 @@ describe('BusinessTenantDirectoryController', () => {
       name: 'Example Business',
       shortDescription: 'Example business',
       fullDescription: 'Example business workspace',
-      organizationType: OrganizationType.COMMUNITY_ORGANIZATION,
+      organizationType: 'UNRELATED_TYPE' as OrganizationType,
       websiteUrl: 'https://example.com',
     };
 
