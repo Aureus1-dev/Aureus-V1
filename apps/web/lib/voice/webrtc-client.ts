@@ -2,6 +2,7 @@ import type { RawRealtimeEvent } from './realtime-event-mapper';
 
 const REALTIME_API_URL = 'https://api.openai.com/v1/realtime/calls';
 const ICE_GATHERING_TIMEOUT_MS = 5_000;
+const SIGNALING_TIMEOUT_MS = 20_000;
 
 export interface VoiceWebRtcClientCallbacks {
   onRemoteTrack: (stream: MediaStream) => void;
@@ -29,15 +30,6 @@ async function waitForIceGatheringComplete(pc: RTCPeerConnection): Promise<void>
   });
 }
 
-/**
- * Direct browser-to-provider WebRTC connection (Founder Decision 1: no
- * backend audio proxy). The backend's `clientSecret` (from
- * `startVoiceSession`) is the only credential this class ever sees — it
- * never touches the permanent provider API key. Microphone access begins
- * only inside `connect()`, which callers must only invoke after explicit
- * member action (a "Start voice conversation" press) — never on mount,
- * never automatically.
- */
 export class VoiceWebRtcClient {
   private pc: RTCPeerConnection | null = null;
   private dataChannel: RTCDataChannel | null = null;
@@ -57,9 +49,7 @@ export class VoiceWebRtcClient {
 
     pc.ontrack = (event) => {
       const [stream] = event.streams;
-      if (stream) {
-        this.callbacks.onRemoteTrack(stream);
-      }
+      if (stream) this.callbacks.onRemoteTrack(stream);
     };
 
     for (const track of this.micStream.getAudioTracks()) {
@@ -72,41 +62,35 @@ export class VoiceWebRtcClient {
       try {
         this.callbacks.onDataChannelMessage(JSON.parse(event.data) as RawRealtimeEvent);
       } catch {
-        // Malformed event from the provider — drop it rather than crash the session.
+        // Malformed provider events must never crash a live session.
       }
     };
 
     const offer = await pc.createOffer();
     await pc.setLocalDescription(offer);
-
-    // The Realtime create-call endpoint is the one-shot signaling exchange
-    // for this direct browser connection. On mobile browsers, ICE candidates
-    // may arrive after setLocalDescription(), so give gathering a bounded
-    // chance to finish before sending the SDP that OpenAI will use to reach
-    // this peer. If gathering exceeds the bound, proceed with the best local
-    // description available rather than leaving the member stuck forever.
     await waitForIceGatheringComplete(pc);
-    const localSdp = pc.localDescription?.sdp ?? offer.sdp;
-    if (!localSdp) {
-      throw new Error('Unable to create the voice connection offer.');
-    }
 
-    // OpenAI's Realtime create-call contract expects the multipart `sdp`
-    // part to be `application/sdp`. Appending a raw string makes browsers
-    // serialize that part as plain text, which can be rejected even though
-    // the backend already brokered a valid ephemeral client secret.
-    // Do not set the request Content-Type manually: FormData must add the
-    // multipart boundary itself.
+    const localSdp = pc.localDescription?.sdp ?? offer.sdp;
+    if (!localSdp) throw new Error('Unable to create the voice connection offer.');
+
     const formData = new FormData();
     formData.append('sdp', new Blob([localSdp], { type: 'application/sdp' }), 'offer.sdp');
 
-    const response = await fetch(REALTIME_API_URL, {
-      method: 'POST',
-      body: formData,
-      headers: {
-        Authorization: `Bearer ${clientSecret}`,
-      },
-    });
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), SIGNALING_TIMEOUT_MS);
+    let response: Response;
+    try {
+      response = await fetch(REALTIME_API_URL, {
+        method: 'POST',
+        body: formData,
+        headers: { Authorization: `Bearer ${clientSecret}` },
+        signal: controller.signal,
+      });
+    } catch {
+      throw new Error('The voice provider did not finish connecting in time. Please try again.');
+    } finally {
+      clearTimeout(timeout);
+    }
 
     if (!response.ok) {
       throw new Error(`Unable to establish the voice connection (provider status ${response.status}).`);
@@ -122,14 +106,6 @@ export class VoiceWebRtcClient {
     });
   }
 
-  /**
-   * The accessible, explicit alternative to voice barge-in — a member who
-   * cannot reliably speak over the steward (or who simply prefers a
-   * button) can still interrupt. Natural barge-in (speaking while the
-   * steward is speaking) is handled by the provider itself via the
-   * backend-mandated `interrupt_response: true` timing policy and needs
-   * no client-sent event.
-   */
   interrupt(): void {
     this.sendEvent({ type: 'response.cancel' });
   }
