@@ -59,15 +59,12 @@ export class BusinessTenantDirectoryController {
 
   @Post('tenants')
   @ApiOperation({ summary: 'Create a private DRAFT business workspace for the authenticated caller' })
-  provisionMyTenant(
-    @Body() dto: Omit<CreateOrganizationDto, 'organizationType'>,
-    @CurrentUser() caller: AuthenticatedUser,
-  ) {
-    // Self-service provisioning creates only a private BUSINESS organization.
-    // Existing verification and publication gates remain authoritative, and
-    // OrganizationsService makes the caller the first ADMIN representative.
+  provisionMyTenant(@Body() dto: CreateOrganizationDto, @CurrentUser() caller: AuthenticatedUser) {
+    // Keep the full CreateOrganizationDto validation contract, but never let
+    // this self-service route create a non-business tenant. Verification and
+    // publication gates remain unchanged after the private workspace exists.
     return this.organizations.create(
-      { ...dto, organizationType: OrganizationType.BUSINESS } as CreateOrganizationDto,
+      { ...dto, organizationType: OrganizationType.BUSINESS },
       caller,
     );
   }
