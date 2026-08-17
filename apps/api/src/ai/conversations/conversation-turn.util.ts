@@ -17,7 +17,12 @@ const VOICE_REQUEST = /^(?:(?:can|could|may)\s+we\s+talk|(?:can|could|may)\s+i\s
 export function isConversationalTurnWithoutNeed(content: string): boolean {
   const normalized = content.trim();
   if (!normalized) return false;
-  return GREETING_PATTERNS.some((pattern) => pattern.test(normalized)) || QUESTION_PREFIX.test(normalized);
+  return (
+    GREETING_PATTERNS.some((pattern) => pattern.test(normalized)) ||
+    DATE_QUESTION.test(normalized) ||
+    VOICE_REQUEST.test(normalized) ||
+    QUESTION_PREFIX.test(normalized)
+  );
 }
 
 /**
