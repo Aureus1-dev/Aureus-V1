@@ -9,7 +9,7 @@ export default function BusinessPage() {
     <>
       <BusinessConsoleHome />
       <div style={{ padding: '0 1rem 1rem' }}>
-        <Link href="/business/setup">Create or connect a business workspace</Link>
+        <Link href="/business/setup">Create a business workspace</Link>
       </div>
       <BusinessOperationsPanel />
     </>
