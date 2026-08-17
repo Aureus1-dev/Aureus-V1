@@ -143,10 +143,16 @@ export class ConversationsService {
       return MessageResponseDto.fromEntity(outcomeMessage);
     }
 
+    // Keep the stable platform persona as the first system message while
+    // composing the Hall's member-help scope and current date/time into the
+    // same instruction. This preserves downstream interface-context ordering
+    // and avoids making tests or providers depend on a growing stack of
+    // separate system messages.
     const systemMessages: AiCompletionMessage[] = [
-      { role: 'system', content: PLATFORM_ASSISTANT_SYSTEM_PROMPT },
-      { role: 'system', content: MEMBER_HELP_SCOPE },
-      { role: 'system', content: currentDateTimeContext() },
+      {
+        role: 'system',
+        content: `${PLATFORM_ASSISTANT_SYSTEM_PROMPT}\n\n${MEMBER_HELP_SCOPE}\n\n${currentDateTimeContext()}`,
+      },
     ];
     if (dto.interfaceContext) {
       systemMessages.push({
