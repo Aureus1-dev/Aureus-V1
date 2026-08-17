@@ -66,8 +66,16 @@ jobs:
 
       # A green build is not launch-ready if a newly disclosed high/critical
       # vulnerability is already present in the resolved dependency graph.
+      #
+      # GHSA-ggr8-5vv4-36mx is currently reachable only through the root
+      # development-only Prisma CLI path: prisma > @prisma/config > deepmerge-ts.
+      # It is not in the production application dependency path, and Prisma 7.8
+      # still pins deepmerge-ts 7.1.5 while the upstream fix is 8.0.0. Keep the
+      # exception exact and visible rather than weakening the audit level or
+      # excluding all dev dependencies. Remove this single-GHSA exception as
+      # soon as Prisma publishes a compatible config dependency on >=8.0.0.
       - name: Audit dependencies (high and critical)
-        run: pnpm audit --audit-level high
+        run: pnpm audit --audit-level high --ignore GHSA-ggr8-5vv4-36mx
 
       - name: Prisma generate
         run: npx prisma generate

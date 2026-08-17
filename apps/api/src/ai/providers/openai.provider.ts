@@ -8,6 +8,7 @@ import { resilientFetch } from './resilience/resilient-fetch.util';
 interface OpenAiChatResponse {
   model: string;
   choices: {
+    finish_reason?: string | null;
     message: {
       content: string | null;
       tool_calls?: { id: string; function: { name: string; arguments: string } }[];
@@ -22,6 +23,10 @@ function toOpenAiTool(def: AiToolDefinition) {
 
 function usesModernCompletionTokenField(model: string): boolean {
   return /^(gpt-5(?:[.-]|$)|o[134](?:[.-]|$))/.test(model);
+}
+
+function isGpt5Model(model: string): boolean {
+  return /^gpt-5(?:[.-]|$)/.test(model);
 }
 
 /**
@@ -60,40 +65,87 @@ export class OpenAiProvider implements IAiProvider {
     const apiKey = this.config.get<string>('OPENAI_API_KEY');
     const model = this.config.get<string>('OPENAI_MODEL', 'gpt-5-mini');
     const modernCompletionFields = usesModernCompletionTokenField(model);
+    const defaultCompletionTokens = modernCompletionFields
+      ? this.config.get<number>('OPENAI_MAX_COMPLETION_TOKENS', 1200)
+      : 500;
+    const requestedCompletionTokens = input.maxTokens ?? defaultCompletionTokens;
+    const reasoningEffort = this.config.get<string>('OPENAI_REASONING_EFFORT', 'minimal');
 
-    const res = await this.circuitBreaker.execute(() =>
-      resilientFetch(
-        'https://api.openai.com/v1/chat/completions',
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${apiKey}`,
+    const callOpenAi = async (maxCompletionTokens: number): Promise<OpenAiChatResponse> => {
+      const res = await this.circuitBreaker.execute(() =>
+        resilientFetch(
+          'https://api.openai.com/v1/chat/completions',
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${apiKey}`,
+            },
+            body: JSON.stringify({
+              model,
+              messages: input.messages.map((m) => ({ role: m.role, content: m.content })),
+              ...(modernCompletionFields
+                ? {
+                    max_completion_tokens: maxCompletionTokens,
+                    ...(isGpt5Model(model) ? { reasoning_effort: reasoningEffort } : {}),
+                  }
+                : { max_tokens: maxCompletionTokens, temperature: input.temperature ?? 0.3 }),
+              ...(input.tools?.length ? { tools: input.tools.map(toOpenAiTool), tool_choice: 'auto' } : {}),
+            }),
           },
-          body: JSON.stringify({
-            model,
-            messages: input.messages.map((m) => ({ role: m.role, content: m.content })),
-            ...(modernCompletionFields
-              ? { max_completion_tokens: input.maxTokens ?? 500 }
-              : { max_tokens: input.maxTokens ?? 500, temperature: input.temperature ?? 0.3 }),
-            ...(input.tools?.length ? { tools: input.tools.map(toOpenAiTool), tool_choice: 'auto' } : {}),
-          }),
-        },
-        {
-          timeoutMs: this.config.get<number>('AI_PROVIDER_TIMEOUT_MS', 30_000),
-          maxAttempts: this.config.get<number>('AI_PROVIDER_MAX_ATTEMPTS', 3),
-          baseDelayMs: this.config.get<number>('AI_PROVIDER_RETRY_BASE_DELAY_MS', 500),
-          logger: this.logger,
-          providerName: 'OpenAI',
-        },
-      ),
-    );
+          {
+            timeoutMs: this.config.get<number>('AI_PROVIDER_TIMEOUT_MS', 30_000),
+            maxAttempts: this.config.get<number>('AI_PROVIDER_MAX_ATTEMPTS', 3),
+            baseDelayMs: this.config.get<number>('AI_PROVIDER_RETRY_BASE_DELAY_MS', 500),
+            logger: this.logger,
+            providerName: 'OpenAI',
+          },
+        ),
+      );
+      return (await res.json()) as OpenAiChatResponse;
+    };
 
-    const data = (await res.json()) as OpenAiChatResponse;
-    const message = data.choices[0]?.message;
+    let data = await callOpenAi(requestedCompletionTokens);
+    let choice = data.choices[0];
+    let message = choice?.message;
+
+    // GPT-5 reasoning tokens count against max_completion_tokens. With the old
+    // 500-token default a normal substantive Steward request could exhaust the
+    // whole allowance before any visible text was emitted, producing a
+    // successful HTTP response with empty content. Retry that specific
+    // truncation once with a larger allowance before declaring the provider
+    // output unusable.
+    if (
+      modernCompletionFields &&
+      input.maxTokens === undefined &&
+      choice?.finish_reason === 'length' &&
+      !message?.content?.trim() &&
+      !message?.tool_calls?.length
+    ) {
+      const retryTokens = Math.max(requestedCompletionTokens * 2, 2400);
+      this.logger.warn(
+        `OpenAI ${model} exhausted ${requestedCompletionTokens} completion tokens before visible output; retrying once with ${retryTokens}.`,
+      );
+      data = await callOpenAi(retryTokens);
+      choice = data.choices[0];
+      message = choice?.message;
+    }
+
+    const content = message?.content?.trim() ?? '';
+    const toolCalls = message?.tool_calls?.map((tc) => ({ id: tc.id, name: tc.function.name, arguments: tc.function.arguments }));
+
+    // Empty natural-language content is valid only when the model actually
+    // returned a tool call. Otherwise this is not a usable completion and must
+    // be treated as provider failure so cross-provider fallback can engage.
+    if (!content && !toolCalls?.length) {
+      throw new Error(
+        `OpenAI returned an empty completion without tool calls (model=${data.model ?? model}, finish_reason=${choice?.finish_reason ?? 'unknown'}).`,
+      );
+    }
+
     return {
-      content: message?.content ?? '',
-      toolCalls: message?.tool_calls?.map((tc) => ({ id: tc.id, name: tc.function.name, arguments: tc.function.arguments })),
+      content,
+      toolCalls,
       provider: this.provider,
       model: data.model ?? model,
       promptTokens: data.usage?.prompt_tokens ?? 0,
