@@ -7,13 +7,12 @@ export interface RequestOptions {
   accessToken?: string | null;
   signal?: AbortSignal;
   headers?: Record<string, string>;
+  /** Maximum time a member-facing request may remain unresolved. */
+  timeoutMs?: number;
   /**
    * Whether a 401 should trigger one silent token refresh + retry before
    * surfacing the error. Defaults to true so every existing domain client
-   * (e.g. `lib/api/conversations.ts`) gets this behavior automatically,
-   * without any change to that module. The auth endpoints themselves
-   * (`lib/api/auth.ts`) pass `false` to avoid refreshing in response to
-   * their own failures.
+   * gets this behavior automatically. Auth endpoints pass false.
    */
   retryOn401?: boolean;
 }
@@ -24,22 +23,10 @@ interface AuthBridge {
 
 let authBridge: AuthBridge | null = null;
 
-/**
- * Registered once by the Session module on startup (FPB-009 — the
- * frontend consumes capabilities; this is transport plumbing, not
- * authentication business logic). No other module calls this.
- */
 export function configureAuthBridge(bridge: AuthBridge | null): void {
   authBridge = bridge;
 }
 
-/**
- * Authenticated fetch wrapper for the documented backend contract
- * (FPB-009 §1: "The frontend shall consume capabilities. The backend
- * shall provide capabilities."). No business logic — only transport,
- * typed error translation, and (when enabled) a single transparent
- * refresh-and-retry on an expired access token.
- */
 export async function apiRequest<T>(path: string, options: RequestOptions = {}): Promise<T> {
   const response = await performRequest(path, options);
 
@@ -54,6 +41,23 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
   return parseResponse<T>(response);
 }
 
+function requestSignal(options: RequestOptions): { signal: AbortSignal | undefined; cleanup: () => void } {
+  if (!options.timeoutMs) return { signal: options.signal, cleanup: () => undefined };
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), options.timeoutMs);
+  const abortFromCaller = () => controller.abort();
+  options.signal?.addEventListener('abort', abortFromCaller, { once: true });
+
+  return {
+    signal: controller.signal,
+    cleanup: () => {
+      clearTimeout(timeout);
+      options.signal?.removeEventListener('abort', abortFromCaller);
+    },
+  };
+}
+
 async function performRequest(path: string, options: RequestOptions): Promise<Response> {
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
@@ -63,15 +67,18 @@ async function performRequest(path: string, options: RequestOptions): Promise<Re
     headers.Authorization = `Bearer ${options.accessToken}`;
   }
 
+  const { signal, cleanup } = requestSignal(options);
   try {
     return await fetch(`${API_BASE_URL}${path}`, {
       method: options.method ?? 'GET',
       headers,
       body: options.body !== undefined ? JSON.stringify(options.body) : undefined,
-      signal: options.signal,
+      signal,
     });
   } catch {
     throw new NetworkError();
+  } finally {
+    cleanup();
   }
 }
 
