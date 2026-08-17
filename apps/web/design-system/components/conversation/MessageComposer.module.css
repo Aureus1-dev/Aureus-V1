@@ -69,8 +69,13 @@
     position: sticky;
     bottom: 0;
     z-index: 4;
+    width: 100%;
+    box-sizing: border-box;
     padding: var(--space-2) var(--space-3) calc(var(--space-2) + env(safe-area-inset-bottom, 0px));
-    background: linear-gradient(to top, color-mix(in srgb, var(--color-surface-primary) 92%, transparent), transparent);
+    /* The Hall itself is the visual surface. Using surface-primary here
+       becomes a large white rectangle in light-token mobile sessions on top
+       of the room photograph. Keep only the actual input pill visible. */
+    background: transparent;
   }
 
   .textarea {
