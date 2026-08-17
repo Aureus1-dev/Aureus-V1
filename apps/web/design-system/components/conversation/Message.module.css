@@ -33,6 +33,17 @@
   border: 1px solid var(--color-border-subtle);
 }
 
+@media (max-width: 640px) {
+  .bubble {
+    /* 70% forced ordinary Steward sentences into very tall narrow cards on
+       the founder phone walkthrough. A phone transcript should read like a
+       conversation, not a column of oversized chat cards. */
+    max-width: 88%;
+    padding: var(--space-3);
+    line-height: var(--line-height-normal);
+  }
+}
+
 @media (min-width: 1024px) {
   .bubble {
     max-width: 60%;
