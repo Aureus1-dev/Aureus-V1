@@ -46,12 +46,36 @@ export interface UpdateBusinessProfileInput {
   onboardingStep?: number;
 }
 
+export interface ProvisionBusinessWorkspaceInput {
+  name: string;
+  shortDescription: string;
+  fullDescription: string;
+  websiteUrl: string;
+  contactEmail?: string;
+  location?: string;
+  country?: string;
+  state?: string;
+  city?: string;
+}
+
 export function listMyBusinessTenants(accessToken: string): Promise<BusinessTenantSummary[]> {
-  return apiRequest('/business-console/tenants', { accessToken });
+  return apiRequest('/business-console/tenants', { accessToken, timeoutMs: 20_000 });
+}
+
+export function provisionBusinessWorkspace(
+  accessToken: string,
+  input: ProvisionBusinessWorkspaceInput,
+): Promise<{ id: string }> {
+  return apiRequest('/business-console/tenants', {
+    method: 'POST',
+    accessToken,
+    timeoutMs: 20_000,
+    body: { ...input, organizationType: 'BUSINESS' },
+  });
 }
 
 export function getBusinessConsole(accessToken: string, tenantId: string): Promise<BusinessConsole> {
-  return apiRequest(`/organizations/${tenantId}/business-console`, { accessToken });
+  return apiRequest(`/organizations/${tenantId}/business-console`, { accessToken, timeoutMs: 20_000 });
 }
 
 export function updateBusinessProfile(
@@ -63,5 +87,6 @@ export function updateBusinessProfile(
     method: 'PATCH',
     accessToken,
     body: input,
+    timeoutMs: 20_000,
   });
 }

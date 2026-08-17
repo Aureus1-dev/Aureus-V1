@@ -1,10 +1,13 @@
-import { Body, Controller, Get, Param, Patch, UseGuards } from '@nestjs/common';
+import { Body, Controller, ForbiddenException, Get, Param, Patch, Post, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiParam, ApiTags } from '@nestjs/swagger';
+import { OrganizationType } from '@prisma/client';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { AuthenticatedUser } from '../auth/strategies/jwt.strategy';
 import { BusinessTenantMembershipGuard } from './guards/business-tenant-membership.guard';
 import { BusinessTenantService } from './business-tenant.service';
+import { OrganizationsService } from './organizations.service';
+import { CreateOrganizationDto } from './dto/create-organization.dto';
 import { UpsertBusinessProfileDto } from './dto/upsert-business-profile.dto';
 
 @ApiTags('business-console')
@@ -17,10 +20,7 @@ export class BusinessTenantController {
   @Get()
   @ApiOperation({ summary: 'Load the caller-scoped business tenant console' })
   @ApiParam({ name: 'organizationId', description: 'Canonical tenant UUID' })
-  getConsole(
-    @Param('organizationId') organizationId: string,
-    @CurrentUser() caller: AuthenticatedUser,
-  ) {
+  getConsole(@Param('organizationId') organizationId: string, @CurrentUser() caller: AuthenticatedUser) {
     return this.service.getConsole(organizationId, caller);
   }
 
@@ -36,10 +36,7 @@ export class BusinessTenantController {
 
   @Get('audit')
   @ApiOperation({ summary: 'List the latest append-only audit events for this tenant' })
-  listAudit(
-    @Param('organizationId') organizationId: string,
-    @CurrentUser() caller: AuthenticatedUser,
-  ) {
+  listAudit(@Param('organizationId') organizationId: string, @CurrentUser() caller: AuthenticatedUser) {
     return this.service.listAudit(organizationId, caller);
   }
 }
@@ -49,11 +46,26 @@ export class BusinessTenantController {
 @UseGuards(JwtAuthGuard)
 @Controller('business-console')
 export class BusinessTenantDirectoryController {
-  constructor(private readonly service: BusinessTenantService) {}
+  constructor(
+    private readonly service: BusinessTenantService,
+    private readonly organizations: OrganizationsService,
+  ) {}
 
   @Get('tenants')
   @ApiOperation({ summary: 'List business tenants represented by the caller' })
   listMyTenants(@CurrentUser() caller: AuthenticatedUser) {
     return this.service.listMyTenants(caller);
+  }
+
+  @Post('tenants')
+  @ApiOperation({ summary: 'Create a private DRAFT business workspace for the authenticated caller' })
+  provisionMyTenant(@Body() dto: CreateOrganizationDto, @CurrentUser() caller: AuthenticatedUser) {
+    if (caller.isGuest) {
+      throw new ForbiddenException('Save your account before creating a business workspace');
+    }
+    return this.organizations.create(
+      { ...dto, organizationType: OrganizationType.BUSINESS },
+      caller,
+    );
   }
 }

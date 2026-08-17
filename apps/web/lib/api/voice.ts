@@ -1,11 +1,6 @@
 import { apiRequest } from './http';
 import type { MessageDto } from './conversations';
 
-/**
- * DTO shapes mirror `apps/api/src/ai/voice/dto/*` exactly (FPB-009 §8),
- * matching the backend Conversation Timing Layer contract (ADR-017,
- * DOMAIN-002). Do not add fields the backend does not return.
- */
 export type VoiceTurnEventType =
   | 'MEMBER_SPEECH_STARTED'
   | 'MEMBER_SPEECH_STOPPED'
@@ -52,13 +47,6 @@ export interface VoiceTurnEventInput {
   metadata?: Record<string, unknown>;
 }
 
-/**
- * Real cost tracking (ADR-017 follow-up) — the token usage OpenAI reports
- * on `response.done`, forwarded as-is since the backend has no other way
- * to see it (no backend audio proxy). `providerItemId` must be the same
- * id as the corresponding assistant message in this same sync call (or an
- * earlier one) so the backend can price a turn exactly once.
- */
 export interface VoiceUsageEventInput {
   providerItemId: string;
   inputAudioTokens: number;
@@ -88,14 +76,12 @@ export interface SyncVoiceEventsResultDto {
   turnEvents: TurnEventDto[];
 }
 
-export function startVoiceSession(
-  accessToken: string,
-  conversationId?: string,
-): Promise<VoiceSessionDto> {
+export function startVoiceSession(accessToken: string, conversationId?: string): Promise<VoiceSessionDto> {
   return apiRequest<VoiceSessionDto>('/ai/voice/sessions', {
     method: 'POST',
     accessToken,
     body: conversationId ? { conversationId } : {},
+    timeoutMs: 20_000,
   });
 }
 
@@ -108,6 +94,7 @@ export function syncVoiceEvents(
     method: 'POST',
     accessToken,
     body: input,
+    timeoutMs: 15_000,
   });
 }
 
@@ -115,5 +102,6 @@ export function endVoiceSession(accessToken: string, sessionId: string): Promise
   return apiRequest<VoiceSessionStatusDto>(`/ai/voice/sessions/${sessionId}/end`, {
     method: 'POST',
     accessToken,
+    timeoutMs: 15_000,
   });
 }

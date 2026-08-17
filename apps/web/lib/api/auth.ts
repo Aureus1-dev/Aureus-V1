@@ -45,15 +45,12 @@ export function guest(): Promise<AuthResponseDto> {
     method: 'POST',
     body: {},
     retryOn401: false,
+    // Never leave a visitor trapped indefinitely on the opening scene.
+    // A sleeping/free host can still be retried from the Hall-facing error state.
+    timeoutMs: 30_000,
   });
 }
 
-/**
- * Claims the caller's guest session by attaching a real email/password.
- * Same account id as the guest session — everything already built under
- * it (conversation, needs, goals) is preserved with no separate migration.
- * Requires the caller's current (guest) access token.
- */
 export function claimGuestAccount(
   accessToken: string,
   email: string,
