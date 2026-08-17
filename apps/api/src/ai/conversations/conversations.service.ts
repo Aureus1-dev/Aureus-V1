@@ -16,6 +16,11 @@ import { ConversationResponseDto } from './dto/conversation-response.dto';
 import { PaginatedConversationsResponseDto } from './dto/paginated-conversations-response.dto';
 import { MessageResponseDto } from './dto/message-response.dto';
 import {
+  currentDateTimeContext,
+  ensureVisibleAssistantContent,
+  isConversationalTurnWithoutNeed,
+} from './conversation-turn.util';
+import {
   AI_CONVERSATION_REPOSITORY,
   IAiConversationRepository,
 } from './repositories/ai-conversation.repository.interface';
@@ -79,12 +84,13 @@ export class ConversationsService {
 
     await this.messageRepo.create({ conversationId: id, role: AiMessageRole.USER, content: dto.content });
     const history = await this.messageRepo.findRecentByConversation(id, RECENT_MESSAGE_HISTORY_LIMIT);
+    const firstTurnIsConversation = history.length === 1 && isConversationalTurnWithoutNeed(dto.content);
 
-    // Gate C (C1: Understanding) — the very first message of a conversation
-    // is the member's stated need, captured with no menu navigation
-    // involved. Best-effort: a capture failure must never block the actual
-    // AI response the member is waiting for.
-    if (history.length === 1) {
+    // Gate C (C1: Understanding) — the first actual need of a conversation
+    // is captured without forcing ordinary greetings/questions into the need
+    // ledger. The Hall is allowed to be a conversation before it is intake.
+    // Best-effort: a capture failure must never block the response.
+    if (history.length === 1 && !firstTurnIsConversation) {
       try {
         await this.needs.capture(caller.id, id, dto.content);
       } catch (error) {
@@ -94,11 +100,7 @@ export class ConversationsService {
 
     // Gate C (C3: Urgency assessment) — checked on every message, not only
     // the first, since a member may reveal urgency at any point in a
-    // conversation. Detection is deterministic (a documented phrase list),
-    // not left to the model's judgment, so it "reliably triggers" rather
-    // than depending on AI variability, and it takes priority over C2's
-    // clarification check: a short crisis statement must never be treated
-    // as merely ambiguous and asked to elaborate.
+    // conversation. Detection is deterministic and takes priority over C2.
     if (isCrisisLanguage(dto.content)) {
       const redirectMessage = await this.messageRepo.create({
         conversationId: id, role: AiMessageRole.ASSISTANT, content: CRISIS_REDIRECT_MESSAGE,
@@ -107,13 +109,11 @@ export class ConversationsService {
       return MessageResponseDto.fromEntity(redirectMessage);
     }
 
-    // Gate C (C2: Clarification) — an ambiguous or incomplete initial need
-    // reliably gets a clarifying question, decided deterministically rather
-    // than left to the model's judgment (matching the Orchestrator's
-    // preference for reliability over a free-form LLM decision). The member
-    // answers in the very same conversation — no restart, no new
-    // conversation, no lost context.
-    if (history.length === 1 && isAmbiguousNeed(dto.content)) {
+    // Gate C only applies when the member is actually presenting a need.
+    // Greetings and direct questions go to the Steward normally instead of
+    // producing an intake-form clarification such as the one seen on the
+    // founder walkthrough's simple "Hello" turn.
+    if (history.length === 1 && !firstTurnIsConversation && isAmbiguousNeed(dto.content)) {
       const clarifyingMessage = await this.messageRepo.create({
         conversationId: id, role: AiMessageRole.ASSISTANT, content: CLARIFYING_QUESTION,
       });
@@ -121,15 +121,7 @@ export class ConversationsService {
       return MessageResponseDto.fromEntity(clarifyingMessage);
     }
 
-    // Member Arrival — Steward Experience migration (Founder-approved,
-    // approved wording "What would help most right now?"). A need already
-    // specific enough to not be ambiguous can still never state the
-    // result the member actually wants — checked only on the first
-    // message, only once C2/C3 above have already passed, and never
-    // asked mechanically: when the outcome is already clear from the
-    // member's own words, this is skipped entirely and the normal AI
-    // reply below confirms it naturally instead of asking again.
-    if (history.length === 1 && isOutcomeUnclear(dto.content)) {
+    if (history.length === 1 && !firstTurnIsConversation && isOutcomeUnclear(dto.content)) {
       const outcomeMessage = await this.messageRepo.create({
         conversationId: id, role: AiMessageRole.ASSISTANT, content: OUTCOME_QUESTION,
       });
@@ -137,7 +129,10 @@ export class ConversationsService {
       return MessageResponseDto.fromEntity(outcomeMessage);
     }
 
-    const systemMessages: AiCompletionMessage[] = [{ role: 'system', content: PLATFORM_ASSISTANT_SYSTEM_PROMPT }];
+    const systemMessages: AiCompletionMessage[] = [
+      { role: 'system', content: PLATFORM_ASSISTANT_SYSTEM_PROMPT },
+      { role: 'system', content: currentDateTimeContext() },
+    ];
     if (dto.interfaceContext) {
       systemMessages.push({
         role: 'system',
@@ -156,8 +151,13 @@ export class ConversationsService {
       tools: [...INTERFACE_TOOL_SPECS],
     });
 
+    // Some provider/tool-call responses can legally contain no natural
+    // language content. Persisting that value created the tiny blank white
+    // assistant bubbles seen in the production Hall. Never persist an empty
+    // assistant message: keep any tool calls, but guarantee visible copy.
+    const visibleContent = ensureVisibleAssistantContent(content, toolCalls);
     const assistantMessage = await this.messageRepo.create({
-      conversationId: id, role: AiMessageRole.ASSISTANT, content,
+      conversationId: id, role: AiMessageRole.ASSISTANT, content: visibleContent,
     });
     await this.repo.touch(id);
 
