@@ -17,6 +17,7 @@ import { PaginatedConversationsResponseDto } from './dto/paginated-conversations
 import { MessageResponseDto } from './dto/message-response.dto';
 import {
   currentDateTimeContext,
+  directHallReply,
   ensureVisibleAssistantContent,
   isConversationalTurnWithoutNeed,
 } from './conversation-turn.util';
@@ -109,10 +110,22 @@ export class ConversationsService {
       return MessageResponseDto.fromEntity(redirectMessage);
     }
 
+    // These narrow, high-confidence Hall turns must always work even if an
+    // external provider is unavailable, constrained, or chooses a tool-only
+    // response. This directly covers the founder walkthrough's greeting,
+    // date question, and request to talk by voice.
+    const directReply = directHallReply(dto.content);
+    if (directReply) {
+      const assistantMessage = await this.messageRepo.create({
+        conversationId: id, role: AiMessageRole.ASSISTANT, content: directReply,
+      });
+      await this.repo.touch(id);
+      return MessageResponseDto.fromEntity(assistantMessage);
+    }
+
     // Gate C only applies when the member is actually presenting a need.
     // Greetings and direct questions go to the Steward normally instead of
-    // producing an intake-form clarification such as the one seen on the
-    // founder walkthrough's simple "Hello" turn.
+    // producing an intake-form clarification.
     if (history.length === 1 && !firstTurnIsConversation && isAmbiguousNeed(dto.content)) {
       const clarifyingMessage = await this.messageRepo.create({
         conversationId: id, role: AiMessageRole.ASSISTANT, content: CLARIFYING_QUESTION,
