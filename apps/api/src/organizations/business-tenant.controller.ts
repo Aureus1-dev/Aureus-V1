@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Patch, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, ForbiddenException, Get, Param, Patch, Post, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiParam, ApiTags } from '@nestjs/swagger';
 import { OrganizationType } from '@prisma/client';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
@@ -60,9 +60,9 @@ export class BusinessTenantDirectoryController {
   @Post('tenants')
   @ApiOperation({ summary: 'Create a private DRAFT business workspace for the authenticated caller' })
   provisionMyTenant(@Body() dto: CreateOrganizationDto, @CurrentUser() caller: AuthenticatedUser) {
-    // Keep the full CreateOrganizationDto validation contract, but never let
-    // this self-service route create a non-business tenant. Verification and
-    // publication gates remain unchanged after the private workspace exists.
+    if (caller.isGuest) {
+      throw new ForbiddenException('Save your account before creating a business workspace');
+    }
     return this.organizations.create(
       { ...dto, organizationType: OrganizationType.BUSINESS },
       caller,
