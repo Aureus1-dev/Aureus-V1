@@ -28,6 +28,7 @@ import {
 import { AI_MESSAGE_REPOSITORY, IAiMessageRepository } from './repositories/ai-message.repository.interface';
 
 const RECENT_MESSAGE_HISTORY_LIMIT = 20;
+const MEMBER_HELP_SCOPE = `The Hall is also the member's general first step for real-life help. Requests about money, bills, utilities, housing, food, employment, benefits, transportation, healthcare, education, legal-help preparation, family logistics, and similar stability or flourishing needs are in scope even when they are not questions about the Aureus software itself. Do not reject those requests as unrelated trivia. Respond help-first: acknowledge the concrete need, give the safest useful next step you can support from the information available, ask only the narrow clarification that is actually necessary, and never invent local eligibility, provider availability, deadlines, phone numbers, or commitments you have not been given. The platform-action limits in the other system instructions still apply.`;
 
 @Injectable()
 export class ConversationsService {
@@ -144,6 +145,7 @@ export class ConversationsService {
 
     const systemMessages: AiCompletionMessage[] = [
       { role: 'system', content: PLATFORM_ASSISTANT_SYSTEM_PROMPT },
+      { role: 'system', content: MEMBER_HELP_SCOPE },
       { role: 'system', content: currentDateTimeContext() },
     ];
     if (dto.interfaceContext) {
