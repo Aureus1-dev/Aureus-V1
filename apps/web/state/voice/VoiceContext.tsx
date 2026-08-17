@@ -174,6 +174,18 @@ function emptyPending(): PendingSync {
   return { turnEvents: [], messages: [], usage: [] };
 }
 
+function hasPending(pending: PendingSync): boolean {
+  return pending.turnEvents.length > 0 || pending.messages.length > 0 || pending.usage.length > 0;
+}
+
+function prependPending(failed: PendingSync, current: PendingSync): PendingSync {
+  return {
+    turnEvents: [...failed.turnEvents, ...current.turnEvents],
+    messages: [...failed.messages, ...current.messages],
+    usage: [...failed.usage, ...current.usage],
+  };
+}
+
 interface VoiceContextValue {
   state: State;
   remoteStream: MediaStream | null;
@@ -199,22 +211,28 @@ export function VoiceProvider({ children }: { children: React.ReactNode }) {
   const mapperRef = useRef(new RealtimeEventMapper());
   const sessionIdRef = useRef<string | null>(null);
   const pendingRef = useRef<PendingSync>(emptyPending());
+  const intentionalTeardownRef = useRef(false);
 
-  const flush = useCallback(async () => {
+  const flush = useCallback(async (): Promise<boolean> => {
     const accessToken = session.accessToken;
     const sessionId = sessionIdRef.current;
     const pending = pendingRef.current;
-    if (!accessToken || !sessionId || (pending.turnEvents.length === 0 && pending.messages.length === 0 && pending.usage.length === 0)) {
-      return;
+    if (!accessToken || !sessionId || !hasPending(pending)) {
+      return true;
     }
+
+    // Move this exact batch out while the request is in flight so new
+    // realtime events can continue accumulating independently.
     pendingRef.current = emptyPending();
     try {
       await syncVoiceEvents(accessToken, sessionId, pending);
+      return true;
     } catch {
-      // Best-effort evidence sync — a transient failure here does not tear
-      // down a live conversation. The member turn simply won't have
-      // persisted if its finalize event was in this batch; nothing in the
-      // live UI depends on this call succeeding synchronously.
+      // A live voice turn is part of the canonical conversation, not disposable
+      // telemetry. Put the failed batch back in front of anything that arrived
+      // while the request was in flight so a later event or End can retry it.
+      pendingRef.current = prependPending(pending, pendingRef.current);
+      return false;
     }
   }, [session.accessToken]);
 
@@ -288,7 +306,8 @@ export function VoiceProvider({ children }: { children: React.ReactNode }) {
     [flush],
   );
 
-  const teardown = useCallback(() => {
+  const teardown = useCallback((intentional = false) => {
+    intentionalTeardownRef.current = intentional;
     clientRef.current?.disconnect();
     clientRef.current = null;
     mapperRef.current.reset();
@@ -303,6 +322,7 @@ export function VoiceProvider({ children }: { children: React.ReactNode }) {
         dispatch({ type: 'error/set', error: classifyError(new ApiError(401, 'Sign in required')) });
         return;
       }
+      intentionalTeardownRef.current = false;
       dispatch({ type: 'session/connecting' });
       try {
         const voiceSession = await startVoiceSession(session.accessToken, conversationId);
@@ -316,7 +336,10 @@ export function VoiceProvider({ children }: { children: React.ReactNode }) {
             }
           },
           onConnectionStateChange: (connectionState) => {
-            if (connectionState === 'failed' || connectionState === 'closed') {
+            if (
+              !intentionalTeardownRef.current &&
+              (connectionState === 'failed' || connectionState === 'closed')
+            ) {
               dispatch({ type: 'error/set', error: { kind: 'connection', message: 'The voice connection was lost.', retryable: true } });
             }
           },
@@ -326,7 +349,7 @@ export function VoiceProvider({ children }: { children: React.ReactNode }) {
         await client.connect(voiceSession.clientSecret, voiceSession.model);
         dispatch({ type: 'session/connected', sessionId: voiceSession.id, conversationId: voiceSession.conversationId });
       } catch (error) {
-        teardown();
+        teardown(true);
         dispatch({ type: 'error/set', error: classifyError(error) });
       }
     },
@@ -334,10 +357,15 @@ export function VoiceProvider({ children }: { children: React.ReactNode }) {
   );
 
   const endSession = useCallback(async () => {
-    await flush();
+    // One transient sync failure must not erase a successful live turn when the
+    // member exits voice. A failed batch is requeued by flush(), so give it one
+    // immediate retry before tearing down the session.
+    if (!(await flush())) {
+      await flush();
+    }
     const accessToken = session.accessToken;
     const sessionId = sessionIdRef.current;
-    teardown();
+    teardown(true);
     dispatch({ type: 'session/ended' });
     if (accessToken && sessionId) {
       try {
