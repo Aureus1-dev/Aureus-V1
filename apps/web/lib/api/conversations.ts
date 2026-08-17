@@ -1,10 +1,5 @@
 import { apiRequest } from './http';
 
-/**
- * DTO shapes mirror `apps/api/src/ai/conversations/dto/*` exactly
- * (FPB-009 §8: target documented API contracts, not implementation
- * details). Do not add fields the backend does not return.
- */
 export interface ConversationDto {
   id: string;
   userId: string;
@@ -15,7 +10,6 @@ export interface ConversationDto {
 
 export type MessageRole = 'USER' | 'ASSISTANT' | 'SYSTEM';
 
-/** A steward-requested interface action (DOMAIN-007 Founder Decision 1) — present only on the live response that produced it, never persisted or replayed from history. */
 export interface ToolCallDto {
   id: string;
   name: string;
@@ -44,14 +38,12 @@ export interface ListConversationsParams {
   limit?: number;
 }
 
-export function createConversation(
-  accessToken: string,
-  title?: string,
-): Promise<ConversationDto> {
+export function createConversation(accessToken: string, title?: string): Promise<ConversationDto> {
   return apiRequest<ConversationDto>('/ai/conversations', {
     method: 'POST',
     accessToken,
     body: title ? { title } : {},
+    timeoutMs: 20_000,
   });
 }
 
@@ -63,15 +55,21 @@ export function listConversations(
   if (params.page) query.set('page', String(params.page));
   if (params.limit) query.set('limit', String(params.limit));
   const suffix = query.toString() ? `?${query.toString()}` : '';
-  return apiRequest<PaginatedConversationsDto>(`/ai/conversations${suffix}`, { accessToken });
+  return apiRequest<PaginatedConversationsDto>(`/ai/conversations${suffix}`, {
+    accessToken,
+    timeoutMs: 20_000,
+  });
 }
 
 export function getConversation(accessToken: string, id: string): Promise<ConversationDto> {
-  return apiRequest<ConversationDto>(`/ai/conversations/${id}`, { accessToken });
+  return apiRequest<ConversationDto>(`/ai/conversations/${id}`, { accessToken, timeoutMs: 20_000 });
 }
 
 export function listMessages(accessToken: string, conversationId: string): Promise<MessageDto[]> {
-  return apiRequest<MessageDto[]>(`/ai/conversations/${conversationId}/messages`, { accessToken });
+  return apiRequest<MessageDto[]>(`/ai/conversations/${conversationId}/messages`, {
+    accessToken,
+    timeoutMs: 20_000,
+  });
 }
 
 export function sendMessage(
@@ -84,5 +82,8 @@ export function sendMessage(
     method: 'POST',
     accessToken,
     body: interfaceContext ? { content, interfaceContext } : { content },
+    // Provider work can legitimately take longer than ordinary API reads,
+    // but the UI must always leave its "thinking" state eventually.
+    timeoutMs: 45_000,
   });
 }
