@@ -3,25 +3,78 @@
   align-items: flex-end;
   gap: var(--space-2);
   padding: var(--space-3);
-  border-top: 1px solid var(--color-border);
-  background: color-mix(in srgb, var(--color-surface-primary) 90%, transparent);
+  border-top: 0;
+  background: transparent;
+}
+
+.inputShell {
+  position: relative;
+  display: flex;
+  flex: 1;
+  align-items: center;
 }
 
 .textarea {
   flex: 1;
   resize: none;
-  min-height: 3.5rem;
-  max-height: 10rem;
-  padding: var(--space-2) var(--space-3);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-lg);
-  background: color-mix(in srgb, var(--color-surface-secondary) 86%, transparent);
+  min-height: 3.25rem;
+  max-height: 8rem;
+  padding: var(--space-3) 3.25rem var(--space-3) var(--space-4);
+  border: 1px solid color-mix(in srgb, var(--color-border) 72%, transparent);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--color-surface-primary) 86%, transparent);
   color: var(--color-text-primary);
   font-family: var(--font-family-base);
   font-size: var(--font-size-base);
   line-height: var(--line-height-normal);
+  box-shadow: 0 0.4rem 1.4rem rgba(0, 0, 0, 0.08);
 }
 
 .textarea:disabled {
   opacity: 0.6;
+}
+
+.micButton {
+  position: absolute;
+  right: 0.8rem;
+  display: grid;
+  width: 2rem;
+  height: 2rem;
+  place-items: center;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: currentColor;
+  cursor: pointer;
+  opacity: 0.58;
+}
+
+.micButton:hover,
+.micButton:focus-visible {
+  opacity: 1;
+  background: color-mix(in srgb, var(--color-surface-secondary) 75%, transparent);
+}
+
+.micButton span {
+  width: 0.65rem;
+  height: 0.9rem;
+  overflow: hidden;
+  border: 1.5px solid currentColor;
+  border-radius: 0.45rem;
+  color: transparent;
+}
+
+@media (max-width: 640px) {
+  .composer {
+    position: sticky;
+    bottom: 0;
+    z-index: 4;
+    padding: var(--space-2) var(--space-3) calc(var(--space-2) + env(safe-area-inset-bottom, 0px));
+    background: linear-gradient(to top, color-mix(in srgb, var(--color-surface-primary) 92%, transparent), transparent);
+  }
+
+  .textarea {
+    min-height: 3rem;
+    max-height: 6.5rem;
+  }
 }
