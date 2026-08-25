@@ -264,7 +264,7 @@ Setup:
 
 Neither Foundry nor Library currently has a root `CLAUDE.md` on `main`.
 
-- Library-specific Claude instructions are staged for independent review in Library draft PR #13. They do not alter Knowledge Objects, admission, canonicalization, releases, or consumer pins.
+- Library currently has two competing draft bootstrap candidates on the same base: PR #13 (`agent/claude-bootstrap-instructions`) and PR #14 (`ops/claude-bootstrap-governance`). PR #14 is the current reconciled candidate: it uses provider-neutral `AGENTS.md` plus a thin `CLAUDE.md`, and now carries the Library-specific identifier, admission, release-policy, Pilot-5, and external-consumer deny rules identified during independent Bootstrap Review 1. PR #13 remains open until the Founder selects the surviving entry point; do not merge both.
 - Foundry's Claude entry point, provider-neutral operating contract, first review work order, and disabled-by-default Anthropic adapter are staged together in Foundry draft PR #7. Those files govern a session only when it is explicitly opened on that candidate branch; they are not authority on `main`.
 - Foundry PR #7 remains separately Founder-gated because it introduces a real external-provider boundary and leaves production decisions open. Do not merge it merely to obtain its instruction files.
 - Until repository-specific instructions are merged, do not ask Claude to make autonomous edits in Library or Foundry. Read-only review on an exact candidate branch remains allowed when the assignment restates the authority boundary.
