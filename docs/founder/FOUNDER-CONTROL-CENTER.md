@@ -1,7 +1,7 @@
 # Aureus Founder Control Center
 
 **Status:** Founder-facing build control plane  
-**Last reconciled:** 2026-08-24  
+**Last reconciled:** 2026-08-25  
 **Scope:** Product construction and release truth only. This dashboard does not amend governance or constitutional authority.
 
 ## 1. What this dashboard is for
@@ -45,7 +45,7 @@ The current job is no longer to invent those foundations. It is to complete, har
 ### NOW — Verified actionable opportunity handoff
 
 **Working branch:** `fix/verified-opportunity-handoff`  
-**Baseline when created:** identical to current V1 `main`  
+**Verified current state:** empty placeholder at the same SHA as V1 `main`; zero unique commits, empty diff, and no pull request. Implementation has not begun.  
 **Source of truth:** GitHub Issue #95
 
 Goal: when a person asks Aureus to show them where to act, Aureus must provide a real, verified action rather than merely describing one.
@@ -262,7 +262,14 @@ Setup:
 
 ### Foundry and Library setup
 
-Foundry and Library do not currently contain root `CLAUDE.md` files. Before asking Claude to make autonomous edits in either repository, create repository-specific instruction files that encode their own architecture, authority boundaries, commands, test gates and cross-repository contract rules. Do not simply copy the V1 instructions into them.
+Neither Foundry nor Library currently has a root `CLAUDE.md` on `main`.
+
+- Library-specific Claude instructions are staged for independent review in Library draft PR #13. They do not alter Knowledge Objects, admission, canonicalization, releases, or consumer pins.
+- Foundry's Claude entry point, provider-neutral operating contract, first review work order, and disabled-by-default Anthropic adapter are staged together in Foundry draft PR #7. Those files govern a session only when it is explicitly opened on that candidate branch; they are not authority on `main`.
+- Foundry PR #7 remains separately Founder-gated because it introduces a real external-provider boundary and leaves production decisions open. Do not merge it merely to obtain its instruction files.
+- Until repository-specific instructions are merged, do not ask Claude to make autonomous edits in Library or Foundry. Read-only review on an exact candidate branch remains allowed when the assignment restates the authority boundary.
+
+Do not copy V1's instructions into another repository. Each entry point must encode that repository's own architecture, commands, test gates, authority boundaries, and cross-repository contract rules.
 
 ### Optional later automation
 
