@@ -96,14 +96,25 @@ One Prisma schema at `prisma/schema.prisma` for the whole platform (not per-app)
 
 This repository governs itself through a layered document hierarchy, defined in `docs/00-foundation/FOUNDATION-003 — Canon Hierarchy.md`: Foundation → Constitution → Governance → Member Experience → Product Architecture (`docs/product-architecture/`, PA-001–020) → Engineering (ADRs in `docs/architecture/`, Implementation Constitution IC-001–020 in `docs/implementation/`) → Operations → Execution (Work Orders, PRs). **Lower levels may expand on higher levels but must never contradict them**; if two documents conflict, the higher one governs, and unresolved conflicts should be escalated rather than guessed at.
 
-For current build status and what to work on next, the authoritative chain is in `docs/launch/`:
-- `LAUNCH-001-First-Members.md` — the Founder-approved launch blueprint (read-only; describes the member experience in terms of named "rooms" like the Gate, the Bench, the Clearing).
-- `WORKORDERS.md` — the execution registry: every Gate (A–F) broken into engineering/stewardship tasks with IDs, dependencies, owners, and acceptance criteria. This is organized by engineering Gate, not by Experience Canon room.
-- `SCOREBOARD.md` — the live status dashboard (current gate, blockers, what's next).
-- See `docs/launch/EXECUTION-AUTHORITY.md` for the full precedence rule between these three plus `docs/releases/version-1-readiness.md` (a **frozen historical snapshot**, not a live status source, despite older text in the repo claiming otherwise).
+For current cross-repository product work, use this execution chain:
 
-`docs/ai/REPOSITORY_STEWARD.md` defines explicit operating rules for any AI session acting on this repository — before making a change: read current repository state, check `WORKORDERS.md`/`SCOREBOARD.md` for the relevant task, understand existing architecture, and never expand scope beyond what was requested, duplicate existing work, or fabricate implementation details. When requirements conflict, stop and explain rather than guessing. Prefer the smallest correct change, and preserve existing architecture and conventions rather than reorganizing without cause.
+- `docs/founder/FOUNDER-CONTROL-CENTER.md` — current repository baselines, active work order, AI role separation, and Founder decision lane. Verify its SHAs and status claims before relying on them; update it when the active work order or accepted baseline changes.
+- `docs/product-first/PRODUCT-V1-EXECUTION-ORDER.md` — the active product-first three-repository execution registry.
+- GitHub Issue #95 — the ordered Founder-walkthrough blocker ledger and current acceptance checklist until it is explicitly superseded.
+- The relevant work-order branch, complete diff against current `main`, exact head SHA, and CI evidence — repository documents never replace live Git evidence.
+
+The First Members track remains preserved in `docs/launch/`, but it is not the active cross-repository product queue:
+
+- `LAUNCH-001-First-Members.md` — the Founder-approved First Members launch blueprint.
+- `WORKORDERS.md` — that track's execution registry.
+- `SCOREBOARD.md` — a preserved First Members status dashboard whose header explicitly warns that it is not current cross-repository product status.
+- `EXECUTION-AUTHORITY.md` — precedence within the First Members launch track and the historical reconciliation record.
+- `docs/releases/version-1-readiness.md` — frozen historical evidence, never a live status source.
+
+`docs/ai/REPOSITORY_STEWARD.md` defines explicit operating rules for any AI session acting on this repository. Before making a change, verify current Git state, identify the applicable track and work order, read the relevant architecture and acceptance criteria, and inspect existing implementation before proposing anything. Never expand scope, duplicate existing work, fabricate evidence, or infer merge/deploy/Founder authority from a draft PR or model conclusion.
+
+Role separation is mandatory. A Constructor may implement and prepare evidence but may not self-certify. An independent Reviewer must form its own view from the requirement, full diff, tests, and exact SHA; it must not silently become a co-author of the change it is reviewing. CI is mechanical evidence, not production or UX acceptance. Merge, deploy, credentials, financial commitments, and other consequential external actions remain explicitly human-gated.
 
 Domain-level design decisions are recorded as ADRs in `docs/architecture/` (`ADR-003` through `ADR-017`, one per major domain — Users, Opportunity Engine, Auth, Resource Directory, Stewardship, Communication, Knowledge, Academy, AI Intelligence Engine, Pods, Voice, etc.). Check for an existing ADR before introducing a new architectural pattern in a domain that already has one.
 
-The root `README.md`'s "Implemented Domains" table is explicitly stale (frozen early in the project) — do not treat it as current status; use the launch docs above instead.
+The root `README.md`'s "Implemented Domains" table is explicitly stale (frozen early in the project) — do not treat it as current status; use the product-first chain, live Git evidence, and the applicable work order instead.
