@@ -1,4 +1,5 @@
 import { apiRequest } from './http';
+import type { SourceType } from './opportunities';
 
 export interface ConversationDto {
   id: string;
@@ -16,6 +17,28 @@ export interface ToolCallDto {
   arguments: string;
 }
 
+export type OpportunityLinkStatus = 'verified' | 'stale' | 'disabled';
+
+export interface OpportunityActionDto {
+  opportunityId: string;
+  opportunityRef: string | null;
+  title: string;
+  provider: string;
+  url: string;
+  canonicalUrl: string;
+  referralUrl: string | null;
+  affiliateDisclosure: string | null;
+  eligibility: string;
+  geography: string | null;
+  payoutNotes: string | null;
+  timeToCashNotes: string | null;
+  status: OpportunityLinkStatus;
+  lastVerifiedAt: string | null;
+  sourceName: string;
+  sourceUrl: string | null;
+  sourceType: SourceType;
+}
+
 export interface MessageDto {
   id: string;
   conversationId: string;
@@ -23,6 +46,11 @@ export interface MessageDto {
   content: string;
   createdAt: string;
   toolCalls?: ToolCallDto[];
+  /**
+   * Present only when the backend resolved a current, server-verified
+   * Opportunity destination. The href is registry-owned, never model-owned.
+   */
+  opportunityAction?: OpportunityActionDto;
 }
 
 export interface PaginatedConversationsDto {
