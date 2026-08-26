@@ -1,4 +1,4 @@
-import { ForbiddenException, Inject, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { ForbiddenException, Inject, Injectable, Logger, NotFoundException, Optional } from '@nestjs/common';
 import { AiCapability, AiMessageRole } from '@prisma/client';
 import { AuthenticatedUser } from '../../auth/strategies/jwt.strategy';
 import { PLATFORM_ASSISTANT_SYSTEM_PROMPT } from '../prompts/system-prompts.util';
@@ -9,6 +9,10 @@ import { NeedsService } from '../../needs/needs.service';
 import { isAmbiguousNeed, CLARIFYING_QUESTION } from '../../needs/ambiguity.util';
 import { isCrisisLanguage, CRISIS_REDIRECT_MESSAGE } from '../../needs/crisis-detection.util';
 import { isOutcomeUnclear, OUTCOME_QUESTION } from '../../needs/outcome.util';
+import {
+  isOpportunityActionRequest,
+  OpportunityLinkRegistryService,
+} from '../../opportunities/opportunity-link-registry.service';
 import { CreateConversationDto } from './dto/create-conversation.dto';
 import { AskQuestionDto } from './dto/ask-question.dto';
 import { ListConversationsQueryDto } from './dto/list-conversations-query.dto';
@@ -39,6 +43,11 @@ export class ConversationsService {
     @Inject(AI_MESSAGE_REPOSITORY) private readonly messageRepo: IAiMessageRepository,
     private readonly aiRequests: AiRequestsService,
     private readonly needs: NeedsService,
+    // Optional only so older isolated unit harnesses that instantiate this
+    // service without the full OpportunitiesModule remain valid. Production
+    // AiModule imports OpportunitiesModule, where the registry is guaranteed.
+    // The action-intent path still fails closed if this dependency is absent.
+    @Optional() private readonly opportunityLinks?: OpportunityLinkRegistryService,
   ) {}
 
   async create(dto: CreateConversationDto, caller: AuthenticatedUser): Promise<ConversationResponseDto> {
@@ -52,7 +61,6 @@ export class ConversationsService {
     const limit = query.limit ?? 20;
 
     const result = await this.repo.findAll({ page, limit, userId: caller.id });
-
     return {
       data: result.data.map(ConversationResponseDto.fromEntity),
       total: result.total, page: result.page, limit: result.limit,
@@ -122,6 +130,37 @@ export class ConversationsService {
       });
       await this.repo.touch(id);
       return MessageResponseDto.fromEntity(assistantMessage);
+    }
+
+    // Issue #95 §1 — a request to act is different from a request to explain.
+    // Never send "show me where" to a free-form model and then trust whatever
+    // URL appears in prose. Resolve an existing VERIFIED + ACTIVE Opportunity
+    // through the server-owned registry, or fail closed with no actionable URL.
+    if (isOpportunityActionRequest(dto.content)) {
+      const memberContext = history
+        .filter((message) => message.role === AiMessageRole.USER)
+        .map((message) => message.content)
+        .join('\n');
+      const resolution = this.opportunityLinks
+        ? await this.opportunityLinks.findBestAction(memberContext)
+        : { action: null, reason: 'UNVERIFIED' as const };
+
+      const responseContent = resolution.action
+        ? `I found a verified place to take the next step for ${resolution.action.title}. Open the verified action below when you're ready.`
+        : resolution.reason === 'NO_MATCH'
+          ? "I don't have a verified signup link I can safely send from what we've discussed yet. Tell me the specific opportunity or kind of help you want, and I'll narrow it down."
+          : "I found something relevant, but I don't have a currently verified signup link I can safely send you yet.";
+
+      const assistantMessage = await this.messageRepo.create({
+        conversationId: id,
+        role: AiMessageRole.ASSISTANT,
+        content: responseContent,
+      });
+      await this.repo.touch(id);
+
+      const responseDto = MessageResponseDto.fromEntity(assistantMessage);
+      if (resolution.action) responseDto.opportunityAction = resolution.action;
+      return responseDto;
     }
 
     // Gate C only applies when the member is actually presenting a need.
