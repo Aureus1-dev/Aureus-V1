@@ -39,7 +39,16 @@ export function isOpportunityActionRequest(content: string): boolean {
 }
 
 export function inferOpportunityCategory(context: string): OpportunityCategory | undefined {
-  return CATEGORY_RULES.find(([pattern]) => pattern.test(context))?.[1];
+  // Context arrives as newline-delimited USER turns. Start with the latest
+  // turn so a member who changes direction (job -> housing, for example)
+  // is never routed back to an older need merely because its category rule
+  // appears earlier in this file.
+  const turns = context.split(/\n+/).map((turn) => turn.trim()).filter(Boolean).reverse();
+  for (const turn of turns) {
+    const match = CATEGORY_RULES.find(([pattern]) => pattern.test(turn));
+    if (match) return match[1];
+  }
+  return undefined;
 }
 
 /**
@@ -136,7 +145,7 @@ export class OpportunityLinkRegistryService {
       return 'stale';
     }
 
-    if (opportunity.deadline && new Date(opportunity.deadline).getTime() < Date.now()) {
+    if (opportunity.deadline && opportunity.deadline.getTime() < Date.now()) {
       return 'stale';
     }
 
