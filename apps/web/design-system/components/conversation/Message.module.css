@@ -22,6 +22,19 @@
   overflow-wrap: anywhere;
 }
 
+.actionStack {
+  display: flex;
+  width: min(70%, 36rem);
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.actionStack .bubble {
+  width: 100%;
+  max-width: none;
+  box-sizing: border-box;
+}
+
 .member .bubble {
   background: var(--color-action-primary);
   color: var(--color-surface-primary);
@@ -42,10 +55,18 @@
     padding: var(--space-3);
     line-height: var(--line-height-normal);
   }
+
+  .actionStack {
+    width: 88%;
+  }
 }
 
 @media (min-width: 1024px) {
   .bubble {
     max-width: 60%;
+  }
+
+  .actionStack {
+    width: min(60%, 36rem);
   }
 }
