@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { AuthGuardsModule } from '../auth/auth-guards.module';
 import { OpportunitiesController } from './opportunities.controller';
 import { OpportunitiesService } from './opportunities.service';
+import { OpportunityLinkRegistryService } from './opportunity-link-registry.service';
 import { PrismaOpportunityRepository } from './repositories/prisma-opportunity.repository';
 import { OPPORTUNITY_REPOSITORY } from './repositories/opportunity.repository.interface';
 import { OpportunityScoringService } from './scoring/opportunity-scoring.service';
@@ -15,11 +16,18 @@ import { SAVED_OPPORTUNITY_REPOSITORY } from './saved/repositories/saved-opportu
   controllers: [OpportunitiesController, SavedOpportunitiesController],
   providers: [
     OpportunitiesService,
+    OpportunityLinkRegistryService,
     OpportunityScoringService,
     { provide: OPPORTUNITY_REPOSITORY,      useClass: PrismaOpportunityRepository },
     SavedOpportunitiesService,
     { provide: SAVED_OPPORTUNITY_REPOSITORY, useClass: PrismaSavedOpportunityRepository },
   ],
-  exports: [OpportunitiesService, SavedOpportunitiesService, OpportunityScoringService, OPPORTUNITY_REPOSITORY],
+  exports: [
+    OpportunitiesService,
+    OpportunityLinkRegistryService,
+    SavedOpportunitiesService,
+    OpportunityScoringService,
+    OPPORTUNITY_REPOSITORY,
+  ],
 })
 export class OpportunitiesModule {}
