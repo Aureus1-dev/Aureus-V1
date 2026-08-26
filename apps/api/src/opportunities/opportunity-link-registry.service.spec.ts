@@ -1,4 +1,4 @@
-import { OpportunityCategory, OpportunityStatus, SourceType, VerificationStatus } from '@prisma/client';
+import { BenefitType, OpportunityCategory, OpportunityStatus, SourceType, VerificationStatus } from '@prisma/client';
 import { OpportunitiesService } from './opportunities.service';
 import {
   inferOpportunityCategory,
@@ -25,7 +25,7 @@ function opportunity(overrides: Partial<OpportunityResponseDto> = {}): Opportuni
     country: 'US',
     state: 'PA',
     eligibilityRules: 'Applicants must be 18 or older.',
-    benefitType: 'JOB' as never,
+    benefitType: BenefitType.JOB,
     benefitAmount: null,
     deadline: null,
     status: OpportunityStatus.ACTIVE,
@@ -62,6 +62,11 @@ describe('OpportunityLinkRegistryService', () => {
   it('infers member-relevant categories without using commercial economics', () => {
     expect(inferOpportunityCategory('I need a job near me')).toBe(OpportunityCategory.EMPLOYMENT);
     expect(inferOpportunityCategory('my water bill is late')).toBe(OpportunityCategory.FINANCIAL_ASSISTANCE);
+  });
+
+  it('uses the member’s most recent need when the conversation changes topics', () => {
+    expect(inferOpportunityCategory('I need a job\nActually I need housing help')).toBe(OpportunityCategory.HOUSING);
+    expect(inferOpportunityCategory('I need housing help\nActually I need a job')).toBe(OpportunityCategory.EMPLOYMENT);
   });
 
   it('returns a verified action only from a verified active opportunity', async () => {
