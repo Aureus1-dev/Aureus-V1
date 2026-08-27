@@ -21,7 +21,7 @@ function opportunity(provider: string): OpportunityResponseDto {
     country: 'US',
     state: null,
     eligibilityRules: 'See provider terms.',
-    benefitType: BenefitType.CASH,
+    benefitType: BenefitType.OTHER,
     benefitAmount: null,
     deadline: null,
     status: OpportunityStatus.ACTIVE,
