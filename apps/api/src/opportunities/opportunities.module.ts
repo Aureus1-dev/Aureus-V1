@@ -3,6 +3,7 @@ import { AuthGuardsModule } from '../auth/auth-guards.module';
 import { OpportunitiesController } from './opportunities.controller';
 import { OpportunitiesService } from './opportunities.service';
 import { OpportunityLinkRegistryService } from './opportunity-link-registry.service';
+import { OpportunityProviderAdapterRegistryService } from './providers/opportunity-provider-adapter';
 import { PrismaOpportunityRepository } from './repositories/prisma-opportunity.repository';
 import { OPPORTUNITY_REPOSITORY } from './repositories/opportunity.repository.interface';
 import { OpportunityScoringService } from './scoring/opportunity-scoring.service';
@@ -17,6 +18,7 @@ import { SAVED_OPPORTUNITY_REPOSITORY } from './saved/repositories/saved-opportu
   providers: [
     OpportunitiesService,
     OpportunityLinkRegistryService,
+    OpportunityProviderAdapterRegistryService,
     OpportunityScoringService,
     { provide: OPPORTUNITY_REPOSITORY,      useClass: PrismaOpportunityRepository },
     SavedOpportunitiesService,
@@ -25,6 +27,7 @@ import { SAVED_OPPORTUNITY_REPOSITORY } from './saved/repositories/saved-opportu
   exports: [
     OpportunitiesService,
     OpportunityLinkRegistryService,
+    OpportunityProviderAdapterRegistryService,
     SavedOpportunitiesService,
     OpportunityScoringService,
     OPPORTUNITY_REPOSITORY,

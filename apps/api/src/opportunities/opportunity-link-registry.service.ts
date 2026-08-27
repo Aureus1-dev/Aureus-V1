@@ -1,8 +1,9 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Optional } from '@nestjs/common';
 import { OpportunityCategory, OpportunityStatus, VerificationStatus } from '@prisma/client';
 import { OpportunitiesService } from './opportunities.service';
 import { OpportunityResponseDto } from './dto/opportunity-response.dto';
 import { OpportunityActionResponseDto, OpportunityLinkStatus } from './dto/opportunity-action-response.dto';
+import { OpportunityProviderAdapterRegistryService } from './providers/opportunity-provider-adapter';
 
 export type OpportunityActionResolutionReason = 'VERIFIED' | 'NO_MATCH' | 'UNVERIFIED';
 
@@ -59,16 +60,21 @@ export function inferOpportunityCategory(context: string): OpportunityCategory |
  * domain, not a second opportunity/link database. Provider, canonical URL,
  * eligibility/geography, verification time and provenance already live on
  * Opportunity. Commercial metadata is explicit and nullable until a governed
- * provider adapter supplies it in a later work order.
+ * provider adapter supplies it.
  *
  * Critically, this service never accepts a URL from the model. It selects only
- * existing VERIFIED + ACTIVE Opportunity records, derives the URL from their
- * stored application/official-source fields, and fails closed when the URL or
- * verification evidence is not current enough to surface as an action.
+ * existing VERIFIED + ACTIVE Opportunity records, derives the canonical URL
+ * from their stored application/official-source fields, and fails closed when
+ * the URL or verification evidence is not current enough to surface as an
+ * action. Temporary provider rails are applied only after member-first ranking
+ * selects a verified action, so referral economics cannot influence selection.
  */
 @Injectable()
 export class OpportunityLinkRegistryService {
-  constructor(private readonly opportunities: OpportunitiesService) {}
+  constructor(
+    private readonly opportunities: OpportunitiesService,
+    @Optional() private readonly providerAdapters?: OpportunityProviderAdapterRegistryService,
+  ) {}
 
   async findBestAction(context: string): Promise<OpportunityActionResolution> {
     const category = inferOpportunityCategory(context);
@@ -99,7 +105,10 @@ export class OpportunityLinkRegistryService {
     for (const { opportunity } of ranked) {
       const action = this.toRegistryEntry(opportunity);
       if (action.status === 'verified') {
-        return { action, reason: 'VERIFIED' };
+        const decorated = this.providerAdapters
+          ? this.providerAdapters.decorate(opportunity, action)
+          : action;
+        return { action: decorated, reason: 'VERIFIED' };
       }
     }
 
@@ -118,9 +127,8 @@ export class OpportunityLinkRegistryService {
       provider: opportunity.provider,
       url: safeCanonicalUrl ?? '',
       canonicalUrl: safeCanonicalUrl ?? '',
-      // Commercial routing is deliberately absent until the governed provider
-      // rails work supplies a reviewed value. It therefore cannot influence
-      // ranking or silently replace the canonical destination today.
+      // Commercial routing never participates in ranking. A provider adapter
+      // may decorate this already-selected verified action afterward.
       referralUrl: null,
       affiliateDisclosure: null,
       eligibility: opportunity.eligibilityRules,
