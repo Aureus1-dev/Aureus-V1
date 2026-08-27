@@ -13,6 +13,9 @@ export interface OpportunityActionResolution {
 
 const ACTION_INTENT = /\b(show\s+me\s+where|where\s+(?:can|do|should)\s+i|send\s+me\s+(?:the\s+)?link|give\s+me\s+(?:the\s+)?link|link\s+me|sign\s*up|apply\s+(?:here|now|for)|where\s+to\s+(?:apply|sign\s*up)|take\s+me\s+there)\b/i;
 
+const MAX_VERIFICATION_AGE_DAYS = 365;
+const MAX_VERIFICATION_AGE_MS = MAX_VERIFICATION_AGE_DAYS * 24 * 60 * 60 * 1000;
+
 const CATEGORY_RULES: readonly [RegExp, OpportunityCategory][] = [
   [/\b(scholarship|scholarships)\b/i, OpportunityCategory.SCHOLARSHIP],
   [/\b(grant|grants)\b/i, OpportunityCategory.GRANT],
@@ -142,6 +145,13 @@ export class OpportunityLinkRegistryService {
     }
 
     if (!opportunity.dateLastVerified) {
+      return 'stale';
+    }
+
+    // Mirror the existing Opportunity freshness policy's zero point: after
+    // 365 days without re-verification, a stored VERIFIED flag is no longer
+    // sufficient to surface an external action.
+    if (Date.now() - opportunity.dateLastVerified.getTime() >= MAX_VERIFICATION_AGE_MS) {
       return 'stale';
     }
 
