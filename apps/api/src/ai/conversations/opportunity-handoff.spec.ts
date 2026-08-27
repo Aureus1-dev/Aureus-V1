@@ -58,12 +58,16 @@ describe('Hall verified opportunity handoff — Issue #95 §1', () => {
     }).compile();
     service = module.get(ConversationsService);
     conversationRepo.findById.mockResolvedValue(conversation);
+    messageRepo.create.mockImplementation(async (input) =>
+      message(
+        input.role === AiMessageRole.USER ? 'user-created' : 'assistant-created',
+        input.role,
+        input.content,
+      ),
+    );
   });
 
   it('show me where to sign up returns the server-verified action and never asks the model for a URL', async () => {
-    messageRepo.create
-      .mockResolvedValueOnce(message('user-2', AiMessageRole.USER, 'show me where to sign up'))
-      .mockResolvedValueOnce(message('assistant-2', AiMessageRole.ASSISTANT, 'verified action'));
     messageRepo.findRecentByConversation.mockResolvedValue([
       message('user-1', AiMessageRole.USER, 'I need help finding a job'),
       message('assistant-1', AiMessageRole.ASSISTANT, 'I can help with that.'),
@@ -101,9 +105,6 @@ describe('Hall verified opportunity handoff — Issue #95 §1', () => {
   });
 
   it('refuses stale or unverified link evidence and returns no actionable URL', async () => {
-    messageRepo.create
-      .mockResolvedValueOnce(message('user-2', AiMessageRole.USER, 'show me where to sign up'))
-      .mockResolvedValueOnce(message('assistant-2', AiMessageRole.ASSISTANT, 'not verified'));
     messageRepo.findRecentByConversation.mockResolvedValue([
       message('user-1', AiMessageRole.USER, 'I need help finding a job'),
       message('user-2', AiMessageRole.USER, 'show me where to sign up'),
