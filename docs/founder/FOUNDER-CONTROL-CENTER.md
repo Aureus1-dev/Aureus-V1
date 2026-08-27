@@ -1,7 +1,7 @@
 # Aureus Founder Control Center
 
 **Status:** Founder-facing build control plane  
-**Last reconciled:** 2026-08-25  
+**Last reconciled:** 2026-08-27  
 **Scope:** Product construction and release truth only. This dashboard does not amend governance or constitutional authority.
 
 ## 1. What this dashboard is for
@@ -20,9 +20,9 @@ The dashboard is not another customer-facing Aureus feature. It is the control p
 
 | Repository | Current `main` | Role today |
 |---|---|---|
-| Aureus-V1 | `bc6528c8071305895c65e6d84be80b6476e4de74` | Product/runtime owner: Hall, Steward, Ward, business console, conversations, tenants, leads, operations, voice, production release path |
+| Aureus-V1 | `5e4a29a35b243a5bd43e52a90d3eadc473624695` | Product/runtime owner: Hall, Steward, Ward, business console, conversations, tenants, leads, operations, voice, production release path |
 | Aureus-Foundry | `e6c0a4558145c6f00d5e7734be95af08daf8241a` | Intelligence production, planning, routing, review, evidence, cost/audit, outcome/evaluation engine; executable offline baseline |
-| Aureus-Library | `e217284d0b9d4e8e9cbca119c8257d202a34a5c7` | Governed durable knowledge and release integrity layer |
+| Aureus-Library | `ea9887c50550e466411742c3f3fc53a3de7f264f` | Governed durable knowledge and release integrity layer |
 
 ### Product construction completed
 
@@ -42,40 +42,56 @@ The current job is no longer to invent those foundations. It is to complete, har
 
 ## 3. Current active work
 
-### NOW — Verified actionable opportunity handoff
+### CLOSED PROOF POINT — Verified actionable opportunity handoff (§1)
 
-**Working branch:** `fix/verified-opportunity-handoff`  
-**Verified current state:** empty placeholder at the same SHA as V1 `main`; zero unique commits, empty diff, and no pull request. Implementation has not begun.  
-**Source of truth:** GitHub Issue #95
+**Merged PR:** #101  
+**Reviewed head:** `749057a85d2335fd6d9e8f864aa82e6ff9bce58e`  
+**Resulting V1 `main`:** `5e4a29a35b243a5bd43e52a90d3eadc473624695`  
+**Post-merge CI:** run 33102294356 — success on that exact `main` SHA  
+**Source of truth:** GitHub Issue #95 §1
 
-Goal: when a person asks Aureus to show them where to act, Aureus must provide a real, verified action rather than merely describing one.
+The server-owned Opportunity Link Registry now supplies Hall actions only from current VERIFIED + ACTIVE Opportunity records, fails closed on unsafe/stale evidence, preserves the conversation when opening external actions, and keeps model output out of the actionable URL path. Issue #95 §1 is checked complete. This records code/CI acceptance only; deployment and real production walkthrough evidence remain governed separately by Issue #95 §11 and the final completion rule.
 
-Acceptance conditions:
+### NOW — Temporary Opportunity Center provider rails (§2)
 
-- extend the existing Opportunity domain rather than create a second link system;
-- only current `VERIFIED` opportunities can become actionable;
-- model-generated arbitrary external URLs never become trusted actions;
-- clearly tappable verified action in Hall;
-- preserve the Hall conversation when the external link opens;
-- disclose affiliate/referral compensation plainly;
-- ranking remains member-first and independent of affiliate economics;
-- stale/unverified links fail safely;
-- regression coverage for the exact `show me where` path.
+**Working branch:** `fix/temporary-opportunity-provider-rails`  
+**Draft PR:** #102 — `Temporary Opportunity Center provider rails`  
+**Source of truth:** GitHub Issue #95 §2
+
+Goal: use available providers briefly while keeping replacement easy and preventing referral economics from influencing member recommendations.
+
+Current implementation direction:
+
+- keep existing Opportunity ranking and VERIFIED-action selection authoritative;
+- apply provider logic only after the member-first winning Opportunity has been selected;
+- support Scrambly and BigCashWeb behind a common temporary-provider adapter seam;
+- keep Swagbucks optional unless it is deliberately verified/current and useful;
+- accept only configured HTTPS referral destinations and otherwise preserve the canonical verified URL;
+- attach plain-language compensation disclosure when a referral rail is actually used;
+- keep payout/time-to-cash claims unset unless separately governed evidence supplies them;
+- make future Aureus-owned/direct affiliate or offer-wall relationships replace the temporary adapters without changing Hall DTOs or member UX.
+
+Founder input still required before the named temporary rails can be activated:
+
+- the public Scrambly referral URL;
+- the public BigCashWeb referral URL;
+- optional Swagbucks URL only if the Founder chooses to include it and it is verified/current.
+
+No referral URL has been guessed, fabricated, or committed. PR #102 remains constructor work: final exact-head CI and independent review are required before any merge recommendation.
 
 ### NEXT — Founder blocker queue
 
 Order remains governed by Issue #95 unless a newly discovered severity-1 defect preempts it.
 
-1. Temporary Opportunity Center provider rails, using governed provider adapters rather than permanent coupling.
-2. Guided external application assistance — **See → Guide**.
-3. Guided external application assistance — **Prefill → Act**, only after See/Guide is stable and approval boundaries are proven.
-4. Exact water-utility hardship production flow.
-5. Talk/voice real-device end-to-end verification.
-6. Mobile Hall real-device verification.
-7. Provider/network failure and recovery behavior.
-8. Guest → save/claim → login continuity.
-9. Business founder-path regression.
-10. Exact-deployment release verification and full Founder walkthrough.
+1. Guided external application assistance — **See → Guide**.
+2. Guided external application assistance — **Prefill → Act**, only after See/Guide is stable and approval boundaries are proven.
+3. Exact water-utility hardship production flow.
+4. Talk/voice real-device end-to-end verification.
+5. Mobile Hall real-device verification.
+6. Provider/network failure and recovery behavior.
+7. Guest → save/claim → login continuity.
+8. Business founder-path regression.
+9. Exact-deployment release verification and full Founder walkthrough.
 
 ## 4. Definition of complete V1
 
@@ -262,14 +278,19 @@ Setup:
 
 ### Foundry and Library setup
 
-Neither Foundry nor Library currently has a root `CLAUDE.md` on `main`.
+Library bootstrap governance is now merged on `main`:
 
-- Library currently has two competing draft bootstrap candidates on the same base: PR #13 (`agent/claude-bootstrap-instructions`) and PR #14 (`ops/claude-bootstrap-governance`). PR #14 is the current reconciled candidate: it uses provider-neutral `AGENTS.md` plus a thin `CLAUDE.md`, and now carries the Library-specific identifier, admission, release-policy, Pilot-5, and external-consumer deny rules identified during independent Bootstrap Review 1. PR #13 remains open until the Founder selects the surviving entry point; do not merge both.
-- Foundry's Claude entry point, provider-neutral operating contract, first review work order, and disabled-by-default Anthropic adapter are staged together in Foundry draft PR #7. Those files govern a session only when it is explicitly opened on that candidate branch; they are not authority on `main`.
-- Foundry PR #7 remains separately Founder-gated because it introduces a real external-provider boundary and leaves production decisions open. Do not merge it merely to obtain its instruction files.
-- Until repository-specific instructions are merged, do not ask Claude to make autonomous edits in Library or Foundry. Read-only review on an exact candidate branch remains allowed when the assignment restates the authority boundary.
+- Aureus-Library PR #14 merged at reviewed head `e160e0eda88bfa21f33a5c36b6753114404e68b6`; current Library `main` is `ea9887c50550e466411742c3f3fc53a3de7f264f`.
+- Library now has provider-neutral root `AGENTS.md` plus a thin root `CLAUDE.md` on `main`.
+- Competing Library PR #13 is closed unmerged and superseded; do not revive both instruction paths.
 
-Do not copy V1's instructions into another repository. Each entry point must encode that repository's own architecture, commands, test gates, authority boundaries, and cross-repository contract rules.
+Foundry remains separately gated:
+
+- Aureus-Foundry `main` remains `e6c0a4558145c6f00d5e7734be95af08daf8241a`.
+- Foundry draft PR #7 remains open and unmerged. Its Claude entry point, operating contract, review work order, and disabled-by-default Anthropic adapter govern only that candidate branch, not `main`.
+- Do not merge Foundry PR #7 merely to obtain instruction files or infer provider-use authority from its existence.
+
+Do not copy V1 instructions into another repository. Each entry point must encode that repository's own architecture, commands, test gates, authority boundaries, and cross-repository contract rules.
 
 ### Optional later automation
 
