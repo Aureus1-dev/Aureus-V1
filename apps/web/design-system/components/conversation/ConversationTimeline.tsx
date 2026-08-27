@@ -73,7 +73,11 @@ export function ConversationTimeline({
           return entry.message.role === 'USER' ? (
             <MemberMessage key={entry.key} content={entry.message.content} />
           ) : (
-            <StewardMessage key={entry.key} content={entry.message.content} />
+            <StewardMessage
+              key={entry.key}
+              content={entry.message.content}
+              opportunityAction={entry.message.opportunityAction}
+            />
           );
         }
 

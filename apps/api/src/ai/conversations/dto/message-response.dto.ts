@@ -1,6 +1,7 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { AiMessageCompletionStatus, AiMessageRole } from '@prisma/client';
 import type { AiMessage } from '@prisma/client';
+import { OpportunityActionResponseDto } from '../../../opportunities/dto/opportunity-action-response.dto';
 
 export class ToolCallResponseDto {
   @ApiProperty() id: string;
@@ -22,6 +23,12 @@ export class MessageResponseDto {
       'Present only when the steward requested one or more interface actions in this response (DOMAIN-007). Ephemeral — reflects this response only, never persisted or replayed from history.',
   })
   toolCalls?: ToolCallResponseDto[];
+  @ApiPropertyOptional({
+    type: OpportunityActionResponseDto,
+    description:
+      'A server-verified Opportunity action for this response. Its URL comes from the Opportunity Link Registry, never from model output.',
+  })
+  opportunityAction?: OpportunityActionResponseDto;
 
   static fromEntity(m: AiMessage): MessageResponseDto {
     const dto = new MessageResponseDto();
