@@ -90,9 +90,20 @@ describe('OpportunityLinkRegistryService', () => {
     }));
   });
 
-  it('fails closed when relevant link verification evidence is stale', async () => {
+  it('fails closed when relevant link verification evidence is missing', async () => {
     opportunities.findAll.mockResolvedValue({
       data: [opportunity({ dateLastVerified: null })], total: 1, page: 1, limit: 50,
+    });
+
+    const result = await service.findBestAction('I need a job. show me where to sign up');
+
+    expect(result).toEqual({ action: null, reason: 'UNVERIFIED' });
+  });
+
+  it('fails closed when the last verification is older than the repository freshness window', async () => {
+    const staleVerification = new Date(Date.now() - 365 * 24 * 60 * 60 * 1000);
+    opportunities.findAll.mockResolvedValue({
+      data: [opportunity({ dateLastVerified: staleVerification })], total: 1, page: 1, limit: 50,
     });
 
     const result = await service.findBestAction('I need a job. show me where to sign up');
