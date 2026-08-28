@@ -6,6 +6,7 @@ import {
   VerificationStatus,
 } from '@prisma/client';
 import type { CitySheetCandidateSeed } from './city-sheet-candidates.data';
+import { OpportunityScoringService } from '../opportunities/scoring/opportunity-scoring.service';
 import {
   PILOT_CITY_SHEET_SEEDS,
   PILOT_OPPORTUNITY_SEEDS,
@@ -13,6 +14,7 @@ import {
 } from './pilot-seed.data';
 
 const SEED_ACTOR_EMAIL = 'city-sheet-research@ai.aureus.internal';
+const opportunityScoring = new OpportunityScoringService();
 
 /** The narrow slice of PrismaClient this seed needs — kept minimal so it can be exercised with a plain mock, without a real database connection. */
 export interface SeedPilotClient {
@@ -176,6 +178,26 @@ function toCitySheetData(candidate: CitySheetCandidateSeed, createdById: string)
 }
 
 function toOpportunityData(seed: PilotOpportunitySeed, actorId: string): Record<string, unknown> {
+  const dateLastVerified = new Date(seed.verifiedAt);
+  const deadline = seed.deadline ? new Date(seed.deadline) : null;
+  const scoringInput = {
+    title: seed.title,
+    shortDescription: seed.shortDescription,
+    fullDescription: seed.fullDescription,
+    provider: seed.provider,
+    officialSourceUrl: seed.officialSourceUrl,
+    applicationUrl: seed.applicationUrl ?? null,
+    location: seed.location ?? null,
+    country: seed.country ?? 'US',
+    eligibilityRules: seed.eligibilityRules,
+    benefitType: seed.benefitType,
+    benefitAmount: seed.benefitAmount ?? null,
+    deadline,
+    tags: seed.tags,
+    verificationStatus: VerificationStatus.VERIFIED,
+    dateLastVerified,
+  };
+
   return {
     title: seed.title,
     shortDescription: seed.shortDescription,
@@ -191,7 +213,7 @@ function toOpportunityData(seed: PilotOpportunitySeed, actorId: string): Record<
     eligibilityRules: seed.eligibilityRules,
     benefitType: seed.benefitType,
     benefitAmount: seed.benefitAmount,
-    deadline: seed.deadline ? new Date(seed.deadline) : null,
+    deadline,
     // `OpportunitiesService.findAll` returns only VERIFIED rows, so a
     // DRAFT seed would be invisible and the plan would stay empty. The
     // claim being verified is narrow and checkable: the program exists
@@ -206,7 +228,9 @@ function toOpportunityData(seed: PilotOpportunitySeed, actorId: string): Record<
     datePublished: seed.datePublished ? new Date(seed.datePublished) : null,
     // Preserve the actual research timestamp. Re-running the deployment seed
     // must never manufacture a newer verification date than the source review.
-    dateLastVerified: new Date(seed.verifiedAt),
+    dateLastVerified,
+    confidenceScore: opportunityScoring.computeConfidence(scoringInput),
+    freshnessScore: opportunityScoring.computeFreshness(scoringInput),
     submittedById: actorId,
     createdById: actorId,
     lastUpdatedById: actorId,
