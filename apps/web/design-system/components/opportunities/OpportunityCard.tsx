@@ -8,7 +8,7 @@ import highlightStyles from '../highlight/highlight.module.css';
 export interface OpportunityCardProps {
   opportunity: OpportunityDto;
   saved: boolean;
-  onToggleSave: () => void;
+  onToggleSave?: () => void;
   onOpen: () => void;
 }
 
@@ -40,9 +40,11 @@ export function OpportunityCard({ opportunity, saved, onToggleSave, onOpen }: Op
         <p className={styles.provider}>{opportunity.provider}</p>
         <div className={styles.actions}>
           <Button onClick={onOpen}>View details</Button>
-          <Button variant="secondary" onClick={onToggleSave} aria-pressed={saved}>
-            {saved ? 'Saved' : 'Save'}
-          </Button>
+          {onToggleSave ? (
+            <Button variant="secondary" onClick={onToggleSave} aria-pressed={saved}>
+              {saved ? 'Saved' : 'Save'}
+            </Button>
+          ) : null}
         </div>
       </Card>
     </div>
