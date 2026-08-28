@@ -89,9 +89,6 @@ jobs:
       - name: Prisma migrate deploy
         run: npx prisma migrate deploy
 
-      - name: Founder Pilot seed synchronization
-        run: npx prisma db seed
-
       - name: Test (API unit, integration, and e2e tests)
         run: pnpm --filter @aureus-v1/api run test --coverage
 
@@ -104,6 +101,15 @@ jobs:
 
       - name: Build
         run: pnpm run build
+
+      # Verify the same idempotent catalog-population command used by Render,
+      # but only after the test suites have exercised their expected clean
+      # migration-only database baseline. Running production seed fixtures
+      # before integration tests changes the fixtures those tests are designed
+      # to construct themselves and can create false failures unrelated to
+      # production behavior.
+      - name: Founder Pilot seed synchronization
+        run: npx prisma db seed
 
   # Docker Build Verification (PD-002). Both Dockerfiles were, until now,
   # "structurally sound but never build-verified against a live daemon"
