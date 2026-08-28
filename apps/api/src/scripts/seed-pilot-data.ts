@@ -36,7 +36,8 @@ export interface SeedPilotResult {
   citySheetCreated: string[];
   citySheetSkipped: string[];
   opportunitiesCreated: string[];
-  opportunitiesSkipped: string[];
+  opportunitiesUpdated: string[];
+  opportunitiesRetired: string[];
 }
 
 /** Reuses the same non-interactive AI_SERVICE_ACCOUNT the A3 candidate seed attributes its work to, rather than minting a second system identity. */
@@ -94,18 +95,25 @@ export async function seedPilotData(prisma: SeedPilotClient): Promise<SeedPilotR
   }
 
   const opportunitiesCreated: string[] = [];
-  const opportunitiesSkipped: string[] = [];
+  const opportunitiesUpdated: string[] = [];
+  const opportunitiesRetired: string[] = [];
 
+  // These exact-title Founder Pilot records are seed-managed launch fixtures.
+  // Re-running the seed refreshes their researched facts instead of leaving a
+  // stale URL/offer in production merely because the title already existed.
   for (const seed of PILOT_OPPORTUNITY_SEEDS) {
     const existing = await prisma.opportunity.findFirst({
       where: { title: { equals: seed.title, mode: 'insensitive' } },
     });
+    const data = toOpportunityData(seed, actorId);
+
     if (existing) {
-      opportunitiesSkipped.push(seed.title);
+      await prisma.opportunity.update({ where: { id: existing.id }, data });
+      opportunitiesUpdated.push(seed.title);
       continue;
     }
 
-    const opportunity = await prisma.opportunity.create({ data: toOpportunityData(seed, actorId) });
+    const opportunity = await prisma.opportunity.create({ data });
     await prisma.opportunity.update({
       where: { id: opportunity.id },
       data: { opportunityRef: `AUR-OPP-${opportunity.sequenceNumber.toString().padStart(6, '0')}` },
@@ -113,7 +121,35 @@ export async function seedPilotData(prisma: SeedPilotClient): Promise<SeedPilotR
     opportunitiesCreated.push(seed.title);
   }
 
-  return { actorId, citySheetCreated, citySheetSkipped, opportunitiesCreated, opportunitiesSkipped };
+  // The 2025–26 Pennsylvania LIHEAP season closed May 8, 2026. An older
+  // Founder Pilot seed had marked it ACTIVE + VERIFIED. Retire that exact
+  // seed-managed record so a fresh deployment cannot present a closed
+  // seasonal program as a current opportunity.
+  const retiredTitles = ['LIHEAP — Help With Heating and Utility Bills'];
+  for (const title of retiredTitles) {
+    const existing = await prisma.opportunity.findFirst({
+      where: { title: { equals: title, mode: 'insensitive' } },
+    });
+    if (!existing) continue;
+    await prisma.opportunity.update({
+      where: { id: existing.id },
+      data: {
+        status: OpportunityStatus.EXPIRED,
+        verificationStatus: VerificationStatus.ARCHIVED,
+        lastUpdatedById: actorId,
+      },
+    });
+    opportunitiesRetired.push(title);
+  }
+
+  return {
+    actorId,
+    citySheetCreated,
+    citySheetSkipped,
+    opportunitiesCreated,
+    opportunitiesUpdated,
+    opportunitiesRetired,
+  };
 }
 
 function toCitySheetData(candidate: CitySheetCandidateSeed, createdById: string): Record<string, unknown> {
@@ -147,10 +183,14 @@ function toOpportunityData(seed: PilotOpportunitySeed, actorId: string): Record<
     tags: seed.tags,
     provider: seed.provider,
     officialSourceUrl: seed.officialSourceUrl,
+    applicationUrl: seed.applicationUrl,
+    location: seed.location,
     state: seed.state,
-    country: 'US',
+    country: seed.country ?? 'US',
     eligibilityRules: seed.eligibilityRules,
     benefitType: seed.benefitType,
+    benefitAmount: seed.benefitAmount,
+    deadline: seed.deadline ? new Date(seed.deadline) : null,
     // `OpportunitiesService.findAll` returns only VERIFIED rows, so a
     // DRAFT seed would be invisible and the plan would stay empty. The
     // claim being verified is narrow and checkable: the program exists
@@ -161,7 +201,10 @@ function toOpportunityData(seed: PilotOpportunitySeed, actorId: string): Record<
     // the same non-interactive system actor the A3 candidate seed uses.
     sourceName: seed.provider,
     sourceUrl: seed.officialSourceUrl,
-    dateLastVerified: new Date(),
+    datePublished: seed.datePublished ? new Date(seed.datePublished) : null,
+    // Preserve the actual research timestamp. Re-running the deployment seed
+    // must never manufacture a newer verification date than the source review.
+    dateLastVerified: new Date(seed.verifiedAt),
     submittedById: actorId,
     createdById: actorId,
     lastUpdatedById: actorId,
