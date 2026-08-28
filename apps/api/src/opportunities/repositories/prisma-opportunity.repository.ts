@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { Opportunity, Prisma } from '@prisma/client';
+import { Opportunity, OpportunityStatus, Prisma } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import {
   CreateOpportunityInput,
@@ -68,6 +68,12 @@ export class PrismaOpportunityRepository implements IOpportunityRepository {
       ...(status             && { status }),
       ...(verificationStatus && { verificationStatus }),
       ...(deadlineWhere      && { deadline: deadlineWhere }),
+      // A member-facing ACTIVE search must not surface a promotion or
+      // opportunity whose deadline has already passed. Explicit admin
+      // status/deadline queries remain available through the normal filters.
+      ...(status === OpportunityStatus.ACTIVE && !deadlineWhere
+        ? { AND: [{ OR: [{ deadline: null }, { deadline: { gte: now } }] }] }
+        : {}),
     };
 
     // ── Sort ──────────────────────────────────────────────────────────────
