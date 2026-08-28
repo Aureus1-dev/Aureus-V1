@@ -52,32 +52,32 @@ The current job is no longer to invent those foundations. It is to complete, har
 
 The server-owned Opportunity Link Registry now supplies Hall actions only from current VERIFIED + ACTIVE Opportunity records, fails closed on unsafe/stale evidence, preserves the conversation when opening external actions, and keeps model output out of the actionable URL path. Issue #95 §1 is checked complete. This records code/CI acceptance only; deployment and real production walkthrough evidence remain governed separately by Issue #95 §11 and the final completion rule.
 
-### NOW — Temporary Opportunity Center provider rails (§2)
+### NOW — Member-first Opportunity Center launch rails (§2)
 
 **Working branch:** `fix/temporary-opportunity-provider-rails`  
-**Draft PR:** #102 — `Temporary Opportunity Center provider rails`  
+**Draft PR:** #102 — launch catalog + provider-neutral commercial destination seam  
 **Source of truth:** GitHub Issue #95 §2
 
-Goal: use available providers briefly while keeping replacement easy and preventing referral economics from influencing member recommendations.
+Goal: make the Opportunity Center immediately useful even when Aureus earns nothing, while preserving an optional, disclosed revenue path that can never influence what the member is shown.
 
 Current implementation direction:
 
-- keep existing Opportunity ranking and VERIFIED-action selection authoritative;
-- apply provider logic only after the member-first winning Opportunity has been selected;
-- support Scrambly and BigCashWeb behind a common temporary-provider adapter seam;
-- keep Swagbucks optional unless it is deliberately verified/current and useful;
-- accept only configured HTTPS referral destinations and otherwise preserve the canonical verified URL;
-- attach plain-language compensation disclosure when a referral rail is actually used;
-- keep payout/time-to-cash claims unset unless separately governed evidence supplies them;
-- make future Aureus-owned/direct affiliate or offer-wall relationships replace the temporary adapters without changing Hall DTOs or member UX.
+- preserve the existing Opportunity domain and VERIFIED-action registry as the single source of truth;
+- ship a curated Founder Pilot catalog of 22 researched opportunities spanning benefits/cash support, money owed/refunds, utility and housing hardship, child care, employment, paid/free training, communications savings, and higher-value banking incentives;
+- use official HTTPS destinations as the default action — no affiliate approval is required for Aureus to help;
+- default member search to VERIFIED + ACTIVE and suppress opportunities whose deadline has passed;
+- preserve the actual source-research timestamp instead of falsely re-stamping an old seed as freshly verified on every deployment;
+- explicitly retire the closed 2025–26 Pennsylvania LIHEAP launch seed;
+- allow signed-out visitors to search verified opportunities; saving and personalized recommendations remain member-only;
+- show a stated benefit amount/value on cards and detail when an official source establishes one, plus the source recheck date on detail;
+- replace provider-name-specific Scrambly/BigCash/Swagbucks configuration with one optional provider-neutral canonical-URL → commercial-URL mapping;
+- apply any approved commercial destination only after the member-first winning Opportunity has been selected;
+- accept only exact canonical matches and HTTPS commercial destinations; malformed, mismatched, missing, stale, or unsafe configuration fails closed to the official action;
+- attach plain-language compensation disclosure whenever the commercial destination is actually used;
+- keep referral/affiliate economics entirely outside category inference, relevance scoring, freshness, confidence, and ordering;
+- synchronize the reviewed Founder Pilot catalog during Render pre-deploy so the deployed SHA carries the opportunity truth that was reviewed, rather than relying on an undocumented manual seed step.
 
-Founder input still required before the named temporary rails can be activated:
-
-- the public Scrambly referral URL;
-- the public BigCashWeb referral URL;
-- optional Swagbucks URL only if the Founder chooses to include it and it is verified/current.
-
-No referral URL has been guessed, fabricated, or committed. PR #102 remains constructor work: final exact-head CI and independent review are required before any merge recommendation.
+No commercial/referral destination is required or committed. Scrambly, BigCashWeb, and Swagbucks are not launch dependencies. PR #102 remains constructor work until final exact-head CI and independent adversarial review pass; production deployment and member acceptance remain separate gates.
 
 ### NEXT — Founder blocker queue
 
