@@ -1,6 +1,7 @@
 import {
   CitySheetVerificationStatus,
   OpportunityStatus,
+  SourceType,
   UserRole,
   VerificationStatus,
 } from '@prisma/client';
@@ -201,6 +202,7 @@ function toOpportunityData(seed: PilotOpportunitySeed, actorId: string): Record<
     // the same non-interactive system actor the A3 candidate seed uses.
     sourceName: seed.provider,
     sourceUrl: seed.officialSourceUrl,
+    sourceType: SourceType.EXTERNAL_SOURCE,
     datePublished: seed.datePublished ? new Date(seed.datePublished) : null,
     // Preserve the actual research timestamp. Re-running the deployment seed
     // must never manufacture a newer verification date than the source review.
