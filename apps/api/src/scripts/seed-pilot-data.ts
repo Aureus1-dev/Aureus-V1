@@ -111,13 +111,11 @@ export async function seedPilotData(prisma: SeedPilotClient): Promise<SeedPilotR
     const data = toOpportunityData(seed, actorId);
 
     if (existing) {
-      const {
-        status: _status,
-        verificationStatus: _verificationStatus,
-        submittedById: _submittedById,
-        createdById: _createdById,
-        ...refreshData
-      } = data;
+      const refreshData = { ...data };
+      delete refreshData.status;
+      delete refreshData.verificationStatus;
+      delete refreshData.submittedById;
+      delete refreshData.createdById;
       // Refresh reviewed facts without overriding a human lifecycle decision
       // (archive/reject/etc.) or rewriting original creation/submission audit
       // attribution on an existing record.
