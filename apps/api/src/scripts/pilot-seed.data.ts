@@ -428,4 +428,70 @@ export const PILOT_OPPORTUNITY_SEEDS: PilotOpportunitySeed[] = [
     deadline: '2026-09-30T23:59:59.000Z',
     verifiedAt: '2026-08-28T12:28:00.000Z',
   },
+  {
+    title: 'Pennsylvania Child Care Works — Subsidized Child Care',
+    shortDescription: 'Eligible working or training families can get state help paying part or all of qualifying child care costs.',
+    fullDescription:
+      'Pennsylvania Child Care Works helps eligible low-income families pay for reliable child care while a parent or caretaker works or participates in education or training. The local Early Learning Resource Center may pay all or part of qualifying child care costs; a family copayment or provider difference may still apply.',
+    category: OpportunityCategory.GOVERNMENT_BENEFIT,
+    provider: 'Pennsylvania Department of Human Services',
+    officialSourceUrl: 'https://www.pa.gov/services/dhs/apply-for-child-care-works-subsidized-child-care',
+    eligibilityRules:
+      'Pennsylvania residency, child age, income, work/training, and other program rules apply. The current program generally requires qualifying work/training activity and income within the published limits; the ELRC makes the determination.',
+    benefitType: BenefitType.BENEFIT,
+    state: 'PA',
+    tags: ['child care', 'daycare', 'subsidy', 'working parent', 'training', 'family'],
+    verifiedAt: '2026-08-28T12:28:00.000Z',
+  },
+  {
+    title: 'Philadelphia Gas Works CRP — Lower Gas Bill and Debt Forgiveness',
+    shortDescription: 'Eligible low-income PGW customers can lower monthly gas bills by up to 50% and reduce past-due debt.',
+    fullDescription:
+      'Philadelphia Gas Works says its Customer Responsibility Program can lower an eligible customer’s gas bill by up to 50% and forgive past debt while helping keep service on. The discount depends on household size, gross income, and average gas bill. This is current year-round PGW assistance and is separate from the currently closed LIHEAP season.',
+    category: OpportunityCategory.FINANCIAL_ASSISTANCE,
+    provider: 'Philadelphia Gas Works',
+    officialSourceUrl: 'https://www.pgworks.com/customer-care/crp',
+    applicationUrl: 'https://www.pgworks.com/customer-care/crp',
+    eligibilityRules:
+      'PGW customer, household-income, documentation, and program rules apply. Re-enrollment can require curing past CRP bills; use PGW’s current application for the actual determination.',
+    benefitType: BenefitType.BENEFIT,
+    benefitAmount: 'Up to 50% lower gas bill; eligible past debt can be forgiven.',
+    state: 'PA',
+    location: 'Philadelphia',
+    tags: ['gas bill', 'pgw', 'utility', 'shutoff', 'debt forgiveness', 'crp'],
+    verifiedAt: '2026-08-28T12:28:00.000Z',
+  },
+  {
+    title: 'PECO Assistance Finder — Match to Current Bill Help',
+    shortDescription: 'Use PECO’s official three-minute assistance finder to identify current bill-assistance programs you are likely to qualify for.',
+    fullDescription:
+      'PECO’s official Assistance Finder asks a short set of household questions and recommends current assistance that may fit. Eligibility is not final until the member completes the relevant application. This route is more reliable than Aureus hard-coding a seasonal grant or stale program rule.',
+    category: OpportunityCategory.FINANCIAL_ASSISTANCE,
+    provider: 'PECO',
+    officialSourceUrl: 'https://secure.peco.com/assistance/finder',
+    applicationUrl: 'https://secure.peco.com/assistance/finder',
+    eligibilityRules:
+      'Program-specific PECO assistance rules apply; the finder provides likely matches and the underlying program application confirms eligibility.',
+    benefitType: BenefitType.BENEFIT,
+    state: 'PA',
+    tags: ['electric bill', 'peco', 'utility', 'assistance', 'shutoff', 'energy'],
+    verifiedAt: '2026-08-28T12:28:00.000Z',
+  },
+  {
+    title: 'Lifeline — Discounted Phone or Internet Service',
+    shortDescription: 'Eligible low-income households can receive a monthly Lifeline discount on phone or internet service.',
+    fullDescription:
+      'The federal Lifeline program provides qualifying households a monthly communications discount. USAC currently lists up to $9.25 per month for internet or bundled service, up to $5.25 for voice-only service, and an enhanced benefit on qualifying Tribal lands. Apply through the official Lifeline National Verifier, then choose a participating provider.',
+    category: OpportunityCategory.FINANCIAL_ASSISTANCE,
+    provider: 'Universal Service Administrative Company / FCC',
+    officialSourceUrl: 'https://www.lifelinesupport.org/how-to-apply/',
+    applicationUrl: 'https://www.lifelinesupport.org/how-to-apply/',
+    eligibilityRules:
+      'Household income or participation in a qualifying assistance program such as SNAP, Medicaid, SSI, Federal Public Housing Assistance, or Veterans and Survivors Pension can qualify; one Lifeline benefit is generally allowed per household.',
+    benefitType: BenefitType.BENEFIT,
+    benefitAmount: 'Up to $9.25/month internet or bundled service; up to $5.25/month voice-only; enhanced Tribal benefit available.',
+    country: 'US',
+    tags: ['phone', 'internet', 'lifeline', 'monthly bill', 'snap', 'medicaid'],
+    verifiedAt: '2026-08-28T12:28:00.000Z',
+  },
 ];
