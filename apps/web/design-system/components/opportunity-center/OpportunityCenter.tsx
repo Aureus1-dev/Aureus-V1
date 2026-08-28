@@ -2,7 +2,6 @@
 
 import { useState } from 'react';
 import { useSession } from '../../../state';
-import { EmptyState } from '../EmptyState/EmptyState';
 import { Room } from '../room';
 import { OpportunityTabs, type OpportunityTab } from './OpportunityTabs';
 import { SearchTab } from './SearchTab';
@@ -11,11 +10,13 @@ import { RecommendedTab } from './RecommendedTab';
 
 type TabId = 'search' | 'saved' | 'recommended';
 
-const TABS: OpportunityTab[] = [
+const MEMBER_TABS: OpportunityTab[] = [
   { id: 'search', label: 'Search' },
   { id: 'saved', label: 'Saved' },
   { id: 'recommended', label: 'Recommended' },
 ];
+
+const GUEST_TABS: OpportunityTab[] = [{ id: 'search', label: 'Search' }];
 
 /**
  * Opportunity Center — one standing surface, three views over the same
@@ -29,18 +30,17 @@ export function OpportunityCenter() {
   const { session } = useSession();
   const [activeTab, setActiveTab] = useState<TabId>('search');
 
-  if (!session.isAuthenticated) {
-    return (
-      <EmptyState
-        title="Sign in to see the Opportunity Center"
-        description="Sign in to search, save, and get personalized opportunity recommendations."
-      />
-    );
-  }
+  const tabs = session.isAuthenticated ? MEMBER_TABS : GUEST_TABS;
 
   return (
     <Room title="Opportunity Workspace">
-      <OpportunityTabs tabs={TABS} activeId={activeTab} onChange={(id) => setActiveTab(id as TabId)} />
+      <OpportunityTabs tabs={tabs} activeId={activeTab} onChange={(id) => setActiveTab(id as TabId)} />
+      {!session.isAuthenticated ? (
+        <p>
+          You can search verified opportunities without an account. Sign in only if you want to save or receive
+          personalized recommendations.
+        </p>
+      ) : null}
 
       <div
         role="tabpanel"
@@ -50,22 +50,26 @@ export function OpportunityCenter() {
       >
         <SearchTab />
       </div>
-      <div
-        role="tabpanel"
-        id="opportunity-panel-saved"
-        aria-labelledby="opportunity-tab-saved"
-        hidden={activeTab !== 'saved'}
-      >
-        <SavedTab />
-      </div>
-      <div
-        role="tabpanel"
-        id="opportunity-panel-recommended"
-        aria-labelledby="opportunity-tab-recommended"
-        hidden={activeTab !== 'recommended'}
-      >
-        <RecommendedTab />
-      </div>
+      {session.isAuthenticated ? (
+        <>
+          <div
+            role="tabpanel"
+            id="opportunity-panel-saved"
+            aria-labelledby="opportunity-tab-saved"
+            hidden={activeTab !== 'saved'}
+          >
+            <SavedTab />
+          </div>
+          <div
+            role="tabpanel"
+            id="opportunity-panel-recommended"
+            aria-labelledby="opportunity-tab-recommended"
+            hidden={activeTab !== 'recommended'}
+          >
+            <RecommendedTab />
+          </div>
+        </>
+      ) : null}
     </Room>
   );
 }
