@@ -38,6 +38,7 @@ export function OpportunityCard({ opportunity, saved, onToggleSave, onOpen }: Op
         <h3 className={styles.title}>{opportunity.title}</h3>
         <p className={styles.description}>{opportunity.shortDescription}</p>
         <p className={styles.provider}>{opportunity.provider}</p>
+        {opportunity.benefitAmount ? <p className={styles.value}>{opportunity.benefitAmount}</p> : null}
         <div className={styles.actions}>
           <Button onClick={onOpen}>View details</Button>
           {onToggleSave ? (
