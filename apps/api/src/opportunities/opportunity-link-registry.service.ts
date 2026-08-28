@@ -66,7 +66,7 @@ export function inferOpportunityCategory(context: string): OpportunityCategory |
  * existing VERIFIED + ACTIVE Opportunity records, derives the canonical URL
  * from their stored application/official-source fields, and fails closed when
  * the URL or verification evidence is not current enough to surface as an
- * action. Temporary provider rails are applied only after member-first ranking
+ * action. Commercial destinations are applied only after member-first ranking
  * selects a verified action, so referral economics cannot influence selection.
  */
 @Injectable()
