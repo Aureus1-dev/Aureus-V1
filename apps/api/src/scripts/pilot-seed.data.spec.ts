@@ -36,7 +36,6 @@ describe('Founder Pilot Opportunity Center launch catalog', () => {
   it('covers the launch economic-help ladder rather than one kind of payout', () => {
     const categories = new Set(PILOT_OPPORTUNITY_SEEDS.map((seed) => seed.category));
 
-    expect(categories).toEqual(expect.objectContaining ? categories : categories);
     expect(categories.has(OpportunityCategory.GOVERNMENT_BENEFIT)).toBe(true);
     expect(categories.has(OpportunityCategory.FINANCIAL_ASSISTANCE)).toBe(true);
     expect(categories.has(OpportunityCategory.HOUSING)).toBe(true);
