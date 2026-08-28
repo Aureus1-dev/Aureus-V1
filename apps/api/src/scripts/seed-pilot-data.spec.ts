@@ -44,8 +44,8 @@ describe('seedPilotData launch-opportunity synchronization', () => {
     expect(result.opportunitiesCreated).toHaveLength(PILOT_OPPORTUNITY_SEEDS.length - 1);
 
     expect(opportunityUpdate).toHaveBeenCalledWith(
-      { id: 'existing-first' },
       expect.objectContaining({
+        where: { id: 'existing-first' },
         data: expect.objectContaining({
           dateLastVerified: new Date(first.verifiedAt),
           status: OpportunityStatus.ACTIVE,
@@ -54,15 +54,13 @@ describe('seedPilotData launch-opportunity synchronization', () => {
       }),
     );
 
-    expect(opportunityUpdate).toHaveBeenCalledWith(
-      { id: 'old-liheap' },
-      {
-        data: {
-          status: OpportunityStatus.EXPIRED,
-          verificationStatus: VerificationStatus.ARCHIVED,
-          lastUpdatedById: 'seed-actor',
-        },
+    expect(opportunityUpdate).toHaveBeenCalledWith({
+      where: { id: 'old-liheap' },
+      data: {
+        status: OpportunityStatus.EXPIRED,
+        verificationStatus: VerificationStatus.ARCHIVED,
+        lastUpdatedById: 'seed-actor',
       },
-    );
+    });
   });
 });
