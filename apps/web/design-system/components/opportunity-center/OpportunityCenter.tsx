@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useSession } from '../../../state';
 import { Room } from '../room';
 import { OpportunityTabs, type OpportunityTab } from './OpportunityTabs';
@@ -29,6 +29,10 @@ const GUEST_TABS: OpportunityTab[] = [{ id: 'search', label: 'Search' }];
 export function OpportunityCenter() {
   const { session } = useSession();
   const [activeTab, setActiveTab] = useState<TabId>('search');
+
+  useEffect(() => {
+    if (!session.isAuthenticated && activeTab !== 'search') setActiveTab('search');
+  }, [activeTab, session.isAuthenticated]);
 
   const tabs = session.isAuthenticated ? MEMBER_TABS : GUEST_TABS;
 
