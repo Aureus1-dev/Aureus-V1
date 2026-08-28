@@ -268,7 +268,7 @@ export const PILOT_OPPORTUNITY_SEEDS: PilotOpportunitySeed[] = [
       'Philadelphia’s Office of Homeless Services directs residents who need help paying rent or securing housing to homelessness-prevention financial assistance and intake. Because funding and eligibility change, Aureus should route members through the current official City process instead of relying on an old grant name or stale funding round.',
     category: OpportunityCategory.HOUSING,
     provider: 'City of Philadelphia — Office of Homeless Services',
-    officialSourceUrl: 'https://www.phila.gov/departments/office-of-homeless-services/homelessness-prevention/',
+    officialSourceUrl: 'https://www.phila.gov/departments/office-of-homeless-services/get-help/',
     eligibilityRules:
       'Philadelphia residency, housing crisis, income, funding availability, and program-specific rules can apply. The City intake process determines current assistance.',
     benefitType: BenefitType.HOUSING,
@@ -365,7 +365,7 @@ export const PILOT_OPPORTUNITY_SEEDS: PilotOpportunitySeed[] = [
       'Philadelphia’s City College for Municipal Employment and Bridges to City Employment connect residents with free skills and technical training for identified City career pathways. The available program mix changes, so Aureus should route members to the current enrollment page rather than claim a seat in a specific cohort.',
     category: OpportunityCategory.EDUCATION,
     provider: 'City of Philadelphia',
-    officialSourceUrl: 'https://www.phila.gov/programs/city-college-for-municipal-employment/',
+    officialSourceUrl: 'https://www.phila.gov/programs/city-college-for-municipal-employment-ccme/',
     eligibilityRules:
       'Program-specific eligibility and enrollment rules apply. Use the official City page to see which training cohorts are currently open.',
     benefitType: BenefitType.TRAINING,
