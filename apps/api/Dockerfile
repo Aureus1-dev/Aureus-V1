@@ -63,6 +63,14 @@ COPY --from=builder --chown=nestjs:nodejs /app/packages/shared/dist ./packages/s
 COPY --from=builder --chown=nestjs:nodejs /app/packages/shared/package.json ./packages/shared/package.json
 COPY --from=builder --chown=nestjs:nodejs /app/apps/api/dist ./apps/api/dist
 COPY --from=builder --chown=nestjs:nodejs /app/apps/api/package.json ./apps/api/package.json
+# Prisma's runtime seed command is configured as `tsx apps/api/prisma/seed.ts`.
+# Keep the seed entrypoint and its narrow tested TypeScript dependencies in the
+# release image so Render pre-deploy and Docker verification execute the same
+# reviewed catalog/bootstrap logic rather than depending on source files that
+# exist only in the builder stage.
+COPY --from=builder --chown=nestjs:nodejs /app/apps/api/prisma ./apps/api/prisma
+COPY --from=builder --chown=nestjs:nodejs /app/apps/api/src/scripts ./apps/api/src/scripts
+COPY --from=builder --chown=nestjs:nodejs /app/apps/api/src/opportunities/scoring ./apps/api/src/opportunities/scoring
 # pnpm gives apps/api its own node_modules/@aureus-v1/shared symlink
 # (relative, ../../../../packages/shared) rather than hoisting it to the
 # workspace root — must be copied alongside the root node_modules above or
