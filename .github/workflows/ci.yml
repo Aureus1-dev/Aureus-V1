@@ -89,6 +89,9 @@ jobs:
       - name: Prisma migrate deploy
         run: npx prisma migrate deploy
 
+      - name: Founder Pilot seed synchronization
+        run: npx prisma db seed
+
       - name: Test (API unit, integration, and e2e tests)
         run: pnpm --filter @aureus-v1/api run test --coverage
 
@@ -140,11 +143,11 @@ jobs:
       - name: Build web image
         run: docker build -f apps/web/Dockerfile -t aureus-web:ci --build-arg NEXT_PUBLIC_API_BASE_URL=http://localhost:3000 .
 
-      - name: Run migrations against the built API image
+      - name: Run production pre-deploy database command against the built API image
         run: |
           docker run --rm --network host \
             -e DATABASE_URL="postgresql://aureus:aureus@localhost:5432/aureus?schema=public" \
-            aureus-api:ci npx prisma migrate deploy
+            aureus-api:ci sh -lc 'npx prisma migrate deploy && npx prisma db seed'
 
       - name: Boot the API image and verify liveness + readiness
         run: |
