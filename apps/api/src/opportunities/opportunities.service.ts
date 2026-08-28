@@ -74,7 +74,7 @@ export class OpportunitiesService {
       country:        query.country,
       state:          query.state,
       tags:           query.tags,
-            deadlineFilter: query.deadlineFilter,
+      deadlineFilter: query.deadlineFilter,
       sortBy:         query.sortBy,
       sortOrder:      query.sortOrder,
     });
