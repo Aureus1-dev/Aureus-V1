@@ -5,7 +5,7 @@ import styles from './OpportunityDetail.module.css';
 export interface OpportunityDetailProps {
   opportunity: OpportunityDto;
   saved: boolean;
-  onToggleSave: () => void;
+  onToggleSave?: () => void;
 }
 
 /**
@@ -33,9 +33,11 @@ export function OpportunityDetail({ opportunity, saved, onToggleSave }: Opportun
       ) : null}
 
       <div className={styles.actions}>
-        <Button variant="secondary" onClick={onToggleSave} aria-pressed={saved}>
-          {saved ? 'Saved' : 'Save for later'}
-        </Button>
+        {onToggleSave ? (
+          <Button variant="secondary" onClick={onToggleSave} aria-pressed={saved}>
+            {saved ? 'Saved' : 'Save for later'}
+          </Button>
+        ) : null}
         <a
           className={styles.sourceLink}
           href={opportunity.applicationUrl ?? opportunity.officialSourceUrl}
