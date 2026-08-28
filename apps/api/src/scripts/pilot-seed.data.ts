@@ -140,7 +140,7 @@ export const PILOT_OPPORTUNITY_SEEDS: PilotOpportunitySeed[] = [
       'Pennsylvania Unemployment Compensation provides temporary weekly income to eligible workers who have lost employment through no fault of their own and remain able and available for work. File promptly through the official Pennsylvania Department of Labor & Industry service; the Commonwealth determines eligibility and benefit amount.',
     category: OpportunityCategory.GOVERNMENT_BENEFIT,
     provider: 'Pennsylvania Department of Labor & Industry',
-    officialSourceUrl: 'https://www.pa.gov/services/dli/file-for-unemployment-compensation.html',
+    officialSourceUrl: 'https://www.pa.gov/services/dli/apply-for-unemployment-compensation-benefits',
     eligibilityRules:
       'Generally requires sufficient recent covered wages, qualifying job separation, and remaining able and available for suitable work. Use the official source for current eligibility rules.',
     benefitType: BenefitType.BENEFIT,
@@ -218,7 +218,7 @@ export const PILOT_OPPORTUNITY_SEEDS: PilotOpportunitySeed[] = [
       'Pennsylvania’s Property Tax/Rent Rebate Program is open for 2025 claims through December 31, 2026. Standard rebates range from $380 to $1,000 based on eligibility; supplemental rebates can bring the total to $1,500 for certain qualifying homeowners, including some in Philadelphia. Filing is free.',
     category: OpportunityCategory.FINANCIAL_ASSISTANCE,
     provider: 'Pennsylvania Department of Revenue',
-    officialSourceUrl: 'https://www.pa.gov/services/revenue/apply-for-the-property-tax-rent-rebate-program',
+    officialSourceUrl: 'https://www.pa.gov/services/revenue/apply-for-property-tax-or-rent-rebate',
     eligibilityRules:
       'Generally for Pennsylvanians age 65+, widows/widowers age 50+, and adults age 18+ with a qualifying disability, subject to the current household-income limit and program rules.',
     benefitType: BenefitType.GRANT,
@@ -252,7 +252,7 @@ export const PILOT_OPPORTUNITY_SEEDS: PilotOpportunitySeed[] = [
       'Pennsylvania’s Working Pennsylvanians Tax Credit is a refundable state tax credit equal to 10% of the federal Earned Income Tax Credit for qualifying filers. Pennsylvania reports the credit can be worth up to $805. Members should use official tax-filing guidance rather than assuming eligibility from income alone.',
     category: OpportunityCategory.FINANCIAL_ASSISTANCE,
     provider: 'Pennsylvania Department of Revenue',
-    officialSourceUrl: 'https://www.pa.gov/agencies/revenue/resources/tax-credits-and-incentives/working-pennsylvanians-tax-credit',
+    officialSourceUrl: 'https://www.pa.gov/agencies/revenue/resources/tax-types-and-information/personal-income-tax/working-pennsylvanians-tax-credit',
     eligibilityRules:
       'A taxpayer must qualify for the federal Earned Income Tax Credit and file the required Pennsylvania return/documentation under current Department of Revenue rules.',
     benefitType: BenefitType.BENEFIT,
@@ -317,7 +317,7 @@ export const PILOT_OPPORTUNITY_SEEDS: PilotOpportunitySeed[] = [
       'Philadelphia’s Home Repair Academy is accepting applications for a cohort scheduled to run September 28, 2026 through March 26, 2027. The first three months are paid classroom and hands-on training at $15/hour; the next three months are a paid internship at $18/hour based on performance. Participants can earn OSHA 30 and NCCER Core credentials while training across home-repair trades.',
     category: OpportunityCategory.EMPLOYMENT,
     provider: 'City of Philadelphia / PowerCorpsPHL',
-    officialSourceUrl: 'https://www.phila.gov/2026-08-03-philadelphia-launches-new-paid-training-program-to-grow-the-citys-home-repair-workforce/',
+    officialSourceUrl: 'https://www.phila.gov/2026-08-03-new-home-repair-academy-creates-paid-pathway-to-skilled-trades-careers-while-supporting-mayor-parkers-h-o-m-e-initiative/',
     eligibilityRules:
       'Applicants must be at least 18 and have a high-school diploma or equivalent. The City states no prior trades experience is required; the application process determines final admission.',
     benefitType: BenefitType.TRAINING,
@@ -399,8 +399,8 @@ export const PILOT_OPPORTUNITY_SEEDS: PilotOpportunitySeed[] = [
       'Chase currently advertises a $400 Total Checking bonus for eligible new customers who receive qualifying electronic direct deposits totaling $1,000 or more within 90 days. Chase says the bonus is deposited within 15 days after requirements are met. This is not emergency cash; review the account’s monthly-fee and waiver terms first.',
     category: OpportunityCategory.BANKING_INCENTIVE,
     provider: 'Chase',
-    officialSourceUrl: 'https://account.chase.com/consumer/banking/checkingandsavingsoffer',
-    applicationUrl: 'https://account.chase.com/consumer/banking/checkingandsavingsoffer',
+    officialSourceUrl: 'https://account.chase.com/consumer/banking/seo',
+    applicationUrl: 'https://account.chase.com/consumer/banking/seo',
     eligibilityRules:
       'New-customer and account-eligibility rules apply. The current offer requires at least $1,000 in qualifying direct deposits within 90 days; review monthly-fee waiver requirements.',
     benefitType: BenefitType.OTHER,
@@ -417,8 +417,8 @@ export const PILOT_OPPORTUNITY_SEEDS: PilotOpportunitySeed[] = [
       'TD currently advertises a $200 Complete Checking bonus for eligible new customers who receive $500 in qualifying direct deposits within 60 days. TD states the bonus is paid on or before 180 days after account opening. This is not quick or guaranteed cash; review the monthly fee, waiver rules, and full offer terms before opening.',
     category: OpportunityCategory.BANKING_INCENTIVE,
     provider: 'TD Bank',
-    officialSourceUrl: 'https://www.td.com/us/en/personal-banking/check-offer',
-    applicationUrl: 'https://www.td.com/us/en/personal-banking/check-offer',
+    officialSourceUrl: 'https://www.td.com/us/en/personal-banking/checking-and-saving-bonus',
+    applicationUrl: 'https://www.td.com/us/en/personal-banking/checking-and-saving-bonus',
     eligibilityRules:
       'New-customer and account-eligibility rules apply. The current offer requires $500 in qualifying direct deposits within 60 days and is subject to TD’s full promotion terms.',
     benefitType: BenefitType.OTHER,
