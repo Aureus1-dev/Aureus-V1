@@ -97,7 +97,7 @@ export interface ListOpportunitiesParams {
 }
 
 export function listOpportunities(
-  accessToken: string,
+  accessToken: string | null,
   params: ListOpportunitiesParams = {},
 ): Promise<PaginatedOpportunitiesDto> {
   const query = new URLSearchParams();
@@ -115,6 +115,6 @@ export function listOpportunities(
   return apiRequest<PaginatedOpportunitiesDto>(`/opportunities${suffix}`, { accessToken });
 }
 
-export function getOpportunity(accessToken: string, id: string): Promise<OpportunityDto> {
+export function getOpportunity(accessToken: string | null, id: string): Promise<OpportunityDto> {
   return apiRequest<OpportunityDto>(`/opportunities/${id}`, { accessToken });
 }
