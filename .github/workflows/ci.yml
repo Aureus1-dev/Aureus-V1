@@ -102,6 +102,15 @@ jobs:
       - name: Build
         run: pnpm run build
 
+      # Verify the same idempotent catalog-population command used by Render,
+      # but only after the test suites have exercised their expected clean
+      # migration-only database baseline. Running production seed fixtures
+      # before integration tests changes the fixtures those tests are designed
+      # to construct themselves and can create false failures unrelated to
+      # production behavior.
+      - name: Founder Pilot seed synchronization
+        run: npx prisma db seed
+
   # Docker Build Verification (PD-002). Both Dockerfiles were, until now,
   # "structurally sound but never build-verified against a live daemon"
   # (see docs/operations/production-runbook.md §3) — no daemon exists in
@@ -140,11 +149,11 @@ jobs:
       - name: Build web image
         run: docker build -f apps/web/Dockerfile -t aureus-web:ci --build-arg NEXT_PUBLIC_API_BASE_URL=http://localhost:3000 .
 
-      - name: Run migrations against the built API image
+      - name: Run production pre-deploy database command against the built API image
         run: |
           docker run --rm --network host \
             -e DATABASE_URL="postgresql://aureus:aureus@localhost:5432/aureus?schema=public" \
-            aureus-api:ci npx prisma migrate deploy
+            aureus-api:ci sh -lc 'npx prisma migrate deploy && npx prisma db seed'
 
       - name: Boot the API image and verify liveness + readiness
         run: |

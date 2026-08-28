@@ -63,7 +63,7 @@ describe('SearchTab', () => {
     renderSearchTab();
 
     expect(await screen.findByText('Community Grant')).toBeInTheDocument();
-    expect(mockedOpportunities.listOpportunities).toHaveBeenCalledWith('token-123', {});
+    expect(mockedOpportunities.listOpportunities).toHaveBeenCalledWith(null, {});
   });
 
   it('shows a "Load more" control only when another page exists, and appends on click', async () => {

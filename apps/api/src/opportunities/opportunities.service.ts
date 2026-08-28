@@ -60,11 +60,13 @@ export class OpportunitiesService {
   async findAll(query: ListOpportunitiesQueryDto): Promise<PaginatedOpportunitiesResponseDto> {
     const page  = query.page  ?? 1;
     const limit = query.limit ?? 20;
-    // Default: only show VERIFIED opportunities to general audience
+    // General/member surfaces default to current VERIFIED + ACTIVE records.
+    // Admin/review callers can still request another status explicitly.
     const verificationStatus = query.verificationStatus ?? VerificationStatus.VERIFIED;
+    const status = query.status ?? OpportunityStatus.ACTIVE;
 
     const result = await this.repo.findAll({
-      page, limit, verificationStatus,
+      page, limit, verificationStatus, status,
       q:              query.q,
       category:       query.category,
       benefitType:    query.benefitType,
@@ -72,7 +74,6 @@ export class OpportunitiesService {
       country:        query.country,
       state:          query.state,
       tags:           query.tags,
-      status:         query.status,
       deadlineFilter: query.deadlineFilter,
       sortBy:         query.sortBy,
       sortOrder:      query.sortOrder,

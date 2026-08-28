@@ -6,6 +6,7 @@ import {
   OpportunityLinkRegistryService,
 } from './opportunity-link-registry.service';
 import type { OpportunityResponseDto } from './dto/opportunity-response.dto';
+import type { OpportunityProviderAdapterRegistryService } from './providers/opportunity-provider-adapter';
 
 const NOW = new Date();
 
@@ -132,5 +133,38 @@ describe('OpportunityLinkRegistryService', () => {
     const result = await service.findBestAction('I need warehouse work. show me where to sign up');
 
     expect(result.action?.opportunityId).toBe('opp-relevant');
+  });
+
+  it('decorates only the member-first winner after ranking is complete', async () => {
+    const selected = opportunity({
+      id: 'opp-selected', provider: 'Member-Relevant Provider', title: 'Warehouse Job', freshnessScore: 20,
+    });
+    const generic = opportunity({
+      id: 'opp-generic', provider: 'Generic Provider', title: 'General Employment Listing',
+      shortDescription: 'Open role.', freshnessScore: 100, applicationUrl: 'https://example.org/generic',
+    });
+    opportunities.findAll.mockResolvedValue({
+      data: [generic, selected], total: 2, page: 1, limit: 50,
+    });
+
+    const providerAdapters = {
+      decorate: jest.fn((_opportunity, action) => ({
+        ...action,
+        url: 'https://ref.example/selected',
+        referralUrl: 'https://ref.example/selected',
+        affiliateDisclosure: 'Disclosure',
+      })),
+    } as unknown as jest.Mocked<OpportunityProviderAdapterRegistryService>;
+    const wiredService = new OpportunityLinkRegistryService(opportunities, providerAdapters);
+
+    const result = await wiredService.findBestAction('I need warehouse work. show me where to sign up');
+
+    expect(result.action?.opportunityId).toBe('opp-selected');
+    expect(result.action?.referralUrl).toBe('https://ref.example/selected');
+    expect(providerAdapters.decorate).toHaveBeenCalledTimes(1);
+    expect(providerAdapters.decorate).toHaveBeenCalledWith(
+      selected,
+      expect.objectContaining({ opportunityId: 'opp-selected', referralUrl: null }),
+    );
   });
 });

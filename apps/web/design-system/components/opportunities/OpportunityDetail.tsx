@@ -5,7 +5,7 @@ import styles from './OpportunityDetail.module.css';
 export interface OpportunityDetailProps {
   opportunity: OpportunityDto;
   saved: boolean;
-  onToggleSave: () => void;
+  onToggleSave?: () => void;
 }
 
 /**
@@ -21,10 +21,23 @@ export function OpportunityDetail({ opportunity, saved, onToggleSave }: Opportun
       <p className={styles.provider}>{opportunity.provider}</p>
       <p className={styles.description}>{opportunity.fullDescription}</p>
 
+      {opportunity.benefitAmount ? (
+        <section className={styles.section}>
+          <h3 className={styles.sectionTitle}>What it may be worth</h3>
+          <p className={styles.value}>{opportunity.benefitAmount}</p>
+        </section>
+      ) : null}
+
       <section className={styles.section}>
         <h3 className={styles.sectionTitle}>Eligibility</h3>
         <p>{opportunity.eligibilityRules}</p>
       </section>
+
+      {opportunity.dateLastVerified ? (
+        <p className={styles.verified}>
+          Source rechecked {new Date(opportunity.dateLastVerified).toLocaleDateString(undefined, { dateStyle: 'medium' })}
+        </p>
+      ) : null}
 
       {opportunity.deadline ? (
         <p className={styles.deadline}>
@@ -33,9 +46,11 @@ export function OpportunityDetail({ opportunity, saved, onToggleSave }: Opportun
       ) : null}
 
       <div className={styles.actions}>
-        <Button variant="secondary" onClick={onToggleSave} aria-pressed={saved}>
-          {saved ? 'Saved' : 'Save for later'}
-        </Button>
+        {onToggleSave ? (
+          <Button variant="secondary" onClick={onToggleSave} aria-pressed={saved}>
+            {saved ? 'Saved' : 'Save for later'}
+          </Button>
+        ) : null}
         <a
           className={styles.sourceLink}
           href={opportunity.applicationUrl ?? opportunity.officialSourceUrl}

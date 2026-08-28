@@ -79,11 +79,22 @@ describe('OpportunitiesService', () => {
   });
 
   describe('findAll', () => {
-    it('defaults verificationStatus to VERIFIED', async () => {
+    it('defaults member search to VERIFIED + ACTIVE', async () => {
       mockRepo.findAll.mockResolvedValue({ data: [], total: 0, page: 1, limit: 20 });
       await service.findAll({});
       expect(mockRepo.findAll).toHaveBeenCalledWith(
-        expect.objectContaining({ verificationStatus: VerificationStatus.VERIFIED }),
+        expect.objectContaining({
+          verificationStatus: VerificationStatus.VERIFIED,
+          status: OpportunityStatus.ACTIVE,
+        }),
+      );
+    });
+
+    it('preserves an explicitly requested non-active status for moderator/review callers', async () => {
+      mockRepo.findAll.mockResolvedValue({ data: [], total: 0, page: 1, limit: 20 });
+      await service.findAll({ status: OpportunityStatus.ARCHIVED });
+      expect(mockRepo.findAll).toHaveBeenCalledWith(
+        expect.objectContaining({ status: OpportunityStatus.ARCHIVED }),
       );
     });
 

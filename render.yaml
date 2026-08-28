@@ -56,7 +56,13 @@ services:
     # run the wrapper script manually from a deploy host per
     # docs/operations/production-runbook.md §4 before a migration you
     # want an extra manual safety net around.
-    preDeployCommand: npx prisma migrate deploy
+    # Founder Pilot also synchronizes the reviewed launch Opportunity catalog.
+    # The catalog seed is idempotent and its exact-title records are explicitly
+    # seed-managed: every value carries its researched-at timestamp, closed
+    # seasonal entries are retired, and public City Sheet candidates remain
+    # UNVERIFIED. This makes a deployed reviewed SHA carry the same opportunity
+    # truth CI reviewed instead of requiring an undocumented manual seed step.
+    preDeployCommand: npx prisma migrate deploy && npx prisma db seed
     envVars:
       - key: NODE_ENV
         value: production

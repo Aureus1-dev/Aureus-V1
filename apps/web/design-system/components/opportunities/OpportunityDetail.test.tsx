@@ -9,7 +9,7 @@ const opportunity: OpportunityDto = {
   fullDescription: 'A grant for the community, covering rent and utilities.', category: 'GRANT', tags: [],
   provider: 'City Hall', officialSourceUrl: 'https://example.com/source', applicationUrl: 'https://example.com/apply',
   location: null, country: null, state: null, eligibilityRules: 'Open to residents of the city.', benefitType: 'GRANT',
-  benefitAmount: null, deadline: '2026-08-01T00:00:00.000Z', status: 'ACTIVE', verificationStatus: 'VERIFIED',
+  benefitAmount: '$500', deadline: '2026-08-01T00:00:00.000Z', status: 'ACTIVE', verificationStatus: 'VERIFIED',
   rejectionReason: null, confidenceScore: 90, freshnessScore: 90, datePublished: null, dateLastVerified: null,
   sourceName: 'City Hall', sourceUrl: null, sourceType: 'ADMIN_ENTRY', submittedById: 'admin-1', createdById: 'admin-1',
   lastUpdatedById: 'admin-1', createdAt: 'x', updatedAt: 'x', deletedAt: null,
@@ -23,6 +23,8 @@ describe('OpportunityDetail', () => {
     expect(screen.getByText('A grant for the community, covering rent and utilities.')).toBeInTheDocument();
     expect(screen.getByText('Open to residents of the city.')).toBeInTheDocument();
     expect(screen.getByText(/Deadline/)).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'What it may be worth' })).toBeInTheDocument();
+    expect(screen.getByText('$500')).toBeInTheDocument();
 
     const sourceLink = screen.getByRole('link', { name: 'View official source' });
     expect(sourceLink).toHaveAttribute('href', 'https://example.com/apply');

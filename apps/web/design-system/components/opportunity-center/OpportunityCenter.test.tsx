@@ -76,7 +76,7 @@ describe('OpportunityCenter', () => {
     mockedRecommendations.listRecommendations.mockResolvedValue({ data: [], total: 0, page: 1, limit: 20, totalPages: 0 });
   });
 
-  it('asks a signed-out visitor to sign in', () => {
+  it('lets a signed-out visitor search verified opportunities without exposing member-only controls', async () => {
     render(
       <SessionProvider>
         <OpportunitiesProvider>
@@ -86,7 +86,16 @@ describe('OpportunityCenter', () => {
         </OpportunitiesProvider>
       </SessionProvider>,
     );
-    expect(screen.getByText('Sign in to see the Opportunity Center')).toBeInTheDocument();
+
+    expect(await screen.findByText('Community Grant')).toBeInTheDocument();
+    expect(mockedOpportunities.listOpportunities).toHaveBeenCalledWith(null, {});
+    expect(screen.getByRole('tab', { name: 'Search' })).toBeInTheDocument();
+    expect(screen.queryByRole('tab', { name: 'Saved' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('tab', { name: 'Recommended' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Save' })).not.toBeInTheDocument();
+    expect(
+      screen.getByText(/search verified opportunities without an account/i),
+    ).toBeInTheDocument();
   });
 
   it(

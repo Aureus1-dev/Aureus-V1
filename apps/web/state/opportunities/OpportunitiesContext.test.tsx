@@ -68,7 +68,7 @@ describe('OpportunitiesContext', () => {
       await getApi().search({ q: 'grant' });
     });
 
-    expect(mockedOpportunities.listOpportunities).toHaveBeenCalledWith('token-123', { q: 'grant' });
+    expect(mockedOpportunities.listOpportunities).toHaveBeenCalledWith(null, { q: 'grant' });
     expect(getApi().state.results).toEqual([opportunity]);
     expect(getApi().state.meta).toEqual({ page: 1, limit: 20, total: 1, totalPages: 1 });
   });
@@ -140,7 +140,7 @@ describe('OpportunitiesContext', () => {
       await getApi().loadMore();
     });
 
-    expect(mockedOpportunities.listOpportunities).toHaveBeenLastCalledWith('token-123', { q: 'grant', page: 2 });
+    expect(mockedOpportunities.listOpportunities).toHaveBeenLastCalledWith(null, { q: 'grant', page: 2 });
     expect(getApi().state.results).toEqual([opportunity, opportunity2]);
     expect(getApi().state.meta).toEqual({ page: 2, limit: 1, total: 2, totalPages: 2 });
   });

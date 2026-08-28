@@ -9,7 +9,7 @@ const opportunity = {
   id: 'opp-1', opportunityRef: 'AUR-OPP-000001', title: 'Community Grant', shortDescription: 'A grant for the community.',
   fullDescription: 'Full details.', category: 'GRANT' as const, tags: [], provider: 'City Hall',
   officialSourceUrl: 'https://example.com', applicationUrl: null, location: null, country: null, state: null,
-  eligibilityRules: 'Open to all', benefitType: 'GRANT' as const, benefitAmount: null, deadline: '2026-08-01T00:00:00.000Z',
+  eligibilityRules: 'Open to all', benefitType: 'GRANT' as const, benefitAmount: '$500', deadline: '2026-08-01T00:00:00.000Z',
   status: 'ACTIVE' as const, verificationStatus: 'VERIFIED' as const, rejectionReason: null, confidenceScore: 90,
   freshnessScore: 90, datePublished: null, dateLastVerified: null, sourceName: 'City Hall', sourceUrl: null,
   sourceType: 'ADMIN_ENTRY' as const, submittedById: 'admin-1', createdById: 'admin-1', lastUpdatedById: 'admin-1',
@@ -25,6 +25,7 @@ describe('OpportunityCard', () => {
     expect(screen.getByText('Community Grant')).toBeInTheDocument();
     expect(screen.getByText('Grant')).toBeInTheDocument();
     expect(screen.getByText(/Deadline/)).toBeInTheDocument();
+    expect(screen.getByText('$500')).toBeInTheDocument();
 
     await userEvent.click(screen.getByRole('button', { name: 'Save' }));
     expect(onToggleSave).toHaveBeenCalledTimes(1);

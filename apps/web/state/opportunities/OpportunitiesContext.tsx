@@ -139,10 +139,13 @@ export function OpportunitiesProvider({ children }: { children: React.ReactNode 
 
   const search = useCallback(
     async (params: ListOpportunitiesParams) => {
-      if (!session.accessToken) return;
       dispatch({ type: 'search/start', query: params });
       try {
-        const result = await listOpportunities(session.accessToken, params);
+        // Discovery is intentionally public and constrained server-side to
+        // VERIFIED + ACTIVE. Do not couple catalog reads to auth hydration:
+        // otherwise the same search fires once as guest and again when a
+        // member token appears.
+        const result = await listOpportunities(null, params);
         dispatch({
           type: 'search/success',
           results: result.data,
@@ -152,16 +155,16 @@ export function OpportunitiesProvider({ children }: { children: React.ReactNode 
         dispatch({ type: 'error', error: classifyError(error) });
       }
     },
-    [session.accessToken],
+    [],
   );
 
   const loadMore = useCallback(async () => {
-    if (!session.accessToken || !state.meta || state.isLoadingMore) return;
+    if (!state.meta || state.isLoadingMore) return;
     if (state.meta.page >= state.meta.totalPages) return;
     dispatch({ type: 'more/start' });
     try {
       const nextPage = state.meta.page + 1;
-      const result = await listOpportunities(session.accessToken, { ...state.query, page: nextPage });
+      const result = await listOpportunities(null, { ...state.query, page: nextPage });
       dispatch({
         type: 'more/success',
         results: result.data,
@@ -170,7 +173,7 @@ export function OpportunitiesProvider({ children }: { children: React.ReactNode 
     } catch (error) {
       dispatch({ type: 'error', error: classifyError(error) });
     }
-  }, [session.accessToken, state.meta, state.query, state.isLoadingMore]);
+  }, [state.meta, state.query, state.isLoadingMore]);
 
   const loadSaved = useCallback(async () => {
     if (!session.accessToken || !session.memberId) return;

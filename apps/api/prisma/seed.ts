@@ -86,8 +86,10 @@ main().catch((error: unknown) => {
 async function runPilotSeed(prisma: PrismaClient): Promise<void> {
   const result = await seedPilotData(prisma);
   console.log(
-    `Pilot seed: ${result.citySheetCreated.length} City Sheet candidate(s) and ` +
-      `${result.opportunitiesCreated.length} opportunity(ies) created; ` +
-      `${result.citySheetSkipped.length + result.opportunitiesSkipped.length} already present.`,
+    `Pilot seed: ${result.citySheetCreated.length} City Sheet candidate(s); ` +
+      `${result.opportunitiesCreated.length} opportunity(ies) created, ` +
+      `${result.opportunitiesUpdated.length} refreshed, ` +
+      `${result.opportunitiesRetired.length} retired; ` +
+      `${result.citySheetSkipped.length} City Sheet candidate(s) already present.`,
   );
 }

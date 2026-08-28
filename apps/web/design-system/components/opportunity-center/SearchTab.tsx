@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useOpportunities } from '../../../state';
+import { useOpportunities, useSession } from '../../../state';
 import { LoadingState } from '../LoadingState/LoadingState';
 import { ErrorState } from '../ErrorState/ErrorState';
 import { Button } from '../Button/Button';
@@ -24,6 +24,7 @@ import styles from './SearchTab.module.css';
  */
 export function SearchTab() {
   const opportunities = useOpportunities();
+  const { session } = useSession();
   const [filters, setFilters] = useState<OpportunityFiltersValue>({});
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
@@ -60,7 +61,7 @@ export function SearchTab() {
           <OpportunityDetail
             opportunity={selected}
             saved={opportunities.isSaved(selected.id)}
-            onToggleSave={() => void opportunities.toggleSave(selected.id)}
+            onToggleSave={session.isAuthenticated ? () => void opportunities.toggleSave(selected.id) : undefined}
           />
         </div>
       ) : (
@@ -76,7 +77,7 @@ export function SearchTab() {
                   key={opportunity.id}
                   opportunity={opportunity}
                   saved={opportunities.isSaved(opportunity.id)}
-                  onToggleSave={() => void opportunities.toggleSave(opportunity.id)}
+                  onToggleSave={session.isAuthenticated ? () => void opportunities.toggleSave(opportunity.id) : undefined}
                   onOpen={() => setSelectedId(opportunity.id)}
                 />
               ))}

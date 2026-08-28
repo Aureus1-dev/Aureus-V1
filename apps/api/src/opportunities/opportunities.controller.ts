@@ -5,7 +5,7 @@ import {
 import {
   ApiBearerAuth, ApiBody, ApiOperation, ApiParam, ApiResponse, ApiTags,
 } from '@nestjs/swagger';
-import { UserRole } from '@prisma/client';
+import { OpportunityStatus, UserRole, VerificationStatus } from '@prisma/client';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { OptionalJwtAuthGuard } from '../auth/guards/optional-jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
@@ -49,10 +49,23 @@ export class OpportunitiesController {
   }
 
   @Get()
-  @ApiOperation({ summary: 'List/search opportunities (default: VERIFIED only)' })
+  @UseGuards(OptionalJwtAuthGuard)
+  @ApiOperation({ summary: 'List/search opportunities (public/member: VERIFIED + ACTIVE only)' })
   @ApiResponse({ status: 200, type: PaginatedOpportunitiesResponseDto })
-  findAll(@Query() q: ListOpportunitiesQueryDto): Promise<PaginatedOpportunitiesResponseDto> {
-    return this.service.findAll(q);
+  findAll(
+    @Query() q: ListOpportunitiesQueryDto,
+    @CurrentUser() caller?: AuthenticatedUser,
+  ): Promise<PaginatedOpportunitiesResponseDto> {
+    const canReviewNonPublic = MODERATOR_ROLES.some((role) => caller?.roles.includes(role));
+    return this.service.findAll(
+      canReviewNonPublic
+        ? q
+        : {
+            ...q,
+            status: OpportunityStatus.ACTIVE,
+            verificationStatus: VerificationStatus.VERIFIED,
+          },
+    );
   }
 
   @Get('by-ref/:ref')
