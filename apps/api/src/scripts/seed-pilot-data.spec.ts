@@ -7,8 +7,8 @@ describe('seedPilotData launch-opportunity synchronization', () => {
     let sequence = 100;
     const first = PILOT_OPPORTUNITY_SEEDS[0];
 
-    const opportunityFindFirst = jest.fn(async (args: { where: Record<string, any> }) => {
-      const title = args.where.title?.equals;
+    const opportunityFindFirst = jest.fn(async (args: { where: Record<string, unknown> }) => {
+      const title = (args.where.title as { equals?: string } | undefined)?.equals;
       if (title === first.title) return { id: 'existing-first' };
       if (title === 'LIHEAP — Help With Heating and Utility Bills') return { id: 'old-liheap' };
       return null;
