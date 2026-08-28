@@ -2,55 +2,27 @@ import { Injectable } from '@nestjs/common';
 import type { OpportunityActionResponseDto } from '../dto/opportunity-action-response.dto';
 import type { OpportunityResponseDto } from '../dto/opportunity-response.dto';
 
-export type TemporaryOpportunityProviderKey = 'scrambly' | 'bigcashweb' | 'swagbucks';
-
-interface TemporaryProviderConfig {
-  key: TemporaryOpportunityProviderKey;
-  providerAliases: readonly string[];
-  referralUrlEnv: 'SCRAMBLY_REFERRAL_URL' | 'BIGCASHWEB_REFERRAL_URL' | 'SWAGBUCKS_REFERRAL_URL';
-}
-
-export interface OpportunityProviderAdapter {
-  readonly key: TemporaryOpportunityProviderKey;
-  readonly railKind: 'temporary';
-  matches(opportunity: OpportunityResponseDto): boolean;
-  decorate(action: OpportunityActionResponseDto): OpportunityActionResponseDto;
-}
+const COMMERCIAL_DESTINATIONS_ENV = 'OPPORTUNITY_COMMERCIAL_DESTINATIONS_JSON';
 
 const AFFILIATE_DISCLOSURE =
-  'Aureus may receive compensation if you use this referral link. This does not affect which opportunity we recommend.';
+  'Aureus may receive compensation if you use this link. This does not affect which opportunity we recommend.';
 
-const TEMPORARY_PROVIDER_CONFIGS: readonly TemporaryProviderConfig[] = [
-  {
-    key: 'scrambly',
-    providerAliases: ['scrambly'],
-    referralUrlEnv: 'SCRAMBLY_REFERRAL_URL',
-  },
-  {
-    key: 'bigcashweb',
-    providerAliases: ['bigcashweb', 'big cash web'],
-    referralUrlEnv: 'BIGCASHWEB_REFERRAL_URL',
-  },
-  {
-    key: 'swagbucks',
-    providerAliases: ['swagbucks', 'swag bucks'],
-    referralUrlEnv: 'SWAGBUCKS_REFERRAL_URL',
-  },
-];
+type CommercialDestinationMap = Record<string, string>;
 
 /**
- * Issue #95 §2 — temporary Opportunity Center rails.
+ * Issue #95 §2 — provider-neutral commercial destination seam.
  *
- * These adapters are intentionally post-selection decorators. The Opportunity
- * Link Registry first chooses the member-relevant VERIFIED + ACTIVE
- * Opportunity using canonical opportunity data only. Only after that choice is
- * complete may a matching adapter substitute a configured referral
- * destination and attach disclosure. Referral economics therefore cannot
- * improve rank or make an otherwise unsafe/stale opportunity actionable.
+ * Aureus does not need a commercial relationship in order to help. The
+ * Opportunity Link Registry first chooses the member-relevant VERIFIED +
+ * ACTIVE Opportunity from canonical data. Only after selection is complete
+ * may this adapter replace that exact canonical destination with an approved
+ * HTTPS commercial/referral destination and attach disclosure.
  *
- * This seam is deliberately replaceable: a future Aureus-owned/direct
- * relationship can implement the same adapter contract without changing Hall
- * response DTOs or member UX.
+ * Configuration is keyed by the exact canonical URL rather than provider name,
+ * so the seam works for a bank, employer, benefit partner, future Aureus direct
+ * relationship, or any other approved destination without changing Hall or
+ * adding provider-specific code. Missing, malformed, mismatched, or unsafe
+ * configuration fails closed to the official canonical action.
  */
 @Injectable()
 export class OpportunityProviderAdapterRegistryService {
@@ -58,57 +30,52 @@ export class OpportunityProviderAdapterRegistryService {
     opportunity: OpportunityResponseDto,
     action: OpportunityActionResponseDto,
   ): OpportunityActionResponseDto {
-    return applyTemporaryProviderRail(opportunity, action, process.env);
+    return applyCommercialDestination(opportunity, action, process.env);
   }
 }
 
-export function applyTemporaryProviderRail(
-  opportunity: OpportunityResponseDto,
+export function applyCommercialDestination(
+  _opportunity: OpportunityResponseDto,
   action: OpportunityActionResponseDto,
   env: NodeJS.ProcessEnv,
 ): OpportunityActionResponseDto {
   if (action.status !== 'verified') return action;
 
-  const adapters = TEMPORARY_PROVIDER_CONFIGS.map(
-    (config) => new EnvironmentReferralProviderAdapter(config, env),
-  );
-  const adapter = adapters.find((candidate) => candidate.matches(opportunity));
+  const canonicalUrl = safeHttpsUrl(action.canonicalUrl);
+  if (!canonicalUrl) return action;
 
-  return adapter ? adapter.decorate(action) : action;
+  const destinations = parseCommercialDestinationMap(env[COMMERCIAL_DESTINATIONS_ENV]);
+  const configured = destinations[canonicalUrl];
+  const commercialUrl = safeHttpsUrl(configured);
+  if (!commercialUrl) return action;
+
+  return {
+    ...action,
+    url: commercialUrl,
+    referralUrl: commercialUrl,
+    affiliateDisclosure: AFFILIATE_DISCLOSURE,
+  };
 }
 
-class EnvironmentReferralProviderAdapter implements OpportunityProviderAdapter {
-  readonly railKind = 'temporary' as const;
+function parseCommercialDestinationMap(value: string | undefined): CommercialDestinationMap {
+  if (!value) return {};
 
-  constructor(
-    private readonly config: TemporaryProviderConfig,
-    private readonly env: NodeJS.ProcessEnv,
-  ) {}
+  try {
+    const parsed: unknown = JSON.parse(value);
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return {};
 
-  get key(): TemporaryOpportunityProviderKey {
-    return this.config.key;
+    const result: CommercialDestinationMap = {};
+    for (const [rawCanonical, rawCommercial] of Object.entries(parsed as Record<string, unknown>)) {
+      if (typeof rawCommercial !== 'string') continue;
+      const canonical = safeHttpsUrl(rawCanonical);
+      const commercial = safeHttpsUrl(rawCommercial);
+      if (!canonical || !commercial) continue;
+      result[canonical] = commercial;
+    }
+    return result;
+  } catch {
+    return {};
   }
-
-  matches(opportunity: OpportunityResponseDto): boolean {
-    const provider = normalizeProvider(opportunity.provider);
-    return this.config.providerAliases.some((alias) => normalizeProvider(alias) === provider);
-  }
-
-  decorate(action: OpportunityActionResponseDto): OpportunityActionResponseDto {
-    const referralUrl = safeHttpsUrl(this.env[this.config.referralUrlEnv]);
-    if (!referralUrl) return action;
-
-    return {
-      ...action,
-      url: referralUrl,
-      referralUrl,
-      affiliateDisclosure: AFFILIATE_DISCLOSURE,
-    };
-  }
-}
-
-function normalizeProvider(value: string): string {
-  return value.toLowerCase().replace(/[^a-z0-9]/g, '');
 }
 
 function safeHttpsUrl(value: string | undefined): string | null {
