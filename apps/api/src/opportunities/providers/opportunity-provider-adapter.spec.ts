@@ -1,26 +1,26 @@
 import { BenefitType, OpportunityCategory, OpportunityStatus, SourceType, VerificationStatus } from '@prisma/client';
 import type { OpportunityActionResponseDto } from '../dto/opportunity-action-response.dto';
 import type { OpportunityResponseDto } from '../dto/opportunity-response.dto';
-import { applyTemporaryProviderRail } from './opportunity-provider-adapter';
+import { applyCommercialDestination } from './opportunity-provider-adapter';
 
-const NOW = new Date('2026-08-27T12:00:00.000Z');
+const NOW = new Date('2026-08-28T12:28:00.000Z');
 
-function opportunity(provider: string): OpportunityResponseDto {
+function opportunity(provider = 'Official Provider'): OpportunityResponseDto {
   return {
     id: 'opp-1',
     opportunityRef: 'AUR-OPP-000001',
-    title: 'Earn extra money',
-    shortDescription: 'Complete offers for extra cash.',
-    fullDescription: 'Temporary provider rail fixture.',
+    title: 'High-value member opportunity',
+    shortDescription: 'Official opportunity.',
+    fullDescription: 'Official opportunity fixture.',
     category: OpportunityCategory.FINANCIAL_ASSISTANCE,
-    tags: ['cash', 'offers'],
+    tags: ['member value'],
     provider,
     officialSourceUrl: 'https://provider.example/',
     applicationUrl: 'https://provider.example/signup',
     location: null,
     country: 'US',
     state: null,
-    eligibilityRules: 'See provider terms.',
+    eligibilityRules: 'See official terms.',
     benefitType: BenefitType.OTHER,
     benefitAmount: null,
     deadline: null,
@@ -31,7 +31,7 @@ function opportunity(provider: string): OpportunityResponseDto {
     freshnessScore: 90,
     datePublished: NOW,
     dateLastVerified: NOW,
-    sourceName: 'Provider site',
+    sourceName: 'Official source',
     sourceUrl: 'https://provider.example/',
     sourceType: SourceType.EXTERNAL_SOURCE,
     submittedById: '00000000-0000-0000-0000-000000000001',
@@ -47,95 +47,87 @@ function action(): OpportunityActionResponseDto {
   return {
     opportunityId: 'opp-1',
     opportunityRef: 'AUR-OPP-000001',
-    title: 'Earn extra money',
-    provider: 'Provider',
+    title: 'High-value member opportunity',
+    provider: 'Official Provider',
     url: 'https://provider.example/signup',
     canonicalUrl: 'https://provider.example/signup',
     referralUrl: null,
     affiliateDisclosure: null,
-    eligibility: 'See provider terms.',
+    eligibility: 'See official terms.',
     geography: 'US',
     payoutNotes: null,
     timeToCashNotes: null,
     status: 'verified',
     lastVerifiedAt: NOW,
-    sourceName: 'Provider site',
+    sourceName: 'Official source',
     sourceUrl: 'https://provider.example/',
     sourceType: SourceType.EXTERNAL_SOURCE,
   };
 }
 
-describe('temporary Opportunity provider adapters — Issue #95 §2', () => {
-  it('decorates Scrambly only when a founder-supplied HTTPS referral URL is configured', () => {
-    const result = applyTemporaryProviderRail(
-      opportunity('Scrambly'),
-      action(),
-      { SCRAMBLY_REFERRAL_URL: 'https://go.example/scrambly-ref' },
-    );
+describe('provider-neutral Opportunity commercial destinations — Issue #95 §2', () => {
+  it('decorates an already-selected verified action only on an exact canonical URL match', () => {
+    const result = applyCommercialDestination(opportunity(), action(), {
+      OPPORTUNITY_COMMERCIAL_DESTINATIONS_JSON: JSON.stringify({
+        'https://provider.example/signup': 'https://partner.example/ref',
+      }),
+    });
 
-    expect(result.url).toBe('https://go.example/scrambly-ref');
+    expect(result.url).toBe('https://partner.example/ref');
     expect(result.canonicalUrl).toBe('https://provider.example/signup');
-    expect(result.referralUrl).toBe('https://go.example/scrambly-ref');
+    expect(result.referralUrl).toBe('https://partner.example/ref');
     expect(result.affiliateDisclosure).toMatch(/does not affect which opportunity we recommend/i);
   });
 
-  it('supports BigCashWeb without coupling Hall to provider-specific UX', () => {
-    const result = applyTemporaryProviderRail(
-      opportunity('Big Cash Web'),
-      action(),
-      { BIGCASHWEB_REFERRAL_URL: 'https://go.example/bigcash-ref' },
-    );
+  it('is provider-neutral: provider identity does not control whether the exact destination can be decorated', () => {
+    const env = {
+      OPPORTUNITY_COMMERCIAL_DESTINATIONS_JSON: JSON.stringify({
+        'https://provider.example/signup': 'https://partner.example/ref',
+      }),
+    };
 
-    expect(result.url).toBe('https://go.example/bigcash-ref');
-    expect(result.referralUrl).toBe('https://go.example/bigcash-ref');
+    expect(applyCommercialDestination(opportunity('Bank'), action(), env).referralUrl).toBe('https://partner.example/ref');
+    expect(applyCommercialDestination(opportunity('Training Partner'), action(), env).referralUrl).toBe('https://partner.example/ref');
   });
 
-  it('leaves the canonical action untouched when no referral URL is supplied', () => {
+  it('leaves the canonical action untouched when no commercial destination is configured', () => {
     const original = action();
-    const result = applyTemporaryProviderRail(opportunity('Scrambly'), original, {});
-
-    expect(result).toEqual(original);
+    expect(applyCommercialDestination(opportunity(), original, {})).toEqual(original);
   });
 
-  it('fails closed on unsafe or non-HTTPS referral configuration', () => {
+  it('fails closed on malformed JSON, mismatched canonical URLs, and unsafe destinations', () => {
     const original = action();
 
-    expect(
-      applyTemporaryProviderRail(
-        opportunity('Scrambly'),
-        original,
-        { SCRAMBLY_REFERRAL_URL: 'javascript:alert(1)' },
-      ),
-    ).toEqual(original);
+    expect(applyCommercialDestination(opportunity(), original, {
+      OPPORTUNITY_COMMERCIAL_DESTINATIONS_JSON: '{bad json',
+    })).toEqual(original);
 
-    expect(
-      applyTemporaryProviderRail(
-        opportunity('Scrambly'),
-        original,
-        { SCRAMBLY_REFERRAL_URL: 'http://insecure.example/ref' },
-      ),
-    ).toEqual(original);
+    expect(applyCommercialDestination(opportunity(), original, {
+      OPPORTUNITY_COMMERCIAL_DESTINATIONS_JSON: JSON.stringify({
+        'https://different.example/signup': 'https://partner.example/ref',
+      }),
+    })).toEqual(original);
+
+    expect(applyCommercialDestination(opportunity(), original, {
+      OPPORTUNITY_COMMERCIAL_DESTINATIONS_JSON: JSON.stringify({
+        'https://provider.example/signup': 'javascript:alert(1)',
+      }),
+    })).toEqual(original);
+
+    expect(applyCommercialDestination(opportunity(), original, {
+      OPPORTUNITY_COMMERCIAL_DESTINATIONS_JSON: JSON.stringify({
+        'https://provider.example/signup': 'http://insecure.example/ref',
+      }),
+    })).toEqual(original);
   });
 
-  it('keeps Swagbucks optional until a verified/current rail is deliberately configured', () => {
-    const original = action();
-    expect(applyTemporaryProviderRail(opportunity('Swagbucks'), original, {})).toEqual(original);
-
-    const configured = applyTemporaryProviderRail(
-      opportunity('Swagbucks'),
-      original,
-      { SWAGBUCKS_REFERRAL_URL: 'https://go.example/swagbucks-ref' },
-    );
-    expect(configured.referralUrl).toBe('https://go.example/swagbucks-ref');
-  });
-
-  it('never decorates a stale action even if a referral URL is configured', () => {
+  it('never decorates a stale action even if a commercial destination exists', () => {
     const stale = { ...action(), status: 'stale' as const };
-    const result = applyTemporaryProviderRail(
-      opportunity('Scrambly'),
-      stale,
-      { SCRAMBLY_REFERRAL_URL: 'https://go.example/scrambly-ref' },
-    );
+    const result = applyCommercialDestination(opportunity(), stale, {
+      OPPORTUNITY_COMMERCIAL_DESTINATIONS_JSON: JSON.stringify({
+        'https://provider.example/signup': 'https://partner.example/ref',
+      }),
+    });
 
     expect(result).toEqual(stale);
   });
