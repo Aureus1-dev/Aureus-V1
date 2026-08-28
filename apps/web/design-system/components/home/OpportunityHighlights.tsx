@@ -18,14 +18,15 @@ export function OpportunityHighlights() {
 
   useEffect(() => {
     void search({ limit: HIGHLIGHT_LIMIT, sortBy: 'confidence', sortOrder: 'desc' });
-    // `search` is recreated (via useCallback) whenever the session access
-    // token changes, so depending on it here — rather than an empty array —
-    // re-fires this search once a token becomes available after mount
-    // instead of silently no-oping forever (the same bug class fixed in
-    // WelcomeFlow's loadGoals effect).
+    // Opportunity discovery is public and `search` is stable across auth
+    // hydration, so this runs once rather than fetching the same catalog
+    // again when a member token appears.
   }, [search]);
 
-  if (!state.isSearching && state.results.length === 0) {
+  // Do not render an empty highlights shell while the public catalog request
+  // is in flight or when it resolves empty. The home preview appears only once
+  // there is something useful to show.
+  if (state.results.length === 0) {
     return null;
   }
 
