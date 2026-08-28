@@ -318,6 +318,7 @@ export const PILOT_OPPORTUNITY_SEEDS: PilotOpportunitySeed[] = [
     category: OpportunityCategory.EMPLOYMENT,
     provider: 'City of Philadelphia / PowerCorpsPHL',
     officialSourceUrl: 'https://www.phila.gov/2026-08-03-new-home-repair-academy-creates-paid-pathway-to-skilled-trades-careers-while-supporting-mayor-parkers-h-o-m-e-initiative/',
+    applicationUrl: 'https://www.cognitoforms.com/PowerCorpsPHL1/Fall2026HomeRepairAcademy',
     eligibilityRules:
       'Applicants must be at least 18 and have a high-school diploma or equivalent. The City states no prior trades experience is required; the application process determines final admission.',
     benefitType: BenefitType.TRAINING,
