@@ -137,10 +137,10 @@ describe('OpportunityLinkRegistryService', () => {
 
   it('decorates only the member-first winner after ranking is complete', async () => {
     const selected = opportunity({
-      id: 'opp-selected', provider: 'Scrambly', title: 'Warehouse Job', freshnessScore: 20,
+      id: 'opp-selected', provider: 'Member-Relevant Provider', title: 'Warehouse Job', freshnessScore: 20,
     });
     const generic = opportunity({
-      id: 'opp-generic', provider: 'BigCashWeb', title: 'General Employment Listing',
+      id: 'opp-generic', provider: 'Generic Provider', title: 'General Employment Listing',
       shortDescription: 'Open role.', freshnessScore: 100, applicationUrl: 'https://example.org/generic',
     });
     opportunities.findAll.mockResolvedValue({
