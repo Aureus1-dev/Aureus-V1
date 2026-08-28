@@ -139,7 +139,6 @@ export function OpportunitiesProvider({ children }: { children: React.ReactNode 
 
   const search = useCallback(
     async (params: ListOpportunitiesParams) => {
-      if (!session.accessToken) return;
       dispatch({ type: 'search/start', query: params });
       try {
         const result = await listOpportunities(session.accessToken, params);
@@ -156,7 +155,7 @@ export function OpportunitiesProvider({ children }: { children: React.ReactNode 
   );
 
   const loadMore = useCallback(async () => {
-    if (!session.accessToken || !state.meta || state.isLoadingMore) return;
+    if (!state.meta || state.isLoadingMore) return;
     if (state.meta.page >= state.meta.totalPages) return;
     dispatch({ type: 'more/start' });
     try {
