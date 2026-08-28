@@ -21,10 +21,23 @@ export function OpportunityDetail({ opportunity, saved, onToggleSave }: Opportun
       <p className={styles.provider}>{opportunity.provider}</p>
       <p className={styles.description}>{opportunity.fullDescription}</p>
 
+      {opportunity.benefitAmount ? (
+        <section className={styles.section}>
+          <h3 className={styles.sectionTitle}>What it may be worth</h3>
+          <p className={styles.value}>{opportunity.benefitAmount}</p>
+        </section>
+      ) : null}
+
       <section className={styles.section}>
         <h3 className={styles.sectionTitle}>Eligibility</h3>
         <p>{opportunity.eligibilityRules}</p>
       </section>
+
+      {opportunity.dateLastVerified ? (
+        <p className={styles.verified}>
+          Source rechecked {new Date(opportunity.dateLastVerified).toLocaleDateString(undefined, { dateStyle: 'medium' })}
+        </p>
+      ) : null}
 
       {opportunity.deadline ? (
         <p className={styles.deadline}>
