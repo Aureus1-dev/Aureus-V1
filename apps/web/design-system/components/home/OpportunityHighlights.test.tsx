@@ -64,16 +64,25 @@ describe('OpportunityHighlights', () => {
 
     expect(await screen.findByText('Community Grant')).toBeInTheDocument();
     expect(screen.getByText('Job Training Program')).toBeInTheDocument();
-    expect(mockedOpportunities.listOpportunities).toHaveBeenCalledWith('token-123', {
+    expect(mockedOpportunities.listOpportunities).toHaveBeenCalledWith(null, {
       limit: 3, sortBy: 'confidence', sortOrder: 'desc',
     });
   });
 
-  it('renders nothing when there are no results', async () => {
-    mockedOpportunities.listOpportunities.mockResolvedValue({ data: [], total: 0, page: 1, limit: 3, totalPages: 0 });
+  it('renders no empty shell while loading and remains absent when there are no results', async () => {
+    let resolveSearch!: (value: Awaited<ReturnType<typeof opportunitiesApi.listOpportunities>>) => void;
+    mockedOpportunities.listOpportunities.mockReturnValue(
+      new Promise((resolve) => {
+        resolveSearch = resolve;
+      }),
+    );
+
     const { container } = renderHighlights();
     await waitFor(() => expect(mockedOpportunities.listOpportunities).toHaveBeenCalled());
     expect(container).toBeEmptyDOMElement();
+
+    resolveSearch({ data: [], total: 0, page: 1, limit: 3, totalPages: 0 });
+    await waitFor(() => expect(container).toBeEmptyDOMElement());
   });
 
   it('has no accessibility violations', async () => {
