@@ -50,6 +50,8 @@ describe('seedPilotData launch-opportunity synchronization', () => {
           dateLastVerified: new Date(first.verifiedAt),
           status: OpportunityStatus.ACTIVE,
           verificationStatus: VerificationStatus.VERIFIED,
+          confidenceScore: expect.any(Number),
+          freshnessScore: expect.any(Number),
         }),
       }),
     );
