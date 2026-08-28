@@ -48,13 +48,19 @@ describe('seedPilotData launch-opportunity synchronization', () => {
         where: { id: 'existing-first' },
         data: expect.objectContaining({
           dateLastVerified: new Date(first.verifiedAt),
-          status: OpportunityStatus.ACTIVE,
-          verificationStatus: VerificationStatus.VERIFIED,
           confidenceScore: expect.any(Number),
           freshnessScore: expect.any(Number),
         }),
       }),
     );
+
+    const refreshedExistingCall = opportunityUpdate.mock.calls.find(
+      ([args]) => (args as { where?: { id?: string } }).where?.id === 'existing-first',
+    )?.[0] as { data: Record<string, unknown> } | undefined;
+    expect(refreshedExistingCall?.data).not.toHaveProperty('status');
+    expect(refreshedExistingCall?.data).not.toHaveProperty('verificationStatus');
+    expect(refreshedExistingCall?.data).not.toHaveProperty('createdById');
+    expect(refreshedExistingCall?.data).not.toHaveProperty('submittedById');
 
     expect(opportunityUpdate).toHaveBeenCalledWith({
       where: { id: 'old-liheap' },
