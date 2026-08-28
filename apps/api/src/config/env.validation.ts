@@ -50,13 +50,11 @@ export const envValidationSchema = Joi.object({
   SMTP_FROM_EMAIL: Joi.string().default('no-reply@aureus.app'),
   FRONTEND_URL:    Joi.string().default('http://localhost:3001'),
 
-  // ── Opportunity Center temporary provider rails (Issue #95 §2) ─────────
-  // Optional by design. A provider remains on its canonical verified URL until
-  // the Founder supplies a public HTTPS referral URL. Invalid/insecure values
-  // fail env validation rather than silently becoming member-facing actions.
-  SCRAMBLY_REFERRAL_URL:  Joi.string().uri({ scheme: ['https'] }).empty('').optional(),
-  BIGCASHWEB_REFERRAL_URL: Joi.string().uri({ scheme: ['https'] }).empty('').optional(),
-  SWAGBUCKS_REFERRAL_URL: Joi.string().uri({ scheme: ['https'] }).empty('').optional(),
+  // ── Opportunity Center commercial destinations (Issue #95 §2) ──────────
+  // Optional provider-neutral JSON map: exact canonical HTTPS URL -> approved
+  // commercial/referral HTTPS URL. Runtime parsing validates every entry and
+  // fails closed to the canonical action on malformed/mismatched/unsafe data.
+  OPPORTUNITY_COMMERCIAL_DESTINATIONS_JSON: Joi.string().empty('').max(12_000).optional(),
 
   // ── AI Intelligence Engine (ADR-015, hardened PD-001) ────────────────────
   AI_PROVIDER: Joi.when('NODE_ENV', {
