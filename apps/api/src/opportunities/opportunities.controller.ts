@@ -49,7 +49,7 @@ export class OpportunitiesController {
   }
 
   @Get()
-  @ApiOperation({ summary: 'List/search opportunities (default: VERIFIED only)' })
+  @ApiOperation({ summary: 'List/search opportunities (default: VERIFIED + ACTIVE only)' })
   @ApiResponse({ status: 200, type: PaginatedOpportunitiesResponseDto })
   findAll(@Query() q: ListOpportunitiesQueryDto): Promise<PaginatedOpportunitiesResponseDto> {
     return this.service.findAll(q);
