@@ -59,3 +59,16 @@
   font-size: var(--font-size-sm);
   color: var(--color-action-primary);
 }
+
+.value {
+  margin: 0;
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+}
+
+.verified {
+  margin: 0;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-tertiary);
+}
