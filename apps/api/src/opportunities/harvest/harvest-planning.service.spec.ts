@@ -240,6 +240,33 @@ describe('HarvestPlanningService', () => {
     expect(repo.updateItem).not.toHaveBeenCalled();
   });
 
+  it('allows withdrawal settlement after stop without reopening gambling execution', async () => {
+    const stoppedWithSettlement = {
+      ...basePlan(HarvestPlanStatus.STOPPED),
+      items: [
+        {
+          id: 'item-1',
+          status: HarvestItemStatus.REQUIREMENT_MET,
+        },
+      ],
+    } as unknown as HarvestPlanWithItems;
+    repo.findPlanByIdForUser
+      .mockResolvedValueOnce(stoppedWithSettlement)
+      .mockResolvedValueOnce(stoppedWithSettlement);
+
+    await service.requestWithdrawal('user-1', 'plan-1', 'item-1', {
+      amountCents: 10_000,
+    });
+
+    expect(repo.updateItem).toHaveBeenCalledWith(
+      'item-1',
+      expect.objectContaining({
+        status: HarvestItemStatus.WITHDRAWAL_REQUESTED,
+        withdrawalRequestedCents: 10_000,
+      }),
+    );
+  });
+
   it('rejects a confirmed withdrawal larger than the recorded request', async () => {
     const active = {
       ...basePlan(HarvestPlanStatus.ACTIVE),
