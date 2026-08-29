@@ -126,6 +126,11 @@ export class HarvestPlanningService {
         'Review the current operators and mark any offers you have already used before a harvest plan can start.',
       );
     }
+    if (!dto.attestsLegalParticipation) {
+      throw new ForbiddenException(
+        'Aureus cannot create a gambling-promotion plan without an explicit attestation that the member is legally permitted to participate and is not currently self-excluded.',
+      );
+    }
 
     const existing = await this.repo.findPlanForUser(userId, dto.taxYear);
     if (existing) {
@@ -318,6 +323,7 @@ export class HarvestPlanningService {
         memberAgeYears: dto.memberAgeYears,
         ageEligibilityAttestedAt: now,
         eligibilityReviewAttestedAt: now,
+        legalParticipationAttestedAt: now,
         bankrollLimitCents: dto.bankrollLimitCents,
         projectedLossLimitCents: dto.projectedLossLimitCents,
         timeLimitMinutes: dto.timeLimitMinutes,
