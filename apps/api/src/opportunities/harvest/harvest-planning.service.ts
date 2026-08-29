@@ -65,6 +65,16 @@ export class HarvestPlanningService {
       );
     }
 
+    if (
+      dto.legalStatus === HarvestLegalStatus.VERIFIED_REGULATED &&
+      dto.jurisdictionState.toUpperCase() === 'PA' &&
+      !this.isPennsylvaniaGamingControlBoardUrl(dto.licenseSourceUrl)
+    ) {
+      throw new BadRequestException(
+        'Pennsylvania gaming profiles require Pennsylvania Gaming Control Board license evidence before VERIFIED_REGULATED status.',
+      );
+    }
+
     const termsVerifiedAt = new Date(dto.termsVerifiedAt);
     if (termsVerifiedAt.getTime() > Date.now() + 5 * 60_000) {
       throw new BadRequestException(
@@ -861,6 +871,18 @@ export class HarvestPlanningService {
     return Math.ceil(
       remainingCents / (unitWagerCents * actionsPerMinute),
     );
+  }
+
+  private isPennsylvaniaGamingControlBoardUrl(value: string): boolean {
+    try {
+      const parsed = new URL(value);
+      return (
+        parsed.protocol === 'https:' &&
+        parsed.hostname === 'gamingcontrolboard.pa.gov'
+      );
+    } catch {
+      return false;
+    }
   }
 
   private assertOfferStillRunnable(
