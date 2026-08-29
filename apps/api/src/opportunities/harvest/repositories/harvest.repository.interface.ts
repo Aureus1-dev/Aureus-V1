@@ -121,6 +121,10 @@ export interface IHarvestRepository {
     verifiedAfter: Date,
     now: Date,
   ): Promise<HarvestProfileWithOpportunity[]>;
+  listProfilesForReview(
+    staleBefore: Date,
+    now: Date,
+  ): Promise<HarvestProfileWithOpportunity[]>;
   createPlan(data: HarvestPlanCreate): Promise<HarvestPlanWithItems>;
   findPlanForUser(
     userId: string,
