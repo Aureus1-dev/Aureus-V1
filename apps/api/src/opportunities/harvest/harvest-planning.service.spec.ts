@@ -127,6 +127,74 @@ describe('HarvestPlanningService', () => {
     expect(result.blockReasons.join(' ')).toMatch(/benefit impact/i);
   });
 
+  it('sequences by current after-tax value per minute rather than pre-tax headline value', async () => {
+    const fresh = new Date();
+    const opportunity = (id: string, title: string) => ({
+      id,
+      opportunityRef: `AUR-OPP-${id}`,
+      title,
+      provider: title,
+      officialSourceUrl: 'https://example.com/official',
+      applicationUrl: 'https://example.com/apply',
+    });
+    const profile = (
+      id: string,
+      projectedCashInCents: number,
+      projectedCashOutCents: number,
+      projectedTaxableWinningsCents: number,
+      projectedDeductibleLossesCents: number,
+    ) => ({
+      id,
+      minAge: 21,
+      bankrollRequiredCents: 100_000,
+      projectedCashInCents,
+      projectedCashOutCents,
+      projectedTaxableWinningsCents,
+      projectedDeductibleLossesCents,
+      playthroughRequiredCents: 0,
+      estimatedMinutes: 10,
+      termsSourceUrl: 'https://example.com/terms',
+      termsVerifiedAt: fresh,
+      expiresAt: null,
+      licenseAuthority: 'Pennsylvania Gaming Control Board',
+      licenseSourceUrl:
+        'https://gamingcontrolboard.pa.gov/online-sports-wagering-licensed-operators',
+      legalStatus: HarvestLegalStatus.VERIFIED_REGULATED,
+      profileVersion: 1,
+      executionInstructions: ['Follow the verified terms.'],
+      riskNotes: [],
+      opportunity: opportunity(`opp-${id}`, id),
+    });
+
+    repo.findPlanForUser.mockResolvedValue(null);
+    repo.listEligibleProfiles.mockResolvedValue([
+      profile('headline', 100_000, 0, 100_000, 0),
+      profile('tax-efficient', 197_000, 98_000, 99_000, 98_000),
+    ] as never);
+    repo.createPlan.mockResolvedValue(basePlan(HarvestPlanStatus.READY));
+
+    await service.createPlan('user-1', false, {
+      taxYear: 2026,
+      jurisdictionState: 'PA',
+      filingStatus: HarvestFilingStatus.SINGLE,
+      otherTaxableIncomeCents: 0,
+      benefitImpactStatus: HarvestBenefitImpactStatus.NOT_APPLICABLE,
+      bankrollLimitCents: 200_000,
+      projectedLossLimitCents: 200_000,
+      timeLimitMinutes: 120,
+      targetNetCents: 98_000,
+      memberAgeYears: 34,
+      attestsAgeAccuracy: true,
+      reviewedOfferEligibility: true,
+      attestsLegalParticipation: true,
+      acceptsStopRule: true,
+    });
+
+    const createArg = repo.createPlan.mock.calls[0][0];
+    expect(createArg.items).toHaveLength(1);
+    expect(createArg.items[0].offerProfileId).toBe('tax-efficient');
+  });
+
   it('enforces stop across all open items', async () => {
     repo.findPlanByIdForUser
       .mockResolvedValueOnce(basePlan(HarvestPlanStatus.ACTIVE))
