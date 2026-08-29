@@ -65,7 +65,10 @@ Do not include field values or a suggestedValue property.
 const SENSITIVE_FIELD_LABEL =
   /(password|passcode|\bpin\b|social security|\bssn\b|routing|bank account|account number|credit card|debit card|card number|\bcvv\b|\bcvc\b|security code|passport|driver.?s license|identity document|document number|signature|attest|certif|legal declaration)/i;
 
-function assertValidBase64(value: string): Buffer {
+function assertValidImageBytes(
+  value: string,
+  mediaType: AnalyzeGuidedApplicationFrameDto['mediaType'],
+): Buffer {
   if (!value || value.length % 4 !== 0 || !/^[A-Za-z0-9+/]+={0,2}$/.test(value)) {
     throw new BadRequestException('The shared screen frame is not valid base64 image data');
   }
@@ -73,6 +76,32 @@ function assertValidBase64(value: string): Buffer {
   if (bytes.length === 0 || bytes.length > MAX_FRAME_BYTES) {
     throw new BadRequestException(
       `The shared screen frame must be no larger than ${MAX_FRAME_BYTES} bytes after decoding`,
+    );
+  }
+
+  const isJpeg =
+    bytes.length >= 3 &&
+    bytes[0] === 0xff &&
+    bytes[1] === 0xd8 &&
+    bytes[2] === 0xff;
+  const isPng =
+    bytes.length >= 8 &&
+    bytes.subarray(0, 8).equals(
+      Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
+    );
+  const isWebp =
+    bytes.length >= 12 &&
+    bytes.subarray(0, 4).toString('ascii') === 'RIFF' &&
+    bytes.subarray(8, 12).toString('ascii') === 'WEBP';
+
+  const signatureMatches =
+    (mediaType === 'image/jpeg' && isJpeg) ||
+    (mediaType === 'image/png' && isPng) ||
+    (mediaType === 'image/webp' && isWebp);
+
+  if (!signatureMatches) {
+    throw new BadRequestException(
+      'The shared screen frame bytes do not match the declared image type',
     );
   }
   return bytes;
@@ -283,7 +312,7 @@ export class GuidedApplicationService {
     dto: AnalyzeGuidedApplicationFrameDto,
     caller: AuthenticatedUser,
   ): Promise<GuidedApplicationAnalysisResponseDto> {
-    assertValidBase64(dto.imageBase64);
+    assertValidImageBytes(dto.imageBase64, dto.mediaType);
     const session = await this.getOwnedActive(sessionId, caller.id);
     const now = new Date();
     if (

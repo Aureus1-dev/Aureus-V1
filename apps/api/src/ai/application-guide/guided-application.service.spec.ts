@@ -47,13 +47,21 @@ const activeSession = {
   opportunityId: 'cccccccc-cccc-4ccc-8ccc-cccccccccccc',
   applicationUrl: 'https://benefits.example.gov/apply',
   status: GuidedApplicationSessionStatus.ACTIVE,
-  screenCaptureConsentGrantedAt: new Date('2026-08-29T20:00:00.000Z'),
+  screenCaptureConsentGrantedAt: new Date(),
   screenCaptureConsentRevokedAt: null,
   lastFrameAnalyzedAt: null,
   endedAt: null,
   createdAt: new Date('2026-08-29T20:00:00.000Z'),
   updatedAt: new Date('2026-08-29T20:00:00.000Z'),
 };
+
+const JPEG_FRAME = Buffer.from([
+  0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10, 0x4a, 0x46, 0x49, 0x46,
+]).toString('base64');
+const PNG_FRAME = Buffer.from([
+  0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00, 0x00,
+]).toString('base64');
+const WEBP_FRAME = Buffer.from('RIFFxxxxWEBPscreen', 'ascii').toString('base64');
 
 const verifiedOpportunity = {
   id: activeSession.opportunityId,
@@ -122,6 +130,23 @@ describe('GuidedApplicationService', () => {
     expect(sessionCreate).not.toHaveBeenCalled();
   });
 
+  it('rejects base64 bytes that do not match the declared image type', async () => {
+    sessionFindFirst.mockResolvedValue(activeSession);
+
+    await expect(
+      service.analyzeFrame(
+        activeSession.id,
+        {
+          mediaType: 'image/png',
+          imageBase64: JPEG_FRAME,
+        },
+        USER,
+      ),
+    ).rejects.toThrow(/do not match the declared image type/i);
+
+    expect(aiRequests.runCompletion).not.toHaveBeenCalled();
+  });
+
   it('blocks frame analysis until explicit consent is active', async () => {
     sessionFindFirst.mockResolvedValue({
       ...activeSession,
@@ -133,7 +158,7 @@ describe('GuidedApplicationService', () => {
         activeSession.id,
         {
           mediaType: 'image/png',
-          imageBase64: Buffer.from('screen').toString('base64'),
+          imageBase64: PNG_FRAME,
         },
         USER,
       ),
@@ -153,7 +178,7 @@ describe('GuidedApplicationService', () => {
         activeSession.id,
         {
           mediaType: 'image/png',
-          imageBase64: Buffer.from('screen').toString('base64'),
+          imageBase64: PNG_FRAME,
         },
         USER,
       ),
@@ -174,7 +199,7 @@ describe('GuidedApplicationService', () => {
         activeSession.id,
         {
           mediaType: 'image/png',
-          imageBase64: Buffer.from('screen').toString('base64'),
+          imageBase64: PNG_FRAME,
         },
         USER,
       ),
@@ -184,7 +209,7 @@ describe('GuidedApplicationService', () => {
   });
 
   it('sends the image only to the audited AI request path and never persists image bytes', async () => {
-    const imageBase64 = Buffer.from('ephemeral-screen-frame').toString('base64');
+    const imageBase64 = PNG_FRAME;
     sessionFindFirst.mockResolvedValue(activeSession);
     aiRequests.runCompletion.mockResolvedValue({
       requestId: 'req-1',
@@ -244,7 +269,7 @@ describe('GuidedApplicationService', () => {
       activeSession.id,
       {
         mediaType: 'image/jpeg',
-        imageBase64: Buffer.from('screen').toString('base64'),
+        imageBase64: JPEG_FRAME,
       },
       USER,
     );
@@ -269,7 +294,7 @@ describe('GuidedApplicationService', () => {
       activeSession.id,
       {
         mediaType: 'image/webp',
-        imageBase64: Buffer.from('screen').toString('base64'),
+        imageBase64: WEBP_FRAME,
       },
       USER,
     );

@@ -165,6 +165,14 @@ export function ApplicationGuidePanel({
   }, [stream]);
 
   useEffect(() => {
+    stopStream(streamRef.current);
+    streamRef.current = null;
+    setStream(null);
+    setAnalysis(null);
+    setError(null);
+  }, [session.id]);
+
+  useEffect(() => {
     setConsentClock(Date.now());
     if (!session.screenCaptureConsentGrantedAt || session.screenCaptureConsentRevokedAt) {
       return;
@@ -196,7 +204,9 @@ export function ApplicationGuidePanel({
     setBusy(true);
     setError(null);
     if (!granted) {
+      revocationInFlightRef.current = true;
       stopStream(streamRef.current);
+      streamRef.current = null;
       setStream(null);
     }
     try {
@@ -209,6 +219,7 @@ export function ApplicationGuidePanel({
     } catch {
       setError('Aureus could not update screen-sharing consent. No new frame was sent.');
     } finally {
+      if (!granted) revocationInFlightRef.current = false;
       setBusy(false);
     }
   }
@@ -324,7 +335,9 @@ export function ApplicationGuidePanel({
   async function endGuide() {
     setBusy(true);
     setError(null);
+    revocationInFlightRef.current = true;
     stopStream(streamRef.current);
+    streamRef.current = null;
     setStream(null);
     try {
       await endGuidedApplicationSession(accessToken, session.id);
@@ -332,6 +345,7 @@ export function ApplicationGuidePanel({
     } catch {
       setError('The local share is stopped, but Aureus could not close the guidance session.');
     } finally {
+      revocationInFlightRef.current = false;
       setBusy(false);
     }
   }

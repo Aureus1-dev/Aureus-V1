@@ -88,7 +88,8 @@ Provider output is not rendered directly. The service requires JSON, rebuilds th
 The browser downscales a screen/screenshot before upload. The API accepts at most:
 - encoded base64 length: 82,000 characters;
 - decoded bytes: 60 KiB;
-- JPEG, PNG, or WebP.
+- JPEG, PNG, or WebP;
+- image magic bytes must match the declared MIME type before any provider call.
 
 The normal API JSON body limit is intentionally left unchanged.
 
