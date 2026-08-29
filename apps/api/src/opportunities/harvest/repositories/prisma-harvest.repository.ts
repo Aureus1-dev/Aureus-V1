@@ -46,6 +46,7 @@ export class PrismaHarvestRepository implements IHarvestRepository {
     state: string,
     country: string,
     verifiedAfter: Date,
+    opportunityVerifiedAfter: Date,
     now: Date,
   ): Promise<HarvestProfileWithOpportunity[]> {
     return this.prisma.db.harvestOfferProfile.findMany({
@@ -61,6 +62,7 @@ export class PrismaHarvestRepository implements IHarvestRepository {
               status: OpportunityStatus.ACTIVE,
               verificationStatus: VerificationStatus.VERIFIED,
               deletedAt: null,
+              dateLastVerified: { gte: opportunityVerifiedAfter },
               OR: [{ deadline: null }, { deadline: { gte: now } }],
             },
           },
