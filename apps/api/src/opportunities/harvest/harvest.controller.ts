@@ -37,7 +37,7 @@ export class HarvestController {
 
   @Patch('profiles/:opportunityId')
   @UseGuards(RolesGuard)
-  @Roles(UserRole.STEWARD, UserRole.PLATFORM_ADMINISTRATOR)
+  @Roles(UserRole.PLATFORM_ADMINISTRATOR, UserRole.SYSTEM_ADMINISTRATOR)
   @ApiOperation({
     summary:
       'Attach or update a freshly reviewed harvest profile on a VERIFIED opportunity',
