@@ -116,8 +116,9 @@ export class PrismaHarvestRepository implements IHarvestRepository {
     userId: string,
     taxYear: number,
   ): Promise<HarvestPlanWithItems | null> {
-    return this.prisma.db.harvestPlan.findUnique({
-      where: { userId_taxYear: { userId, taxYear } },
+    return this.prisma.db.harvestPlan.findFirst({
+      where: { userId, taxYear },
+      orderBy: { createdAt: 'desc' },
       include: planInclude,
     });
   }
