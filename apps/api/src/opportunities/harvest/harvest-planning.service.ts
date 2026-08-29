@@ -506,7 +506,7 @@ export class HarvestPlanningService {
   async startItem(userId: string, planId: string, itemId: string) {
     const { plan, item } = await this.item(userId, planId, itemId);
     this.assertPlanRunnable(plan);
-    this.assertOfferStillRunnable(item);
+    this.assertOfferStillRunnable(plan, item);
 
     if (item.status !== HarvestItemStatus.QUEUED) {
       throw new ConflictException('Only a queued offer can be started.');
@@ -811,10 +811,33 @@ export class HarvestPlanningService {
     );
   }
 
-  private assertOfferStillRunnable(item: HarvestPlanItemWithProfile) {
+  private assertOfferStillRunnable(
+    plan: HarvestPlanWithItems,
+    item: HarvestPlanItemWithProfile,
+  ) {
     const now = Date.now();
     const profile = item.offerProfile;
     const opportunity = profile.opportunity;
+    const snapshot =
+      item.sourceSnapshot &&
+      typeof item.sourceSnapshot === 'object' &&
+      !Array.isArray(item.sourceSnapshot)
+        ? (item.sourceSnapshot as Record<string, unknown>)
+        : null;
+
+    if (plan.memberAgeYears < profile.minAge) {
+      throw new ConflictException(
+        'The member does not meet the current minimum age for this offer.',
+      );
+    }
+    if (
+      !snapshot ||
+      snapshot.profileVersion !== profile.profileVersion
+    ) {
+      throw new ConflictException(
+        'This promotion changed after the plan was built and must be reviewed in a new plan before starting.',
+      );
+    }
 
     if (profile.legalStatus !== HarvestLegalStatus.VERIFIED_REGULATED) {
       throw new ConflictException(
