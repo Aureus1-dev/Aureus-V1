@@ -581,6 +581,9 @@ model HarvestPlan {
   itemizedDeductionsBeforeGamblingCents Int                        @default(0)
   benefitImpactStatus                   HarvestBenefitImpactStatus
   requiresTaxProfessionalReview         Boolean                    @default(false)
+  memberAgeYears                        Int
+  ageEligibilityAttestedAt              DateTime
+  eligibilityReviewAttestedAt           DateTime
   bankrollLimitCents                    Int
   projectedLossLimitCents               Int
   timeLimitMinutes                      Int
