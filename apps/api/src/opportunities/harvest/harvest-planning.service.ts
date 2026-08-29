@@ -532,12 +532,9 @@ export class HarvestPlanningService {
         'Use the operator progress meter to confirm the requirement is complete.',
       );
     }
-    if (
-      item.operatorReportedRemainingCents !== null &&
-      item.operatorReportedRemainingCents !== 0
-    ) {
+    if (item.operatorReportedRemainingCents !== 0) {
       throw new ConflictException(
-        'The last operator-reported progress still shows a remaining requirement.',
+        'Record operator-reported progress at zero before confirming the requirement complete.',
       );
     }
 
