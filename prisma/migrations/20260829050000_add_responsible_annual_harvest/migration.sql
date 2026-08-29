@@ -57,6 +57,7 @@ CREATE TABLE "HarvestPlan" (
     "memberAgeYears" INTEGER NOT NULL,
     "ageEligibilityAttestedAt" TIMESTAMP(3) NOT NULL,
     "eligibilityReviewAttestedAt" TIMESTAMP(3) NOT NULL,
+    "legalParticipationAttestedAt" TIMESTAMP(3) NOT NULL,
     "bankrollLimitCents" INTEGER NOT NULL,
     "projectedLossLimitCents" INTEGER NOT NULL,
     "timeLimitMinutes" INTEGER NOT NULL,
