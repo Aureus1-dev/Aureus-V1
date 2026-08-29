@@ -114,6 +114,16 @@ export class HarvestPlanningService {
         'The stop rule must be accepted before a harvest plan can start.',
       );
     }
+    if (!dto.attestsAgeAccuracy) {
+      throw new BadRequestException(
+        'Age eligibility must be explicitly attested before a harvest plan can start.',
+      );
+    }
+    if (!dto.reviewedOfferEligibility) {
+      throw new BadRequestException(
+        'Review the current operators and mark any offers you have already used before a harvest plan can start.',
+      );
+    }
 
     const existing = await this.repo.findPlanForUser(userId, dto.taxYear);
     if (existing) {
@@ -159,8 +169,16 @@ export class HarvestPlanningService {
             now,
           )
         : [];
+    const excludedOfferProfileIds = new Set(
+      dto.excludedOfferProfileIds ?? [],
+    );
+    const ageAndEligibilityFiltered = profiles.filter(
+      (profile) =>
+        dto.memberAgeYears >= profile.minAge &&
+        !excludedOfferProfileIds.has(profile.id),
+    );
 
-    const ranked = [...profiles].sort(
+    const ranked = [...ageAndEligibilityFiltered].sort(
       (a, b) => this.baselineScore(b) - this.baselineScore(a),
     );
 
@@ -291,6 +309,9 @@ export class HarvestPlanningService {
         benefitImpactStatus: dto.benefitImpactStatus,
         requiresTaxProfessionalReview:
           dto.requiresTaxProfessionalReview ?? false,
+        memberAgeYears: dto.memberAgeYears,
+        ageEligibilityAttestedAt: now,
+        eligibilityReviewAttestedAt: now,
         bankrollLimitCents: dto.bankrollLimitCents,
         projectedLossLimitCents: dto.projectedLossLimitCents,
         timeLimitMinutes: dto.timeLimitMinutes,
@@ -353,11 +374,51 @@ export class HarvestPlanningService {
         status,
         blockReasons,
         selectedItems: selected.length,
+        memberAgeYears: dto.memberAgeYears,
+        excludedOfferProfileCount: excludedOfferProfileIds.size,
         taxRuleVerifiedAt: finalTax.sourceVerifiedAt,
       },
     );
 
     return plan;
+  }
+
+  async listCandidates(
+    isGuest: boolean | undefined,
+    state: string,
+    country = 'US',
+  ) {
+    if (isGuest) {
+      throw new ForbiddenException(
+        'Claim your account before reviewing annual harvest candidates.',
+      );
+    }
+    const now = new Date();
+    const verifiedAfter = new Date(now.getTime() - TERMS_MAX_AGE_MS);
+    const profiles = await this.repo.listEligibleProfiles(
+      state.toUpperCase(),
+      country.toUpperCase(),
+      verifiedAfter,
+      now,
+    );
+    return profiles.map((profile) => ({
+      offerProfileId: profile.id,
+      opportunityId: profile.opportunity.id,
+      opportunityRef: profile.opportunity.opportunityRef,
+      title: profile.opportunity.title,
+      provider: profile.opportunity.provider,
+      kind: profile.kind,
+      minAge: profile.minAge,
+      newCustomerOnly: profile.newCustomerOnly,
+      advertisedValueCents: profile.advertisedValueCents,
+      bankrollRequiredCents: profile.bankrollRequiredCents,
+      estimatedMinutes: profile.estimatedMinutes,
+      termsSourceUrl: profile.termsSourceUrl,
+      termsVerifiedAt: profile.termsVerifiedAt,
+      licenseAuthority: profile.licenseAuthority,
+      licenseSourceUrl: profile.licenseSourceUrl,
+      riskNotes: profile.riskNotes,
+    }));
   }
 
   getPlan(userId: string, taxYear: number) {
