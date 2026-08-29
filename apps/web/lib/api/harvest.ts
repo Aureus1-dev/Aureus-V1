@@ -23,7 +23,7 @@ export interface HarvestCandidateDto {
   opportunityRef: string | null;
   title: string;
   provider: string;
-  kind: 'SPORTSBOOK' | 'ONLINE_CASINO' | 'BANKING' | 'OTHER';
+  kind: 'SPORTSBOOK' | 'ONLINE_CASINO';
   minAge: number;
   newCustomerOnly: boolean;
   advertisedValueCents: number;
