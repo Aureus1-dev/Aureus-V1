@@ -11,10 +11,15 @@ import { SavedOpportunitiesController } from './saved/saved-opportunities.contro
 import { SavedOpportunitiesService } from './saved/saved-opportunities.service';
 import { PrismaSavedOpportunityRepository } from './saved/repositories/prisma-saved-opportunity.repository';
 import { SAVED_OPPORTUNITY_REPOSITORY } from './saved/repositories/saved-opportunity.repository.interface';
+import { HarvestController } from './harvest/harvest.controller';
+import { HarvestPlanningService } from './harvest/harvest-planning.service';
+import { HarvestTaxEngineService } from './harvest/harvest-tax-engine.service';
+import { PrismaHarvestRepository } from './harvest/repositories/prisma-harvest.repository';
+import { HARVEST_REPOSITORY } from './harvest/repositories/harvest.repository.interface';
 
 @Module({
   imports: [AuthGuardsModule],
-  controllers: [OpportunitiesController, SavedOpportunitiesController],
+  controllers: [OpportunitiesController, SavedOpportunitiesController, HarvestController],
   providers: [
     OpportunitiesService,
     OpportunityLinkRegistryService,
@@ -23,6 +28,9 @@ import { SAVED_OPPORTUNITY_REPOSITORY } from './saved/repositories/saved-opportu
     { provide: OPPORTUNITY_REPOSITORY,      useClass: PrismaOpportunityRepository },
     SavedOpportunitiesService,
     { provide: SAVED_OPPORTUNITY_REPOSITORY, useClass: PrismaSavedOpportunityRepository },
+    HarvestPlanningService,
+    HarvestTaxEngineService,
+    { provide: HARVEST_REPOSITORY, useClass: PrismaHarvestRepository },
   ],
   exports: [
     OpportunitiesService,
@@ -31,6 +39,9 @@ import { SAVED_OPPORTUNITY_REPOSITORY } from './saved/repositories/saved-opportu
     SavedOpportunitiesService,
     OpportunityScoringService,
     OPPORTUNITY_REPOSITORY,
+    HarvestPlanningService,
+    HarvestTaxEngineService,
+    HARVEST_REPOSITORY,
   ],
 })
 export class OpportunitiesModule {}
