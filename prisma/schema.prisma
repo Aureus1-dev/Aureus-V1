@@ -584,6 +584,7 @@ model HarvestPlan {
   memberAgeYears                        Int
   ageEligibilityAttestedAt              DateTime
   eligibilityReviewAttestedAt           DateTime
+  legalParticipationAttestedAt          DateTime
   bankrollLimitCents                    Int
   projectedLossLimitCents               Int
   timeLimitMinutes                      Int
