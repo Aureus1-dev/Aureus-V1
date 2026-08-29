@@ -1,6 +1,6 @@
 -- Responsible Annual Harvest: fail-closed promotion execution with tax/risk gates.
 
-CREATE TYPE "HarvestOfferKind" AS ENUM ('SPORTSBOOK', 'ONLINE_CASINO', 'BANKING', 'OTHER');
+CREATE TYPE "HarvestOfferKind" AS ENUM ('SPORTSBOOK', 'ONLINE_CASINO');
 CREATE TYPE "HarvestLegalStatus" AS ENUM ('VERIFIED_REGULATED', 'REVIEW_REQUIRED', 'BLOCKED');
 CREATE TYPE "HarvestFilingStatus" AS ENUM ('SINGLE', 'MARRIED_FILING_JOINTLY', 'HEAD_OF_HOUSEHOLD', 'MARRIED_FILING_SEPARATELY');
 CREATE TYPE "HarvestBenefitImpactStatus" AS ENUM ('NOT_APPLICABLE', 'CLEARED', 'UNKNOWN');
