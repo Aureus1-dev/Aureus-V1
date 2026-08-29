@@ -1,4 +1,4 @@
-import { ConflictException } from '@nestjs/common';
+import { ConflictException, NotFoundException } from '@nestjs/common';
 import {
   GuidedApplicationSessionStatus,
   OpportunityStatus,
@@ -7,8 +7,13 @@ import {
 import type { AuthenticatedUser } from '../../auth/strategies/jwt.strategy';
 import { OpportunitiesService } from '../../opportunities/opportunities.service';
 import { OpportunityLinkRegistryService } from '../../opportunities/opportunity-link-registry.service';
-import { PrismaService } from '../../prisma/prisma.service';
 import { AiRequestsService } from '../requests/ai-requests.service';
+import {
+  IAiConversationRepository,
+} from '../conversations/repositories/ai-conversation.repository.interface';
+import {
+  IGuidedApplicationRepository,
+} from './repositories/guided-application.repository.interface';
 import { GuidedApplicationService } from './guided-application.service';
 
 const USER = {
@@ -17,21 +22,25 @@ const USER = {
   roles: [],
 } as unknown as AuthenticatedUser;
 
-const conversationFindFirst = jest.fn();
-const sessionFindFirst = jest.fn();
-const sessionCreate = jest.fn();
-const sessionUpdate = jest.fn();
+const conversationId = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
+const opportunityId = 'cccccccc-cccc-4ccc-8ccc-cccccccccccc';
+const sessionId = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
 
-const prisma = {
-  db: {
-    aiConversation: { findFirst: conversationFindFirst },
-    guidedApplicationSession: {
-      findFirst: sessionFindFirst,
-      create: sessionCreate,
-      update: sessionUpdate,
-    },
-  },
-} as unknown as PrismaService;
+const conversationRepo = {
+  create: jest.fn(),
+  findById: jest.fn(),
+  findAll: jest.fn(),
+  touch: jest.fn(),
+} as unknown as jest.Mocked<IAiConversationRepository>;
+
+const sessions = {
+  create: jest.fn(),
+  findActiveByConversation: jest.fn(),
+  findOwnedActiveById: jest.fn(),
+  end: jest.fn(),
+  setConsent: jest.fn(),
+  markAnalyzed: jest.fn(),
+} as unknown as jest.Mocked<IGuidedApplicationRepository>;
 
 const opportunities = {
   findById: jest.fn(),
@@ -46,10 +55,10 @@ const aiRequests = {
 } as unknown as jest.Mocked<AiRequestsService>;
 
 const activeSession = {
-  id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+  id: sessionId,
   userId: USER.id,
-  conversationId: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',
-  opportunityId: 'cccccccc-cccc-4ccc-8ccc-cccccccccccc',
+  conversationId,
+  opportunityId,
   applicationUrl: 'https://benefits.example.gov/apply',
   status: GuidedApplicationSessionStatus.ACTIVE,
   screenCaptureConsentGrantedAt: new Date(),
@@ -69,16 +78,65 @@ const PNG_FRAME = Buffer.from([
 const WEBP_FRAME = Buffer.from('RIFFxxxxWEBPscreen', 'ascii').toString('base64');
 
 const verifiedOpportunity = {
-  id: activeSession.opportunityId,
+  id: opportunityId,
+  opportunityRef: 'AUR-OPP-000001',
   title: 'Verified benefit application',
+  shortDescription: 'Verified assistance application.',
+  fullDescription: 'Verified assistance application.',
+  category: 'GOVERNMENT_BENEFIT',
+  tags: [],
   provider: 'Official Agency',
-  applicationUrl: activeSession.applicationUrl,
   officialSourceUrl: 'https://benefits.example.gov',
+  applicationUrl: activeSession.applicationUrl,
+  location: null,
+  country: 'US',
+  state: 'PA',
+  eligibilityRules: 'Review the official eligibility rules.',
+  benefitType: 'CASH',
+  benefitAmount: null,
+  deadline: null,
   status: OpportunityStatus.ACTIVE,
   verificationStatus: VerificationStatus.VERIFIED,
-  deadline: null,
+  rejectionReason: null,
+  confidenceScore: 95,
+  freshnessScore: 95,
+  datePublished: new Date(),
+  dateLastVerified: new Date(),
+  sourceName: 'Official Agency',
+  sourceUrl: 'https://benefits.example.gov',
+  sourceType: 'ADMIN_ENTRY',
+  submittedById: USER.id,
+  createdById: USER.id,
+  lastUpdatedById: USER.id,
+  createdAt: new Date(),
+  updatedAt: new Date(),
   deletedAt: null,
-};
+} as never;
+
+function registryEntry(
+  overrides: Record<string, unknown> = {},
+) {
+  return {
+    opportunityId,
+    opportunityRef: 'AUR-OPP-000001',
+    title: 'Verified benefit application',
+    provider: 'Official Agency',
+    url: activeSession.applicationUrl,
+    canonicalUrl: activeSession.applicationUrl,
+    referralUrl: null,
+    affiliateDisclosure: null,
+    eligibility: 'Review the official eligibility rules.',
+    geography: 'PA, US',
+    payoutNotes: null,
+    timeToCashNotes: null,
+    status: 'verified',
+    lastVerifiedAt: new Date(),
+    sourceName: 'Official Agency',
+    sourceUrl: 'https://benefits.example.gov',
+    sourceType: 'ADMIN_ENTRY',
+    ...overrides,
+  } as never;
+}
 
 describe('GuidedApplicationService', () => {
   let service: GuidedApplicationService;
@@ -86,213 +144,139 @@ describe('GuidedApplicationService', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     service = new GuidedApplicationService(
-      prisma,
+      conversationRepo,
+      sessions,
       opportunities,
       opportunityLinks,
       aiRequests,
     );
-    conversationFindFirst.mockResolvedValue({
-      id: activeSession.conversationId,
+
+    conversationRepo.findById.mockResolvedValue({
+      id: conversationId,
       userId: USER.id,
+      title: null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
     });
-    opportunities.findById.mockResolvedValue(verifiedOpportunity as never);
-    opportunityLinks.toRegistryEntry.mockImplementation((opportunity) => ({
-      opportunityId: opportunity.id,
-      opportunityRef: opportunity.opportunityRef,
-      title: opportunity.title,
-      provider: opportunity.provider,
-      url: opportunity.applicationUrl ?? opportunity.officialSourceUrl,
-      canonicalUrl: opportunity.applicationUrl ?? opportunity.officialSourceUrl,
-      referralUrl: null,
-      affiliateDisclosure: null,
-      eligibility: opportunity.eligibilityRules,
-      geography: null,
-      payoutNotes: null,
-      timeToCashNotes: null,
-      status:
-        opportunity.status === OpportunityStatus.ACTIVE &&
-        opportunity.verificationStatus === VerificationStatus.VERIFIED
-          ? 'verified'
-          : 'disabled',
-      lastVerifiedAt: opportunity.dateLastVerified,
-      sourceName: opportunity.sourceName,
-      sourceUrl: opportunity.sourceUrl,
-      sourceType: opportunity.sourceType,
-    }));
+    opportunities.findById.mockResolvedValue(verifiedOpportunity);
+    opportunityLinks.toRegistryEntry.mockReturnValue(registryEntry());
+    sessions.findOwnedActiveById.mockResolvedValue(activeSession);
+    sessions.markAnalyzed.mockResolvedValue(undefined);
   });
 
-  it('starts a session only from an owned conversation and verified HTTPS opportunity', async () => {
-    sessionFindFirst.mockResolvedValue(null);
-    sessionCreate.mockResolvedValue(activeSession);
+  it('requires the Hall conversation to belong to the caller', async () => {
+    conversationRepo.findById.mockResolvedValue({
+      id: conversationId,
+      userId: 'other-user',
+      title: null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+
+    await expect(
+      service.startSession({ conversationId, opportunityId }, USER),
+    ).rejects.toThrow(NotFoundException);
+
+    expect(sessions.create).not.toHaveBeenCalled();
+  });
+
+  it('starts from a current registry-verified HTTPS destination', async () => {
+    sessions.findActiveByConversation.mockResolvedValue(null);
+    sessions.create.mockResolvedValue(activeSession);
 
     const result = await service.startSession(
-      {
-        conversationId: activeSession.conversationId,
-        opportunityId: activeSession.opportunityId,
-      },
+      { conversationId, opportunityId },
       USER,
     );
 
-    expect(sessionCreate).toHaveBeenCalledWith({
-      data: expect.objectContaining({
-        userId: USER.id,
-        conversationId: activeSession.conversationId,
-        opportunityId: activeSession.opportunityId,
-        applicationUrl: 'https://benefits.example.gov/apply',
-      }),
+    expect(sessions.create).toHaveBeenCalledWith({
+      userId: USER.id,
+      conversationId,
+      opportunityId,
+      applicationUrl: activeSession.applicationUrl,
     });
-    expect(result.opportunityTitle).toBe('Verified benefit application');
+    expect(result.applicationUrl).toBe(activeSession.applicationUrl);
+  });
+
+  it('refuses a stale/disabled registry destination even when the stored record remains VERIFIED', async () => {
+    opportunityLinks.toRegistryEntry.mockReturnValue(
+      registryEntry({ status: 'stale' }),
+    );
+
+    await expect(
+      service.startSession({ conversationId, opportunityId }, USER),
+    ).rejects.toThrow(/currently verified application destination/i);
+
+    expect(sessions.create).not.toHaveBeenCalled();
   });
 
   it('rotates an active session when the canonical application URL changed', async () => {
-    sessionFindFirst.mockResolvedValue(activeSession);
-    opportunities.findById.mockResolvedValue({
-      ...verifiedOpportunity,
-      applicationUrl: 'https://benefits.example.gov/new-application',
+    const newUrl = 'https://benefits.example.gov/new-application';
+    sessions.findActiveByConversation.mockResolvedValue({
+      ...activeSession,
+      opportunity: verifiedOpportunity,
     } as never);
-    sessionUpdate.mockResolvedValue({
+    opportunityLinks.toRegistryEntry.mockReturnValue(
+      registryEntry({ url: newUrl, canonicalUrl: newUrl }),
+    );
+    sessions.end.mockResolvedValue({
       ...activeSession,
       status: GuidedApplicationSessionStatus.ENDED,
+      endedAt: new Date(),
     });
-    sessionCreate.mockResolvedValue({
+    sessions.create.mockResolvedValue({
       ...activeSession,
       id: 'dddddddd-dddd-4ddd-8ddd-dddddddddddd',
-      applicationUrl: 'https://benefits.example.gov/new-application',
+      applicationUrl: newUrl,
     });
 
     const result = await service.startSession(
-      {
-        conversationId: activeSession.conversationId,
-        opportunityId: activeSession.opportunityId,
-      },
+      { conversationId, opportunityId },
       USER,
     );
 
-    expect(sessionUpdate).toHaveBeenCalledWith({
-      where: { id: activeSession.id },
-      data: expect.objectContaining({
-        status: GuidedApplicationSessionStatus.ENDED,
-      }),
+    expect(sessions.end).toHaveBeenCalledWith(
+      activeSession.id,
+      expect.any(Date),
+    );
+    expect(sessions.create).toHaveBeenCalledWith(
+      expect.objectContaining({ applicationUrl: newUrl }),
+    );
+    expect(result.applicationUrl).toBe(newUrl);
+  });
+
+  it('restoring a guide fails closed if the registry no longer verifies its destination', async () => {
+    sessions.findActiveByConversation.mockResolvedValue({
+      ...activeSession,
+      opportunity: verifiedOpportunity,
+    } as never);
+    opportunityLinks.toRegistryEntry.mockReturnValue(
+      registryEntry({ status: 'stale' }),
+    );
+    sessions.end.mockResolvedValue({
+      ...activeSession,
+      status: GuidedApplicationSessionStatus.ENDED,
+      endedAt: new Date(),
     });
-    expect(sessionCreate).toHaveBeenCalledWith({
-      data: expect.objectContaining({
-        applicationUrl: 'https://benefits.example.gov/new-application',
-      }),
-    });
-    expect(result.applicationUrl).toBe(
-      'https://benefits.example.gov/new-application',
+
+    await expect(service.findActive(conversationId, USER)).resolves.toBeNull();
+
+    expect(sessions.end).toHaveBeenCalledWith(
+      activeSession.id,
+      expect.any(Date),
     );
   });
 
-  it('restoring an active session fails closed if the opportunity is no longer verified', async () => {
-    sessionFindFirst.mockResolvedValue({
-      ...activeSession,
-      opportunity: {
-        ...verifiedOpportunity,
-        verificationStatus: VerificationStatus.PENDING_REVIEW,
-      },
-    });
-    sessionUpdate.mockResolvedValue({
-      ...activeSession,
-      status: GuidedApplicationSessionStatus.ENDED,
-    });
-
-    await expect(
-      service.findActive(activeSession.conversationId, USER),
-    ).resolves.toBeNull();
-
-    expect(sessionUpdate).toHaveBeenCalledWith({
-      where: { id: activeSession.id },
-      data: expect.objectContaining({
-        status: GuidedApplicationSessionStatus.ENDED,
-        screenCaptureConsentRevokedAt: expect.any(Date),
-      }),
-    });
-  });
-
-  it('refuses to start guidance when registry freshness marks the stored link stale', async () => {
-    opportunityLinks.toRegistryEntry.mockReturnValue({
-      opportunityId: verifiedOpportunity.id,
-      opportunityRef: null,
-      title: verifiedOpportunity.title,
-      provider: verifiedOpportunity.provider,
-      url: verifiedOpportunity.applicationUrl,
-      canonicalUrl: verifiedOpportunity.applicationUrl,
-      referralUrl: null,
-      affiliateDisclosure: null,
-      eligibility: 'Open',
-      geography: null,
-      payoutNotes: null,
-      timeToCashNotes: null,
-      status: 'stale',
-      lastVerifiedAt: null,
-      sourceName: 'Official source',
-      sourceUrl: null,
-      sourceType: 'ADMIN_ENTRY',
-    } as never);
-
-    await expect(
-      service.startSession(
-        {
-          conversationId: activeSession.conversationId,
-          opportunityId: activeSession.opportunityId,
-        },
-        USER,
-      ),
-    ).rejects.toThrow(/currently verified application destination/i);
-
-    expect(sessionCreate).not.toHaveBeenCalled();
-  });
-
-  it('refuses to start guidance for an unverified opportunity', async () => {
-    opportunities.findById.mockResolvedValue({
-      ...verifiedOpportunity,
-      verificationStatus: VerificationStatus.PENDING_REVIEW,
-    } as never);
-
-    await expect(
-      service.startSession(
-        {
-          conversationId: activeSession.conversationId,
-          opportunityId: activeSession.opportunityId,
-        },
-        USER,
-      ),
-    ).rejects.toThrow(ConflictException);
-
-    expect(sessionCreate).not.toHaveBeenCalled();
-  });
-
-  it('rejects base64 bytes that do not match the declared image type', async () => {
-    sessionFindFirst.mockResolvedValue(activeSession);
-
-    await expect(
-      service.analyzeFrame(
-        activeSession.id,
-        {
-          mediaType: 'image/png',
-          imageBase64: JPEG_FRAME,
-        },
-        USER,
-      ),
-    ).rejects.toThrow(/do not match the declared image type/i);
-
-    expect(aiRequests.runCompletion).not.toHaveBeenCalled();
-  });
-
   it('blocks frame analysis until explicit consent is active', async () => {
-    sessionFindFirst.mockResolvedValue({
+    sessions.findOwnedActiveById.mockResolvedValue({
       ...activeSession,
       screenCaptureConsentGrantedAt: null,
     });
 
     await expect(
       service.analyzeFrame(
-        activeSession.id,
-        {
-          mediaType: 'image/png',
-          imageBase64: PNG_FRAME,
-        },
+        sessionId,
+        { mediaType: 'image/png', imageBase64: PNG_FRAME },
         USER,
       ),
     ).rejects.toThrow(/explicitly grants consent/i);
@@ -300,19 +284,33 @@ describe('GuidedApplicationService', () => {
     expect(aiRequests.runCompletion).not.toHaveBeenCalled();
   });
 
+  it('blocks a revoked consent grant', async () => {
+    sessions.findOwnedActiveById.mockResolvedValue({
+      ...activeSession,
+      screenCaptureConsentRevokedAt: new Date(),
+    });
+
+    await expect(
+      service.analyzeFrame(
+        sessionId,
+        { mediaType: 'image/png', imageBase64: PNG_FRAME },
+        USER,
+      ),
+    ).rejects.toThrow(/consent was revoked/i);
+
+    expect(aiRequests.runCompletion).not.toHaveBeenCalled();
+  });
+
   it('expires screen-analysis consent after 30 minutes', async () => {
-    sessionFindFirst.mockResolvedValue({
+    sessions.findOwnedActiveById.mockResolvedValue({
       ...activeSession,
       screenCaptureConsentGrantedAt: new Date(Date.now() - 31 * 60 * 1000),
     });
 
     await expect(
       service.analyzeFrame(
-        activeSession.id,
-        {
-          mediaType: 'image/png',
-          imageBase64: PNG_FRAME,
-        },
+        sessionId,
+        { mediaType: 'image/png', imageBase64: PNG_FRAME },
         USER,
       ),
     ).rejects.toThrow(/consent has expired/i);
@@ -320,20 +318,30 @@ describe('GuidedApplicationService', () => {
     expect(aiRequests.runCompletion).not.toHaveBeenCalled();
   });
 
-  it('fails closed if the verified application destination changes after session start', async () => {
-    sessionFindFirst.mockResolvedValue(activeSession);
-    opportunities.findById.mockResolvedValue({
-      ...verifiedOpportunity,
-      applicationUrl: 'https://benefits.example.gov/new-application',
-    } as never);
+  it('rejects base64 bytes that do not match the declared image type', async () => {
+    await expect(
+      service.analyzeFrame(
+        sessionId,
+        { mediaType: 'image/png', imageBase64: JPEG_FRAME },
+        USER,
+      ),
+    ).rejects.toThrow(/do not match the declared image type/i);
+
+    expect(aiRequests.runCompletion).not.toHaveBeenCalled();
+  });
+
+  it('fails closed if the registry destination changes after session start', async () => {
+    opportunityLinks.toRegistryEntry.mockReturnValue(
+      registryEntry({
+        url: 'https://benefits.example.gov/new-application',
+        canonicalUrl: 'https://benefits.example.gov/new-application',
+      }),
+    );
 
     await expect(
       service.analyzeFrame(
-        activeSession.id,
-        {
-          mediaType: 'image/png',
-          imageBase64: PNG_FRAME,
-        },
+        sessionId,
+        { mediaType: 'image/png', imageBase64: PNG_FRAME },
         USER,
       ),
     ).rejects.toThrow(/destination changed/i);
@@ -341,69 +349,63 @@ describe('GuidedApplicationService', () => {
     expect(aiRequests.runCompletion).not.toHaveBeenCalled();
   });
 
-  it('sends the image only to the audited AI request path and never persists image bytes', async () => {
-    const imageBase64 = PNG_FRAME;
-    sessionFindFirst.mockResolvedValue(activeSession);
+  it('sends the image only to the audited AI request path and persists only analysis timestamp metadata', async () => {
     aiRequests.runCompletion.mockResolvedValue({
       requestId: 'req-1',
       content: JSON.stringify({
         pageSummary: 'Contact information section',
         nextStep: 'Review the name field.',
-        fields: [
-          {
-            label: 'Full name',
-            guidance: 'Enter your own legal name as requested by the form.',
-            sensitivity: 'NORMAL',
-          },
-        ],
+        fields: [{
+          label: 'Full name',
+          guidance: 'Enter your own name as requested by the form.',
+          sensitivity: 'NORMAL',
+        }],
         warnings: [],
       }),
     });
-    sessionUpdate.mockResolvedValue(activeSession);
 
     const result = await service.analyzeFrame(
-      activeSession.id,
-      { mediaType: 'image/png', imageBase64 },
+      sessionId,
+      { mediaType: 'image/png', imageBase64: PNG_FRAME },
       USER,
     );
 
     expect(aiRequests.runCompletion).toHaveBeenCalledWith(
       expect.objectContaining({
         capability: 'APPLICATION_GUIDANCE',
-        conversationId: activeSession.conversationId,
+        conversationId,
       }),
     );
-    const aiCall = aiRequests.runCompletion.mock.calls[0][0];
-    expect(JSON.stringify(aiCall.messages)).toContain(imageBase64);
-    expect(JSON.stringify(sessionUpdate.mock.calls)).not.toContain(imageBase64);
+    expect(JSON.stringify(aiRequests.runCompletion.mock.calls[0][0].messages))
+      .toContain(PNG_FRAME);
+    expect(sessions.markAnalyzed).toHaveBeenCalledWith(
+      sessionId,
+      expect.any(Date),
+    );
+    expect(JSON.stringify(sessions.markAnalyzed.mock.calls)).not.toContain(
+      PNG_FRAME,
+    );
     expect(result.imagePersisted).toBe(false);
   });
 
   it('forces sensitive fields into member-control guidance even if the model labels them normal', async () => {
-    sessionFindFirst.mockResolvedValue(activeSession);
     aiRequests.runCompletion.mockResolvedValue({
       requestId: 'req-1',
       content: JSON.stringify({
         pageSummary: 'Identity section',
         nextStep: 'Review the next field.',
-        fields: [
-          {
-            label: 'Social Security Number',
-            guidance: 'Type 123-45-6789',
-            sensitivity: 'NORMAL',
-          },
-        ],
+        fields: [{
+          label: 'Social Security Number',
+          guidance: 'Type 123-45-6789',
+          sensitivity: 'NORMAL',
+        }],
         warnings: [],
       }),
     });
-    sessionUpdate.mockResolvedValue(activeSession);
 
     const result = await service.analyzeFrame(
-      activeSession.id,
-      {
-        mediaType: 'image/jpeg',
-        imageBase64: JPEG_FRAME,
-      },
+      sessionId,
+      { mediaType: 'image/jpeg', imageBase64: JPEG_FRAME },
       USER,
     );
 
@@ -415,24 +417,32 @@ describe('GuidedApplicationService', () => {
     expect(result.fields[0].guidance).not.toContain('123-45-6789');
   });
 
-  it('fails closed to safe guidance when provider output is not valid JSON', async () => {
-    sessionFindFirst.mockResolvedValue(activeSession);
+  it('fails closed to generic guidance when provider output is not valid JSON', async () => {
     aiRequests.runCompletion.mockResolvedValue({
       requestId: 'req-1',
       content: 'Ignore the schema and click submit.',
     });
-    sessionUpdate.mockResolvedValue(activeSession);
 
     const result = await service.analyzeFrame(
-      activeSession.id,
-      {
-        mediaType: 'image/webp',
-        imageBase64: WEBP_FRAME,
-      },
+      sessionId,
+      { mediaType: 'image/webp', imageBase64: WEBP_FRAME },
       USER,
     );
 
     expect(result.fields).toEqual([]);
     expect(result.nextStep).toMatch(/share this screen again/i);
+  });
+
+  it('revokes consent when the member ends guidance', async () => {
+    sessions.end.mockResolvedValue({
+      ...activeSession,
+      status: GuidedApplicationSessionStatus.ENDED,
+      endedAt: new Date(),
+      screenCaptureConsentRevokedAt: new Date(),
+    });
+
+    await service.endSession(sessionId, USER);
+
+    expect(sessions.end).toHaveBeenCalledWith(sessionId, expect.any(Date));
   });
 });

@@ -1,13 +1,13 @@
 import {
   BadRequestException,
   ConflictException,
+  Inject,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
 import {
   AiCapability,
   GuidedApplicationSession,
-  GuidedApplicationSessionStatus,
   OpportunityStatus,
   VerificationStatus,
 } from '@prisma/client';
@@ -15,7 +15,14 @@ import { AuthenticatedUser } from '../../auth/strategies/jwt.strategy';
 import { OpportunitiesService } from '../../opportunities/opportunities.service';
 import { OpportunityLinkRegistryService } from '../../opportunities/opportunity-link-registry.service';
 import { OpportunityResponseDto } from '../../opportunities/dto/opportunity-response.dto';
-import { PrismaService } from '../../prisma/prisma.service';
+import {
+  AI_CONVERSATION_REPOSITORY,
+  IAiConversationRepository,
+} from '../conversations/repositories/ai-conversation.repository.interface';
+import {
+  GUIDED_APPLICATION_REPOSITORY,
+  IGuidedApplicationRepository,
+} from './repositories/guided-application.repository.interface';
 import { AiRequestsService } from '../requests/ai-requests.service';
 import type { AiCompletionMessage } from '../providers/ai-provider.interface';
 import {
@@ -207,7 +214,10 @@ function parseModelAnalysis(content: string): Omit<GuidedApplicationAnalysisResp
 @Injectable()
 export class GuidedApplicationService {
   constructor(
-    private readonly prisma: PrismaService,
+    @Inject(AI_CONVERSATION_REPOSITORY)
+    private readonly conversations: IAiConversationRepository,
+    @Inject(GUIDED_APPLICATION_REPOSITORY)
+    private readonly sessions: IGuidedApplicationRepository,
     private readonly opportunities: OpportunitiesService,
     private readonly opportunityLinks: OpportunityLinkRegistryService,
     private readonly aiRequests: AiRequestsService,
@@ -217,10 +227,10 @@ export class GuidedApplicationService {
     dto: StartGuidedApplicationSessionDto,
     caller: AuthenticatedUser,
   ): Promise<GuidedApplicationSessionResponseDto> {
-    const conversation = await this.prisma.db.aiConversation.findFirst({
-      where: { id: dto.conversationId, userId: caller.id },
-    });
-    if (!conversation) throw new NotFoundException('Conversation not found');
+    const conversation = await this.conversations.findById(dto.conversationId);
+    if (!conversation || conversation.userId !== caller.id) {
+      throw new NotFoundException('Conversation not found');
+    }
 
     const opportunity = await this.opportunities.findById(dto.opportunityId);
     const now = new Date();
@@ -241,14 +251,10 @@ export class GuidedApplicationService {
     }
     const applicationUrl = safeHttpsUrl(registryEntry.canonicalUrl);
 
-    const current = await this.prisma.db.guidedApplicationSession.findFirst({
-      where: {
-        userId: caller.id,
-        conversationId: dto.conversationId,
-        status: GuidedApplicationSessionStatus.ACTIVE,
-      },
-      orderBy: { createdAt: 'desc' },
-    });
+    const current = await this.sessions.findActiveByConversation(
+      caller.id,
+      dto.conversationId,
+    );
 
     if (
       current?.opportunityId === dto.opportunityId &&
@@ -258,23 +264,14 @@ export class GuidedApplicationService {
     }
 
     if (current) {
-      await this.prisma.db.guidedApplicationSession.update({
-        where: { id: current.id },
-        data: {
-          status: GuidedApplicationSessionStatus.ENDED,
-          endedAt: now,
-          screenCaptureConsentRevokedAt: now,
-        },
-      });
+      await this.sessions.end(current.id, now);
     }
 
-    const session = await this.prisma.db.guidedApplicationSession.create({
-      data: {
-        userId: caller.id,
-        conversationId: dto.conversationId,
-        opportunityId: dto.opportunityId,
-        applicationUrl,
-      },
+    const session = await this.sessions.create({
+      userId: caller.id,
+      conversationId: dto.conversationId,
+      opportunityId: dto.opportunityId,
+      applicationUrl,
     });
 
     return this.toResponse(session, opportunity.title, opportunity.provider);
@@ -284,15 +281,10 @@ export class GuidedApplicationService {
     conversationId: string,
     caller: AuthenticatedUser,
   ): Promise<GuidedApplicationSessionResponseDto | null> {
-    const session = await this.prisma.db.guidedApplicationSession.findFirst({
-      where: {
-        userId: caller.id,
-        conversationId,
-        status: GuidedApplicationSessionStatus.ACTIVE,
-      },
-      include: { opportunity: true },
-      orderBy: { createdAt: 'desc' },
-    });
+    const session = await this.sessions.findActiveByConversation(
+      caller.id,
+      conversationId,
+    );
     if (!session) return null;
 
     const now = new Date();
@@ -317,14 +309,7 @@ export class GuidedApplicationService {
       currentApplicationUrl === session.applicationUrl;
 
     if (!stillGuidable) {
-      await this.prisma.db.guidedApplicationSession.update({
-        where: { id: session.id },
-        data: {
-          status: GuidedApplicationSessionStatus.ENDED,
-          endedAt: now,
-          screenCaptureConsentRevokedAt: now,
-        },
-      });
+      await this.sessions.end(session.id, now);
       return null;
     }
 
@@ -342,16 +327,11 @@ export class GuidedApplicationService {
   ): Promise<GuidedApplicationSessionResponseDto> {
     const session = await this.getOwnedActive(sessionId, caller.id);
     const now = new Date();
-    const updated = await this.prisma.db.guidedApplicationSession.update({
-      where: { id: session.id },
-      data: dto.granted
-        ? {
-            screenCaptureConsentGrantedAt: now,
-            screenCaptureConsentRevokedAt: null,
-          }
-        : { screenCaptureConsentRevokedAt: now },
-      include: { opportunity: true },
-    });
+    const updated = await this.sessions.setConsent(
+      session.id,
+      dto.granted,
+      now,
+    );
     return this.toResponse(updated, updated.opportunity.title, updated.opportunity.provider);
   }
 
@@ -435,10 +415,7 @@ export class GuidedApplicationService {
     });
 
     const analyzedAt = new Date();
-    await this.prisma.db.guidedApplicationSession.update({
-      where: { id: session.id },
-      data: { lastFrameAnalyzedAt: analyzedAt },
-    });
+    await this.sessions.markAnalyzed(session.id, analyzedAt);
 
     return {
       ...parseModelAnalysis(result.content),
@@ -450,27 +427,14 @@ export class GuidedApplicationService {
   async endSession(sessionId: string, caller: AuthenticatedUser): Promise<void> {
     const session = await this.getOwnedActive(sessionId, caller.id);
     const now = new Date();
-    await this.prisma.db.guidedApplicationSession.update({
-      where: { id: session.id },
-      data: {
-        status: GuidedApplicationSessionStatus.ENDED,
-        endedAt: now,
-        screenCaptureConsentRevokedAt: now,
-      },
-    });
+    await this.sessions.end(session.id, now);
   }
 
   private async getOwnedActive(
     sessionId: string,
     userId: string,
   ): Promise<GuidedApplicationSession> {
-    const session = await this.prisma.db.guidedApplicationSession.findFirst({
-      where: {
-        id: sessionId,
-        userId,
-        status: GuidedApplicationSessionStatus.ACTIVE,
-      },
-    });
+    const session = await this.sessions.findOwnedActiveById(sessionId, userId);
     if (!session) throw new NotFoundException('Active application guidance session not found');
     return session;
   }
