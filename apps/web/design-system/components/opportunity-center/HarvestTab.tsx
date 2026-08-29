@@ -223,6 +223,18 @@ function HarvestSetup({
           positive after the current tax estimate and the limits you set.
           It never places a wager for you.
         </p>
+        <p className={styles.helper}>
+          Annual Harvest is optional. Do not use it if you are self-excluded
+          or do not want gambling promotions. Pennsylvania responsible-gaming
+          and self-exclusion resources are available at{' '}
+          <a
+            href="https://responsibleplay.pa.gov/"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            Responsible Play PA
+          </a>.
+        </p>
       </div>
 
       <fieldset className={styles.fieldset}>
@@ -564,8 +576,13 @@ function HarvestPlanView({
 
       {plan.status === 'STOPPED' ? (
         <div className={styles.stopNotice} role="alert">
-          <strong>Stopped. Do not continue this plan.</strong>
+          <strong>Stopped. Do not continue wagering.</strong>
           {plan.stopReason ? <p>{plan.stopReason}</p> : null}
+          <p>
+            Do not keep playing solely to preserve a bonus. If you have cash
+            available at the operator, withdraw it when the operator permits;
+            promotional value may be forfeited.
+          </p>
         </div>
       ) : null}
 
