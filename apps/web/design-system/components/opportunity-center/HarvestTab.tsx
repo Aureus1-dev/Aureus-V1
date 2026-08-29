@@ -471,6 +471,11 @@ function HarvestPlanView({
     () => plan.items.find((item) => !terminalItem(item.status)) ?? null,
     [plan.items],
   );
+  const settlementAfterStop =
+    plan.status === 'STOPPED' &&
+    current !== null &&
+    (current.status === 'REQUIREMENT_MET' ||
+      current.status === 'WITHDRAWAL_REQUESTED');
 
   async function run(action: () => Promise<HarvestPlanDto>) {
     setIsBusy(true);
@@ -571,14 +576,17 @@ function HarvestPlanView({
         </div>
       ) : null}
 
-      {plan.status === 'STOPPED' || plan.status === 'COMPLETED' ? (
+      {(plan.status === 'STOPPED' && !settlementAfterStop) ||
+      plan.status === 'COMPLETED' ? (
         <Button type="button" variant="secondary" onClick={onReset}>
           Check for a fresh plan
         </Button>
       ) : null}
 
       {current &&
-      (plan.status === 'READY' || plan.status === 'ACTIVE') ? (
+      (plan.status === 'READY' ||
+        plan.status === 'ACTIVE' ||
+        settlementAfterStop) ? (
         <HarvestCurrentItem
           item={current}
           isBusy={isBusy}
