@@ -7,6 +7,7 @@ import {
 } from '@prisma/client';
 import {
   ArrayMaxSize,
+  ArrayUnique,
   IsArray,
   IsBoolean,
   IsDateString,
@@ -16,6 +17,7 @@ import {
   IsOptional,
   IsString,
   IsUrl,
+  IsUUID,
   Max,
   Min,
   MinLength,
@@ -193,6 +195,28 @@ export class CreateHarvestPlanDto {
   @IsOptional()
   @IsBoolean()
   requiresTaxProfessionalReview?: boolean;
+
+  @ApiProperty({ example: 34 })
+  @IsInt()
+  @Min(18)
+  @Max(120)
+  memberAgeYears!: number;
+
+  @ApiProperty({ description: 'Member attests their age is accurate for eligibility screening.' })
+  @IsBoolean()
+  attestsAgeAccuracy!: boolean;
+
+  @ApiProperty({ description: 'Member reviewed the currently fresh operators and marked any offer they are no longer eligible to use.' })
+  @IsBoolean()
+  reviewedOfferEligibility!: boolean;
+
+  @ApiPropertyOptional({ type: [String], default: [] })
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(200)
+  @ArrayUnique()
+  @IsUUID('4', { each: true })
+  excludedOfferProfileIds?: string[];
 
   @ApiProperty()
   @IsInt()
