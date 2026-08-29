@@ -16,6 +16,7 @@ import {
 const repo = {
   upsertProfile: jest.fn(),
   listEligibleProfiles: jest.fn(),
+  listProfilesForReview: jest.fn(),
   createPlan: jest.fn(),
   findPlanForUser: jest.fn(),
   findPlanByIdForUser: jest.fn(),
@@ -115,6 +116,48 @@ describe('HarvestPlanningService', () => {
       expect.objectContaining({ status: HarvestPlanStatus.STOPPED }),
     );
     expect(result.status).toBe(HarvestPlanStatus.STOPPED);
+  });
+
+  it('requires operator progress to reach zero before requirement completion', async () => {
+    const active = {
+      ...basePlan(HarvestPlanStatus.ACTIVE),
+      items: [
+        {
+          id: 'item-1',
+          status: HarvestItemStatus.IN_PROGRESS,
+          operatorReportedRemainingCents: null,
+        },
+      ],
+    } as unknown as HarvestPlanWithItems;
+    repo.findPlanByIdForUser.mockResolvedValue(active);
+
+    await expect(
+      service.confirmRequirement('user-1', 'plan-1', 'item-1', {
+        operatorConfirmedComplete: true,
+      }),
+    ).rejects.toThrow(ConflictException);
+    expect(repo.updateItem).not.toHaveBeenCalled();
+  });
+
+  it('rejects a confirmed withdrawal larger than the recorded request', async () => {
+    const active = {
+      ...basePlan(HarvestPlanStatus.ACTIVE),
+      items: [
+        {
+          id: 'item-1',
+          status: HarvestItemStatus.WITHDRAWAL_REQUESTED,
+          withdrawalRequestedCents: 10_000,
+        },
+      ],
+    } as unknown as HarvestPlanWithItems;
+    repo.findPlanByIdForUser.mockResolvedValue(active);
+
+    await expect(
+      service.confirmWithdrawal('user-1', 'plan-1', 'item-1', {
+        amountCents: 10_001,
+      }),
+    ).rejects.toThrow(ConflictException);
+    expect(repo.updateItem).not.toHaveBeenCalled();
   });
 
   it('rejects a start after stop means stop', async () => {
