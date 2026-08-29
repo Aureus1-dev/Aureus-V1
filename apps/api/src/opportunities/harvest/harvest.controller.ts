@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   Get,
@@ -47,6 +48,26 @@ export class HarvestController {
     @CurrentUser() user: AuthenticatedUser,
   ) {
     return this.service.upsertProfile(opportunityId, dto, user.id);
+  }
+
+  @Get('candidates')
+  @ApiOperation({
+    summary:
+      'List currently fresh, regulated harvest candidates so the member can review eligibility before planning',
+  })
+  listCandidates(
+    @Query('state') state: string,
+    @Query('country') country: string | undefined,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    if (!state?.trim()) {
+      throw new BadRequestException('state is required');
+    }
+    return this.service.listCandidates(
+      user.isGuest,
+      state,
+      country ?? 'US',
+    );
   }
 
   @Post('plans')
