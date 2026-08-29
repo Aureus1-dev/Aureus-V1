@@ -390,8 +390,6 @@ enum TrackingStatus {
 enum HarvestOfferKind {
   SPORTSBOOK
   ONLINE_CASINO
-  BANKING
-  OTHER
 }
 
 enum HarvestLegalStatus {
