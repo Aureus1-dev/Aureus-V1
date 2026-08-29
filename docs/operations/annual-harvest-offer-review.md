@@ -100,6 +100,8 @@ Harvest plans contain self-reported taxable income, itemized deductions, gamblin
 
 - Each plan receives a `retentionExpiresAt` timestamp at creation: January 1 following seven full calendar years after the plan tax year.
 - The seven-year maximum is deliberately conservative because IRS record-support periods are generally three years and can extend to six years in specified assessment circumstances.
-- At or after `retentionExpiresAt`, Harvest financial/execution records must be deleted or irreversibly anonymized in the data-retention process unless a documented legal hold, active tax dispute, or member-requested preservation requires a narrower exception.
+- At 04:00 UTC every day, `HarvestRetentionService` hard-deletes Harvest plans whose `retentionExpiresAt` is at or before the current time. Prisma cascade rules delete the associated Harvest plan items and Harvest events in the same lifecycle.
+- The purge is also exposed as a deterministic service method with an `asOfDate` parameter for tests and controlled operator execution.
+- This candidate does not implement a silent legal-hold bypass. If a future legal obligation requires retention beyond the scheduled date, Aureus must add an explicit governed hold mechanism before relying on that exception.
 - A valid member deletion request may remove the data earlier when no legal/tax-support obligation requires preservation.
 - Evidence references must not contain passwords, account credentials, SSNs, full bank numbers, or screenshots containing unnecessary sensitive data.

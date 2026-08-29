@@ -66,3 +66,18 @@ After receiving the independent whole-product review of exact V1 head `b71f78be0
 4. Harvest financial/execution data receives a specific non-indefinite retention/anonymization rule.
 
 The independent review's product-scope disagreement remains preserved in the review record. Founder authorization resolves the authority question; it does not erase the reviewer's mission-fit concern or grant merge/deploy approval.
+
+
+## Independent re-review retention closure — 2026-08-29
+
+The corrected-candidate re-review rated the first three independent-review blockers closed and identified one remaining merge blocker: `retentionExpiresAt` was written but not enforced.
+
+The candidate now closes that gap with `HarvestRetentionService`:
+
+- scheduled daily at 04:00 UTC through the already-installed Nest ScheduleModule;
+- hard-deletes every HarvestPlan whose `retentionExpiresAt` is at or before the execution time;
+- relies on existing Prisma `onDelete: Cascade` relations to remove HarvestPlanItem and HarvestEvent children;
+- exposes a deterministic `purgeExpiredPlans(asOfDate)` method so the behavior is directly testable and can be run in a controlled operator context;
+- deliberately does not claim a legal-hold exception that the current product cannot enforce.
+
+This closure is an implementation correction only. It does not constitute merge or deployment approval.

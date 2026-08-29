@@ -187,4 +187,11 @@ export class PrismaHarvestRepository implements IHarvestRepository {
       },
     });
   }
+
+  async deleteExpiredPlans(asOfDate: Date): Promise<number> {
+    const result = await this.prisma.db.harvestPlan.deleteMany({
+      where: { retentionExpiresAt: { lte: asOfDate } },
+    });
+    return result.count;
+  }
 }

@@ -154,4 +154,5 @@ export interface IHarvestRepository {
   ): Promise<void>;
   stopOpenItems(planId: string): Promise<void>;
   countOpenItems(planId: string): Promise<number>;
+  deleteExpiredPlans(asOfDate: Date): Promise<number>;
 }

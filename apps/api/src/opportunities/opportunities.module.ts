@@ -14,6 +14,7 @@ import { SAVED_OPPORTUNITY_REPOSITORY } from './saved/repositories/saved-opportu
 import { HarvestController } from './harvest/harvest.controller';
 import { HarvestPlanningService } from './harvest/harvest-planning.service';
 import { HarvestTaxEngineService } from './harvest/harvest-tax-engine.service';
+import { HarvestRetentionService } from './harvest/harvest-retention.service';
 import { PrismaHarvestRepository } from './harvest/repositories/prisma-harvest.repository';
 import { HARVEST_REPOSITORY } from './harvest/repositories/harvest.repository.interface';
 
@@ -30,6 +31,7 @@ import { HARVEST_REPOSITORY } from './harvest/repositories/harvest.repository.in
     { provide: SAVED_OPPORTUNITY_REPOSITORY, useClass: PrismaSavedOpportunityRepository },
     HarvestPlanningService,
     HarvestTaxEngineService,
+    HarvestRetentionService,
     { provide: HARVEST_REPOSITORY, useClass: PrismaHarvestRepository },
   ],
   exports: [
@@ -41,6 +43,7 @@ import { HARVEST_REPOSITORY } from './harvest/repositories/harvest.repository.in
     OPPORTUNITY_REPOSITORY,
     HarvestPlanningService,
     HarvestTaxEngineService,
+    HarvestRetentionService,
     HARVEST_REPOSITORY,
   ],
 })
