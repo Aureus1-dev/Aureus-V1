@@ -50,6 +50,17 @@ export class HarvestController {
     return this.service.upsertProfile(opportunityId, dto, user.id);
   }
 
+  @Get('profiles/review-queue')
+  @UseGuards(RolesGuard)
+  @Roles(UserRole.PLATFORM_ADMINISTRATOR, UserRole.SYSTEM_ADMINISTRATOR)
+  @ApiOperation({
+    summary:
+      'List harvest promotion profiles that are stale, expired, unverified, or backed by a stale opportunity',
+  })
+  reviewQueue() {
+    return this.service.listProfileReviewQueue();
+  }
+
   @Get('candidates')
   @ApiOperation({
     summary:
