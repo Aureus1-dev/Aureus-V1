@@ -123,6 +123,7 @@ export interface IHarvestRepository {
   ): Promise<HarvestProfileWithOpportunity[]>;
   listProfilesForReview(
     staleBefore: Date,
+    opportunityStaleBefore: Date,
     now: Date,
   ): Promise<HarvestProfileWithOpportunity[]>;
   createPlan(data: HarvestPlanCreate): Promise<HarvestPlanWithItems>;
