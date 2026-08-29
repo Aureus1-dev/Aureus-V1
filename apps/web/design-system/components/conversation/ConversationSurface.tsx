@@ -17,6 +17,12 @@ import {
   type ResourceOfferResponseValue,
 } from '../../../lib/api/needs';
 import type { PlanItemDto } from '../../../lib/api/plan';
+import type { OpportunityActionDto } from '../../../lib/api/conversations';
+import {
+  getActiveGuidedApplicationSession,
+  startGuidedApplicationSession,
+  type GuidedApplicationSessionDto,
+} from '../../../lib/api/application-guide';
 import { planItemKey } from '../plan/PlanCard';
 import { EmptyState } from '../EmptyState/EmptyState';
 import { ErrorState } from '../ErrorState/ErrorState';
@@ -24,6 +30,7 @@ import { Button } from '../Button/Button';
 import { VoiceSurface } from '../voice';
 import { ConversationHistory } from './ConversationHistory';
 import { ConversationTimeline } from './ConversationTimeline';
+import { ApplicationGuidePanel } from './ApplicationGuidePanel';
 import { MessageComposer } from './MessageComposer';
 import { conversationErrorCopy } from './conversation-error-copy';
 import { buildVirtualTimeline, type BuiltPlan } from './build-virtual-timeline';
@@ -69,6 +76,10 @@ export function ConversationSurface({ initialMode = 'text' }: ConversationSurfac
   const connectedExperiences = useConnectedExperiences();
   const recommendations = useRecommendations();
   const [mode, setMode] = useState<'text' | 'voice'>(initialMode);
+  const [applicationGuideSession, setApplicationGuideSession] =
+    useState<GuidedApplicationSessionDto | null>(null);
+  const [applicationGuideError, setApplicationGuideError] = useState<string | null>(null);
+  const [applicationGuideStarting, setApplicationGuideStarting] = useState(false);
 
   const [needId, setNeedId] = useState<string | undefined>(undefined);
   const [planBuiltAt, setPlanBuiltAt] = useState<string | null>(null);
@@ -106,6 +117,29 @@ export function ConversationSurface({ initialMode = 'text' }: ConversationSurfac
         // Best-effort lookup — a plan with no matching StatedNeed simply has no CITY_RESOURCE items to auto-offer.
       }
     })();
+    return () => {
+      cancelled = true;
+    };
+  }, [session.accessToken, state.activeConversationId]);
+
+  useEffect(() => {
+    if (!session.accessToken || !state.activeConversationId) {
+      setApplicationGuideSession(null);
+      return;
+    }
+
+    let cancelled = false;
+    void getActiveGuidedApplicationSession(
+      session.accessToken,
+      state.activeConversationId,
+    )
+      .then((active) => {
+        if (!cancelled) setApplicationGuideSession(active);
+      })
+      .catch(() => {
+        if (!cancelled) setApplicationGuideSession(null);
+      });
+
     return () => {
       cancelled = true;
     };
@@ -156,6 +190,26 @@ export function ConversationSurface({ initialMode = 'text' }: ConversationSurfac
         .map((item) => item.recommendation!)
     : [];
   const planSubjectsById = useRecommendationSubjects(planRecommendations);
+
+  const startApplicationGuide = async (action: OpportunityActionDto) => {
+    if (!session.accessToken || !state.activeConversationId || applicationGuideStarting) return;
+    setApplicationGuideStarting(true);
+    setApplicationGuideError(null);
+    try {
+      const guided = await startGuidedApplicationSession(
+        session.accessToken,
+        state.activeConversationId,
+        action.opportunityId,
+      );
+      setApplicationGuideSession(guided);
+    } catch {
+      setApplicationGuideError(
+        'Aureus could not start screen guidance for this application. The verified application link still works on its own.',
+      );
+    } finally {
+      setApplicationGuideStarting(false);
+    }
+  };
 
   const decidePlanItem = async (item: PlanItemDto, accepted: boolean) => {
     if (!session.accessToken) return;
@@ -256,8 +310,29 @@ export function ConversationSurface({ initialMode = 'text' }: ConversationSurfac
               isDecidingPlanItem={(item) => decidingKeys.includes(planItemKey(item))}
               onApprovePlanItem={(item) => void decidePlanItem(item, true)}
               onDismissPlanItem={(item) => void decidePlanItem(item, false)}
+              onStartApplicationGuide={(action) => void startApplicationGuide(action)}
             />
           )}
+
+          {applicationGuideStarting ? (
+            <p className={styles.guideStatus} role="status">Preparing application guidance…</p>
+          ) : null}
+
+          {applicationGuideError ? (
+            <p className={styles.guideError} role="alert">{applicationGuideError}</p>
+          ) : null}
+
+          {applicationGuideSession && session.accessToken ? (
+            <ApplicationGuidePanel
+              accessToken={session.accessToken}
+              session={applicationGuideSession}
+              onSessionChange={setApplicationGuideSession}
+              onEnded={() => {
+                setApplicationGuideSession(null);
+                setApplicationGuideError(null);
+              }}
+            />
+          ) : null}
 
           {errorCopy ? (
             <ErrorState

@@ -1,4 +1,5 @@
 import { render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { axe } from 'jest-axe';
 import type { OpportunityActionDto } from '../../../lib/api/conversations';
 import { OpportunityActionCard } from './OpportunityActionCard';
@@ -32,6 +33,15 @@ describe('OpportunityActionCard', () => {
     expect(link).toHaveAttribute('target', '_blank');
     expect(link).toHaveAttribute('rel', expect.stringContaining('noopener'));
     expect(screen.getByText('Eligibility: Applicants must be 18 or older.')).toBeInTheDocument();
+  });
+
+  it('offers guided application help only as an explicit member action', async () => {
+    const onStartGuide = jest.fn();
+    render(<OpportunityActionCard action={action} onStartGuide={onStartGuide} />);
+
+    await userEvent.click(screen.getByRole('button', { name: 'Guide me through it' }));
+
+    expect(onStartGuide).toHaveBeenCalledWith(action);
   });
 
   it('shows plain-language affiliate disclosure when compensation metadata exists', () => {

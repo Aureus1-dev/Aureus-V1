@@ -53,3 +53,45 @@
   outline: 3px solid var(--color-focus-ring);
   outline-offset: 2px;
 }
+
+.actions {
+  display: flex;
+  gap: var(--space-3);
+  align-items: center;
+  flex-wrap: wrap;
+  margin-top: var(--space-4);
+}
+
+.actions .actionLink {
+  margin-top: 0;
+}
+
+.guideButton {
+  min-height: 44px;
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-lg);
+  background: transparent;
+  color: var(--color-text-primary);
+  font: inherit;
+  font-weight: 650;
+  cursor: pointer;
+}
+
+.guideButton:focus-visible {
+  outline: 3px solid var(--color-focus-ring);
+  outline-offset: 2px;
+}
+
+@media (max-width: 640px) {
+  .actions,
+  .actions .actionLink,
+  .guideButton {
+    width: 100%;
+  }
+
+  .actions .actionLink,
+  .guideButton {
+    justify-content: center;
+  }
+}

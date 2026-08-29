@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation';
 import type { PlanItemDto } from '../../../lib/api/plan';
 import type { RecommendationSubject } from '../recommendations';
 import type { ResourceOfferResponseValue } from '../../../lib/api/needs';
+import type { OpportunityActionDto } from '../../../lib/api/conversations';
 import type { VirtualTimelineEntry } from './build-virtual-timeline';
 import { MemberMessage } from './MemberMessage';
 import { StewardMessage } from './StewardMessage';
@@ -22,6 +23,7 @@ export interface ConversationTimelineProps {
   isDecidingPlanItem: (item: PlanItemDto) => boolean;
   onApprovePlanItem: (item: PlanItemDto) => void;
   onDismissPlanItem: (item: PlanItemDto) => void;
+  onStartApplicationGuide?: (action: OpportunityActionDto) => void;
 }
 
 function subjectFor(item: PlanItemDto, subjectsById: Record<string, RecommendationSubject>): RecommendationSubject | null {
@@ -63,6 +65,7 @@ export function ConversationTimeline({
   isDecidingPlanItem,
   onApprovePlanItem,
   onDismissPlanItem,
+  onStartApplicationGuide,
 }: ConversationTimelineProps) {
   const router = useRouter();
 
@@ -77,6 +80,7 @@ export function ConversationTimeline({
               key={entry.key}
               content={entry.message.content}
               opportunityAction={entry.message.opportunityAction}
+              onStartApplicationGuide={onStartApplicationGuide}
             />
           );
         }

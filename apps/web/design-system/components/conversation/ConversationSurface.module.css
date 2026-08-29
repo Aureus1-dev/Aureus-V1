@@ -19,3 +19,17 @@
 .privacyNotice {
   display: none;
 }
+
+.guideStatus,
+.guideError {
+  margin: var(--space-3) 0;
+  font-size: var(--font-size-sm);
+}
+
+.guideStatus {
+  color: var(--color-text-secondary);
+}
+
+.guideError {
+  color: var(--color-error);
+}
