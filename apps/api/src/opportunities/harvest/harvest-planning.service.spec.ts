@@ -66,10 +66,7 @@ describe('HarvestPlanningService', () => {
         memberAgeYears: 34,
         attestsAgeAccuracy: true,
         reviewedOfferEligibility: true,
-        memberAgeYears: 34,
-      attestsAgeAccuracy: true,
-      reviewedOfferEligibility: true,
-      acceptsStopRule: true,
+        acceptsStopRule: true,
       }),
     ).rejects.toThrow(ForbiddenException);
   });
