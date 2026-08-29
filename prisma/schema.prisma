@@ -152,7 +152,6 @@ model User {
   aiConversations            AiConversation[]
   aiRequests                 AiRequest[]
   aiRecommendations          AiRecommendation[]
-  harvestProfile             HarvestOfferProfile?
   aiVoiceSessions            AiVoiceSession[]
   wardLeadEvents             WardLeadEvent[]           @relation("WardLeadEventActor")
   podMemberships             PodMembership[]
@@ -517,6 +516,7 @@ model Opportunity {
   savedBy                    SavedOpportunity[]
   stewardshipRecommendations StewardshipRecommendation[]
   aiRecommendations          AiRecommendation[]
+  harvestProfile             HarvestOfferProfile?
 
   @@index([category])
   @@index([verificationStatus])
