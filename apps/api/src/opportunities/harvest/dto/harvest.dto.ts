@@ -210,6 +210,10 @@ export class CreateHarvestPlanDto {
   @IsBoolean()
   reviewedOfferEligibility!: boolean;
 
+  @ApiProperty({ description: 'Member attests they are legally permitted to use Pennsylvania gaming promotions and are not currently self-excluded from the relevant gaming product.' })
+  @IsBoolean()
+  attestsLegalParticipation!: boolean;
+
   @ApiPropertyOptional({ type: [String], default: [] })
   @IsOptional()
   @IsArray()
