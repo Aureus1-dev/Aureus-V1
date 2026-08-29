@@ -385,6 +385,74 @@ export class HarvestPlanningService {
     return plan;
   }
 
+  async listProfileReviewQueue() {
+    const now = new Date();
+    const staleBefore = new Date(now.getTime() - TERMS_MAX_AGE_MS);
+    const opportunityStaleBefore = new Date(
+      now.getTime() - OPPORTUNITY_MAX_VERIFICATION_AGE_MS,
+    );
+    const profiles = await this.repo.listProfilesForReview(
+      staleBefore,
+      opportunityStaleBefore,
+      now,
+    );
+
+    return profiles.map((profile) => {
+      const reasons: string[] = [];
+      if (profile.legalStatus !== HarvestLegalStatus.VERIFIED_REGULATED) {
+        reasons.push(`legal status: ${profile.legalStatus}`);
+      }
+      if (profile.termsVerifiedAt.getTime() < staleBefore.getTime()) {
+        reasons.push('promotion terms older than 14 days');
+      }
+      if (profile.expiresAt && profile.expiresAt.getTime() < now.getTime()) {
+        reasons.push('promotion expired');
+      }
+      if (profile.opportunity.status !== OpportunityStatus.ACTIVE) {
+        reasons.push(`opportunity status: ${profile.opportunity.status}`);
+      }
+      if (
+        profile.opportunity.verificationStatus !==
+        VerificationStatus.VERIFIED
+      ) {
+        reasons.push(
+          `opportunity verification: ${profile.opportunity.verificationStatus}`,
+        );
+      }
+      if (profile.opportunity.deletedAt) {
+        reasons.push('opportunity deleted');
+      }
+      if (!profile.opportunity.dateLastVerified) {
+        reasons.push('opportunity has no verification timestamp');
+      } else if (
+        profile.opportunity.dateLastVerified.getTime() <
+        opportunityStaleBefore.getTime()
+      ) {
+        reasons.push('opportunity verification older than 365 days');
+      }
+      if (
+        profile.opportunity.deadline &&
+        profile.opportunity.deadline.getTime() < now.getTime()
+      ) {
+        reasons.push('opportunity deadline passed');
+      }
+
+      return {
+        offerProfileId: profile.id,
+        opportunityId: profile.opportunity.id,
+        opportunityRef: profile.opportunity.opportunityRef,
+        title: profile.opportunity.title,
+        provider: profile.opportunity.provider,
+        legalStatus: profile.legalStatus,
+        termsSourceUrl: profile.termsSourceUrl,
+        termsVerifiedAt: profile.termsVerifiedAt,
+        expiresAt: profile.expiresAt,
+        profileVersion: profile.profileVersion,
+        reasons,
+      };
+    });
+  }
+
   async listCandidates(
     isGuest: boolean | undefined,
     state: string,
