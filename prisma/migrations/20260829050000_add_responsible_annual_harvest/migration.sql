@@ -134,7 +134,7 @@ CREATE UNIQUE INDEX "HarvestOfferProfile_opportunityId_key" ON "HarvestOfferProf
 CREATE INDEX "HarvestOfferProfile_legalStatus_jurisdictionState_idx" ON "HarvestOfferProfile"("legalStatus", "jurisdictionState");
 CREATE INDEX "HarvestOfferProfile_termsVerifiedAt_idx" ON "HarvestOfferProfile"("termsVerifiedAt");
 CREATE INDEX "HarvestOfferProfile_expiresAt_idx" ON "HarvestOfferProfile"("expiresAt");
-CREATE UNIQUE INDEX "HarvestPlan_userId_taxYear_key" ON "HarvestPlan"("userId", "taxYear");
+CREATE INDEX "HarvestPlan_userId_taxYear_createdAt_idx" ON "HarvestPlan"("userId", "taxYear", "createdAt");
 CREATE INDEX "HarvestPlan_userId_status_idx" ON "HarvestPlan"("userId", "status");
 CREATE UNIQUE INDEX "HarvestPlanItem_planId_offerProfileId_key" ON "HarvestPlanItem"("planId", "offerProfileId");
 CREATE UNIQUE INDEX "HarvestPlanItem_planId_position_key" ON "HarvestPlanItem"("planId", "position");
