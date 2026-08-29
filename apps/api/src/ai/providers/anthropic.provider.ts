@@ -1,7 +1,14 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { AiProvider } from '@prisma/client';
-import { AiCompletionInput, AiCompletionOutput, AiToolDefinition, IAiProvider } from './ai-provider.interface';
+import {
+  AiCompletionInput,
+  AiCompletionOutput,
+  AiMessageContent,
+  AiToolDefinition,
+  IAiProvider,
+} from './ai-provider.interface';
+import { imagePartsFromAiContent, textFromAiContent } from './ai-message-content.util';
 import { CircuitBreaker, CircuitState } from './resilience/circuit-breaker';
 import { resilientFetch } from './resilience/resilient-fetch.util';
 
@@ -13,6 +20,22 @@ interface AnthropicMessagesResponse {
 
 function toAnthropicTool(def: AiToolDefinition) {
   return { name: def.name, description: def.description, input_schema: def.parameters };
+}
+
+function toAnthropicContent(content: AiMessageContent) {
+  if (typeof content === 'string') return content;
+  return content.map((part) =>
+    part.type === 'text'
+      ? { type: 'text' as const, text: part.text }
+      : {
+          type: 'image' as const,
+          source: {
+            type: 'base64' as const,
+            media_type: part.mediaType,
+            data: part.data,
+          },
+        },
+  );
 }
 
 /**
@@ -50,10 +73,16 @@ export class AnthropicProvider implements IAiProvider {
     const apiKey = this.config.get<string>('ANTHROPIC_API_KEY');
     const model = this.config.get<string>('ANTHROPIC_MODEL', 'claude-3-5-haiku-20241022');
 
-    const systemPrompt = input.messages.filter((m) => m.role === 'system').map((m) => m.content).join('\n\n');
+    const systemMessages = input.messages.filter((m) => m.role === 'system');
+    if (systemMessages.some((message) => imagePartsFromAiContent(message.content).length > 0)) {
+      throw new Error('Anthropic system messages cannot contain image inputs');
+    }
+    const systemPrompt = systemMessages
+      .map((message) => textFromAiContent(message.content))
+      .join('\n\n');
     const conversation = input.messages
       .filter((m) => m.role !== 'system')
-      .map((m) => ({ role: m.role, content: m.content }));
+      .map((m) => ({ role: m.role, content: toAnthropicContent(m.content) }));
 
     const res = await this.circuitBreaker.execute(() =>
       resilientFetch(

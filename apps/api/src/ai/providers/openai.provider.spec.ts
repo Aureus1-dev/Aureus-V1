@@ -142,6 +142,38 @@ describe('OpenAiProvider', () => {
     expect(body.temperature).toBe(0.2);
   });
 
+  it('translates provider-neutral image input to Chat Completions image_url content', async () => {
+    const fetchMock = jest.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        model: 'gpt-5-mini',
+        choices: [{ finish_reason: 'stop', message: { content: 'I can see the form.' } }],
+        usage: { prompt_tokens: 25, completion_tokens: 7 },
+      }),
+    });
+    global.fetch = fetchMock as unknown as typeof fetch;
+
+    const provider = new OpenAiProvider(makeConfig());
+    await provider.complete({
+      messages: [{
+        role: 'user',
+        content: [
+          { type: 'text', text: 'Guide me through this screen.' },
+          { type: 'image', mediaType: 'image/png', data: 'YWJj', detail: 'low' },
+        ],
+      }],
+    });
+
+    const body = JSON.parse((fetchMock.mock.calls[0][1] as RequestInit).body as string);
+    expect(body.messages[0].content).toEqual([
+      { type: 'text', text: 'Guide me through this screen.' },
+      {
+        type: 'image_url',
+        image_url: { url: 'data:image/png;base64,YWJj', detail: 'low' },
+      },
+    ]);
+  });
+
   it('completes without tools when none are offered, and omits tool_choice entirely', async () => {
     const fetchMock = jest.fn().mockResolvedValue({
       ok: true,

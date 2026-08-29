@@ -1,6 +1,10 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import type { AiCompletionMessage } from '../providers/ai-provider.interface';
+import {
+  imagePartsFromAiContent,
+  textFromAiContent,
+} from '../providers/ai-message-content.util';
 import { checkContentFallback, ModerationCategory } from './moderation-fallback.util';
 
 export interface ModerationResult {
@@ -48,32 +52,47 @@ export class ModerationService {
   constructor(private readonly config: ConfigService) {}
 
   async checkMessages(messages: AiCompletionMessage[]): Promise<ModerationResult> {
-    const userContents = messages.filter((m) => m.role === 'user').map((m) => m.content);
-    if (userContents.length === 0) return { flagged: false, categories: [] };
+    const userMessages = messages.filter((m) => m.role === 'user');
+    if (userMessages.length === 0) return { flagged: false, categories: [] };
 
     const selectedProvider = this.config.get<string>('AI_PROVIDER', 'stub');
     const apiKey = this.config.get<string>('OPENAI_API_KEY');
-    if (selectedProvider === 'openai' && apiKey) return this.checkViaOpenAi(userContents, apiKey);
-
-    const categories = new Set<ModerationCategory>();
-    for (const content of userContents) {
-      for (const category of checkContentFallback(content)) categories.add(category);
+    if (selectedProvider === 'openai' && apiKey) {
+      return this.checkViaOpenAi(userMessages, apiKey);
     }
-    return { flagged: categories.size > 0, categories: [...categories] };
+
+    return this.fallbackAfterProviderFailure(
+      userMessages.map((message) => textFromAiContent(message.content)),
+    );
   }
 
-  private async checkViaOpenAi(contents: string[], apiKey: string): Promise<ModerationResult> {
+  private async checkViaOpenAi(
+    messages: AiCompletionMessage[],
+    apiKey: string,
+  ): Promise<ModerationResult> {
+    const fallbackTexts = messages.map((message) => textFromAiContent(message.content));
+    const input = messages.flatMap((message) => {
+      const text = textFromAiContent(message.content);
+      const images = imagePartsFromAiContent(message.content);
+      return [
+        ...(text.trim() ? [{ type: 'text', text }] : []),
+        ...images.map((image) => ({
+          type: 'image_url',
+          image_url: { url: `data:${image.mediaType};base64,${image.data}` },
+        })),
+      ];
+    });
     try {
       const res = await fetch('https://api.openai.com/v1/moderations', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
-        body: JSON.stringify({ input: contents }),
+        body: JSON.stringify({ input }),
       });
 
       if (!res.ok) {
         const body = await res.text();
         this.logger.error(`OpenAI moderation request failed (${res.status}): ${body}`);
-        return this.fallbackAfterProviderFailure(contents);
+        return this.fallbackAfterProviderFailure(fallbackTexts);
       }
 
       const data = (await res.json()) as OpenAiModerationResponse;
@@ -90,7 +109,7 @@ export class ModerationService {
       return { flagged, categories: [...categories] as ModerationCategory[] };
     } catch (err) {
       this.logger.error(`OpenAI moderation request threw: ${err instanceof Error ? err.message : 'Unknown error'}`);
-      return this.fallbackAfterProviderFailure(contents);
+      return this.fallbackAfterProviderFailure(fallbackTexts);
     }
   }
 

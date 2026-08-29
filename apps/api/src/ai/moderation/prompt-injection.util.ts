@@ -1,4 +1,5 @@
 import type { AiCompletionMessage } from '../providers/ai-provider.interface';
+import { mapTextInAiContent } from '../providers/ai-message-content.util';
 
 /**
  * PD-007 (AI Safety: Content Moderation & Prompt-Injection Defense), item
@@ -37,7 +38,12 @@ const UNTRUSTED_CONTENT_SUFFIX = '\n[END MEMBER-SUPPLIED CONTENT]';
 export function wrapUntrustedUserContent(messages: AiCompletionMessage[]): AiCompletionMessage[] {
   return messages.map((message) => {
     if (message.role !== 'user') return message;
-    const neutralized = neutralizeInjectionAttempts(message.content);
-    return { ...message, content: `${UNTRUSTED_CONTENT_PREFIX}${neutralized}${UNTRUSTED_CONTENT_SUFFIX}` };
+    return {
+      ...message,
+      content: mapTextInAiContent(message.content, (text) => {
+        const neutralized = neutralizeInjectionAttempts(text);
+        return `${UNTRUSTED_CONTENT_PREFIX}${neutralized}${UNTRUSTED_CONTENT_SUFFIX}`;
+      }),
+    };
   });
 }

@@ -1,6 +1,10 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { AiProvider } from '@prisma/client';
 import { AiCompletionInput, AiCompletionOutput, IAiProvider } from './ai-provider.interface';
+import {
+  approximateAiContentCharacters,
+  textFromAiContent,
+} from './ai-message-content.util';
 
 /**
  * Safe default provider — used whenever AI_PROVIDER is unset or the
@@ -20,13 +24,17 @@ export class StubAiProvider implements IAiProvider {
     this.logger.warn('AI_PROVIDER is not configured with a real provider — returning a stub completion, not calling any external AI service.');
 
     const lastUserMessage = [...input.messages].reverse().find((m) => m.role === 'user');
-    const content = `[stub AI response] Acknowledged: "${(lastUserMessage?.content ?? '').slice(0, 200)}"`;
+    const lastUserText = lastUserMessage ? textFromAiContent(lastUserMessage.content) : '';
+    const content = `[stub AI response] Acknowledged: "${lastUserText.slice(0, 200)}"`;
 
     return {
       content,
       provider: this.provider,
       model: 'stub',
-      promptTokens: input.messages.reduce((sum, m) => sum + Math.ceil(m.content.length / 4), 0),
+      promptTokens: input.messages.reduce(
+        (sum, m) => sum + Math.ceil(approximateAiContentCharacters(m.content) / 4),
+        0,
+      ),
       completionTokens: Math.ceil(content.length / 4),
     };
   }

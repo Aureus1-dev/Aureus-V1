@@ -19,6 +19,21 @@ describe('StubAiProvider', () => {
     expect(result.completionTokens).toBeGreaterThan(0);
   });
 
+  it('handles multimodal input without echoing image bytes', async () => {
+    const result = await provider.complete({
+      messages: [{
+        role: 'user',
+        content: [
+          { type: 'text', text: 'Guide this application.' },
+          { type: 'image', mediaType: 'image/png', data: 'SECRETIMAGEBYTES' },
+        ],
+      }],
+    });
+
+    expect(result.content).toContain('Guide this application.');
+    expect(result.content).not.toContain('SECRETIMAGEBYTES');
+  });
+
   it('handles a conversation with no user message', async () => {
     const result = await provider.complete({ messages: [{ role: 'system', content: 'System only.' }] });
     expect(result.content).toContain('[stub AI response]');

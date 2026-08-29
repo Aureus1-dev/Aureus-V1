@@ -56,6 +56,28 @@ describe('ModerationService', () => {
       expect(result.categories).toEqual(['self-harm']);
     });
 
+    it('passes multimodal user input to the OpenAI moderation endpoint', async () => {
+      fetchSpy.mockResolvedValue({
+        ok: true,
+        json: async () => ({ results: [{ flagged: false, categories: {} }] }),
+      } as Response);
+
+      await service.checkMessages([{
+        role: 'user',
+        content: [
+          { type: 'text', text: 'Guide me through this application.' },
+          { type: 'image', mediaType: 'image/png', data: 'YWJj' },
+        ],
+      }]);
+
+      const init = fetchSpy.mock.calls[0][1] as RequestInit;
+      const body = JSON.parse(init.body as string);
+      expect(body.input).toEqual([
+        { type: 'text', text: 'Guide me through this application.' },
+        { type: 'image_url', image_url: { url: 'data:image/png;base64,YWJj' } },
+      ]);
+    });
+
     it('returns not-flagged when OpenAI reports nothing flagged', async () => {
       fetchSpy.mockResolvedValue({
         ok: true,

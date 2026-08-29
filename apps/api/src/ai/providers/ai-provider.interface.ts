@@ -3,10 +3,33 @@ import { AiProvider as AiProviderEnum } from '@prisma/client';
 export const AI_PROVIDER = 'AI_PROVIDER';
 
 export type AiMessageRole = 'system' | 'user' | 'assistant';
+export type AiImageMediaType = 'image/jpeg' | 'image/png' | 'image/gif' | 'image/webp';
+export type AiImageDetail = 'low' | 'auto' | 'high';
+
+export interface AiTextContentPart {
+  type: 'text';
+  text: string;
+}
+
+/**
+ * Provider-neutral image input. The API boundary supplies raw base64 bytes
+ * plus the verified media type; concrete providers translate this into
+ * their own wire shape. Images are request-scoped inputs and are never
+ * persisted by this interface.
+ */
+export interface AiImageContentPart {
+  type: 'image';
+  mediaType: AiImageMediaType;
+  data: string;
+  detail?: AiImageDetail;
+}
+
+export type AiContentPart = AiTextContentPart | AiImageContentPart;
+export type AiMessageContent = string | AiContentPart[];
 
 export interface AiCompletionMessage {
   role: AiMessageRole;
-  content: string;
+  content: AiMessageContent;
 }
 
 /**

@@ -33,6 +33,38 @@ describe('AnthropicProvider', () => {
     jest.restoreAllMocks();
   });
 
+  it('translates provider-neutral image input to Anthropic base64 image blocks', async () => {
+    const fetchMock = jest.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        model: 'claude-sonnet-5',
+        content: [{ type: 'text', text: 'I can see the form.' }],
+        usage: { input_tokens: 25, output_tokens: 7 },
+      }),
+    });
+    global.fetch = fetchMock as unknown as typeof fetch;
+
+    const provider = new AnthropicProvider(makeConfig({ ANTHROPIC_MODEL: 'claude-sonnet-5' }));
+    await provider.complete({
+      messages: [{
+        role: 'user',
+        content: [
+          { type: 'text', text: 'Guide me through this screen.' },
+          { type: 'image', mediaType: 'image/jpeg', data: 'YWJj' },
+        ],
+      }],
+    });
+
+    const body = JSON.parse((fetchMock.mock.calls[0][1] as RequestInit).body as string);
+    expect(body.messages[0].content).toEqual([
+      { type: 'text', text: 'Guide me through this screen.' },
+      {
+        type: 'image',
+        source: { type: 'base64', media_type: 'image/jpeg', data: 'YWJj' },
+      },
+    ]);
+  });
+
   it('maps offered AiToolDefinitions to the Messages API flat input_schema wire format', async () => {
     const fetchMock = jest.fn().mockResolvedValue({
       ok: true,

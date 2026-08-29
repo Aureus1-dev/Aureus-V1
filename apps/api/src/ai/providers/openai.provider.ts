@@ -1,7 +1,13 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { AiProvider } from '@prisma/client';
-import { AiCompletionInput, AiCompletionOutput, AiToolDefinition, IAiProvider } from './ai-provider.interface';
+import {
+  AiCompletionInput,
+  AiCompletionOutput,
+  AiMessageContent,
+  AiToolDefinition,
+  IAiProvider,
+} from './ai-provider.interface';
 import { CircuitBreaker, CircuitState } from './resilience/circuit-breaker';
 import { resilientFetch } from './resilience/resilient-fetch.util';
 
@@ -19,6 +25,21 @@ interface OpenAiChatResponse {
 
 function toOpenAiTool(def: AiToolDefinition) {
   return { type: 'function' as const, function: { name: def.name, description: def.description, parameters: def.parameters } };
+}
+
+function toOpenAiContent(content: AiMessageContent) {
+  if (typeof content === 'string') return content;
+  return content.map((part) =>
+    part.type === 'text'
+      ? { type: 'text' as const, text: part.text }
+      : {
+          type: 'image_url' as const,
+          image_url: {
+            url: `data:${part.mediaType};base64,${part.data}`,
+            detail: part.detail ?? 'auto',
+          },
+        },
+  );
 }
 
 function usesModernCompletionTokenField(model: string): boolean {
@@ -83,7 +104,10 @@ export class OpenAiProvider implements IAiProvider {
             },
             body: JSON.stringify({
               model,
-              messages: input.messages.map((m) => ({ role: m.role, content: m.content })),
+              messages: input.messages.map((m) => ({
+                role: m.role,
+                content: toOpenAiContent(m.content),
+              })),
               ...(modernCompletionFields
                 ? {
                     max_completion_tokens: maxCompletionTokens,
