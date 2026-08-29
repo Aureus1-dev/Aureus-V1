@@ -72,6 +72,7 @@ export class PrismaHarvestRepository implements IHarvestRepository {
 
   listProfilesForReview(
     staleBefore: Date,
+    opportunityStaleBefore: Date,
     now: Date,
   ): Promise<HarvestProfileWithOpportunity[]> {
     return this.prisma.db.harvestOfferProfile.findMany({
@@ -87,6 +88,7 @@ export class PrismaHarvestRepository implements IHarvestRepository {
                 { verificationStatus: { not: VerificationStatus.VERIFIED } },
                 { deletedAt: { not: null } },
                 { dateLastVerified: null },
+                { dateLastVerified: { lt: opportunityStaleBefore } },
                 { deadline: { lt: now } },
               ],
             },
