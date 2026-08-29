@@ -194,9 +194,7 @@ export class HarvestPlanningService {
         !excludedOfferProfileIds.has(profile.id),
     );
 
-    const ranked = [...ageAndEligibilityFiltered].sort(
-      (a, b) => this.baselineScore(b) - this.baselineScore(a),
-    );
+    const remaining = [...ageAndEligibilityFiltered];
 
     const selected: Array<{
       profile: HarvestProfileWithOpportunity;
@@ -215,73 +213,120 @@ export class HarvestPlanningService {
     let previousFederalTaxCents = 0;
     let previousStateTaxCents = 0;
 
-    for (const profile of ranked) {
-      if (profile.bankrollRequiredCents > dto.bankrollLimitCents) continue;
-      if (
-        projectedCashOutCents + profile.projectedCashOutCents >
-        dto.projectedLossLimitCents
-      ) {
-        continue;
+    while (remaining.length > 0) {
+      let best:
+        | {
+            index: number;
+            profile: HarvestProfileWithOpportunity;
+            nextWinnings: number;
+            nextLosses: number;
+            federalTaxCents: number;
+            stateTaxCents: number;
+            marginalFederalTaxCents: number;
+            marginalStateTaxCents: number;
+            netAfterTaxCents: number;
+            score: number;
+          }
+        | null = null;
+
+      for (let index = 0; index < remaining.length; index += 1) {
+        const profile = remaining[index];
+
+        if (profile.bankrollRequiredCents > dto.bankrollLimitCents) continue;
+        if (
+          projectedCashOutCents + profile.projectedCashOutCents >
+          dto.projectedLossLimitCents
+        ) {
+          continue;
+        }
+        if (
+          projectedMinutes + profile.estimatedMinutes >
+          dto.timeLimitMinutes
+        ) {
+          continue;
+        }
+
+        const nextWinnings =
+          gamblingWinningsCents + profile.projectedTaxableWinningsCents;
+        const nextLosses =
+          deductibleLossesCents + profile.projectedDeductibleLossesCents;
+        const taxEstimate = this.taxes.estimate({
+          taxYear: dto.taxYear,
+          jurisdictionState: state,
+          filingStatus: dto.filingStatus,
+          otherTaxableIncomeCents: dto.otherTaxableIncomeCents,
+          itemizedDeductionsBeforeGamblingCents: baseItemized,
+          gamblingWinningsCents: nextWinnings,
+          deductibleGamblingLossesCents: nextLosses,
+        });
+
+        const marginalFederalTaxCents = Math.max(
+          0,
+          taxEstimate.federalTaxCents - previousFederalTaxCents,
+        );
+        const marginalStateTaxCents = Math.max(
+          0,
+          taxEstimate.stateTaxCents - previousStateTaxCents,
+        );
+        const economicValueCents =
+          profile.projectedCashInCents - profile.projectedCashOutCents;
+        const netAfterTaxCents =
+          economicValueCents -
+          marginalFederalTaxCents -
+          marginalStateTaxCents;
+
+        if (netAfterTaxCents <= 0) continue;
+
+        const score =
+          netAfterTaxCents / Math.max(1, profile.estimatedMinutes);
+
+        if (
+          best === null ||
+          score > best.score ||
+          (score === best.score &&
+            netAfterTaxCents > best.netAfterTaxCents)
+        ) {
+          best = {
+            index,
+            profile,
+            nextWinnings,
+            nextLosses,
+            federalTaxCents: taxEstimate.federalTaxCents,
+            stateTaxCents: taxEstimate.stateTaxCents,
+            marginalFederalTaxCents,
+            marginalStateTaxCents,
+            netAfterTaxCents,
+            score,
+          };
+        }
       }
-      if (
-        projectedMinutes + profile.estimatedMinutes >
-        dto.timeLimitMinutes
-      ) {
-        continue;
-      }
 
-      const nextWinnings =
-        gamblingWinningsCents + profile.projectedTaxableWinningsCents;
-      const nextLosses =
-        deductibleLossesCents + profile.projectedDeductibleLossesCents;
-      const taxEstimate = this.taxes.estimate({
-        taxYear: dto.taxYear,
-        jurisdictionState: state,
-        filingStatus: dto.filingStatus,
-        otherTaxableIncomeCents: dto.otherTaxableIncomeCents,
-        itemizedDeductionsBeforeGamblingCents: baseItemized,
-        gamblingWinningsCents: nextWinnings,
-        deductibleGamblingLossesCents: nextLosses,
-      });
+      if (best === null) break;
 
-      const marginalFederalTaxCents = Math.max(
-        0,
-        taxEstimate.federalTaxCents - previousFederalTaxCents,
-      );
-      const marginalStateTaxCents = Math.max(
-        0,
-        taxEstimate.stateTaxCents - previousStateTaxCents,
-      );
-      const economicValueCents =
-        profile.projectedCashInCents - profile.projectedCashOutCents;
-      const netAfterTaxCents =
-        economicValueCents -
-        marginalFederalTaxCents -
-        marginalStateTaxCents;
-
-      if (netAfterTaxCents <= 0) continue;
-
+      remaining.splice(best.index, 1);
       selected.push({
-        profile,
-        federalTaxCents: marginalFederalTaxCents,
-        stateTaxCents: marginalStateTaxCents,
+        profile: best.profile,
+        federalTaxCents: best.marginalFederalTaxCents,
+        stateTaxCents: best.marginalStateTaxCents,
         taxReserveCents: Math.ceil(
-          (marginalFederalTaxCents + marginalStateTaxCents) * 1.1,
+          (best.marginalFederalTaxCents +
+            best.marginalStateTaxCents) *
+            1.1,
         ),
-        netAfterTaxCents,
+        netAfterTaxCents: best.netAfterTaxCents,
       });
 
-      gamblingWinningsCents = nextWinnings;
-      deductibleLossesCents = nextLosses;
-      projectedCashInCents += profile.projectedCashInCents;
-      projectedCashOutCents += profile.projectedCashOutCents;
-      projectedMinutes += profile.estimatedMinutes;
+      gamblingWinningsCents = best.nextWinnings;
+      deductibleLossesCents = best.nextLosses;
+      projectedCashInCents += best.profile.projectedCashInCents;
+      projectedCashOutCents += best.profile.projectedCashOutCents;
+      projectedMinutes += best.profile.estimatedMinutes;
       maxBankrollRequiredCents = Math.max(
         maxBankrollRequiredCents,
-        profile.bankrollRequiredCents,
+        best.profile.bankrollRequiredCents,
       );
-      previousFederalTaxCents = taxEstimate.federalTaxCents;
-      previousStateTaxCents = taxEstimate.stateTaxCents;
+      previousFederalTaxCents = best.federalTaxCents;
+      previousStateTaxCents = best.stateTaxCents;
 
       const currentNet =
         projectedCashInCents -
@@ -780,12 +825,6 @@ export class HarvestPlanningService {
     );
 
     return this.requirePlan(userId, planId);
-  }
-
-  private baselineScore(profile: HarvestProfileWithOpportunity): number {
-    const economicValue =
-      profile.projectedCashInCents - profile.projectedCashOutCents;
-    return economicValue / Math.max(1, profile.estimatedMinutes);
   }
 
   private sourceSnapshot(
