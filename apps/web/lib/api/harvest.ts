@@ -109,6 +109,7 @@ export interface CreateHarvestPlanInput {
   memberAgeYears: number;
   attestsAgeAccuracy: boolean;
   reviewedOfferEligibility: boolean;
+  attestsLegalParticipation: boolean;
   excludedOfferProfileIds?: string[];
   bankrollLimitCents: number;
   projectedLossLimitCents: number;
