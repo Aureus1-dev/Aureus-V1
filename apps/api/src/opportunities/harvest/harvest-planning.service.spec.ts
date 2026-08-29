@@ -76,6 +76,27 @@ describe('HarvestPlanningService', () => {
     ).rejects.toThrow(ForbiddenException);
   });
 
+  it('blocks planning without explicit legal-participation and self-exclusion attestation', async () => {
+    await expect(
+      service.createPlan('user-1', false, {
+        taxYear: 2026,
+        jurisdictionState: 'PA',
+        filingStatus: HarvestFilingStatus.SINGLE,
+        otherTaxableIncomeCents: 0,
+        benefitImpactStatus: HarvestBenefitImpactStatus.NOT_APPLICABLE,
+        bankrollLimitCents: 10_000,
+        projectedLossLimitCents: 5_000,
+        timeLimitMinutes: 60,
+        memberAgeYears: 34,
+        attestsAgeAccuracy: true,
+        reviewedOfferEligibility: true,
+        attestsLegalParticipation: false,
+        acceptsStopRule: true,
+      }),
+    ).rejects.toThrow(ForbiddenException);
+    expect(repo.listEligibleProfiles).not.toHaveBeenCalled();
+  });
+
   it('does not request offers when benefit impact is unresolved', async () => {
     repo.findPlanForUser.mockResolvedValue(null);
     repo.createPlan.mockImplementation(async ({ plan }) =>
