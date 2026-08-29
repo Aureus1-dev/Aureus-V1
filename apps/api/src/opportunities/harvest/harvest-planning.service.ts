@@ -1,0 +1,715 @@
+import {
+  BadRequestException,
+  ConflictException,
+  ForbiddenException,
+  Inject,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
+import {
+  HarvestBenefitImpactStatus,
+  HarvestEventType,
+  HarvestItemStatus,
+  HarvestLegalStatus,
+  HarvestPlanStatus,
+  OpportunityStatus,
+  Prisma,
+  VerificationStatus,
+} from '@prisma/client';
+import { OpportunitiesService } from '../opportunities.service';
+import {
+  ConfirmHarvestRequirementDto,
+  CreateHarvestPlanDto,
+  HarvestAmountDto,
+  ReportHarvestProgressDto,
+  SkipHarvestItemDto,
+  StopHarvestPlanDto,
+  UpsertHarvestProfileDto,
+} from './dto/harvest.dto';
+import { HarvestTaxEngineService } from './harvest-tax-engine.service';
+import {
+  HARVEST_REPOSITORY,
+  HarvestPlanWithItems,
+  HarvestProfileWithOpportunity,
+  IHarvestRepository,
+} from './repositories/harvest.repository.interface';
+
+const TERMS_MAX_AGE_DAYS = 14;
+const TERMS_MAX_AGE_MS = TERMS_MAX_AGE_DAYS * 24 * 60 * 60 * 1000;
+
+@Injectable()
+export class HarvestPlanningService {
+  constructor(
+    @Inject(HARVEST_REPOSITORY)
+    private readonly repo: IHarvestRepository,
+    private readonly opportunities: OpportunitiesService,
+    private readonly taxes: HarvestTaxEngineService,
+  ) {}
+
+  async upsertProfile(
+    opportunityId: string,
+    dto: UpsertHarvestProfileDto,
+    actorId: string,
+  ) {
+    const opportunity = await this.opportunities.findById(opportunityId);
+
+    if (
+      dto.legalStatus === HarvestLegalStatus.VERIFIED_REGULATED &&
+      (opportunity.status !== OpportunityStatus.ACTIVE ||
+        opportunity.verificationStatus !== VerificationStatus.VERIFIED)
+    ) {
+      throw new ConflictException(
+        'A harvest profile cannot be VERIFIED_REGULATED until its Opportunity is VERIFIED + ACTIVE.',
+      );
+    }
+
+    const termsVerifiedAt = new Date(dto.termsVerifiedAt);
+    if (termsVerifiedAt.getTime() > Date.now() + 5 * 60_000) {
+      throw new BadRequestException(
+        'termsVerifiedAt cannot be in the future.',
+      );
+    }
+
+    return this.repo.upsertProfile(opportunityId, {
+      kind: dto.kind,
+      jurisdictionCountry: (dto.jurisdictionCountry ?? 'US').toUpperCase(),
+      jurisdictionState: dto.jurisdictionState.toUpperCase(),
+      minAge: dto.minAge ?? 21,
+      legalStatus: dto.legalStatus,
+      licenseAuthority: dto.licenseAuthority,
+      licenseSourceUrl: dto.licenseSourceUrl,
+      termsSourceUrl: dto.termsSourceUrl,
+      termsVerifiedAt,
+      expiresAt: dto.expiresAt ? new Date(dto.expiresAt) : null,
+      newCustomerOnly: dto.newCustomerOnly ?? true,
+      advertisedValueCents: dto.advertisedValueCents,
+      bankrollRequiredCents: dto.bankrollRequiredCents,
+      projectedCashInCents: dto.projectedCashInCents,
+      projectedCashOutCents: dto.projectedCashOutCents,
+      projectedTaxableWinningsCents: dto.projectedTaxableWinningsCents,
+      projectedDeductibleLossesCents: dto.projectedDeductibleLossesCents,
+      playthroughRequiredCents: dto.playthroughRequiredCents,
+      defaultUnitWagerCents: dto.defaultUnitWagerCents ?? null,
+      estimatedActionsPerMinute: dto.estimatedActionsPerMinute ?? null,
+      estimatedMinutes: dto.estimatedMinutes,
+      executionInstructions: dto.executionInstructions,
+      riskNotes: dto.riskNotes,
+      createdById: actorId,
+      lastUpdatedById: actorId,
+    });
+  }
+
+  async createPlan(
+    userId: string,
+    isGuest: boolean | undefined,
+    dto: CreateHarvestPlanDto,
+  ): Promise<HarvestPlanWithItems> {
+    if (isGuest) {
+      throw new ForbiddenException(
+        'Create or claim your account before starting a harvest plan.',
+      );
+    }
+    if (!dto.acceptsStopRule) {
+      throw new BadRequestException(
+        'The stop rule must be accepted before a harvest plan can start.',
+      );
+    }
+
+    const existing = await this.repo.findPlanForUser(userId, dto.taxYear);
+    if (existing) {
+      throw new ConflictException(
+        'A harvest plan already exists for this tax year.',
+      );
+    }
+
+    const state = dto.jurisdictionState.toUpperCase();
+    const country = (dto.jurisdictionCountry ?? 'US').toUpperCase();
+    const baseItemized = dto.itemizedDeductionsBeforeGamblingCents ?? 0;
+
+    this.taxes.estimate({
+      taxYear: dto.taxYear,
+      jurisdictionState: state,
+      filingStatus: dto.filingStatus,
+      otherTaxableIncomeCents: dto.otherTaxableIncomeCents,
+      itemizedDeductionsBeforeGamblingCents: baseItemized,
+      gamblingWinningsCents: 0,
+      deductibleGamblingLossesCents: 0,
+    });
+
+    const blockReasons: string[] = [];
+    if (dto.benefitImpactStatus === HarvestBenefitImpactStatus.UNKNOWN) {
+      blockReasons.push(
+        'Means-tested benefit impact is unresolved. Resolve it before any gambling promotion is started.',
+      );
+    }
+    if (dto.requiresTaxProfessionalReview) {
+      blockReasons.push(
+        'The member marked the tax situation as requiring professional review.',
+      );
+    }
+
+    const now = new Date();
+    const verifiedAfter = new Date(now.getTime() - TERMS_MAX_AGE_MS);
+    const profiles =
+      blockReasons.length === 0
+        ? await this.repo.listEligibleProfiles(
+            state,
+            country,
+            verifiedAfter,
+            now,
+          )
+        : [];
+
+    const ranked = [...profiles].sort(
+      (a, b) => this.baselineScore(b) - this.baselineScore(a),
+    );
+
+    const selected: Array<{
+      profile: HarvestProfileWithOpportunity;
+      federalTaxCents: number;
+      stateTaxCents: number;
+      taxReserveCents: number;
+      netAfterTaxCents: number;
+    }> = [];
+
+    let gamblingWinningsCents = 0;
+    let deductibleLossesCents = 0;
+    let projectedCashInCents = 0;
+    let projectedCashOutCents = 0;
+    let projectedMinutes = 0;
+    let maxBankrollRequiredCents = 0;
+    let previousFederalTaxCents = 0;
+    let previousStateTaxCents = 0;
+
+    for (const profile of ranked) {
+      if (profile.bankrollRequiredCents > dto.bankrollLimitCents) continue;
+      if (
+        projectedCashOutCents + profile.projectedCashOutCents >
+        dto.projectedLossLimitCents
+      ) {
+        continue;
+      }
+      if (
+        projectedMinutes + profile.estimatedMinutes >
+        dto.timeLimitMinutes
+      ) {
+        continue;
+      }
+
+      const nextWinnings =
+        gamblingWinningsCents + profile.projectedTaxableWinningsCents;
+      const nextLosses =
+        deductibleLossesCents + profile.projectedDeductibleLossesCents;
+      const taxEstimate = this.taxes.estimate({
+        taxYear: dto.taxYear,
+        jurisdictionState: state,
+        filingStatus: dto.filingStatus,
+        otherTaxableIncomeCents: dto.otherTaxableIncomeCents,
+        itemizedDeductionsBeforeGamblingCents: baseItemized,
+        gamblingWinningsCents: nextWinnings,
+        deductibleGamblingLossesCents: nextLosses,
+      });
+
+      const marginalFederalTaxCents = Math.max(
+        0,
+        taxEstimate.federalTaxCents - previousFederalTaxCents,
+      );
+      const marginalStateTaxCents = Math.max(
+        0,
+        taxEstimate.stateTaxCents - previousStateTaxCents,
+      );
+      const economicValueCents =
+        profile.projectedCashInCents - profile.projectedCashOutCents;
+      const netAfterTaxCents =
+        economicValueCents -
+        marginalFederalTaxCents -
+        marginalStateTaxCents;
+
+      if (netAfterTaxCents <= 0) continue;
+
+      selected.push({
+        profile,
+        federalTaxCents: marginalFederalTaxCents,
+        stateTaxCents: marginalStateTaxCents,
+        taxReserveCents: Math.ceil(
+          (marginalFederalTaxCents + marginalStateTaxCents) * 1.1,
+        ),
+        netAfterTaxCents,
+      });
+
+      gamblingWinningsCents = nextWinnings;
+      deductibleLossesCents = nextLosses;
+      projectedCashInCents += profile.projectedCashInCents;
+      projectedCashOutCents += profile.projectedCashOutCents;
+      projectedMinutes += profile.estimatedMinutes;
+      maxBankrollRequiredCents = Math.max(
+        maxBankrollRequiredCents,
+        profile.bankrollRequiredCents,
+      );
+      previousFederalTaxCents = taxEstimate.federalTaxCents;
+      previousStateTaxCents = taxEstimate.stateTaxCents;
+
+      const currentNet =
+        projectedCashInCents -
+        projectedCashOutCents -
+        previousFederalTaxCents -
+        previousStateTaxCents;
+
+      if (dto.targetNetCents && currentNet >= dto.targetNetCents) break;
+    }
+
+    const finalTax = this.taxes.estimate({
+      taxYear: dto.taxYear,
+      jurisdictionState: state,
+      filingStatus: dto.filingStatus,
+      otherTaxableIncomeCents: dto.otherTaxableIncomeCents,
+      itemizedDeductionsBeforeGamblingCents: baseItemized,
+      gamblingWinningsCents,
+      deductibleGamblingLossesCents: deductibleLossesCents,
+    });
+
+    if (blockReasons.length === 0 && selected.length === 0) {
+      blockReasons.push(
+        'No freshly reviewed offer currently remains positive after taxes and the member limits.',
+      );
+    }
+
+    const status =
+      blockReasons.length > 0
+        ? HarvestPlanStatus.REVIEW_REQUIRED
+        : HarvestPlanStatus.READY;
+
+    const plan = await this.repo.createPlan({
+      plan: {
+        userId,
+        taxYear: dto.taxYear,
+        jurisdictionCountry: country,
+        jurisdictionState: state,
+        filingStatus: dto.filingStatus,
+        otherTaxableIncomeCents: dto.otherTaxableIncomeCents,
+        itemizedDeductionsBeforeGamblingCents: baseItemized,
+        benefitImpactStatus: dto.benefitImpactStatus,
+        requiresTaxProfessionalReview:
+          dto.requiresTaxProfessionalReview ?? false,
+        bankrollLimitCents: dto.bankrollLimitCents,
+        projectedLossLimitCents: dto.projectedLossLimitCents,
+        timeLimitMinutes: dto.timeLimitMinutes,
+        targetNetCents: dto.targetNetCents ?? null,
+        stopRuleAcceptedAt: now,
+        status,
+        blockReasons,
+        projectedCashInCents,
+        projectedCashOutCents,
+        projectedFederalTaxCents: finalTax.federalTaxCents,
+        projectedStateTaxCents: finalTax.stateTaxCents,
+        recommendedTaxReserveCents: finalTax.recommendedReserveCents,
+        projectedNetValueCents:
+          projectedCashInCents -
+          projectedCashOutCents -
+          finalTax.federalTaxCents -
+          finalTax.stateTaxCents,
+        projectedGamblingWinningsCents: gamblingWinningsCents,
+        projectedDeductibleLossesCents: deductibleLossesCents,
+        maxBankrollRequiredCents,
+        projectedMinutes,
+      },
+      items: selected.map(
+        (
+          {
+            profile,
+            federalTaxCents,
+            stateTaxCents,
+            taxReserveCents,
+            netAfterTaxCents,
+          },
+          index,
+        ) => ({
+          offerProfileId: profile.id,
+          position: index + 1,
+          status: HarvestItemStatus.QUEUED,
+          projectedCashInCents: profile.projectedCashInCents,
+          projectedCashOutCents: profile.projectedCashOutCents,
+          projectedTaxableWinningsCents:
+            profile.projectedTaxableWinningsCents,
+          projectedDeductibleLossesCents:
+            profile.projectedDeductibleLossesCents,
+          projectedFederalTaxCents: federalTaxCents,
+          projectedStateTaxCents: stateTaxCents,
+          recommendedTaxReserveCents: taxReserveCents,
+          projectedNetAfterTaxCents: netAfterTaxCents,
+          bankrollRequiredCents: profile.bankrollRequiredCents,
+          projectedMinutes: profile.estimatedMinutes,
+          playthroughRequiredCents: profile.playthroughRequiredCents,
+          sourceSnapshot: this.sourceSnapshot(profile, now),
+        }),
+      ),
+    });
+
+    await this.repo.appendEvent(
+      plan.id,
+      HarvestEventType.PLAN_CREATED,
+      null,
+      {
+        status,
+        blockReasons,
+        selectedItems: selected.length,
+        taxRuleVerifiedAt: finalTax.sourceVerifiedAt,
+      },
+    );
+
+    return plan;
+  }
+
+  getPlan(userId: string, taxYear: number) {
+    return this.repo.findPlanForUser(userId, taxYear);
+  }
+
+  async startItem(userId: string, planId: string, itemId: string) {
+    const { plan, item } = await this.item(userId, planId, itemId);
+    this.assertPlanRunnable(plan);
+
+    if (item.status !== HarvestItemStatus.QUEUED) {
+      throw new ConflictException('Only a queued offer can be started.');
+    }
+
+    const priorItems = plan.items.filter(
+      (candidate) => candidate.position < item.position,
+    );
+    if (
+      priorItems.some(
+        (candidate) =>
+          ![
+            HarvestItemStatus.WITHDRAWN,
+            HarvestItemStatus.SKIPPED,
+          ].includes(candidate.status),
+      )
+    ) {
+      throw new ConflictException(
+        'Finish or skip the earlier offer before starting this one.',
+      );
+    }
+
+    await this.repo.updateItem(itemId, {
+      status: HarvestItemStatus.IN_PROGRESS,
+      startedAt: new Date(),
+    });
+
+    if (plan.status === HarvestPlanStatus.READY) {
+      await this.repo.updatePlan(planId, {
+        status: HarvestPlanStatus.ACTIVE,
+      });
+    }
+
+    await this.repo.appendEvent(
+      planId,
+      HarvestEventType.ITEM_STARTED,
+      itemId,
+      { position: item.position },
+    );
+
+    return this.requirePlan(userId, planId);
+  }
+
+  async reportProgress(
+    userId: string,
+    planId: string,
+    itemId: string,
+    dto: ReportHarvestProgressDto,
+  ) {
+    const { plan, item } = await this.item(userId, planId, itemId);
+    this.assertPlanRunnable(plan);
+
+    if (item.status !== HarvestItemStatus.IN_PROGRESS) {
+      throw new ConflictException(
+        'Progress can only be recorded for the active offer.',
+      );
+    }
+
+    const estimatedRemainingMinutes = this.estimateRemainingMinutes(
+      item.offerProfile.defaultUnitWagerCents,
+      item.offerProfile.estimatedActionsPerMinute,
+      dto.operatorReportedRemainingCents,
+    );
+
+    await this.repo.updateItem(itemId, {
+      operatorReportedRemainingCents: dto.operatorReportedRemainingCents,
+      progressEvidenceReference: dto.progressEvidenceReference ?? null,
+      progressUpdatedAt: new Date(),
+    });
+
+    await this.repo.appendEvent(
+      planId,
+      HarvestEventType.PROGRESS_REPORTED,
+      itemId,
+      {
+        operatorReportedRemainingCents:
+          dto.operatorReportedRemainingCents,
+        estimatedRemainingMinutes,
+        evidenceReference: dto.progressEvidenceReference ?? null,
+      },
+    );
+
+    return this.requirePlan(userId, planId);
+  }
+
+  async confirmRequirement(
+    userId: string,
+    planId: string,
+    itemId: string,
+    dto: ConfirmHarvestRequirementDto,
+  ) {
+    const { plan, item } = await this.item(userId, planId, itemId);
+    this.assertPlanRunnable(plan);
+
+    if (item.status !== HarvestItemStatus.IN_PROGRESS) {
+      throw new ConflictException(
+        'Only an active offer can be marked complete.',
+      );
+    }
+    if (!dto.operatorConfirmedComplete) {
+      throw new BadRequestException(
+        'Use the operator progress meter to confirm the requirement is complete.',
+      );
+    }
+    if (
+      item.operatorReportedRemainingCents !== null &&
+      item.operatorReportedRemainingCents !== 0
+    ) {
+      throw new ConflictException(
+        'The last operator-reported progress still shows a remaining requirement.',
+      );
+    }
+
+    await this.repo.updateItem(itemId, {
+      status: HarvestItemStatus.REQUIREMENT_MET,
+      requirementConfirmedAt: new Date(),
+      operatorReportedRemainingCents: 0,
+    });
+
+    await this.repo.appendEvent(
+      planId,
+      HarvestEventType.REQUIREMENT_CONFIRMED,
+      itemId,
+      { operatorConfirmedComplete: true },
+    );
+
+    return this.requirePlan(userId, planId);
+  }
+
+  async requestWithdrawal(
+    userId: string,
+    planId: string,
+    itemId: string,
+    dto: HarvestAmountDto,
+  ) {
+    const { plan, item } = await this.item(userId, planId, itemId);
+    this.assertPlanRunnable(plan);
+
+    if (item.status !== HarvestItemStatus.REQUIREMENT_MET) {
+      throw new ConflictException(
+        'Withdrawal is the next step only after the requirement is confirmed complete.',
+      );
+    }
+
+    await this.repo.updateItem(itemId, {
+      status: HarvestItemStatus.WITHDRAWAL_REQUESTED,
+      withdrawalRequestedCents: dto.amountCents,
+      withdrawalRequestedAt: new Date(),
+    });
+
+    await this.repo.appendEvent(
+      planId,
+      HarvestEventType.WITHDRAWAL_REQUESTED,
+      itemId,
+      { amountCents: dto.amountCents },
+    );
+
+    return this.requirePlan(userId, planId);
+  }
+
+  async confirmWithdrawal(
+    userId: string,
+    planId: string,
+    itemId: string,
+    dto: HarvestAmountDto,
+  ) {
+    const { plan, item } = await this.item(userId, planId, itemId);
+    this.assertPlanRunnable(plan);
+
+    if (item.status !== HarvestItemStatus.WITHDRAWAL_REQUESTED) {
+      throw new ConflictException(
+        'Confirm withdrawal only after it has been requested.',
+      );
+    }
+
+    await this.repo.updateItem(itemId, {
+      status: HarvestItemStatus.WITHDRAWN,
+      withdrawalConfirmedCents: dto.amountCents,
+      withdrawnAt: new Date(),
+    });
+    await this.repo.updatePlan(planId, {
+      withdrawnValueCents: { increment: dto.amountCents },
+    });
+
+    await this.repo.appendEvent(
+      planId,
+      HarvestEventType.WITHDRAWAL_CONFIRMED,
+      itemId,
+      { amountCents: dto.amountCents },
+    );
+
+    await this.completeIfResolved(planId);
+    return this.requirePlan(userId, planId);
+  }
+
+  async skipItem(
+    userId: string,
+    planId: string,
+    itemId: string,
+    dto: SkipHarvestItemDto,
+  ) {
+    const { plan, item } = await this.item(userId, planId, itemId);
+    this.assertPlanRunnable(plan);
+
+    if (
+      ![
+        HarvestItemStatus.QUEUED,
+        HarvestItemStatus.IN_PROGRESS,
+      ].includes(item.status)
+    ) {
+      throw new ConflictException('This offer can no longer be skipped.');
+    }
+
+    await this.repo.updateItem(itemId, {
+      status: HarvestItemStatus.SKIPPED,
+      skippedAt: new Date(),
+      skipReason: dto.reason,
+    });
+
+    await this.repo.appendEvent(
+      planId,
+      HarvestEventType.ITEM_SKIPPED,
+      itemId,
+      { reason: dto.reason },
+    );
+
+    await this.completeIfResolved(planId);
+    return this.requirePlan(userId, planId);
+  }
+
+  async stopPlan(
+    userId: string,
+    planId: string,
+    dto: StopHarvestPlanDto,
+  ) {
+    const plan = await this.requirePlan(userId, planId);
+    if (
+      [
+        HarvestPlanStatus.COMPLETED,
+        HarvestPlanStatus.STOPPED,
+        HarvestPlanStatus.CANCELLED,
+      ].includes(plan.status)
+    ) {
+      throw new ConflictException('This plan is already closed.');
+    }
+
+    const now = new Date();
+    await this.repo.stopOpenItems(planId);
+    await this.repo.updatePlan(planId, {
+      status: HarvestPlanStatus.STOPPED,
+      stoppedAt: now,
+      stopReason: dto.reason,
+    });
+    await this.repo.appendEvent(
+      planId,
+      HarvestEventType.STOP_ENFORCED,
+      null,
+      { reason: dto.reason },
+    );
+
+    return this.requirePlan(userId, planId);
+  }
+
+  private baselineScore(profile: HarvestProfileWithOpportunity): number {
+    const economicValue =
+      profile.projectedCashInCents - profile.projectedCashOutCents;
+    return economicValue / Math.max(1, profile.estimatedMinutes);
+  }
+
+  private sourceSnapshot(
+    profile: HarvestProfileWithOpportunity,
+    plannedAt: Date,
+  ): Prisma.InputJsonValue {
+    return {
+      opportunityId: profile.opportunity.id,
+      opportunityRef: profile.opportunity.opportunityRef,
+      title: profile.opportunity.title,
+      provider: profile.opportunity.provider,
+      officialSourceUrl: profile.opportunity.officialSourceUrl,
+      applicationUrl: profile.opportunity.applicationUrl,
+      termsSourceUrl: profile.termsSourceUrl,
+      termsVerifiedAt: profile.termsVerifiedAt.toISOString(),
+      licenseAuthority: profile.licenseAuthority,
+      licenseSourceUrl: profile.licenseSourceUrl,
+      legalStatus: profile.legalStatus,
+      profileVersion: profile.profileVersion,
+      executionInstructions: profile.executionInstructions,
+      riskNotes: profile.riskNotes,
+      plannedAt: plannedAt.toISOString(),
+    };
+  }
+
+  private estimateRemainingMinutes(
+    unitWagerCents: number | null,
+    actionsPerMinute: number | null,
+    remainingCents: number,
+  ): number | null {
+    if (remainingCents === 0) return 0;
+    if (!unitWagerCents || !actionsPerMinute) return null;
+
+    return Math.ceil(
+      remainingCents / (unitWagerCents * actionsPerMinute),
+    );
+  }
+
+  private assertPlanRunnable(plan: HarvestPlanWithItems) {
+    if (
+      ![
+        HarvestPlanStatus.READY,
+        HarvestPlanStatus.ACTIVE,
+      ].includes(plan.status)
+    ) {
+      throw new ConflictException(
+        'This harvest plan is not runnable. Stop means stop; resolve review gates or start a future plan instead.',
+      );
+    }
+  }
+
+  private async completeIfResolved(planId: string) {
+    const open = await this.repo.countOpenItems(planId);
+    if (open === 0) {
+      await this.repo.updatePlan(planId, {
+        status: HarvestPlanStatus.COMPLETED,
+      });
+      await this.repo.appendEvent(
+        planId,
+        HarvestEventType.PLAN_COMPLETED,
+        null,
+        { reason: 'all_items_resolved' },
+      );
+    }
+  }
+
+  private async requirePlan(userId: string, planId: string) {
+    const plan = await this.repo.findPlanByIdForUser(planId, userId);
+    if (!plan) throw new NotFoundException('Harvest plan not found.');
+    return plan;
+  }
+
+  private async item(userId: string, planId: string, itemId: string) {
+    const plan = await this.requirePlan(userId, planId);
+    const item = plan.items.find((candidate) => candidate.id === itemId);
+    if (!item) throw new NotFoundException('Harvest plan item not found.');
+    return { plan, item };
+  }
+}
