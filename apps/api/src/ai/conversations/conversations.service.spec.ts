@@ -92,6 +92,10 @@ describe('ConversationsService', () => {
       }));
       const callArgs = mockAiRequests.runCompletion.mock.calls[0][0];
       expect(callArgs.messages[0].role).toBe('system');
+      expect(callArgs.messages[0].content).toContain('understand before recommending');
+      expect(callArgs.messages[0].content).toContain('instead of listing possible programs, strategies, or categories');
+      expect(callArgs.messages[0].content).toContain('single strongest grounded next step');
+      expect(callArgs.messages[0].content).toContain('one short paragraph or a few sentences');
       expect(result.content).toBe('A Journey tracks progress toward a Goal.');
       expect(mockConversationRepo.touch).toHaveBeenCalledWith('conv-001');
     });
