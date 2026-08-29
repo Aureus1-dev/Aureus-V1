@@ -43,7 +43,7 @@ export class UpsertHarvestProfileDto {
   @ApiPropertyOptional({ default: 21 })
   @IsOptional()
   @IsInt()
-  @Min(18)
+  @Min(21)
   @Max(99)
   minAge?: number;
 
