@@ -152,6 +152,7 @@ model User {
   aiConversations            AiConversation[]
   aiRequests                 AiRequest[]
   aiRecommendations          AiRecommendation[]
+  harvestProfile             HarvestOfferProfile?
   aiVoiceSessions            AiVoiceSession[]
   wardLeadEvents             WardLeadEvent[]           @relation("WardLeadEventActor")
   podMemberships             PodMembership[]
@@ -168,6 +169,7 @@ model User {
   resourceOffers             ResourceOffer[]
   needEscalations            NeedEscalation[]
   unresolvedNeeds            UnresolvedNeed[]
+  harvestPlans               HarvestPlan[]
 }
 
 // ===========================================================================
@@ -386,6 +388,64 @@ enum TrackingStatus {
   NOT_INTERESTED
 }
 
+enum HarvestOfferKind {
+  SPORTSBOOK
+  ONLINE_CASINO
+  BANKING
+  OTHER
+}
+
+enum HarvestLegalStatus {
+  VERIFIED_REGULATED
+  REVIEW_REQUIRED
+  BLOCKED
+}
+
+enum HarvestFilingStatus {
+  SINGLE
+  MARRIED_FILING_JOINTLY
+  HEAD_OF_HOUSEHOLD
+  MARRIED_FILING_SEPARATELY
+}
+
+enum HarvestBenefitImpactStatus {
+  NOT_APPLICABLE
+  CLEARED
+  UNKNOWN
+}
+
+enum HarvestPlanStatus {
+  REVIEW_REQUIRED
+  READY
+  ACTIVE
+  COMPLETED
+  STOPPED
+  CANCELLED
+}
+
+enum HarvestItemStatus {
+  QUEUED
+  IN_PROGRESS
+  REQUIREMENT_MET
+  WITHDRAWAL_REQUESTED
+  WITHDRAWN
+  SKIPPED
+  STOPPED
+}
+
+enum HarvestEventType {
+  PLAN_CREATED
+  ITEM_STARTED
+  PROGRESS_REPORTED
+  REQUIREMENT_CONFIRMED
+  WITHDRAWAL_REQUESTED
+  WITHDRAWAL_CONFIRMED
+  ITEM_SKIPPED
+  STOP_ENFORCED
+  PLAN_COMPLETED
+}
+
+
 // ===========================================================================
 // Task  —  Milestone has many Tasks
 // ===========================================================================
@@ -464,6 +524,142 @@ model Opportunity {
   @@index([benefitType])
   @@index([deadline])
   @@index([createdAt])
+}
+
+// ===========================================================================
+// Responsible Annual Harvest — governed, member-first promotion execution
+// ===========================================================================
+
+model HarvestOfferProfile {
+  id                    String             @id @default(uuid()) @db.Uuid
+  opportunityId         String             @unique @db.Uuid
+  opportunity           Opportunity        @relation(fields: [opportunityId], references: [id], onDelete: Cascade)
+  kind                  HarvestOfferKind
+  jurisdictionCountry   String             @default("US")
+  jurisdictionState     String
+  minAge                Int                @default(21)
+  legalStatus           HarvestLegalStatus @default(REVIEW_REQUIRED)
+  licenseAuthority      String
+  licenseSourceUrl      String
+  termsSourceUrl        String
+  termsVerifiedAt       DateTime
+  expiresAt             DateTime?
+  newCustomerOnly       Boolean            @default(true)
+  advertisedValueCents           Int
+  bankrollRequiredCents          Int @default(0)
+  projectedCashInCents           Int
+  projectedCashOutCents          Int
+  projectedTaxableWinningsCents  Int @default(0)
+  projectedDeductibleLossesCents Int @default(0)
+  playthroughRequiredCents       Int @default(0)
+  defaultUnitWagerCents          Int?
+  estimatedActionsPerMinute      Float?
+  estimatedMinutes               Int
+  executionInstructions String[] @default([])
+  riskNotes             String[] @default([])
+  createdById           String   @db.Uuid
+  lastUpdatedById       String   @db.Uuid
+  profileVersion        Int      @default(1)
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+  planItems HarvestPlanItem[]
+
+  @@index([legalStatus, jurisdictionState])
+  @@index([termsVerifiedAt])
+  @@index([expiresAt])
+}
+
+model HarvestPlan {
+  id                                    String                     @id @default(uuid()) @db.Uuid
+  userId                                String                     @db.Uuid
+  user                                  User                       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  taxYear                               Int
+  jurisdictionCountry                   String                     @default("US")
+  jurisdictionState                     String
+  filingStatus                          HarvestFilingStatus
+  otherTaxableIncomeCents               Int
+  itemizedDeductionsBeforeGamblingCents Int                        @default(0)
+  benefitImpactStatus                   HarvestBenefitImpactStatus
+  requiresTaxProfessionalReview         Boolean                    @default(false)
+  bankrollLimitCents                    Int
+  projectedLossLimitCents               Int
+  timeLimitMinutes                      Int
+  targetNetCents                        Int?
+  stopRuleAcceptedAt                    DateTime
+  status                               HarvestPlanStatus @default(REVIEW_REQUIRED)
+  blockReasons                         String[]          @default([])
+  projectedCashInCents                 Int               @default(0)
+  projectedCashOutCents                Int               @default(0)
+  projectedFederalTaxCents             Int               @default(0)
+  projectedStateTaxCents               Int               @default(0)
+  recommendedTaxReserveCents           Int               @default(0)
+  projectedNetValueCents               Int               @default(0)
+  projectedGamblingWinningsCents       Int               @default(0)
+  projectedDeductibleLossesCents       Int               @default(0)
+  maxBankrollRequiredCents             Int               @default(0)
+  projectedMinutes                     Int               @default(0)
+  withdrawnValueCents                  Int               @default(0)
+  stoppedAt                            DateTime?
+  stopReason                           String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  items  HarvestPlanItem[]
+  events HarvestEvent[]
+
+  @@unique([userId, taxYear])
+  @@index([userId, status])
+}
+
+model HarvestPlanItem {
+  id                                String              @id @default(uuid()) @db.Uuid
+  planId                            String              @db.Uuid
+  plan                              HarvestPlan         @relation(fields: [planId], references: [id], onDelete: Cascade)
+  offerProfileId                    String              @db.Uuid
+  offerProfile                      HarvestOfferProfile @relation(fields: [offerProfileId], references: [id], onDelete: Restrict)
+  position                          Int
+  status                            HarvestItemStatus   @default(QUEUED)
+  projectedCashInCents              Int
+  projectedCashOutCents             Int
+  projectedTaxableWinningsCents     Int
+  projectedDeductibleLossesCents    Int
+  projectedFederalTaxCents          Int
+  projectedStateTaxCents            Int
+  recommendedTaxReserveCents        Int
+  projectedNetAfterTaxCents         Int
+  bankrollRequiredCents             Int
+  projectedMinutes                  Int
+  playthroughRequiredCents          Int
+  sourceSnapshot                    Json
+  operatorReportedRemainingCents    Int?
+  progressEvidenceReference         String?
+  progressUpdatedAt                 DateTime?
+  withdrawalRequestedCents          Int?
+  withdrawalConfirmedCents          Int?
+  startedAt                         DateTime?
+  requirementConfirmedAt            DateTime?
+  withdrawalRequestedAt             DateTime?
+  withdrawnAt                       DateTime?
+  skippedAt                         DateTime?
+  skipReason                        String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([planId, offerProfileId])
+  @@unique([planId, position])
+  @@index([planId, status])
+}
+
+model HarvestEvent {
+  id         String           @id @default(uuid()) @db.Uuid
+  planId     String           @db.Uuid
+  plan       HarvestPlan      @relation(fields: [planId], references: [id], onDelete: Cascade)
+  type       HarvestEventType
+  itemId     String?          @db.Uuid
+  metadata   Json
+  occurredAt DateTime         @default(now())
+
+  @@index([planId, occurredAt])
+  @@index([itemId])
 }
 
 // ===========================================================================
