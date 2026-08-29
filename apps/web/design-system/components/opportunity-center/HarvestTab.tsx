@@ -115,6 +115,7 @@ export function HarvestTab() {
         accessToken={accessToken}
         plan={plan}
         onChange={setPlan}
+        onReset={() => setPlan(null)}
       />
     );
   }
@@ -453,10 +454,12 @@ function HarvestPlanView({
   accessToken,
   plan,
   onChange,
+  onReset,
 }: {
   accessToken: string;
   plan: HarvestPlanDto;
   onChange: (plan: HarvestPlanDto) => void;
+  onReset: () => void;
 }) {
   const [isBusy, setIsBusy] = useState(false);
   const [actionError, setActionError] = useState(false);
@@ -481,6 +484,19 @@ function HarvestPlanView({
     }
   }
 
+  async function closeAndReset(reason: string) {
+    setIsBusy(true);
+    setActionError(false);
+    try {
+      await harvestApi.stopHarvestPlan(accessToken, plan.id, reason);
+      onReset();
+    } catch {
+      setActionError(true);
+    } finally {
+      setIsBusy(false);
+    }
+  }
+
   if (plan.status === 'REVIEW_REQUIRED') {
     return (
       <section className={styles.plan}>
@@ -491,6 +507,24 @@ function HarvestPlanView({
             <p key={reason}>{reason}</p>
           ))}
         </div>
+        <Button
+          type="button"
+          variant="secondary"
+          disabled={isBusy}
+          onClick={() =>
+            void closeAndReset(
+              'Member closed a review-required plan to build a fresh plan.',
+            )
+          }
+        >
+          Close this plan and start over
+        </Button>
+        {actionError ? (
+          <ErrorState
+            title="The plan was not closed"
+            description="Nothing changed. You can try again after checking your connection."
+          />
+        ) : null}
       </section>
     );
   }
@@ -532,9 +566,15 @@ function HarvestPlanView({
 
       {plan.status === 'COMPLETED' ? (
         <div className={styles.notice}>
-          <strong>Annual plan complete.</strong>
-          <p>No additional offer is queued.</p>
+          <strong>This harvest cycle is complete.</strong>
+          <p>No additional offer is queued in this cycle.</p>
         </div>
+      ) : null}
+
+      {plan.status === 'STOPPED' || plan.status === 'COMPLETED' ? (
+        <Button type="button" variant="secondary" onClick={onReset}>
+          Check for a fresh plan
+        </Button>
       ) : null}
 
       {current &&
