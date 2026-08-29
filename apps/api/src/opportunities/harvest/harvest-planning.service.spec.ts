@@ -128,12 +128,16 @@ describe('HarvestPlanningService', () => {
     );
     const ready = {
       ...basePlan(HarvestPlanStatus.READY),
+      memberAgeYears: 34,
       items: [
         {
           id: 'item-1',
           position: 1,
           status: HarvestItemStatus.QUEUED,
+          sourceSnapshot: { profileVersion: 1 },
           offerProfile: {
+            minAge: 21,
+            profileVersion: 1,
             legalStatus: HarvestLegalStatus.VERIFIED_REGULATED,
             termsVerifiedAt: stale,
             expiresAt: null,
@@ -142,6 +146,42 @@ describe('HarvestPlanningService', () => {
               verificationStatus: VerificationStatus.VERIFIED,
               deletedAt: null,
               dateLastVerified: freshOpportunityVerification,
+              deadline: null,
+            },
+          },
+        },
+      ],
+    } as unknown as HarvestPlanWithItems;
+    repo.findPlanByIdForUser.mockResolvedValue(ready);
+
+    await expect(
+      service.startItem('user-1', 'plan-1', 'item-1'),
+    ).rejects.toThrow(ConflictException);
+    expect(repo.updateItem).not.toHaveBeenCalled();
+  });
+
+  it('refuses to start when the reviewed promotion profile changed after planning', async () => {
+    const fresh = new Date();
+    const ready = {
+      ...basePlan(HarvestPlanStatus.READY),
+      memberAgeYears: 34,
+      items: [
+        {
+          id: 'item-1',
+          position: 1,
+          status: HarvestItemStatus.QUEUED,
+          sourceSnapshot: { profileVersion: 1 },
+          offerProfile: {
+            minAge: 21,
+            profileVersion: 2,
+            legalStatus: HarvestLegalStatus.VERIFIED_REGULATED,
+            termsVerifiedAt: fresh,
+            expiresAt: null,
+            opportunity: {
+              status: OpportunityStatus.ACTIVE,
+              verificationStatus: VerificationStatus.VERIFIED,
+              deletedAt: null,
+              dateLastVerified: fresh,
               deadline: null,
             },
           },
