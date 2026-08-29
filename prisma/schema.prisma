@@ -588,6 +588,7 @@ model HarvestPlan {
   timeLimitMinutes                      Int
   targetNetCents                        Int?
   stopRuleAcceptedAt                    DateTime
+  retentionExpiresAt                   DateTime
   status                               HarvestPlanStatus @default(REVIEW_REQUIRED)
   blockReasons                         String[]          @default([])
   projectedCashInCents                 Int               @default(0)
@@ -610,6 +611,7 @@ model HarvestPlan {
 
   @@index([userId, taxYear, createdAt])
   @@index([userId, status])
+  @@index([retentionExpiresAt])
 }
 
 model HarvestPlanItem {

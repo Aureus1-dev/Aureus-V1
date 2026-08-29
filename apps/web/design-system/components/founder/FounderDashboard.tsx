@@ -121,6 +121,13 @@ export function FounderDashboard() {
           </Card>
         </Link>
 
+        <Link href="/founder/harvest" className={styles.tileLink}>
+          <Card className={styles.tile}>
+            <span className={styles.tileLabel}>Annual Harvest review</span>
+            <span className={styles.tileHint}>Review stale, expired, or blocked regulated promotion profiles</span>
+          </Card>
+        </Link>
+
         <Link href="/founder/governance" className={styles.tileLink}>
           <Card className={styles.tile}>
             <span className={styles.tileLabel}>Governance</span>

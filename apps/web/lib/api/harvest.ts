@@ -229,3 +229,87 @@ export function stopHarvestPlan(
     accessToken,
   });
 }
+
+
+export type HarvestLegalStatus =
+  | 'VERIFIED_REGULATED'
+  | 'REVIEW_REQUIRED'
+  | 'BLOCKED';
+
+export interface HarvestProfileReviewItem {
+  offerProfileId: string;
+  opportunityId: string;
+  opportunityRef: string | null;
+  title: string;
+  provider: string;
+  legalStatus: HarvestLegalStatus;
+  termsSourceUrl: string;
+  termsVerifiedAt: string;
+  expiresAt: string | null;
+  profileVersion: number;
+  kind: 'SPORTSBOOK' | 'ONLINE_CASINO';
+  jurisdictionCountry: string;
+  jurisdictionState: string;
+  minAge: number;
+  licenseAuthority: string;
+  licenseSourceUrl: string;
+  newCustomerOnly: boolean;
+  advertisedValueCents: number;
+  bankrollRequiredCents: number;
+  projectedCashInCents: number;
+  projectedCashOutCents: number;
+  projectedTaxableWinningsCents: number;
+  projectedDeductibleLossesCents: number;
+  playthroughRequiredCents: number;
+  defaultUnitWagerCents: number | null;
+  estimatedActionsPerMinute: number | null;
+  estimatedMinutes: number;
+  executionInstructions: string[];
+  riskNotes: string[];
+  reasons: string[];
+}
+
+export function listHarvestProfileReviewQueue(
+  accessToken: string,
+): Promise<HarvestProfileReviewItem[]> {
+  return apiRequest<HarvestProfileReviewItem[]>('/harvest/profiles/review-queue', {
+    accessToken,
+  });
+}
+
+export function updateHarvestProfileFromReview(
+  accessToken: string,
+  item: HarvestProfileReviewItem,
+  legalStatus: HarvestLegalStatus,
+  termsVerifiedAt: string,
+): Promise<unknown> {
+  return apiRequest(`/harvest/profiles/${item.opportunityId}`, {
+    method: 'PATCH',
+    accessToken,
+    body: {
+      kind: item.kind,
+      jurisdictionCountry: item.jurisdictionCountry,
+      jurisdictionState: item.jurisdictionState,
+      minAge: item.minAge,
+      legalStatus,
+      licenseAuthority: item.licenseAuthority,
+      licenseSourceUrl: item.licenseSourceUrl,
+      termsSourceUrl: item.termsSourceUrl,
+      termsVerifiedAt,
+      expiresAt: item.expiresAt ?? undefined,
+      newCustomerOnly: item.newCustomerOnly,
+      advertisedValueCents: item.advertisedValueCents,
+      bankrollRequiredCents: item.bankrollRequiredCents,
+      projectedCashInCents: item.projectedCashInCents,
+      projectedCashOutCents: item.projectedCashOutCents,
+      projectedTaxableWinningsCents: item.projectedTaxableWinningsCents,
+      projectedDeductibleLossesCents: item.projectedDeductibleLossesCents,
+      playthroughRequiredCents: item.playthroughRequiredCents,
+      defaultUnitWagerCents: item.defaultUnitWagerCents ?? undefined,
+      estimatedActionsPerMinute: item.estimatedActionsPerMinute ?? undefined,
+      estimatedMinutes: item.estimatedMinutes,
+      executionInstructions: item.executionInstructions,
+      riskNotes: item.riskNotes,
+    },
+  });
+}

@@ -6,3 +6,4 @@ export { StewardshipOversightPanel } from './StewardshipOversightPanel';
 export { UserRoleManagementPanel } from './UserRoleManagementPanel';
 export { AnnouncementsComposerPanel } from './AnnouncementsComposerPanel';
 export { GovernanceMonitoringPanel } from './GovernanceMonitoringPanel';
+export { HarvestReviewQueuePanel } from './HarvestReviewQueuePanel';

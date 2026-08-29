@@ -74,6 +74,7 @@ export interface HarvestPlanWrite {
   timeLimitMinutes: number;
   targetNetCents: number | null;
   stopRuleAcceptedAt: Date;
+  retentionExpiresAt: Date;
   status: HarvestPlanStatus;
   blockReasons: string[];
   projectedCashInCents: number;

@@ -142,7 +142,7 @@ function HarvestSetup({
     useState<harvestApi.CreateHarvestPlanInput['filingStatus']>('SINGLE');
   const [benefitImpactStatus, setBenefitImpactStatus] =
     useState<harvestApi.CreateHarvestPlanInput['benefitImpactStatus']>(
-      'NOT_APPLICABLE',
+      'UNKNOWN',
     );
   const [memberAge, setMemberAge] = useState('');
   const [income, setIncome] = useState('');
@@ -360,6 +360,13 @@ function HarvestSetup({
             onChange={(event) => setItemized(event.target.value)}
           />
         </label>
+        <p className={styles.helper}>
+          Gambling winnings can affect eligibility or required reporting for
+          means-tested programs such as SNAP, Medicaid, LIHEAP, housing support,
+          or other income-based assistance. If you receive or may qualify for
+          any such program and have not checked its specific rules, choose
+          “I do not know yet.” Aureus will block the plan rather than guess.
+        </p>
         <label className={styles.field}>
           <span>Means-tested benefit impact</span>
           <select
@@ -370,9 +377,13 @@ function HarvestSetup({
               )
             }
           >
-            <option value="NOT_APPLICABLE">Not applicable</option>
-            <option value="CLEARED">Reviewed and cleared</option>
-            <option value="UNKNOWN">I do not know yet</option>
+            <option value="UNKNOWN">I do not know yet — block the plan</option>
+            <option value="NOT_APPLICABLE">
+              I do not receive or rely on means-tested benefits
+            </option>
+            <option value="CLEARED">
+              I reviewed my specific program rules and cleared this
+            </option>
           </select>
         </label>
         <label className={styles.check}>
@@ -552,6 +563,12 @@ function HarvestPlanView({
         <h2>{plan.taxYear} Annual Harvest</h2>
         <p>
           Projected after-tax value: <strong>{money(plan.projectedNetValueCents)}</strong>
+        </p>
+        <p className={styles.helper}>
+          This is a planning estimate from the reviewed 2026 federal/PA rule
+          pack, not a tax-return guarantee. It does not calculate every credit
+          or phase-out (including possible EITC/CTC or benefit effects). If
+          those may apply, stop and use professional/program-specific review.
         </p>
       </div>
 

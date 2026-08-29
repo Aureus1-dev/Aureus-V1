@@ -2,7 +2,7 @@
 
 Status: implementation candidate
 Parent execution ledger: GitHub Issue #95
-Authority: existing Opportunity Center canon and ADR-004. This work order does not amend canon.
+Authority: existing Opportunity Center canon and ADR-004. On 2026-08-29 the Founder explicitly authorized regulated gaming-promotion Annual Harvest as an Aureus product category only under the responsible-harvest constraints in this work order. This authorization does not authorize merge, deployment, production member use, broader gambling engagement, or relaxation of the safety gates. This work order does not amend constitutional canon.
 
 ## Outcome
 
@@ -54,3 +54,15 @@ Starting an offer revalidates current legal status, exact promotion-term freshne
 Stop Means Stop applies to gambling activity. QUEUED and IN_PROGRESS execution is terminated. If the member had already reached REQUIREMENT_MET or WITHDRAWAL_REQUESTED, the stopped plan still permits the minimum settlement actions required to request/confirm withdrawal; it never reopens wagering. A member who stops mid-play is instructed not to continue wagering merely to preserve promotional value and to withdraw available cash when the operator permits.
 
 Pennsylvania VERIFIED_REGULATED gaming profiles require an HTTPS license source on the official `gamingcontrolboard.pa.gov` domain. Exact promotion terms remain a separate source and must be reviewed within the 14-day freshness window.
+
+
+## Founder authorization and independent-review corrections — 2026-08-29
+
+After receiving the independent whole-product review of exact V1 head `b71f78be05f5dff21ad6e7e781c9fe2265eaa7c2`, the Founder authorized Annual Harvest to remain an Aureus product category under the strict responsible-harvest rules. The authorization is conditional on correcting the review's four concrete safety/operations blockers before merge consideration:
+
+1. Means-tested benefit impact defaults fail-closed and includes explicit member education.
+2. The deterministic tax engine has materially broader filing-status, bracket-boundary, and standard-vs-itemized tests, plus a visible limitation disclosure for unmodeled credits/phase-outs.
+3. Administrators receive a minimum UI for the mandatory promotion review queue rather than depending only on raw API calls.
+4. Harvest financial/execution data receives a specific non-indefinite retention/anonymization rule.
+
+The independent review's product-scope disagreement remains preserved in the review record. Founder authorization resolves the authority question; it does not erase the reviewer's mission-fit concern or grant merge/deploy approval.

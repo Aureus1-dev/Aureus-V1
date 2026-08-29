@@ -83,10 +83,23 @@ Tax estimates are planning reserves, not a promise of a final tax return. If the
 
 ## Daily operator workflow
 
-1. Open GET /harvest/profiles/review-queue as an authorized administrator.
+The Founder Operating System exposes the minimum review surface at `/founder/harvest`. It lists every stale, expired, blocked, or otherwise non-runnable profile, the reason, and direct terms/license sources. An authorized administrator may confirm an unchanged profile only after personally reopening both sources, or may block it immediately. Changed economics/terms require a full profile update rather than a timestamp-only confirmation.
+
+1. Open `/founder/harvest` (or GET /harvest/profiles/review-queue) as an authorized administrator.
 2. Re-review each surfaced profile against the official operator and PGCB sources.
 3. Update the profile through PATCH /harvest/profiles/:opportunityId.
 4. Leave uncertain profiles REVIEW_REQUIRED or BLOCKED.
 5. Do not manufacture a runnable catalog to satisfy inventory targets.
 
 No fresh verified promotion means no harvest offer. That is a valid system state.
+
+
+## Harvest financial-data retention
+
+Harvest plans contain self-reported taxable income, itemized deductions, gambling winnings/losses, execution progress, and withdrawal amounts. They are not retained indefinitely by default.
+
+- Each plan receives a `retentionExpiresAt` timestamp at creation: January 1 following seven full calendar years after the plan tax year.
+- The seven-year maximum is deliberately conservative because IRS record-support periods are generally three years and can extend to six years in specified assessment circumstances.
+- At or after `retentionExpiresAt`, Harvest financial/execution records must be deleted or irreversibly anonymized in the data-retention process unless a documented legal hold, active tax dispute, or member-requested preservation requires a narrower exception.
+- A valid member deletion request may remove the data earlier when no legal/tax-support obligation requires preservation.
+- Evidence references must not contain passwords, account credentials, SSNs, full bank numbers, or screenshots containing unnecessary sensitive data.
