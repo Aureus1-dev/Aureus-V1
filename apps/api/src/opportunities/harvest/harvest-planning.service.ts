@@ -442,10 +442,8 @@ export class HarvestPlanningService {
     if (
       priorItems.some(
         (candidate) =>
-          ![
-            HarvestItemStatus.WITHDRAWN,
-            HarvestItemStatus.SKIPPED,
-          ].includes(candidate.status),
+          candidate.status !== HarvestItemStatus.WITHDRAWN &&
+          candidate.status !== HarvestItemStatus.SKIPPED,
       )
     ) {
       throw new ConflictException(
@@ -641,10 +639,8 @@ export class HarvestPlanningService {
     this.assertPlanRunnable(plan);
 
     if (
-      ![
-        HarvestItemStatus.QUEUED,
-        HarvestItemStatus.IN_PROGRESS,
-      ].includes(item.status)
+      item.status !== HarvestItemStatus.QUEUED &&
+      item.status !== HarvestItemStatus.IN_PROGRESS
     ) {
       throw new ConflictException('This offer can no longer be skipped.');
     }
@@ -673,11 +669,9 @@ export class HarvestPlanningService {
   ) {
     const plan = await this.requirePlan(userId, planId);
     if (
-      [
-        HarvestPlanStatus.COMPLETED,
-        HarvestPlanStatus.STOPPED,
-        HarvestPlanStatus.CANCELLED,
-      ].includes(plan.status)
+      plan.status === HarvestPlanStatus.COMPLETED ||
+      plan.status === HarvestPlanStatus.STOPPED ||
+      plan.status === HarvestPlanStatus.CANCELLED
     ) {
       throw new ConflictException('This plan is already closed.');
     }
@@ -776,10 +770,8 @@ export class HarvestPlanningService {
 
   private assertPlanRunnable(plan: HarvestPlanWithItems) {
     if (
-      ![
-        HarvestPlanStatus.READY,
-        HarvestPlanStatus.ACTIVE,
-      ].includes(plan.status)
+      plan.status !== HarvestPlanStatus.READY &&
+      plan.status !== HarvestPlanStatus.ACTIVE
     ) {
       throw new ConflictException(
         'This harvest plan is not runnable. Stop means stop; resolve review gates or start a future plan instead.',
