@@ -243,7 +243,10 @@ export class GuidedApplicationService {
       orderBy: { createdAt: 'desc' },
     });
 
-    if (current?.opportunityId === dto.opportunityId) {
+    if (
+      current?.opportunityId === dto.opportunityId &&
+      current.applicationUrl === applicationUrl
+    ) {
       return this.toResponse(current, opportunity.title, opportunity.provider);
     }
 
@@ -284,7 +287,42 @@ export class GuidedApplicationService {
       orderBy: { createdAt: 'desc' },
     });
     if (!session) return null;
-    return this.toResponse(session, session.opportunity.title, session.opportunity.provider);
+
+    const now = new Date();
+    let currentApplicationUrl: string | null = null;
+    try {
+      currentApplicationUrl = safeHttpsUrl(
+        session.opportunity.applicationUrl ??
+          session.opportunity.officialSourceUrl,
+      );
+    } catch {
+      currentApplicationUrl = null;
+    }
+
+    const stillGuidable =
+      session.opportunity.status === OpportunityStatus.ACTIVE &&
+      session.opportunity.verificationStatus === VerificationStatus.VERIFIED &&
+      !session.opportunity.deletedAt &&
+      (!session.opportunity.deadline || session.opportunity.deadline >= now) &&
+      currentApplicationUrl === session.applicationUrl;
+
+    if (!stillGuidable) {
+      await this.prisma.db.guidedApplicationSession.update({
+        where: { id: session.id },
+        data: {
+          status: GuidedApplicationSessionStatus.ENDED,
+          endedAt: now,
+          screenCaptureConsentRevokedAt: now,
+        },
+      });
+      return null;
+    }
+
+    return this.toResponse(
+      session,
+      session.opportunity.title,
+      session.opportunity.provider,
+    );
   }
 
   async setConsent(

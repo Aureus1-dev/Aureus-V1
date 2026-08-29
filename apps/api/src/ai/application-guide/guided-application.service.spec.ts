@@ -111,6 +111,72 @@ describe('GuidedApplicationService', () => {
     expect(result.opportunityTitle).toBe('Verified benefit application');
   });
 
+  it('rotates an active session when the canonical application URL changed', async () => {
+    sessionFindFirst.mockResolvedValue(activeSession);
+    opportunities.findById.mockResolvedValue({
+      ...verifiedOpportunity,
+      applicationUrl: 'https://benefits.example.gov/new-application',
+    } as never);
+    sessionUpdate.mockResolvedValue({
+      ...activeSession,
+      status: GuidedApplicationSessionStatus.ENDED,
+    });
+    sessionCreate.mockResolvedValue({
+      ...activeSession,
+      id: 'dddddddd-dddd-4ddd-8ddd-dddddddddddd',
+      applicationUrl: 'https://benefits.example.gov/new-application',
+    });
+
+    const result = await service.startSession(
+      {
+        conversationId: activeSession.conversationId,
+        opportunityId: activeSession.opportunityId,
+      },
+      USER,
+    );
+
+    expect(sessionUpdate).toHaveBeenCalledWith({
+      where: { id: activeSession.id },
+      data: expect.objectContaining({
+        status: GuidedApplicationSessionStatus.ENDED,
+      }),
+    });
+    expect(sessionCreate).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        applicationUrl: 'https://benefits.example.gov/new-application',
+      }),
+    });
+    expect(result.applicationUrl).toBe(
+      'https://benefits.example.gov/new-application',
+    );
+  });
+
+  it('restoring an active session fails closed if the opportunity is no longer verified', async () => {
+    sessionFindFirst.mockResolvedValue({
+      ...activeSession,
+      opportunity: {
+        ...verifiedOpportunity,
+        verificationStatus: VerificationStatus.PENDING_REVIEW,
+      },
+    });
+    sessionUpdate.mockResolvedValue({
+      ...activeSession,
+      status: GuidedApplicationSessionStatus.ENDED,
+    });
+
+    await expect(
+      service.findActive(activeSession.conversationId, USER),
+    ).resolves.toBeNull();
+
+    expect(sessionUpdate).toHaveBeenCalledWith({
+      where: { id: activeSession.id },
+      data: expect.objectContaining({
+        status: GuidedApplicationSessionStatus.ENDED,
+        screenCaptureConsentRevokedAt: expect.any(Date),
+      }),
+    });
+  });
+
   it('refuses to start guidance for an unverified opportunity', async () => {
     opportunities.findById.mockResolvedValue({
       ...verifiedOpportunity,
