@@ -68,6 +68,7 @@ export interface HarvestPlanWrite {
   memberAgeYears: number;
   ageEligibilityAttestedAt: Date;
   eligibilityReviewAttestedAt: Date;
+  legalParticipationAttestedAt: Date;
   bankrollLimitCents: number;
   projectedLossLimitCents: number;
   timeLimitMinutes: number;
