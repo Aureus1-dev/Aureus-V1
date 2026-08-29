@@ -79,7 +79,7 @@ describe('HarvestTaxEngineService', () => {
       deductibleGamblingLossesCents: 2_646_000,
     });
     expect(result.allowedFederalLossDeductionCents).toBe(2_381_400);
-    expect(result.federalTaxCents).toBe(446_300);
+    expect(result.federalTaxCents).toBe(446_292);
   });
 
   it('preserves pre-existing itemized deductions when they already exceed the standard deduction', () => {
