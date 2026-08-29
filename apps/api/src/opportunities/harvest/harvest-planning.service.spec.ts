@@ -1,9 +1,10 @@
-import { ConflictException, ForbiddenException } from '@nestjs/common';
+import { BadRequestException, ConflictException, ForbiddenException } from '@nestjs/common';
 import {
   HarvestBenefitImpactStatus,
   HarvestFilingStatus,
   HarvestItemStatus,
   HarvestLegalStatus,
+  HarvestOfferKind,
   HarvestPlanStatus,
   OpportunityStatus,
   VerificationStatus,
@@ -54,6 +55,41 @@ describe('HarvestPlanningService', () => {
       opportunities,
       new HarvestTaxEngineService(),
     );
+  });
+
+  it('rejects VERIFIED_REGULATED Pennsylvania profiles without official PGCB license evidence', async () => {
+    (opportunities.findById as jest.Mock).mockResolvedValue({
+      status: OpportunityStatus.ACTIVE,
+      verificationStatus: VerificationStatus.VERIFIED,
+    });
+
+    await expect(
+      service.upsertProfile(
+        'opp-1',
+        {
+          kind: HarvestOfferKind.SPORTSBOOK,
+          jurisdictionState: 'PA',
+          legalStatus: HarvestLegalStatus.VERIFIED_REGULATED,
+          licenseAuthority: 'Unverified source',
+          licenseSourceUrl: 'https://example.com/license',
+          termsSourceUrl: 'https://example.com/terms',
+          termsVerifiedAt: new Date().toISOString(),
+          advertisedValueCents: 10_000,
+          bankrollRequiredCents: 10_000,
+          projectedCashInCents: 10_000,
+          projectedCashOutCents: 0,
+          projectedTaxableWinningsCents: 10_000,
+          projectedDeductibleLossesCents: 0,
+          playthroughRequiredCents: 0,
+          estimatedMinutes: 10,
+          executionInstructions: ['Follow the verified terms.'],
+          riskNotes: [],
+        },
+        'admin-1',
+      ),
+    ).rejects.toThrow(BadRequestException);
+
+    expect(repo.upsertProfile).not.toHaveBeenCalled();
   });
 
   it('blocks a guest from starting a persistent harvest plan', async () => {
