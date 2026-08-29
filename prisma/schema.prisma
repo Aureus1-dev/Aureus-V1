@@ -608,7 +608,7 @@ model HarvestPlan {
   items  HarvestPlanItem[]
   events HarvestEvent[]
 
-  @@unique([userId, taxYear])
+  @@index([userId, taxYear, createdAt])
   @@index([userId, status])
 }
 
