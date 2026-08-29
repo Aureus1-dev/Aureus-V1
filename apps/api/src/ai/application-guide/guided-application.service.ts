@@ -315,14 +315,22 @@ export class GuidedApplicationService {
     assertValidImageBytes(dto.imageBase64, dto.mediaType);
     const session = await this.getOwnedActive(sessionId, caller.id);
     const now = new Date();
+    if (!session.screenCaptureConsentGrantedAt) {
+      throw new ConflictException(
+        'Screen guidance is blocked until the member explicitly grants consent.',
+      );
+    }
+    if (session.screenCaptureConsentRevokedAt) {
+      throw new ConflictException(
+        'Screen guidance consent was revoked. Grant consent again before sharing a frame.',
+      );
+    }
     if (
-      !session.screenCaptureConsentGrantedAt ||
-      session.screenCaptureConsentRevokedAt ||
       now.getTime() - session.screenCaptureConsentGrantedAt.getTime() >
-        SCREEN_CONSENT_WINDOW_MS
+      SCREEN_CONSENT_WINDOW_MS
     ) {
       throw new ConflictException(
-        'Screen guidance consent has expired or been revoked. Grant consent again before sharing a frame.',
+        'Screen guidance consent has expired. Grant consent again before sharing a frame.',
       );
     }
 
