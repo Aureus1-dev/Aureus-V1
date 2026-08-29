@@ -152,6 +152,8 @@ function HarvestSetup({
   const [taxReview, setTaxReview] = useState(false);
   const [ageAttested, setAgeAttested] = useState(false);
   const [eligibilityReviewed, setEligibilityReviewed] = useState(false);
+  const [legalParticipationAttested, setLegalParticipationAttested] =
+    useState(false);
   const [stopAccepted, setStopAccepted] = useState(false);
   const [excluded, setExcluded] = useState<string[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -184,6 +186,7 @@ function HarvestSetup({
         memberAgeYears: Number(memberAge),
         attestsAgeAccuracy: ageAttested,
         reviewedOfferEligibility: eligibilityReviewed,
+        attestsLegalParticipation: legalParticipationAttested,
         excludedOfferProfileIds: excluded,
         bankrollLimitCents: dollarsToCents(bankroll),
         projectedLossLimitCents: dollarsToCents(lossLimit),
@@ -280,6 +283,20 @@ function HarvestSetup({
           <span>
             I reviewed this list and marked the offers I already used or am
             otherwise ineligible for.
+          </span>
+        </label>
+        <label className={styles.check}>
+          <input
+            type="checkbox"
+            checked={legalParticipationAttested}
+            onChange={(event) =>
+              setLegalParticipationAttested(event.target.checked)
+            }
+          />
+          <span>
+            I am currently legally permitted to use Pennsylvania gaming
+            promotions and I am not self-excluded from the relevant gaming
+            product.
           </span>
         </label>
       </fieldset>
@@ -422,6 +439,7 @@ function HarvestSetup({
           isSubmitting ||
           !ageAttested ||
           !eligibilityReviewed ||
+          !legalParticipationAttested ||
           !stopAccepted
         }
       >
