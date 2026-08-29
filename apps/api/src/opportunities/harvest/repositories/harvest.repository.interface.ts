@@ -65,6 +65,9 @@ export interface HarvestPlanWrite {
   itemizedDeductionsBeforeGamblingCents: number;
   benefitImpactStatus: HarvestBenefitImpactStatus;
   requiresTaxProfessionalReview: boolean;
+  memberAgeYears: number;
+  ageEligibilityAttestedAt: Date;
+  eligibilityReviewAttestedAt: Date;
   bankrollLimitCents: number;
   projectedLossLimitCents: number;
   timeLimitMinutes: number;
