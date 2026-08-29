@@ -119,6 +119,7 @@ export interface IHarvestRepository {
     state: string,
     country: string,
     verifiedAfter: Date,
+    opportunityVerifiedAfter: Date,
     now: Date,
   ): Promise<HarvestProfileWithOpportunity[]>;
   listProfilesForReview(
