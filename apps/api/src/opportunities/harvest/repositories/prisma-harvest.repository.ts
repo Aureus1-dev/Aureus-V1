@@ -70,6 +70,34 @@ export class PrismaHarvestRepository implements IHarvestRepository {
     });
   }
 
+  listProfilesForReview(
+    staleBefore: Date,
+    now: Date,
+  ): Promise<HarvestProfileWithOpportunity[]> {
+    return this.prisma.db.harvestOfferProfile.findMany({
+      where: {
+        OR: [
+          { legalStatus: { not: HarvestLegalStatus.VERIFIED_REGULATED } },
+          { termsVerifiedAt: { lt: staleBefore } },
+          { expiresAt: { lt: now } },
+          {
+            opportunity: {
+              OR: [
+                { status: { not: OpportunityStatus.ACTIVE } },
+                { verificationStatus: { not: VerificationStatus.VERIFIED } },
+                { deletedAt: { not: null } },
+                { dateLastVerified: null },
+                { deadline: { lt: now } },
+              ],
+            },
+          },
+        ],
+      },
+      include: { opportunity: true },
+      orderBy: { updatedAt: 'asc' },
+    });
+  }
+
   createPlan(data: HarvestPlanCreate): Promise<HarvestPlanWithItems> {
     return this.prisma.db.harvestPlan.create({
       data: {
