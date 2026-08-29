@@ -162,12 +162,16 @@ export class HarvestPlanningService {
 
     const now = new Date();
     const verifiedAfter = new Date(now.getTime() - TERMS_MAX_AGE_MS);
+    const opportunityVerifiedAfter = new Date(
+      now.getTime() - OPPORTUNITY_MAX_VERIFICATION_AGE_MS,
+    );
     const profiles =
       blockReasons.length === 0
         ? await this.repo.listEligibleProfiles(
             state,
             country,
             verifiedAfter,
+            opportunityVerifiedAfter,
             now,
           )
         : [];
@@ -465,10 +469,14 @@ export class HarvestPlanningService {
     }
     const now = new Date();
     const verifiedAfter = new Date(now.getTime() - TERMS_MAX_AGE_MS);
+    const opportunityVerifiedAfter = new Date(
+      now.getTime() - OPPORTUNITY_MAX_VERIFICATION_AGE_MS,
+    );
     const profiles = await this.repo.listEligibleProfiles(
       state.toUpperCase(),
       country.toUpperCase(),
       verifiedAfter,
+      opportunityVerifiedAfter,
       now,
     );
     return profiles.map((profile) => ({
