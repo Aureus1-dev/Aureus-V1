@@ -29,6 +29,7 @@ import {
 import { HarvestTaxEngineService } from './harvest-tax-engine.service';
 import {
   HARVEST_REPOSITORY,
+  HarvestPlanItemWithProfile,
   HarvestPlanWithItems,
   HarvestProfileWithOpportunity,
   IHarvestRepository,
@@ -36,6 +37,7 @@ import {
 
 const TERMS_MAX_AGE_DAYS = 14;
 const TERMS_MAX_AGE_MS = TERMS_MAX_AGE_DAYS * 24 * 60 * 60 * 1000;
+const OPPORTUNITY_MAX_VERIFICATION_AGE_MS = 365 * 24 * 60 * 60 * 1000;
 
 @Injectable()
 export class HarvestPlanningService {
@@ -428,6 +430,7 @@ export class HarvestPlanningService {
   async startItem(userId: string, planId: string, itemId: string) {
     const { plan, item } = await this.item(userId, planId, itemId);
     this.assertPlanRunnable(plan);
+    this.assertOfferStillRunnable(item);
 
     if (item.status !== HarvestItemStatus.QUEUED) {
       throw new ConflictException('Only a queued offer can be started.');
@@ -599,6 +602,14 @@ export class HarvestPlanningService {
         'Confirm withdrawal only after it has been requested.',
       );
     }
+    if (
+      item.withdrawalRequestedCents === null ||
+      dto.amountCents > item.withdrawalRequestedCents
+    ) {
+      throw new ConflictException(
+        'Confirmed receipt cannot exceed the withdrawal amount Aureus recorded as requested.',
+      );
+    }
 
     await this.repo.updateItem(itemId, {
       status: HarvestItemStatus.WITHDRAWN,
@@ -728,6 +739,39 @@ export class HarvestPlanningService {
     return Math.ceil(
       remainingCents / (unitWagerCents * actionsPerMinute),
     );
+  }
+
+  private assertOfferStillRunnable(item: HarvestPlanItemWithProfile) {
+    const now = Date.now();
+    const profile = item.offerProfile;
+    const opportunity = profile.opportunity;
+
+    if (profile.legalStatus !== HarvestLegalStatus.VERIFIED_REGULATED) {
+      throw new ConflictException(
+        'This offer is no longer approved for harvest execution.',
+      );
+    }
+    if (
+      now - profile.termsVerifiedAt.getTime() >= TERMS_MAX_AGE_MS ||
+      (profile.expiresAt && profile.expiresAt.getTime() < now)
+    ) {
+      throw new ConflictException(
+        'This offer must be re-reviewed because its terms are stale or expired.',
+      );
+    }
+    if (
+      opportunity.status !== OpportunityStatus.ACTIVE ||
+      opportunity.verificationStatus !== VerificationStatus.VERIFIED ||
+      opportunity.deletedAt !== null ||
+      !opportunity.dateLastVerified ||
+      now - opportunity.dateLastVerified.getTime() >=
+        OPPORTUNITY_MAX_VERIFICATION_AGE_MS ||
+      (opportunity.deadline && opportunity.deadline.getTime() < now)
+    ) {
+      throw new ConflictException(
+        'The underlying opportunity is no longer current enough to start.',
+      );
+    }
   }
 
   private assertPlanRunnable(plan: HarvestPlanWithItems) {
