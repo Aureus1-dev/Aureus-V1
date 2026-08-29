@@ -109,7 +109,11 @@ describe('GuidedApplicationService', () => {
       geography: null,
       payoutNotes: null,
       timeToCashNotes: null,
-      status: 'verified',
+      status:
+        opportunity.status === OpportunityStatus.ACTIVE &&
+        opportunity.verificationStatus === VerificationStatus.VERIFIED
+          ? 'verified'
+          : 'disabled',
       lastVerifiedAt: opportunity.dateLastVerified,
       sourceName: opportunity.sourceName,
       sourceUrl: opportunity.sourceUrl,
