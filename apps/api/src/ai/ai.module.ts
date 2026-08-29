@@ -53,6 +53,8 @@ import { PrismaAiOrchestrationRunRepository } from './orchestrator/repositories/
 import { AI_ORCHESTRATION_RUN_REPOSITORY } from './orchestrator/repositories/ai-orchestration-run.repository.interface';
 
 import { VoiceProviderModule } from './voice/providers/voice-provider.module';
+import { GuidedApplicationController } from './application-guide/guided-application.controller';
+import { GuidedApplicationService } from './application-guide/guided-application.service';
 import { VoiceController } from './voice/voice.controller';
 import { VoiceSessionService } from './voice/voice-session.service';
 import { PrismaAiVoiceSessionRepository } from './voice/repositories/prisma-ai-voice-session.repository';
@@ -93,6 +95,7 @@ import { AI_TURN_EVENT_REPOSITORY } from './voice/repositories/ai-turn-event.rep
     RecommendationsController,
     PodInsightsController,
     VoiceController,
+    GuidedApplicationController,
     AiOrchestratorController,
     InstitutionalMemoryController,
   ],
@@ -111,12 +114,13 @@ import { AI_TURN_EVENT_REPOSITORY } from './voice/repositories/ai-turn-event.rep
     { provide: AI_RECOMMENDATION_REPOSITORY, useClass: PrismaAiRecommendationRepository },
     PodInsightsService,
     VoiceSessionService,
+    GuidedApplicationService,
     { provide: AI_VOICE_SESSION_REPOSITORY, useClass: PrismaAiVoiceSessionRepository },
     { provide: AI_TURN_EVENT_REPOSITORY, useClass: PrismaAiTurnEventRepository },
     InstitutionalMemoryService,
     AiOrchestratorService,
     { provide: AI_ORCHESTRATION_RUN_REPOSITORY, useClass: PrismaAiOrchestrationRunRepository },
   ],
-  exports: [AiRequestsService, AiOrchestratorService],
+  exports: [AiRequestsService, AiOrchestratorService, GuidedApplicationService],
 })
 export class AiModule {}

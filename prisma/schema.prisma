@@ -169,6 +169,7 @@ model User {
   needEscalations            NeedEscalation[]
   unresolvedNeeds            UnresolvedNeed[]
   harvestPlans               HarvestPlan[]
+  guidedApplicationSessions  GuidedApplicationSession[]
 }
 
 // ===========================================================================
@@ -515,6 +516,7 @@ model Opportunity {
   stewardshipRecommendations StewardshipRecommendation[]
   aiRecommendations          AiRecommendation[]
   harvestProfile             HarvestOfferProfile?
+  guidedApplicationSessions  GuidedApplicationSession[]
 
   @@index([category])
   @@index([verificationStatus])
@@ -2251,6 +2253,7 @@ enum AiCapability {
   NEXT_BEST_ACTION
   STEWARD_ESCALATION
   PUBLIC_WARD_CONVERSATION
+  APPLICATION_GUIDANCE
 }
 
 enum AiRequestStatus {
@@ -2286,9 +2289,48 @@ model AiConversation {
   messages      AiMessage[]
   requests      AiRequest[]
   voiceSessions AiVoiceSession[]
+  guidedApplicationSessions GuidedApplicationSession[]
   statedNeeds   StatedNeed[]
 
   @@index([userId])
+}
+
+
+// ===========================================================================
+// Guided external application assistance — See → Guide (Issue #95 §3)
+// ===========================================================================
+
+enum GuidedApplicationSessionStatus {
+  ACTIVE
+  ENDED
+}
+
+model GuidedApplicationSession {
+  id             String                         @id @default(uuid()) @db.Uuid
+  userId         String                         @db.Uuid
+  user           User                           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  conversationId String                         @db.Uuid
+  conversation   AiConversation                 @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  opportunityId  String                         @db.Uuid
+  opportunity    Opportunity                    @relation(fields: [opportunityId], references: [id], onDelete: Cascade)
+
+  // Snapshot of the verified canonical application destination selected at
+  // session start. Screenshots and extracted field values are deliberately
+  // never stored in this model.
+  applicationUrl String
+  status         GuidedApplicationSessionStatus @default(ACTIVE)
+
+  screenCaptureConsentGrantedAt DateTime?
+  screenCaptureConsentRevokedAt DateTime?
+  lastFrameAnalyzedAt           DateTime?
+  endedAt                       DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId, status])
+  @@index([conversationId, status])
+  @@index([opportunityId])
 }
 
 model AiMessage {
