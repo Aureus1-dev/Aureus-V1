@@ -649,7 +649,7 @@ export class HarvestPlanningService {
     dto: HarvestAmountDto,
   ) {
     const { plan, item } = await this.item(userId, planId, itemId);
-    this.assertPlanRunnable(plan);
+    this.assertSettlementAllowed(plan);
 
     if (item.status !== HarvestItemStatus.REQUIREMENT_MET) {
       throw new ConflictException(
@@ -680,7 +680,7 @@ export class HarvestPlanningService {
     dto: HarvestAmountDto,
   ) {
     const { plan, item } = await this.item(userId, planId, itemId);
-    this.assertPlanRunnable(plan);
+    this.assertSettlementAllowed(plan);
 
     if (item.status !== HarvestItemStatus.WITHDRAWAL_REQUESTED) {
       throw new ConflictException(
@@ -712,7 +712,9 @@ export class HarvestPlanningService {
       { amountCents: dto.amountCents },
     );
 
-    await this.completeIfResolved(planId);
+    if (plan.status !== HarvestPlanStatus.STOPPED) {
+      await this.completeIfResolved(planId);
+    }
     return this.requirePlan(userId, planId);
   }
 
@@ -874,6 +876,18 @@ export class HarvestPlanningService {
     ) {
       throw new ConflictException(
         'The underlying opportunity is no longer current enough to start.',
+      );
+    }
+  }
+
+  private assertSettlementAllowed(plan: HarvestPlanWithItems) {
+    if (
+      plan.status !== HarvestPlanStatus.READY &&
+      plan.status !== HarvestPlanStatus.ACTIVE &&
+      plan.status !== HarvestPlanStatus.STOPPED
+    ) {
+      throw new ConflictException(
+        'This harvest plan cannot accept withdrawal settlement in its current state.',
       );
     }
   }
