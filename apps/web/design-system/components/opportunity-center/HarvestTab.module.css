@@ -1,0 +1,154 @@
+.form,
+.plan {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+}
+
+.intro,
+.notice,
+.stopNotice,
+.current,
+.fieldset,
+.actionPanel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.notice,
+.stopNotice,
+.current,
+.fieldset {
+  padding: var(--space-4);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-lg);
+}
+
+.fieldset {
+  margin: 0;
+}
+
+.fieldset legend {
+  padding: 0 var(--space-2);
+  font-weight: 600;
+}
+
+.field,
+.check,
+.candidate {
+  display: flex;
+  gap: var(--space-2);
+}
+
+.field {
+  flex-direction: column;
+}
+
+.field input,
+.field select {
+  width: 100%;
+  min-height: 44px;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  color: inherit;
+  font: inherit;
+}
+
+.check,
+.candidate {
+  align-items: flex-start;
+}
+
+.check input,
+.candidate input {
+  margin-top: 0.2rem;
+}
+
+.helper {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+}
+
+.candidates {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.candidate {
+  padding: var(--space-3);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-md);
+}
+
+.candidate span {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.candidate small {
+  color: var(--color-text-secondary);
+}
+
+.metrics {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
+  gap: var(--space-3);
+  margin: 0;
+}
+
+.metrics div {
+  padding: var(--space-3);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-md);
+}
+
+.metrics dt {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+}
+
+.metrics dd {
+  margin: var(--space-1) 0 0;
+  font-weight: 600;
+}
+
+.eyebrow {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+}
+
+.instruction {
+  padding: var(--space-3);
+  border-left: 3px solid var(--color-action-primary);
+}
+
+.instruction p {
+  margin-bottom: 0;
+}
+
+.links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+}
+
+.links a {
+  color: var(--color-action-primary);
+}
+
+.actionPanel {
+  padding-top: var(--space-2);
+}
+
+@media (max-width: 42rem) {
+  .metrics {
+    grid-template-columns: 1fr 1fr;
+  }
+}
