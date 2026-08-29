@@ -64,7 +64,7 @@ A guidance session may start only when:
 - it is not deleted or past its deadline;
 - the selected canonical application destination is HTTPS.
 
-Before every frame the server rechecks the Opportunity state and deadline. If the canonical application destination changed after session start, analysis fails closed and the member must start a fresh guidance session.
+Before every frame and when restoring an active guide, the server reuses the existing Opportunity Link Registry's current-link decision (including its verification-age/deadline rules), then rechecks the canonical destination snapshot. If the registry marks the link stale/disabled or the canonical application destination changed after session start, the guide fails closed and the member must start a fresh session.
 
 ## AI boundary
 

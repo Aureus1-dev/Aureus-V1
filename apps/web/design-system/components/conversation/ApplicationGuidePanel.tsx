@@ -13,6 +13,11 @@ import styles from './ApplicationGuidePanel.module.css';
 
 const MAX_ENCODED_FRAME_LENGTH = 80_000;
 const SCREEN_CONSENT_WINDOW_MS = 30 * 60 * 1000;
+const ALLOWED_UPLOAD_TYPES = new Set([
+  'image/jpeg',
+  'image/png',
+  'image/webp',
+]);
 
 interface CapturedFrame {
   mediaType: 'image/jpeg';
@@ -121,8 +126,8 @@ async function captureStreamFrame(stream: MediaStream): Promise<CapturedFrame> {
 }
 
 async function captureUploadedImage(file: File): Promise<CapturedFrame> {
-  if (!file.type.startsWith('image/')) {
-    throw new Error('Choose a screenshot image.');
+  if (!ALLOWED_UPLOAD_TYPES.has(file.type)) {
+    throw new Error('Choose a JPEG, PNG, or WebP screenshot.');
   }
   const objectUrl = URL.createObjectURL(file);
   const image = new Image();

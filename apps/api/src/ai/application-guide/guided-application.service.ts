@@ -13,6 +13,8 @@ import {
 } from '@prisma/client';
 import { AuthenticatedUser } from '../../auth/strategies/jwt.strategy';
 import { OpportunitiesService } from '../../opportunities/opportunities.service';
+import { OpportunityLinkRegistryService } from '../../opportunities/opportunity-link-registry.service';
+import { OpportunityResponseDto } from '../../opportunities/dto/opportunity-response.dto';
 import { PrismaService } from '../../prisma/prisma.service';
 import { AiRequestsService } from '../requests/ai-requests.service';
 import type { AiCompletionMessage } from '../providers/ai-provider.interface';
@@ -207,6 +209,7 @@ export class GuidedApplicationService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly opportunities: OpportunitiesService,
+    private readonly opportunityLinks: OpportunityLinkRegistryService,
     private readonly aiRequests: AiRequestsService,
   ) {}
 
@@ -230,9 +233,13 @@ export class GuidedApplicationService {
       throw new ConflictException('This opportunity is not currently verified and actionable');
     }
 
-    const applicationUrl = safeHttpsUrl(
-      opportunity.applicationUrl ?? opportunity.officialSourceUrl,
-    );
+    const registryEntry = this.opportunityLinks.toRegistryEntry(opportunity);
+    if (registryEntry.status !== 'verified') {
+      throw new ConflictException(
+        'This opportunity no longer has a currently verified application destination',
+      );
+    }
+    const applicationUrl = safeHttpsUrl(registryEntry.canonicalUrl);
 
     const current = await this.prisma.db.guidedApplicationSession.findFirst({
       where: {
@@ -290,20 +297,23 @@ export class GuidedApplicationService {
 
     const now = new Date();
     let currentApplicationUrl: string | null = null;
+    let registryVerified = false;
     try {
-      currentApplicationUrl = safeHttpsUrl(
-        session.opportunity.applicationUrl ??
-          session.opportunity.officialSourceUrl,
+      const registryEntry = this.opportunityLinks.toRegistryEntry(
+        OpportunityResponseDto.fromEntity(session.opportunity),
       );
+      registryVerified = registryEntry.status === 'verified';
+      currentApplicationUrl = registryVerified
+        ? safeHttpsUrl(registryEntry.canonicalUrl)
+        : null;
     } catch {
       currentApplicationUrl = null;
+      registryVerified = false;
     }
 
     const stillGuidable =
-      session.opportunity.status === OpportunityStatus.ACTIVE &&
-      session.opportunity.verificationStatus === VerificationStatus.VERIFIED &&
+      registryVerified &&
       !session.opportunity.deletedAt &&
-      (!session.opportunity.deadline || session.opportunity.deadline >= now) &&
       currentApplicationUrl === session.applicationUrl;
 
     if (!stillGuidable) {
@@ -373,18 +383,16 @@ export class GuidedApplicationService {
     }
 
     const opportunity = await this.opportunities.findById(session.opportunityId);
-    if (
-      opportunity.status !== OpportunityStatus.ACTIVE ||
-      opportunity.verificationStatus !== VerificationStatus.VERIFIED ||
-      opportunity.deletedAt ||
-      (opportunity.deadline && opportunity.deadline < now)
-    ) {
+    if (opportunity.deletedAt) {
       throw new ConflictException('The selected opportunity is no longer verified for guidance');
     }
 
-    const currentApplicationUrl = safeHttpsUrl(
-      opportunity.applicationUrl ?? opportunity.officialSourceUrl,
-    );
+    const registryEntry = this.opportunityLinks.toRegistryEntry(opportunity);
+    if (registryEntry.status !== 'verified') {
+      throw new ConflictException('The selected opportunity is no longer verified for guidance');
+    }
+
+    const currentApplicationUrl = safeHttpsUrl(registryEntry.canonicalUrl);
     if (currentApplicationUrl !== session.applicationUrl) {
       throw new ConflictException(
         'The verified application destination changed. End this guide and start a fresh session.',

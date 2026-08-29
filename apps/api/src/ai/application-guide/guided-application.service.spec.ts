@@ -6,6 +6,7 @@ import {
 } from '@prisma/client';
 import type { AuthenticatedUser } from '../../auth/strategies/jwt.strategy';
 import { OpportunitiesService } from '../../opportunities/opportunities.service';
+import { OpportunityLinkRegistryService } from '../../opportunities/opportunity-link-registry.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import { AiRequestsService } from '../requests/ai-requests.service';
 import { GuidedApplicationService } from './guided-application.service';
@@ -35,6 +36,10 @@ const prisma = {
 const opportunities = {
   findById: jest.fn(),
 } as unknown as jest.Mocked<OpportunitiesService>;
+
+const opportunityLinks = {
+  toRegistryEntry: jest.fn(),
+} as unknown as jest.Mocked<OpportunityLinkRegistryService>;
 
 const aiRequests = {
   runCompletion: jest.fn(),
@@ -80,12 +85,36 @@ describe('GuidedApplicationService', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
-    service = new GuidedApplicationService(prisma, opportunities, aiRequests);
+    service = new GuidedApplicationService(
+      prisma,
+      opportunities,
+      opportunityLinks,
+      aiRequests,
+    );
     conversationFindFirst.mockResolvedValue({
       id: activeSession.conversationId,
       userId: USER.id,
     });
     opportunities.findById.mockResolvedValue(verifiedOpportunity as never);
+    opportunityLinks.toRegistryEntry.mockImplementation((opportunity) => ({
+      opportunityId: opportunity.id,
+      opportunityRef: opportunity.opportunityRef,
+      title: opportunity.title,
+      provider: opportunity.provider,
+      url: opportunity.applicationUrl ?? opportunity.officialSourceUrl,
+      canonicalUrl: opportunity.applicationUrl ?? opportunity.officialSourceUrl,
+      referralUrl: null,
+      affiliateDisclosure: null,
+      eligibility: opportunity.eligibilityRules,
+      geography: null,
+      payoutNotes: null,
+      timeToCashNotes: null,
+      status: 'verified',
+      lastVerifiedAt: opportunity.dateLastVerified,
+      sourceName: opportunity.sourceName,
+      sourceUrl: opportunity.sourceUrl,
+      sourceType: opportunity.sourceType,
+    }));
   });
 
   it('starts a session only from an owned conversation and verified HTTPS opportunity', async () => {
@@ -175,6 +204,40 @@ describe('GuidedApplicationService', () => {
         screenCaptureConsentRevokedAt: expect.any(Date),
       }),
     });
+  });
+
+  it('refuses to start guidance when registry freshness marks the stored link stale', async () => {
+    opportunityLinks.toRegistryEntry.mockReturnValue({
+      opportunityId: verifiedOpportunity.id,
+      opportunityRef: null,
+      title: verifiedOpportunity.title,
+      provider: verifiedOpportunity.provider,
+      url: verifiedOpportunity.applicationUrl,
+      canonicalUrl: verifiedOpportunity.applicationUrl,
+      referralUrl: null,
+      affiliateDisclosure: null,
+      eligibility: 'Open',
+      geography: null,
+      payoutNotes: null,
+      timeToCashNotes: null,
+      status: 'stale',
+      lastVerifiedAt: null,
+      sourceName: 'Official source',
+      sourceUrl: null,
+      sourceType: 'ADMIN_ENTRY',
+    } as never);
+
+    await expect(
+      service.startSession(
+        {
+          conversationId: activeSession.conversationId,
+          opportunityId: activeSession.opportunityId,
+        },
+        USER,
+      ),
+    ).rejects.toThrow(/currently verified application destination/i);
+
+    expect(sessionCreate).not.toHaveBeenCalled();
   });
 
   it('refuses to start guidance for an unverified opportunity', async () => {
