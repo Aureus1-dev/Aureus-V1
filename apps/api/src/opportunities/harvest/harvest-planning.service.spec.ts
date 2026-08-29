@@ -3,7 +3,10 @@ import {
   HarvestBenefitImpactStatus,
   HarvestFilingStatus,
   HarvestItemStatus,
+  HarvestLegalStatus,
   HarvestPlanStatus,
+  OpportunityStatus,
+  VerificationStatus,
 } from '@prisma/client';
 import { OpportunitiesService } from '../opportunities.service';
 import { HarvestPlanningService } from './harvest-planning.service';
@@ -116,6 +119,41 @@ describe('HarvestPlanningService', () => {
       expect.objectContaining({ status: HarvestPlanStatus.STOPPED }),
     );
     expect(result.status).toBe(HarvestPlanStatus.STOPPED);
+  });
+
+  it('refuses to start an offer whose reviewed terms are stale at execution time', async () => {
+    const stale = new Date(Date.now() - 15 * 24 * 60 * 60 * 1000);
+    const freshOpportunityVerification = new Date(
+      Date.now() - 10 * 24 * 60 * 60 * 1000,
+    );
+    const ready = {
+      ...basePlan(HarvestPlanStatus.READY),
+      items: [
+        {
+          id: 'item-1',
+          position: 1,
+          status: HarvestItemStatus.QUEUED,
+          offerProfile: {
+            legalStatus: HarvestLegalStatus.VERIFIED_REGULATED,
+            termsVerifiedAt: stale,
+            expiresAt: null,
+            opportunity: {
+              status: OpportunityStatus.ACTIVE,
+              verificationStatus: VerificationStatus.VERIFIED,
+              deletedAt: null,
+              dateLastVerified: freshOpportunityVerification,
+              deadline: null,
+            },
+          },
+        },
+      ],
+    } as unknown as HarvestPlanWithItems;
+    repo.findPlanByIdForUser.mockResolvedValue(ready);
+
+    await expect(
+      service.startItem('user-1', 'plan-1', 'item-1'),
+    ).rejects.toThrow(ConflictException);
+    expect(repo.updateItem).not.toHaveBeenCalled();
   });
 
   it('requires operator progress to reach zero before requirement completion', async () => {
