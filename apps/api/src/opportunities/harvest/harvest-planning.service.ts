@@ -133,9 +133,14 @@ export class HarvestPlanningService {
     }
 
     const existing = await this.repo.findPlanForUser(userId, dto.taxYear);
-    if (existing) {
+    if (
+      existing &&
+      existing.status !== HarvestPlanStatus.COMPLETED &&
+      existing.status !== HarvestPlanStatus.STOPPED &&
+      existing.status !== HarvestPlanStatus.CANCELLED
+    ) {
       throw new ConflictException(
-        'A harvest plan already exists for this tax year.',
+        'Close the current harvest plan before building a fresh plan for this tax year.',
       );
     }
 
