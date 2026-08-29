@@ -63,7 +63,13 @@ describe('HarvestPlanningService', () => {
         bankrollLimitCents: 10_000,
         projectedLossLimitCents: 5_000,
         timeLimitMinutes: 60,
-        acceptsStopRule: true,
+        memberAgeYears: 34,
+        attestsAgeAccuracy: true,
+        reviewedOfferEligibility: true,
+        memberAgeYears: 34,
+      attestsAgeAccuracy: true,
+      reviewedOfferEligibility: true,
+      acceptsStopRule: true,
       }),
     ).rejects.toThrow(ForbiddenException);
   });
@@ -86,6 +92,9 @@ describe('HarvestPlanningService', () => {
       bankrollLimitCents: 50_000,
       projectedLossLimitCents: 10_000,
       timeLimitMinutes: 120,
+      memberAgeYears: 34,
+      attestsAgeAccuracy: true,
+      reviewedOfferEligibility: true,
       acceptsStopRule: true,
     });
 
