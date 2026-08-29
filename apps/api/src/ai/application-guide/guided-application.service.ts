@@ -27,6 +27,7 @@ import {
 
 const MAX_FRAME_BYTES = 60 * 1024;
 const MAX_FIELDS = 12;
+const SCREEN_CONSENT_WINDOW_MS = 30 * 60 * 1000;
 const MEMBER_CONTROL_COPY =
   'Enter or review this yourself. Aureus will not ask you to share or store the value.';
 const SENSITIVE_VALUE_WARNING =
@@ -284,20 +285,35 @@ export class GuidedApplicationService {
   ): Promise<GuidedApplicationAnalysisResponseDto> {
     assertValidBase64(dto.imageBase64);
     const session = await this.getOwnedActive(sessionId, caller.id);
+    const now = new Date();
     if (
       !session.screenCaptureConsentGrantedAt ||
-      session.screenCaptureConsentRevokedAt
+      session.screenCaptureConsentRevokedAt ||
+      now.getTime() - session.screenCaptureConsentGrantedAt.getTime() >
+        SCREEN_CONSENT_WINDOW_MS
     ) {
-      throw new ConflictException('Screen guidance is blocked until the member explicitly grants consent');
+      throw new ConflictException(
+        'Screen guidance consent has expired or been revoked. Grant consent again before sharing a frame.',
+      );
     }
 
     const opportunity = await this.opportunities.findById(session.opportunityId);
     if (
       opportunity.status !== OpportunityStatus.ACTIVE ||
       opportunity.verificationStatus !== VerificationStatus.VERIFIED ||
-      opportunity.deletedAt
+      opportunity.deletedAt ||
+      (opportunity.deadline && opportunity.deadline < now)
     ) {
       throw new ConflictException('The selected opportunity is no longer verified for guidance');
+    }
+
+    const currentApplicationUrl = safeHttpsUrl(
+      opportunity.applicationUrl ?? opportunity.officialSourceUrl,
+    );
+    if (currentApplicationUrl !== session.applicationUrl) {
+      throw new ConflictException(
+        'The verified application destination changed. End this guide and start a fresh session.',
+      );
     }
 
     const memberContext = [

@@ -71,6 +71,25 @@ describe('ApplicationGuidePanel', () => {
     );
   });
 
+  it('treats consent older than 30 minutes as expired in the UI', () => {
+    render(
+      <ApplicationGuidePanel
+        accessToken="token"
+        session={{
+          ...session,
+          screenCaptureConsentGrantedAt: new Date(
+            Date.now() - 31 * 60 * 1000,
+          ).toISOString(),
+        }}
+        onSessionChange={jest.fn()}
+        onEnded={jest.fn()}
+      />,
+    );
+
+    expect(screen.getByRole('checkbox')).not.toBeChecked();
+    expect(screen.queryByText('Share a screenshot instead')).not.toBeInTheDocument();
+  });
+
   it('states the no-storage and sensitive-field boundary plainly', () => {
     render(
       <ApplicationGuidePanel

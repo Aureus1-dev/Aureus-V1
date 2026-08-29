@@ -12,6 +12,7 @@ import { Button } from '../Button/Button';
 import styles from './ApplicationGuidePanel.module.css';
 
 const MAX_ENCODED_FRAME_LENGTH = 80_000;
+const SCREEN_CONSENT_WINDOW_MS = 30 * 60 * 1000;
 
 interface CapturedFrame {
   mediaType: 'image/jpeg';
@@ -25,11 +26,18 @@ export interface ApplicationGuidePanelProps {
   onEnded: () => void;
 }
 
-function hasActiveConsent(session: GuidedApplicationSessionDto): boolean {
-  return Boolean(
-    session.screenCaptureConsentGrantedAt &&
-      !session.screenCaptureConsentRevokedAt,
-  );
+function hasActiveConsent(
+  session: GuidedApplicationSessionDto,
+  nowMs: number,
+): boolean {
+  if (
+    !session.screenCaptureConsentGrantedAt ||
+    session.screenCaptureConsentRevokedAt
+  ) {
+    return false;
+  }
+  const grantedAt = new Date(session.screenCaptureConsentGrantedAt).getTime();
+  return Number.isFinite(grantedAt) && nowMs - grantedAt <= SCREEN_CONSENT_WINDOW_MS;
 }
 
 function stopStream(stream: MediaStream | null): void {
@@ -142,10 +150,12 @@ export function ApplicationGuidePanel({
 }: ApplicationGuidePanelProps) {
   const [stream, setStream] = useState<MediaStream | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
+  const revocationInFlightRef = useRef(false);
+  const [consentClock, setConsentClock] = useState(() => Date.now());
   const [analysis, setAnalysis] = useState<GuidedApplicationAnalysisDto | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const consentActive = hasActiveConsent(session);
+  const consentActive = hasActiveConsent(session, consentClock);
   const displayCaptureSupported =
     typeof navigator !== 'undefined' &&
     Boolean(navigator.mediaDevices?.getDisplayMedia);
@@ -153,6 +163,27 @@ export function ApplicationGuidePanel({
   useEffect(() => {
     streamRef.current = stream;
   }, [stream]);
+
+  useEffect(() => {
+    setConsentClock(Date.now());
+    if (!session.screenCaptureConsentGrantedAt || session.screenCaptureConsentRevokedAt) {
+      return;
+    }
+    const expiresAt =
+      new Date(session.screenCaptureConsentGrantedAt).getTime() +
+      SCREEN_CONSENT_WINDOW_MS;
+    const delay = Math.max(0, expiresAt - Date.now());
+    const timer = window.setTimeout(() => {
+      setConsentClock(Date.now());
+      stopStream(streamRef.current);
+      streamRef.current = null;
+      setStream(null);
+    }, delay + 50);
+    return () => window.clearTimeout(timer);
+  }, [
+    session.screenCaptureConsentGrantedAt,
+    session.screenCaptureConsentRevokedAt,
+  ]);
 
   useEffect(
     () => () => {
@@ -183,7 +214,10 @@ export function ApplicationGuidePanel({
   }
 
   async function revokeAfterShareStops() {
+    if (revocationInFlightRef.current) return;
+    revocationInFlightRef.current = true;
     stopStream(streamRef.current);
+    streamRef.current = null;
     setStream(null);
     try {
       const updated = await setGuidedApplicationConsent(
@@ -193,9 +227,11 @@ export function ApplicationGuidePanel({
       );
       onSessionChange(updated);
     } catch {
-      // The browser has already stopped the local capture. The next analysis
-      // request still requires an active server consent record and therefore
-      // fails closed if this best-effort revocation cannot reach the API.
+      // The browser has already stopped the local capture. The backend also
+      // expires consent after 30 minutes, so a stale grant cannot authorize a
+      // later frame indefinitely.
+    } finally {
+      revocationInFlightRef.current = false;
     }
   }
 
@@ -337,7 +373,8 @@ export function ApplicationGuidePanel({
         <span>
           I choose to share application screen images for guidance. I understand
           each frame is sent to Aureus&apos;s current AI provider for analysis
-          and Aureus does not store the screenshot image.
+          and Aureus does not store the screenshot image. This consent expires
+          after 30 minutes and I can revoke it sooner.
         </span>
       </label>
 

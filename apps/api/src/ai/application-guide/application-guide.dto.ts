@@ -18,6 +18,12 @@ export class StartGuidedApplicationSessionDto {
   opportunityId: string;
 }
 
+export class FindActiveGuidedApplicationSessionQueryDto {
+  @ApiProperty()
+  @IsUUID()
+  conversationId: string;
+}
+
 export class GuidedApplicationConsentDto {
   @ApiProperty({
     description:

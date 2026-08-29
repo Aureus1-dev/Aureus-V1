@@ -142,6 +142,47 @@ describe('GuidedApplicationService', () => {
     expect(aiRequests.runCompletion).not.toHaveBeenCalled();
   });
 
+  it('expires screen-analysis consent after 30 minutes', async () => {
+    sessionFindFirst.mockResolvedValue({
+      ...activeSession,
+      screenCaptureConsentGrantedAt: new Date(Date.now() - 31 * 60 * 1000),
+    });
+
+    await expect(
+      service.analyzeFrame(
+        activeSession.id,
+        {
+          mediaType: 'image/png',
+          imageBase64: Buffer.from('screen').toString('base64'),
+        },
+        USER,
+      ),
+    ).rejects.toThrow(/consent has expired/i);
+
+    expect(aiRequests.runCompletion).not.toHaveBeenCalled();
+  });
+
+  it('fails closed if the verified application destination changes after session start', async () => {
+    sessionFindFirst.mockResolvedValue(activeSession);
+    opportunities.findById.mockResolvedValue({
+      ...verifiedOpportunity,
+      applicationUrl: 'https://benefits.example.gov/new-application',
+    } as never);
+
+    await expect(
+      service.analyzeFrame(
+        activeSession.id,
+        {
+          mediaType: 'image/png',
+          imageBase64: Buffer.from('screen').toString('base64'),
+        },
+        USER,
+      ),
+    ).rejects.toThrow(/destination changed/i);
+
+    expect(aiRequests.runCompletion).not.toHaveBeenCalled();
+  });
+
   it('sends the image only to the audited AI request path and never persists image bytes', async () => {
     const imageBase64 = Buffer.from('ephemeral-screen-frame').toString('base64');
     sessionFindFirst.mockResolvedValue(activeSession);

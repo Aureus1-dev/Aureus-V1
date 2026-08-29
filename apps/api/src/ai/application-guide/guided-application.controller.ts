@@ -20,6 +20,7 @@ import { AuthenticatedUser } from '../../auth/strategies/jwt.strategy';
 import {
   AnalyzeGuidedApplicationFrameDto,
   GuidedApplicationAnalysisResponseDto,
+  FindActiveGuidedApplicationSessionQueryDto,
   GuidedApplicationConsentDto,
   GuidedApplicationSessionResponseDto,
   StartGuidedApplicationSessionDto,
@@ -49,10 +50,10 @@ export class GuidedApplicationController {
   @Get('active')
   @ApiOperation({ summary: 'Get the active application guidance context for an owned Hall conversation' })
   active(
-    @Query('conversationId') conversationId: string,
+    @Query() query: FindActiveGuidedApplicationSessionQueryDto,
     @CurrentUser() caller: AuthenticatedUser,
   ): Promise<GuidedApplicationSessionResponseDto | null> {
-    return this.service.findActive(conversationId, caller);
+    return this.service.findActive(query.conversationId, caller);
   }
 
   @Post(':id/consent')
