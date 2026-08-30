@@ -4,11 +4,12 @@ import { useRouter } from 'next/navigation';
 import type { PlanItemDto } from '../../../lib/api/plan';
 import type { RecommendationSubject } from '../recommendations';
 import type { ResourceOfferResponseValue } from '../../../lib/api/needs';
-import type { OpportunityActionDto } from '../../../lib/api/conversations';
+import type { OpportunityActionDto, ToolCallDto } from '../../../lib/api/conversations';
 import type { VirtualTimelineEntry } from './build-virtual-timeline';
 import { MemberMessage } from './MemberMessage';
 import { StewardMessage } from './StewardMessage';
 import { ThinkingIndicator } from './ThinkingIndicator';
+import { OpportunityActionCard } from './OpportunityActionCard';
 import { ApprovalCard } from '../approval-card/ApprovalCard';
 import { PlanCard, planItemKey } from '../plan/PlanCard';
 import { JourneyCard } from '../journey/JourneyCard';
@@ -26,7 +27,13 @@ export interface ConversationTimelineProps {
   onStartApplicationGuide?: (action: OpportunityActionDto) => void;
 }
 
-function subjectFor(item: PlanItemDto, subjectsById: Record<string, RecommendationSubject>): RecommendationSubject | null {
+type MessageEntry = Extract<VirtualTimelineEntry, { type: 'message' }>;
+type WorkEntry = Exclude<VirtualTimelineEntry, { type: 'message' }>;
+
+function subjectFor(
+  item: PlanItemDto,
+  subjectsById: Record<string, RecommendationSubject>,
+): RecommendationSubject | null {
   if (item.source !== 'RECOMMENDATION') return null;
   return subjectsById[item.recommendation!.id] ?? null;
 }
@@ -39,24 +46,109 @@ function offerResponseFor(
   return offerResponseByCityResourceId[item.cityResource!.id] ?? null;
 }
 
-/**
- * Ordered conversation transcript (FPB-005 §3 "Conversation Timeline"),
- * now interleaving synthetic entries alongside real messages (Living
- * Steward Workspace redesign) — a plan/journey-update/document that arose
- * during this conversation renders inline, never forcing a navigation
- * away to act on it. Purely presentational: every plan-item decision
- * still goes through `PlanCard`'s own real, unmodified approval mechanism
- * (`RecommendationCard`/`MatchedResourceCard`) — the actual approve/
- * dismiss/accept/decline calls live in `ConversationSurface`, exactly the
- * same split `CoordinatedPlanStep`/`FirstRunWelcome` already use.
- * `RecommendationCard`'s `ApprovalPanel` has no `Card` shell of its own,
- * so a RECOMMENDATION item is wrapped in `ApprovalCard` for one; a
- * CITY_RESOURCE item's `MatchedResourceCard` already renders its own
- * `Card`, so it is not double-wrapped. `JourneyCard`/`DocumentCard` are
- * reused verbatim for the same reason — both already are cards.
- * `role="log"` announces new messages to assistive technology as they
- * arrive without re-announcing the whole history (FPB-011 §9).
- */
+const ROUTE_LABELS: Record<string, string> = {
+  home: 'Home',
+  journey: 'Journey',
+  opportunities: 'Opportunities',
+  academy: 'Academy',
+  conversation: 'the Hall conversation',
+  welcome: 'Welcome',
+};
+
+function safeArguments(toolCall: ToolCallDto): Record<string, unknown> {
+  try {
+    const parsed = JSON.parse(toolCall.arguments);
+    return parsed && typeof parsed === 'object' && !Array.isArray(parsed)
+      ? (parsed as Record<string, unknown>)
+      : {};
+  } catch {
+    return {};
+  }
+}
+
+function describeToolCall(toolCall: ToolCallDto): string | null {
+  const args = safeArguments(toolCall);
+  switch (toolCall.name) {
+    case 'navigate_to_route': {
+      const route = typeof args.route === 'string' ? ROUTE_LABELS[args.route] : undefined;
+      return route ? 'Opened ' + route : null;
+    }
+    case 'focus_interface_target':
+      return 'Brought the relevant item into view';
+    case 'focus_form_field':
+      return 'Focused the field you need';
+    case 'open_panel':
+      return 'Opened the Steward workspace';
+    case 'close_panel':
+      return 'Closed the Steward workspace';
+    default:
+      return null;
+  }
+}
+
+function latestCurrentMessages(messageEntries: MessageEntry[], pendingResponse: boolean): MessageEntry[] {
+  const last = messageEntries[messageEntries.length - 1];
+  if (!last) return [];
+  if (pendingResponse && last.message.role === 'USER') return [last];
+  return messageEntries.slice(-2);
+}
+
+function renderWorkEntry(
+  entry: WorkEntry,
+  router: ReturnType<typeof useRouter>,
+  props: Pick<
+    ConversationTimelineProps,
+    | 'planSubjectsById'
+    | 'planOfferResponseByCityResourceId'
+    | 'isDecidingPlanItem'
+    | 'onApprovePlanItem'
+    | 'onDismissPlanItem'
+  >,
+) {
+  if (entry.type === 'plan') {
+    return (
+      <div key={entry.key} className={styles.artifactGroup}>
+        <p className={styles.artifactLabel}>Plan ready</p>
+        {[entry.plan.primary, ...entry.plan.supporting].map((item, index) => {
+          const card = (
+            <PlanCard
+              key={planItemKey(item)}
+              item={item}
+              role={index === 0 ? 'Primary' : 'Supporting'}
+              subject={subjectFor(item, props.planSubjectsById)}
+              offerResponse={offerResponseFor(item, props.planOfferResponseByCityResourceId)}
+              deciding={props.isDecidingPlanItem(item)}
+              onApprove={() => props.onApprovePlanItem(item)}
+              onDismiss={() => props.onDismissPlanItem(item)}
+            />
+          );
+          return item.source === 'RECOMMENDATION' ? (
+            <ApprovalCard key={planItemKey(item)}>{card}</ApprovalCard>
+          ) : (
+            card
+          );
+        })}
+      </div>
+    );
+  }
+
+  if (entry.type === 'journey-update') {
+    return (
+      <div key={entry.key} className={styles.artifactGroup}>
+        <p className={styles.artifactLabel}>Journey updated</p>
+        <JourneyCard goal={entry.goal} onOpen={() => router.push('/journey')} />
+      </div>
+    );
+  }
+
+  return (
+    <div key={entry.key} className={styles.artifactGroup}>
+      <p className={styles.artifactLabel}>Document ready</p>
+      <DocumentTimelineCard document={entry.document} />
+    </div>
+  );
+}
+
 export function ConversationTimeline({
   entries,
   pendingResponse,
@@ -68,52 +160,87 @@ export function ConversationTimeline({
   onStartApplicationGuide,
 }: ConversationTimelineProps) {
   const router = useRouter();
+  const messageEntries = entries.filter((entry): entry is MessageEntry => entry.type === 'message');
+  const workEntries = entries.filter((entry): entry is WorkEntry => entry.type !== 'message');
+  const currentMessages = latestCurrentMessages(messageEntries, pendingResponse);
+
+  const latestAssistant = [...messageEntries]
+    .reverse()
+    .find((entry) => entry.message.role === 'ASSISTANT');
+  const toolReceipts = (latestAssistant?.message.toolCalls ?? [])
+    .map(describeToolCall)
+    .filter((receipt): receipt is string => Boolean(receipt));
+
+  const latestOpportunity = [...messageEntries]
+    .reverse()
+    .map((entry) => entry.message.opportunityAction)
+    .find((action): action is OpportunityActionDto => Boolean(action));
+
+  const hasWork =
+    pendingResponse ||
+    toolReceipts.length > 0 ||
+    Boolean(latestOpportunity) ||
+    workEntries.length > 0;
 
   return (
-    <div className={styles.timeline} role="log" aria-live="polite" aria-relevant="additions">
-      {entries.map((entry) => {
-        if (entry.type === 'message') {
-          return entry.message.role === 'USER' ? (
+    <div className={styles.timeline}>
+      <section
+        className={styles.captionStage}
+        role="log"
+        aria-live="polite"
+        aria-relevant="additions text"
+        aria-label="Current conversation"
+      >
+        {currentMessages.map((entry) =>
+          entry.message.role === 'USER' ? (
             <MemberMessage key={entry.key} content={entry.message.content} />
           ) : (
-            <StewardMessage
-              key={entry.key}
-              content={entry.message.content}
-              opportunityAction={entry.message.opportunityAction}
-              onStartApplicationGuide={onStartApplicationGuide}
-            />
-          );
-        }
+            <StewardMessage key={entry.key} content={entry.message.content} />
+          ),
+        )}
+      </section>
 
-        if (entry.type === 'plan') {
-          return (
-            <div key={entry.key} className={styles.planEntries}>
-              {[entry.plan.primary, ...entry.plan.supporting].map((item, index) => {
-                const card = (
-                  <PlanCard
-                    key={planItemKey(item)}
-                    item={item}
-                    role={index === 0 ? 'Primary' : 'Supporting'}
-                    subject={subjectFor(item, planSubjectsById)}
-                    offerResponse={offerResponseFor(item, planOfferResponseByCityResourceId)}
-                    deciding={isDecidingPlanItem(item)}
-                    onApprove={() => onApprovePlanItem(item)}
-                    onDismiss={() => onDismissPlanItem(item)}
-                  />
-                );
-                return item.source === 'RECOMMENDATION' ? <ApprovalCard key={planItemKey(item)}>{card}</ApprovalCard> : card;
-              })}
+      {hasWork ? (
+        <section className={styles.workStage} aria-label="Work from this conversation">
+          <div className={styles.workHeading}>
+            <span className={styles.workKicker}>Aureus is working with you</span>
+            <span className={styles.workRule} aria-hidden="true" />
+          </div>
+
+          {pendingResponse ? <ThinkingIndicator /> : null}
+
+          {toolReceipts.length > 0 ? (
+            <ul className={styles.receipts} aria-label="Completed interface actions">
+              {toolReceipts.map((receipt) => (
+                <li key={receipt}>
+                  <span aria-hidden="true">✓</span>
+                  <span>{receipt}</span>
+                </li>
+              ))}
+            </ul>
+          ) : null}
+
+          {latestOpportunity ? (
+            <div className={styles.artifactGroup}>
+              <p className={styles.artifactLabel}>
+                Verified action ready
+                {latestOpportunity.sourceName ? ' · ' + latestOpportunity.sourceName : ''}
+              </p>
+              <OpportunityActionCard action={latestOpportunity} onStartGuide={onStartApplicationGuide} />
             </div>
-          );
-        }
+          ) : null}
 
-        if (entry.type === 'journey-update') {
-          return <JourneyCard key={entry.key} goal={entry.goal} onOpen={() => router.push('/journey')} />;
-        }
-
-        return <DocumentTimelineCard key={entry.key} document={entry.document} />;
-      })}
-      {pendingResponse ? <ThinkingIndicator /> : null}
+          {workEntries.map((entry) =>
+            renderWorkEntry(entry, router, {
+              planSubjectsById,
+              planOfferResponseByCityResourceId,
+              isDecidingPlanItem,
+              onApprovePlanItem,
+              onDismissPlanItem,
+            }),
+          )}
+        </section>
+      ) : null}
     </div>
   );
 }

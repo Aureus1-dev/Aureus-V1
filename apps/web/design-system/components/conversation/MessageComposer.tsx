@@ -1,7 +1,6 @@
 'use client';
 
 import { useRef, type FormEvent, type KeyboardEvent } from 'react';
-import { Button } from '../Button/Button';
 import { VisuallyHidden } from '../../accessibility';
 import styles from './MessageComposer.module.css';
 
@@ -47,21 +46,27 @@ export function MessageComposer({ value, onChange, onSubmit, disabled }: Message
           onKeyDown={handleKeyDown}
           rows={1}
         />
-        <button
-          type="button"
-          className={styles.micButton}
-          aria-label="Talk to your steward"
-          title="Talk"
-          onClick={() => {
-            window.location.assign('/conversation?mode=voice');
-          }}
-        >
-          <span aria-hidden="true">●</span>
-        </button>
+        <div className={styles.actions}>
+          <button
+            type="button"
+            className={styles.micButton}
+            aria-label="Talk to your steward"
+            title="Talk"
+            onClick={() => window.location.assign('/conversation?mode=voice')}
+          >
+            <span className={styles.micGlyph} aria-hidden="true" />
+          </button>
+          <button
+            type="submit"
+            className={styles.sendButton}
+            aria-label="Send"
+            title="Send"
+            disabled={disabled || value.trim().length === 0}
+          >
+            <span aria-hidden="true">↑</span>
+          </button>
+        </div>
       </div>
-      <Button type="submit" disabled={disabled || value.trim().length === 0}>
-        Send
-      </Button>
     </form>
   );
 }

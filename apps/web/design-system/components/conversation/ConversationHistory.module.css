@@ -1,81 +1,125 @@
-.history {
+.controls {
   display: flex;
-  flex-direction: column;
+  justify-content: flex-end;
   gap: var(--space-2);
-  padding: var(--space-3);
-  border-bottom: 1px solid var(--color-border);
+  padding: var(--space-2) var(--space-3) 0;
 }
-
-.newConversation {
-  padding: var(--space-2) var(--space-3);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  background: transparent;
-  color: var(--color-action-primary);
-  font-family: var(--font-family-base);
-  font-size: var(--font-size-sm);
-  font-weight: var(--font-weight-medium);
-  cursor: pointer;
-  text-align: left;
-}
-
-.newConversation:hover {
-  background: var(--color-surface-tertiary);
-}
-
-.list {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
-}
-
-.item {
-  width: 100%;
-  padding: var(--space-2) var(--space-3);
-  border: none;
-  border-radius: var(--radius-md);
-  background: transparent;
+.control,
+.close {
+  border: 1px solid color-mix(in srgb, var(--color-border-subtle) 72%, transparent);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--color-surface-primary) 56%, transparent);
   color: var(--color-text-secondary);
   font-family: var(--font-family-base);
   font-size: var(--font-size-sm);
-  text-align: left;
   cursor: pointer;
+  backdrop-filter: blur(10px);
+}
+.control { padding: var(--space-2) var(--space-3); }
+.control:hover,
+.control:focus-visible,
+.close:hover,
+.close:focus-visible {
+  color: var(--color-text-primary);
+  background: color-mix(in srgb, var(--color-surface-primary) 78%, transparent);
+}
+.backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 30;
+  border: 0;
+  background: rgba(0, 0, 0, 0.34);
+  cursor: default;
+}
+.drawer {
+  position: fixed;
+  z-index: 31;
+  top: 0;
+  right: 0;
+  display: grid;
+  grid-template-rows: auto auto minmax(0, 1fr);
+  width: min(34rem, 92vw);
+  height: 100dvh;
+  padding: var(--space-5);
+  background: color-mix(in srgb, var(--color-surface-primary) 94%, transparent);
+  box-shadow: -1rem 0 3rem rgba(0, 0, 0, 0.18);
+  backdrop-filter: blur(18px);
+  overflow: hidden;
+}
+.header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-4);
+  padding-bottom: var(--space-4);
+  border-bottom: 1px solid var(--color-border-subtle);
+}
+.header h2 { margin: var(--space-1) 0 0; }
+.eyebrow,
+.empty {
+  margin: 0;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
+}
+.close { padding: var(--space-2) var(--space-3); }
+.threads {
+  padding: var(--space-4) 0;
+  border-bottom: 1px solid var(--color-border-subtle);
+}
+.threads h3,
+.transcript h3 {
+  margin: 0 0 var(--space-3);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.list,
+.turns { margin: 0; padding: 0; list-style: none; }
+.list { display: flex; gap: var(--space-2); overflow-x: auto; }
+.item {
+  max-width: 15rem;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--color-text-secondary);
+  font-family: var(--font-family-base);
+  white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  white-space: nowrap;
+  cursor: pointer;
 }
-
-.item:hover {
-  background: var(--color-surface-tertiary);
-  color: var(--color-text-primary);
-}
-
 .item[aria-current='true'] {
-  background: var(--color-surface-tertiary);
+  background: var(--color-surface-secondary);
   color: var(--color-text-primary);
-  font-weight: var(--font-weight-medium);
 }
-
+.transcript {
+  min-height: 0;
+  padding-top: var(--space-4);
+  overflow-y: auto;
+}
+.turns {
+  display: grid;
+  gap: var(--space-4);
+  padding-bottom: calc(var(--space-6) + env(safe-area-inset-bottom, 0px));
+}
+.turn { display: grid; gap: var(--space-1); }
+.turn p {
+  margin: 0;
+  color: var(--color-text-primary);
+  line-height: var(--line-height-relaxed);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.speaker,
+.savedAction {
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
+}
+.speaker { font-weight: var(--font-weight-medium); }
+.savedAction { margin-top: var(--space-1); }
 @media (max-width: 640px) {
-  .history {
-    padding: var(--space-2) var(--space-3) 0;
-    border-bottom: 0;
-  }
-
-  /* A phone should open on the member's need, not a stack of old thread
-     titles. History remains available on larger layouts; mobile keeps only
-     the intentional escape hatch for a fresh conversation. */
-  .list {
-    display: none;
-  }
-
-  .newConversation {
-    align-self: flex-end;
-    padding: var(--space-1) var(--space-3);
-    background: rgba(15, 15, 15, 0.38);
-    backdrop-filter: blur(8px);
-  }
+  .controls { padding: var(--space-2) var(--space-3) 0; }
+  .drawer { width: 100vw; padding: var(--space-4); }
 }

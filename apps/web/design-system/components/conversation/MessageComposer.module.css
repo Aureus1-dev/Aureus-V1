@@ -1,85 +1,81 @@
 .composer {
+  width: min(100%, 54rem);
+  margin: 0 auto;
+  padding: var(--space-3);
+}
+.inputShell {
   display: flex;
   align-items: flex-end;
   gap: var(--space-2);
-  padding: var(--space-3);
-  border-top: 0;
-  background: transparent;
+  padding: 0.35rem 0.4rem 0.35rem var(--space-4);
+  border: 1px solid color-mix(in srgb, var(--color-border-subtle) 72%, transparent);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--color-surface-primary) 72%, transparent);
+  box-shadow: 0 0.65rem 2rem rgba(0, 0, 0, 0.09);
+  backdrop-filter: blur(14px);
 }
-
-.inputShell {
-  position: relative;
-  display: flex;
-  flex: 1;
-  align-items: center;
-}
-
 .textarea {
   flex: 1;
-  resize: none;
-  min-height: 3.25rem;
+  min-width: 0;
+  min-height: 2.65rem;
   max-height: 8rem;
-  padding: var(--space-3) 3.25rem var(--space-3) var(--space-4);
-  border: 1px solid color-mix(in srgb, var(--color-border) 72%, transparent);
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--color-surface-primary) 86%, transparent);
+  resize: none;
+  padding: 0.65rem 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
   color: var(--color-text-primary);
   font-family: var(--font-family-base);
   font-size: var(--font-size-base);
   line-height: var(--line-height-normal);
-  box-shadow: 0 0.4rem 1.4rem rgba(0, 0, 0, 0.08);
 }
-
-.textarea:disabled {
-  opacity: 0.6;
-}
-
-.micButton {
-  position: absolute;
-  right: 0.8rem;
+.textarea::placeholder { color: var(--color-text-tertiary); }
+.textarea:disabled { opacity: 0.55; }
+.actions { display: flex; align-items: center; gap: 0.25rem; }
+.micButton,
+.sendButton {
   display: grid;
-  width: 2rem;
-  height: 2rem;
+  width: 2.35rem;
+  height: 2.35rem;
   place-items: center;
-  border: 0;
   border-radius: 999px;
-  background: transparent;
-  color: currentColor;
+  font-family: var(--font-family-base);
   cursor: pointer;
-  opacity: 0.58;
 }
-
+.micButton {
+  border: 0;
+  background: transparent;
+  color: var(--color-text-secondary);
+}
+.sendButton {
+  border: 0;
+  background: var(--color-action-primary);
+  color: var(--color-surface-primary);
+  font-size: 1.15rem;
+  font-weight: var(--font-weight-medium);
+}
 .micButton:hover,
 .micButton:focus-visible {
-  opacity: 1;
   background: color-mix(in srgb, var(--color-surface-secondary) 75%, transparent);
+  color: var(--color-text-primary);
 }
-
-.micButton span {
+.sendButton:disabled { opacity: 0.3; cursor: default; }
+.micGlyph {
   width: 0.65rem;
   height: 0.9rem;
-  overflow: hidden;
   border: 1.5px solid currentColor;
   border-radius: 0.45rem;
-  color: transparent;
 }
-
 @media (max-width: 640px) {
   .composer {
     position: sticky;
-    bottom: 0;
     z-index: 4;
+    bottom: 0;
     width: 100%;
     box-sizing: border-box;
     padding: var(--space-2) var(--space-3) calc(var(--space-2) + env(safe-area-inset-bottom, 0px));
-    /* The Hall itself is the visual surface. Using surface-primary here
-       becomes a large white rectangle in light-token mobile sessions on top
-       of the room photograph. Keep only the actual input pill visible. */
     background: transparent;
   }
-
-  .textarea {
-    min-height: 3rem;
-    max-height: 6.5rem;
-  }
+  .inputShell { background: color-mix(in srgb, var(--color-surface-primary) 80%, transparent); }
+  .textarea { max-height: 6.5rem; }
 }

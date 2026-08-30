@@ -1,17 +1,18 @@
 import styles from './ThinkingIndicator.module.css';
 
-/**
- * Visible listening/thinking state (FPB-005 §3, AFX-002 §4 "Silence").
- * Announces presence without theatrical simulation — a calm status, not
- * an animated performance of "typing".
- */
 export function ThinkingIndicator() {
   return (
-    <div className={styles.wrapper} role="status" aria-live="polite" aria-label="Your steward is thinking">
-      <span className={styles.dot} aria-hidden="true" />
-      <span className={styles.dot} aria-hidden="true" />
-      <span className={styles.dot} aria-hidden="true" />
-      <span aria-hidden="true">Your steward is thinking</span>
+    <div
+      className={styles.wrapper}
+      role="status"
+      aria-live="polite"
+      aria-label="Aureus is working on your request"
+    >
+      <span className={styles.signal} aria-hidden="true" />
+      <span className={styles.copy}>
+        <strong>Working on that…</strong>
+        <span>I’ll bring the useful result into the Hall when it’s ready.</span>
+      </span>
     </div>
   );
 }
