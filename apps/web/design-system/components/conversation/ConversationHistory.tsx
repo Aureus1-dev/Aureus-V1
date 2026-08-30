@@ -59,7 +59,7 @@ export function ConversationHistory({
             aria-label="Close conversation history"
             onClick={() => setOpen(false)}
           />
-          <aside
+          <div
             id="conversation-history-drawer"
             className={styles.drawer}
             role="dialog"
@@ -118,7 +118,7 @@ export function ConversationHistory({
                 <p className={styles.empty}>Nothing has been said in this conversation yet.</p>
               )}
             </section>
-          </aside>
+          </div>
         </>
       ) : null}
     </>
