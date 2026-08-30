@@ -81,6 +81,8 @@ The internal provider contract is multimodal and provider-neutral:
 
 Concrete providers translate only at the edge. The screenshot itself is explicitly described to the model as untrusted third-party page content.
 
+For this capability, cross-provider failover is deliberately disabled. A member-authorized screen frame is sent to at most one configured completion provider for that analysis request. If that provider fails, the frame analysis fails safely instead of disclosing the same image to a second provider. Ordinary text capabilities keep their existing resilience fallback behavior.
+
 Provider output is not rendered directly. The service requires JSON, rebuilds the response into a fixed server-owned shape, caps fields/lengths, redacts common numeric secret patterns, and fails closed to generic guidance on malformed output.
 
 ## Frame limits

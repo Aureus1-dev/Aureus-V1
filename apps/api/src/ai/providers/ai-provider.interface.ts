@@ -58,6 +58,11 @@ export interface AiCompletionInput {
   maxTokens?: number;
   temperature?: number;
   tools?: AiToolDefinition[];
+  /**
+   * Defaults to true. Sensitive capabilities may disable cross-provider
+   * failover so one request payload is never disclosed to a second provider.
+   */
+  allowProviderFallback?: boolean;
 }
 
 export interface AiCompletionOutput {

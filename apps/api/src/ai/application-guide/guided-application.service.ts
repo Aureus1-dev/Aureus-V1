@@ -412,6 +412,10 @@ export class GuidedApplicationService {
       messages,
       maxTokens: 900,
       temperature: 0,
+      // A member-authorized screen frame may contain highly sensitive visual
+      // context. Never disclose the same frame to a second provider through
+      // the platform's ordinary resilience fallback path.
+      allowProviderFallback: false,
     });
 
     const analyzedAt = new Date();

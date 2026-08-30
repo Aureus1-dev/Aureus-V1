@@ -30,6 +30,10 @@ export class FallbackAiProvider implements IAiProvider {
   ) {}
 
   async complete(input: AiCompletionInput): Promise<AiCompletionOutput> {
+    if (input.allowProviderFallback === false) {
+      return this.primary.complete(input);
+    }
+
     try {
       return await this.primary.complete(input);
     } catch (err) {

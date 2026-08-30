@@ -47,6 +47,28 @@ describe('FallbackAiProvider', () => {
     expect(secondary.complete).toHaveBeenCalledTimes(1);
   });
 
+  it('does not disclose a fallback-disabled request to the secondary provider', async () => {
+    const primary: jest.Mocked<IAiProvider> = {
+      provider: AiProvider.OPENAI,
+      complete: jest.fn().mockRejectedValue(new Error('primary down')),
+    };
+    const secondary: jest.Mocked<IAiProvider> = {
+      provider: AiProvider.ANTHROPIC,
+      complete: jest.fn().mockResolvedValue(makeOutput({ content: 'from secondary' })),
+    };
+    const fallback = new FallbackAiProvider(primary, secondary);
+
+    await expect(
+      fallback.complete({
+        messages: [{ role: 'user', content: 'sensitive visual request' }],
+        allowProviderFallback: false,
+      }),
+    ).rejects.toThrow('primary down');
+
+    expect(primary.complete).toHaveBeenCalledTimes(1);
+    expect(secondary.complete).not.toHaveBeenCalled();
+  });
+
   it('propagates the secondary error when both providers fail', async () => {
     const primary: jest.Mocked<IAiProvider> = {
       provider: AiProvider.OPENAI,

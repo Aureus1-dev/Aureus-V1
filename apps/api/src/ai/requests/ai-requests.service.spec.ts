@@ -84,6 +84,24 @@ describe('AiRequestsService', () => {
       }));
     });
 
+    it('passes an explicit no-fallback boundary to the provider', async () => {
+      mockProvider.complete.mockResolvedValue({
+        content: 'Guidance', provider: AiProvider.STUB, model: 'stub', promptTokens: 10, completionTokens: 5,
+      });
+      mockRepo.create.mockResolvedValue(makeRequest());
+
+      await service.runCompletion({
+        userId: USER.id,
+        capability: AiCapability.APPLICATION_GUIDANCE,
+        messages: [{ role: 'user', content: 'Guide this screen' }],
+        allowProviderFallback: false,
+      });
+
+      expect(mockProvider.complete).toHaveBeenCalledWith(
+        expect.objectContaining({ allowProviderFallback: false }),
+      );
+    });
+
     it('logs a FAILED AiRequest and throws ServiceUnavailableException when the provider errors', async () => {
       mockProvider.complete.mockRejectedValue(new Error('upstream timeout'));
       mockRepo.create.mockResolvedValue(makeRequest({ status: AiRequestStatus.FAILED }));

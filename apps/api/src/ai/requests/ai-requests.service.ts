@@ -27,6 +27,7 @@ export interface RunCompletionParams {
   maxTokens?: number;
   temperature?: number;
   tools?: AiToolDefinition[];
+  allowProviderFallback?: boolean;
 }
 
 export interface RunWardCompletionParams {
@@ -97,6 +98,7 @@ export class AiRequestsService {
         maxTokens: params.maxTokens,
         temperature: params.temperature,
         tools: params.tools,
+        allowProviderFallback: params.allowProviderFallback,
       });
       const latencyMs = Date.now() - startedAt;
 

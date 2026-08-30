@@ -374,6 +374,7 @@ describe('GuidedApplicationService', () => {
       expect.objectContaining({
         capability: 'APPLICATION_GUIDANCE',
         conversationId,
+        allowProviderFallback: false,
       }),
     );
     expect(JSON.stringify(aiRequests.runCompletion.mock.calls[0][0].messages))
