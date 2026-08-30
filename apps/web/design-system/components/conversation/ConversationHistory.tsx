@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { ConversationDto, MessageDto } from '../../../lib/api/conversations';
 import styles from './ConversationHistory.module.css';
 
@@ -26,6 +26,27 @@ export function ConversationHistory({
   onStartNew,
 }: ConversationHistoryProps) {
   const [open, setOpen] = useState(false);
+  const dialogRef = useRef<HTMLDialogElement>(null);
+  const historyButtonRef = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const dialog = dialogRef.current;
+    if (!dialog) return;
+
+    if (!dialog.open) {
+      if (typeof dialog.showModal === 'function') dialog.showModal();
+      else dialog.setAttribute('open', '');
+    }
+
+    const closeButton = dialog.querySelector<HTMLButtonElement>('button[data-history-close]');
+    closeButton?.focus();
+
+    return () => {
+      if (dialog.open && typeof dialog.close === 'function') dialog.close();
+      historyButtonRef.current?.focus();
+    };
+  }, [open]);
 
   return (
     <>
@@ -41,8 +62,10 @@ export function ConversationHistory({
           New
         </button>
         <button
+          ref={historyButtonRef}
           type="button"
           className={styles.control}
+          aria-haspopup="dialog"
           aria-expanded={open}
           aria-controls="conversation-history-drawer"
           onClick={() => setOpen((value) => !value)}
@@ -52,26 +75,27 @@ export function ConversationHistory({
       </div>
 
       {open ? (
-        <>
-          <button
-            type="button"
-            className={styles.backdrop}
-            aria-label="Close conversation history"
-            onClick={() => setOpen(false)}
-          />
-          <div
+          <dialog
+            ref={dialogRef}
             id="conversation-history-drawer"
             className={styles.drawer}
-            role="dialog"
-            aria-modal="true"
             aria-label="Conversation history"
+            onCancel={(event) => {
+              event.preventDefault();
+              setOpen(false);
+            }}
           >
             <header className={styles.header}>
               <div>
                 <p className={styles.eyebrow}>The conversation is still here</p>
                 <h2>History</h2>
               </div>
-              <button type="button" className={styles.close} onClick={() => setOpen(false)}>
+              <button
+                type="button"
+                className={styles.close}
+                data-history-close
+                onClick={() => setOpen(false)}
+              >
                 Close
               </button>
             </header>
@@ -118,8 +142,7 @@ export function ConversationHistory({
                 <p className={styles.empty}>Nothing has been said in this conversation yet.</p>
               )}
             </section>
-          </div>
-        </>
+          </dialog>
       ) : null}
     </>
   );

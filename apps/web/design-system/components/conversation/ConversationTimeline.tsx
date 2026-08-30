@@ -164,14 +164,19 @@ export function ConversationTimeline({
   const workEntries = entries.filter((entry): entry is WorkEntry => entry.type !== 'message');
   const currentMessages = latestCurrentMessages(messageEntries, pendingResponse);
 
-  const latestAssistant = [...messageEntries]
+  // Point-in-time external actions and interface receipts belong only to the
+  // current exchange. Keeping them actionable after the conversation moves on
+  // would silently extend freshness/verification beyond the server response
+  // that produced them. Durable domain work (plans/Journey/documents) remains
+  // below; an external action must be re-resolved on a later turn.
+  const currentAssistant = [...currentMessages]
     .reverse()
     .find((entry) => entry.message.role === 'ASSISTANT');
-  const toolReceipts = (latestAssistant?.message.toolCalls ?? [])
+  const toolReceipts = (currentAssistant?.message.toolCalls ?? [])
     .map(describeToolCall)
     .filter((receipt): receipt is string => Boolean(receipt));
 
-  const latestOpportunity = [...messageEntries]
+  const currentOpportunity = [...currentMessages]
     .reverse()
     .map((entry) => entry.message.opportunityAction)
     .find((action): action is OpportunityActionDto => Boolean(action));
@@ -179,7 +184,7 @@ export function ConversationTimeline({
   const hasWork =
     pendingResponse ||
     toolReceipts.length > 0 ||
-    Boolean(latestOpportunity) ||
+    Boolean(currentOpportunity) ||
     workEntries.length > 0;
 
   return (
@@ -220,13 +225,13 @@ export function ConversationTimeline({
             </ul>
           ) : null}
 
-          {latestOpportunity ? (
+          {currentOpportunity ? (
             <div className={styles.artifactGroup}>
               <p className={styles.artifactLabel}>
                 Verified action ready
-                {latestOpportunity.sourceName ? ' · ' + latestOpportunity.sourceName : ''}
+                {currentOpportunity.sourceName ? ' · ' + currentOpportunity.sourceName : ''}
               </p>
-              <OpportunityActionCard action={latestOpportunity} onStartGuide={onStartApplicationGuide} />
+              <OpportunityActionCard action={currentOpportunity} onStartGuide={onStartApplicationGuide} />
             </div>
           ) : null}
 

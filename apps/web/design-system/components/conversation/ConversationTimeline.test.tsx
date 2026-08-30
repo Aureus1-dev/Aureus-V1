@@ -93,28 +93,71 @@ describe('ConversationTimeline — living conversation', () => {
     expect(screen.getByRole('status', { name: /working on your request/i })).toBeInTheDocument();
   });
 
-  it('keeps a server-verified opportunity as durable work after its prose ages out', () => {
+  it('shows a server-verified Opportunity action while it belongs to the current exchange', () => {
     const withAction: VirtualTimelineEntry[] = [
-      ...messageEntries.slice(0, 2),
+      {
+        key: 'message:user-action',
+        type: 'message',
+        timestamp: '2026-01-01T00:00:04Z',
+        message: {
+          id: 'user-action',
+          conversationId: 'c1',
+          role: 'USER',
+          content: 'Show me where to apply.',
+          createdAt: '2026-01-01T00:00:04Z',
+        },
+      },
       {
         key: 'message:action',
         type: 'message',
-        timestamp: '2026-01-01T00:00:01.500Z',
+        timestamp: '2026-01-01T00:00:05Z',
         message: {
           id: 'action',
           conversationId: 'c1',
           role: 'ASSISTANT',
           content: 'I found a verified action.',
-          createdAt: '2026-01-01T00:00:01.500Z',
+          createdAt: '2026-01-01T00:00:05Z',
+          opportunityAction,
+        },
+      },
+    ];
+    render(<ConversationTimeline entries={withAction} pendingResponse={false} {...defaultProps} />);
+    expect(screen.getByText('Rental Assistance')).toBeInTheDocument();
+    expect(screen.getByText(/Verified action ready · Official city source/i)).toBeInTheDocument();
+  });
+
+  it('does not keep an older point-in-time external action clickable after a later exchange replaces it', () => {
+    const withOldAction: VirtualTimelineEntry[] = [
+      {
+        key: 'message:old-user',
+        type: 'message',
+        timestamp: '2026-01-01T00:00:00Z',
+        message: {
+          id: 'old-user',
+          conversationId: 'c1',
+          role: 'USER',
+          content: 'Show me where to apply.',
+          createdAt: '2026-01-01T00:00:00Z',
+        },
+      },
+      {
+        key: 'message:old-action',
+        type: 'message',
+        timestamp: '2026-01-01T00:00:01Z',
+        message: {
+          id: 'old-action',
+          conversationId: 'c1',
+          role: 'ASSISTANT',
+          content: 'I found a verified action.',
+          createdAt: '2026-01-01T00:00:01Z',
           opportunityAction,
         },
       },
       ...messageEntries.slice(2),
     ];
-    render(<ConversationTimeline entries={withAction} pendingResponse={false} {...defaultProps} />);
-    expect(screen.queryByText('I found a verified action.')).not.toBeInTheDocument();
-    expect(screen.getByText('Rental Assistance')).toBeInTheDocument();
-    expect(screen.getByText(/Verified action ready · Official city source/i)).toBeInTheDocument();
+    render(<ConversationTimeline entries={withOldAction} pendingResponse={false} {...defaultProps} />);
+    expect(screen.queryByText('Rental Assistance')).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: /open verified application/i })).not.toBeInTheDocument();
   });
 
   it('shows only allow-listed completed interface receipts and never raw arguments', () => {

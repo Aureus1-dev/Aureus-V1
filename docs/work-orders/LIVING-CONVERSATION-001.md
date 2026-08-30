@@ -29,8 +29,9 @@ Conversation is transient in the foreground. Useful work is durable in the foreg
 ### Visible work
 - Pending text requests may show only a neutral, truthful working state.
 - Do not fabricate intermediate searching, checking, verifying, or contacting states: the current HTTP request does not stream backend sub-steps.
-- Real structured outputs remain visible as work products: server-verified Opportunity action, coordinated plan, Journey update, document, and the existing application-guidance panel.
-- Ephemeral interface tool receipts may be shown only from the fixed backend allow-list and with server-owned copy. Never render raw tool arguments.
+- Durable domain work remains visible where the existing domain state supports it: coordinated plans, Journey updates, documents, and the existing application-guidance panel.
+- A server-verified external Opportunity action remains actionable only while it belongs to the current exchange. A later turn must re-resolve the action rather than silently extending point-in-time link freshness.
+- Ephemeral interface tool receipts may be shown only for the current exchange, from the fixed backend allow-list and with server-owned copy. Never render raw tool arguments.
 
 ### Steward conversational behavior
 - Understand before presenting a menu.
@@ -58,7 +59,7 @@ Automated:
 - latest live text exchange replaces old foreground dialogue;
 - pending state removes the prior exchange and shows an honest working status;
 - full transcript is reachable through History;
-- verified Opportunity remains visible as durable work after its prose caption ages out;
+- verified Opportunity is actionable in its current exchange and disappears from the actionable work stage after a later exchange;
 - raw/unknown tool arguments never render;
 - plans/Journey/documents remain actionable through their existing callbacks;
 - voice renders only current captions;

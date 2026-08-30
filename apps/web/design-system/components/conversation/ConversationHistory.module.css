@@ -23,16 +23,10 @@
   color: var(--color-text-primary);
   background: color-mix(in srgb, var(--color-surface-primary) 78%, transparent);
 }
-.backdrop {
-  position: fixed;
-  inset: 0;
-  z-index: 30;
-  border: 0;
-  background: rgba(0, 0, 0, 0.34);
-  cursor: default;
-}
 .drawer {
   position: fixed;
+  margin: 0;
+  border: 0;
   z-index: 31;
   top: 0;
   right: 0;
@@ -46,6 +40,10 @@
   backdrop-filter: blur(18px);
   overflow: hidden;
 }
+.drawer::backdrop {
+  background: rgba(0, 0, 0, 0.34);
+}
+
 .header {
   display: flex;
   align-items: flex-start;
