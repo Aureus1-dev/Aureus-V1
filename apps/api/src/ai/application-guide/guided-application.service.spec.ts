@@ -237,6 +237,7 @@ describe('GuidedApplicationService', () => {
 
     expect(sessions.end).toHaveBeenCalledWith(
       activeSession.id,
+      USER.id,
       expect.any(Date),
     );
     expect(sessions.create).toHaveBeenCalledWith(
@@ -263,6 +264,7 @@ describe('GuidedApplicationService', () => {
 
     expect(sessions.end).toHaveBeenCalledWith(
       activeSession.id,
+      USER.id,
       expect.any(Date),
     );
   });
@@ -381,6 +383,7 @@ describe('GuidedApplicationService', () => {
       .toContain(PNG_FRAME);
     expect(sessions.markAnalyzed).toHaveBeenCalledWith(
       sessionId,
+      USER.id,
       expect.any(Date),
     );
     expect(JSON.stringify(sessions.markAnalyzed.mock.calls)).not.toContain(
@@ -444,6 +447,75 @@ describe('GuidedApplicationService', () => {
 
     await service.endSession(sessionId, USER);
 
-    expect(sessions.end).toHaveBeenCalledWith(sessionId, expect.any(Date));
+    expect(sessions.end).toHaveBeenCalledWith(sessionId, USER.id, expect.any(Date));
+  });
+
+  describe('cross-user ownership boundary', () => {
+    const OTHER_USER = {
+      id: '22222222-2222-4222-8222-222222222222',
+      email: 'other-member@example.com',
+      roles: [],
+    } as unknown as AuthenticatedUser;
+
+    beforeEach(() => {
+      // findOwnedActiveById is itself userId-scoped at the repository query
+      // layer, so a caller who does not own this session id must see it as
+      // not found — never as another member's active session.
+      sessions.findOwnedActiveById.mockResolvedValue(null);
+    });
+
+    it('refuses to reveal or mutate consent on a session the caller does not own', async () => {
+      await expect(
+        service.setConsent(sessionId, { granted: true }, OTHER_USER),
+      ).rejects.toThrow(NotFoundException);
+
+      expect(sessions.findOwnedActiveById).toHaveBeenCalledWith(sessionId, OTHER_USER.id);
+      expect(sessions.setConsent).not.toHaveBeenCalled();
+    });
+
+    it('refuses to analyze a frame against a session the caller does not own', async () => {
+      await expect(
+        service.analyzeFrame(
+          sessionId,
+          { mediaType: 'image/png', imageBase64: PNG_FRAME },
+          OTHER_USER,
+        ),
+      ).rejects.toThrow(NotFoundException);
+
+      expect(sessions.findOwnedActiveById).toHaveBeenCalledWith(sessionId, OTHER_USER.id);
+      expect(aiRequests.runCompletion).not.toHaveBeenCalled();
+    });
+
+    it('refuses to end a session the caller does not own', async () => {
+      await expect(service.endSession(sessionId, OTHER_USER)).rejects.toThrow(
+        NotFoundException,
+      );
+
+      expect(sessions.findOwnedActiveById).toHaveBeenCalledWith(sessionId, OTHER_USER.id);
+      expect(sessions.end).not.toHaveBeenCalled();
+    });
+  });
+
+  it('scrubs a non-numeric secret value that leaks next to a sensitive keyword in free text', async () => {
+    aiRequests.runCompletion.mockResolvedValue({
+      requestId: 'req-1',
+      content: JSON.stringify({
+        pageSummary: 'The password is Sn0wman!23 in the login section.',
+        nextStep: 'The PIN shows 4821 — do not enter it for the member.',
+        fields: [],
+        warnings: [],
+      }),
+    });
+
+    const result = await service.analyzeFrame(
+      sessionId,
+      { mediaType: 'image/jpeg', imageBase64: JPEG_FRAME },
+      USER,
+    );
+
+    expect(result.pageSummary).not.toContain('Sn0wman');
+    expect(result.pageSummary).toContain('[sensitive value hidden]');
+    expect(result.nextStep).not.toContain('4821');
+    expect(result.nextStep).toContain('[sensitive value hidden]');
   });
 });

@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../../prisma/prisma.service';
 import {
   CreateGuidedApplicationSessionInput,
@@ -48,38 +48,56 @@ export class PrismaGuidedApplicationRepository
     });
   }
 
-  end(id: string, endedAt: Date): Promise<GuidedApplicationSession> {
-    return this.prisma.db.guidedApplicationSession.update({
-      where: { id },
+  async end(
+    id: string,
+    userId: string,
+    endedAt: Date,
+  ): Promise<GuidedApplicationSession> {
+    const { count } = await this.prisma.db.guidedApplicationSession.updateMany({
+      where: { id, userId, status: GuidedApplicationSessionStatus.ACTIVE },
       data: {
         status: GuidedApplicationSessionStatus.ENDED,
         endedAt,
         screenCaptureConsentRevokedAt: endedAt,
       },
     });
+    if (count === 0) {
+      throw new NotFoundException('Active application guidance session not found');
+    }
+    return this.prisma.db.guidedApplicationSession.findUniqueOrThrow({ where: { id } });
   }
 
-  setConsent(
+  async setConsent(
     id: string,
+    userId: string,
     granted: boolean,
     occurredAt: Date,
   ): Promise<GuidedApplicationSessionWithOpportunity> {
-    return this.prisma.db.guidedApplicationSession.update({
-      where: { id },
+    const { count } = await this.prisma.db.guidedApplicationSession.updateMany({
+      where: { id, userId, status: GuidedApplicationSessionStatus.ACTIVE },
       data: granted
         ? {
             screenCaptureConsentGrantedAt: occurredAt,
             screenCaptureConsentRevokedAt: null,
           }
         : { screenCaptureConsentRevokedAt: occurredAt },
+    });
+    if (count === 0) {
+      throw new NotFoundException('Active application guidance session not found');
+    }
+    return this.prisma.db.guidedApplicationSession.findUniqueOrThrow({
+      where: { id },
       include: { opportunity: true },
     });
   }
 
-  async markAnalyzed(id: string, analyzedAt: Date): Promise<void> {
-    await this.prisma.db.guidedApplicationSession.update({
-      where: { id },
+  async markAnalyzed(id: string, userId: string, analyzedAt: Date): Promise<void> {
+    const { count } = await this.prisma.db.guidedApplicationSession.updateMany({
+      where: { id, userId, status: GuidedApplicationSessionStatus.ACTIVE },
       data: { lastFrameAnalyzedAt: analyzedAt },
     });
+    if (count === 0) {
+      throw new NotFoundException('Active application guidance session not found');
+    }
   }
 }

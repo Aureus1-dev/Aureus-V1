@@ -31,15 +31,23 @@ export interface IGuidedApplicationRepository {
     userId: string,
   ): Promise<GuidedApplicationSession | null>;
 
-  end(id: string, endedAt: Date): Promise<GuidedApplicationSession>;
+  /**
+   * Every mutating method below re-asserts { id, userId, status: ACTIVE } in
+   * the write's own filter — not merely in a prior read — so a concurrent
+   * end/consent/analysis race cannot mutate a session that is no longer this
+   * caller's active one. Throws NotFoundException when that filter matches
+   * nothing.
+   */
+  end(id: string, userId: string, endedAt: Date): Promise<GuidedApplicationSession>;
 
   setConsent(
     id: string,
+    userId: string,
     granted: boolean,
     occurredAt: Date,
   ): Promise<GuidedApplicationSessionWithOpportunity>;
 
-  markAnalyzed(id: string, analyzedAt: Date): Promise<void>;
+  markAnalyzed(id: string, userId: string, analyzedAt: Date): Promise<void>;
 }
 
 export { GuidedApplicationSessionStatus };
