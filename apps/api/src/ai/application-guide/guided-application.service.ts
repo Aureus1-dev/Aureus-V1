@@ -75,6 +75,28 @@ Do not include field values or a suggestedValue property.
 const SENSITIVE_FIELD_LABEL =
   /(password|passcode|\bpin\b|social security|\bssn\b|routing|bank account|account number|credit card|debit card|card number|\bcvv\b|\bcvc\b|security code|passport|driver.?s license|identity document|document number|signature|attest|certif|legal declaration)/i;
 
+// Once a field is classified MEMBER_CONTROL, the raw model-supplied label is
+// never rendered — a model-controlled label string could otherwise smuggle a
+// field value into the UI (e.g. "Password Sn0wman!23") with no separator for
+// the free-text redaction below to key off. Category order matters: check
+// the most specific categories before the generic fallback.
+const SENSITIVE_LABEL_CATEGORIES: ReadonlyArray<readonly [RegExp, string]> = [
+  [/password|passcode|passphrase/i, 'Password or passcode'],
+  [/\bpin\b/i, 'PIN'],
+  [/social security|\bssn\b/i, 'Social Security number'],
+  [/routing/i, 'Bank routing number'],
+  [/bank account|account number/i, 'Bank or account number'],
+  [/credit card|debit card|card number|\bcvv\b|\bcvc\b|security code/i, 'Card number or security code'],
+  [/passport|driver.?s license|identity document|document number/i, 'Identity document number'],
+  [/signature/i, 'Signature'],
+  [/attest|certif|legal declaration/i, 'Legal attestation'],
+];
+
+function sensitiveFieldLabel(rawLabel: string): string {
+  const category = SENSITIVE_LABEL_CATEGORIES.find(([pattern]) => pattern.test(rawLabel));
+  return category ? category[1] : 'Sensitive field';
+}
+
 function assertValidImageBytes(
   value: string,
   mediaType: AnalyzeGuidedApplicationFrameDto['mediaType'],
@@ -135,8 +157,11 @@ function safeHttpsUrl(raw: string): string {
 // non-compliant response that leaks a value adjacent to a sensitive keyword
 // in free text (pageSummary/nextStep/warnings), including non-numeric
 // secrets (passwords, passcodes) that the pure-digit patterns below cannot.
+// The captured value consumes the entire adjacent non-whitespace run —
+// including password punctuation (!, ?, ., etc.) that a narrower character
+// class would leave dangling as a visible suffix fragment.
 const SENSITIVE_VALUE_NEAR_KEYWORD =
-  /\b(password|passcode|passphrase|\bpin\b|\bcvv\b|\bcvc\b|security code|social security(?: number)?|\bssn\b|account number|routing number)\b(\s*(?::|=|is|was|reads|shows|contains)\s*)([^\s.,;!?)]{2,40})/gi;
+  /\b(password|passcode|passphrase|\bpin\b|\bcvv\b|\bcvc\b|security code|social security(?: number)?|\bssn\b|account number|routing number)\b(\s*(?::|=|is|was|reads|shows|contains)\s*)(\S{2,40})/gi;
 
 function redactSensitivePatterns(value: string): string {
   return value
@@ -186,10 +211,15 @@ function parseModelAnalysis(content: string): Omit<GuidedApplicationAnalysisResp
   const fields: GuidedApplicationFieldGuidance[] = rawFields
     .filter((field): field is Record<string, unknown> => Boolean(field) && typeof field === 'object' && !Array.isArray(field))
     .map((field) => {
-      const label = safeText(field.label, 'Visible field', 160);
-      const deterministicSensitive = SENSITIVE_FIELD_LABEL.test(label);
+      const rawLabel = safeText(field.label, 'Visible field', 160);
+      const deterministicSensitive = SENSITIVE_FIELD_LABEL.test(rawLabel);
       const modelSensitive = field.sensitivity === 'MEMBER_CONTROL';
       const sensitivity = deterministicSensitive || modelSensitive ? 'MEMBER_CONTROL' as const : 'NORMAL' as const;
+      // A sensitive field's label is replaced entirely with a server-owned
+      // category label. The raw model-supplied label is never rendered for
+      // this category — it may itself carry a value (e.g. no separator for
+      // the free-text redaction above to key off, as in "Password Sn0wman!23").
+      const label = sensitivity === 'MEMBER_CONTROL' ? sensitiveFieldLabel(rawLabel) : rawLabel;
       return {
         label,
         guidance:

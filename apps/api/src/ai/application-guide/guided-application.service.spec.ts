@@ -413,8 +413,12 @@ describe('GuidedApplicationService', () => {
       USER,
     );
 
+    // The raw model-supplied label is never echoed once a field is
+    // classified sensitive — it is replaced with a fixed, server-owned
+    // category label so a model-controlled label string cannot itself
+    // smuggle a value into the UI.
     expect(result.fields[0]).toMatchObject({
-      label: 'Social Security Number',
+      label: 'Social Security number',
       sensitivity: 'MEMBER_CONTROL',
     });
     expect(result.fields[0].guidance).toMatch(/enter or review this yourself/i);
@@ -514,8 +518,109 @@ describe('GuidedApplicationService', () => {
     );
 
     expect(result.pageSummary).not.toContain('Sn0wman');
+    expect(result.pageSummary).not.toContain('Sn0wman!23');
+    expect(result.pageSummary).not.toContain('!23');
     expect(result.pageSummary).toContain('[sensitive value hidden]');
     expect(result.nextStep).not.toContain('4821');
     expect(result.nextStep).toContain('[sensitive value hidden]');
+  });
+
+  describe('a punctuated secret leaves no fragment in any user-visible output path', () => {
+    const PLANTED_SECRET = 'Sn0wman!23';
+
+    it('leaves no fragment of the secret in pageSummary', async () => {
+      aiRequests.runCompletion.mockResolvedValue({
+        requestId: 'req-1',
+        content: JSON.stringify({
+          pageSummary: `The password reads ${PLANTED_SECRET} already filled in.`,
+          nextStep: 'Review the next section.',
+          fields: [],
+          warnings: [],
+        }),
+      });
+
+      const result = await service.analyzeFrame(
+        sessionId,
+        { mediaType: 'image/jpeg', imageBase64: JPEG_FRAME },
+        USER,
+      );
+
+      expect(result.pageSummary).not.toContain(PLANTED_SECRET);
+      expect(result.pageSummary).not.toContain('Sn0wman');
+      expect(result.pageSummary).not.toContain('!23');
+    });
+
+    it('leaves no fragment of the secret in nextStep', async () => {
+      aiRequests.runCompletion.mockResolvedValue({
+        requestId: 'req-1',
+        content: JSON.stringify({
+          pageSummary: 'Login section is visible.',
+          nextStep: `Do not re-enter the password: ${PLANTED_SECRET}.`,
+          fields: [],
+          warnings: [],
+        }),
+      });
+
+      const result = await service.analyzeFrame(
+        sessionId,
+        { mediaType: 'image/jpeg', imageBase64: JPEG_FRAME },
+        USER,
+      );
+
+      expect(result.nextStep).not.toContain(PLANTED_SECRET);
+      expect(result.nextStep).not.toContain('Sn0wman');
+      expect(result.nextStep).not.toContain('!23');
+    });
+
+    it('leaves no fragment of the secret in warnings', async () => {
+      aiRequests.runCompletion.mockResolvedValue({
+        requestId: 'req-1',
+        content: JSON.stringify({
+          pageSummary: 'Login section is visible.',
+          nextStep: 'Review the next section.',
+          fields: [],
+          warnings: [`The account password was ${PLANTED_SECRET} at last check.`],
+        }),
+      });
+
+      const result = await service.analyzeFrame(
+        sessionId,
+        { mediaType: 'image/jpeg', imageBase64: JPEG_FRAME },
+        USER,
+      );
+
+      const warningsText = result.warnings.join(' ');
+      expect(warningsText).not.toContain(PLANTED_SECRET);
+      expect(warningsText).not.toContain('Sn0wman');
+      expect(warningsText).not.toContain('!23');
+    });
+
+    it('replaces a sensitive field label that carries the secret with no separator, leaving no fragment', async () => {
+      aiRequests.runCompletion.mockResolvedValue({
+        requestId: 'req-1',
+        content: JSON.stringify({
+          pageSummary: 'Login section is visible.',
+          nextStep: 'Review the next section.',
+          fields: [{
+            label: `Password ${PLANTED_SECRET}`,
+            guidance: 'This is the login password field.',
+            sensitivity: 'NORMAL',
+          }],
+          warnings: [],
+        }),
+      });
+
+      const result = await service.analyzeFrame(
+        sessionId,
+        { mediaType: 'image/jpeg', imageBase64: JPEG_FRAME },
+        USER,
+      );
+
+      expect(result.fields[0].sensitivity).toBe('MEMBER_CONTROL');
+      expect(result.fields[0].label).not.toContain(PLANTED_SECRET);
+      expect(result.fields[0].label).not.toContain('Sn0wman');
+      expect(result.fields[0].label).not.toContain('!23');
+      expect(result.fields[0].guidance).not.toContain(PLANTED_SECRET);
+    });
   });
 });
