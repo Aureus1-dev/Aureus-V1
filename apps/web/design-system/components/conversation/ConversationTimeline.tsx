@@ -86,10 +86,13 @@ function describeToolCall(toolCall: ToolCallDto): string | null {
   }
 }
 
-function latestCurrentMessages(messageEntries: MessageEntry[], pendingResponse: boolean): MessageEntry[] {
+function latestCurrentMessages(messageEntries: MessageEntry[]): MessageEntry[] {
   const last = messageEntries[messageEntries.length - 1];
   if (!last) return [];
-  if (pendingResponse && last.message.role === 'USER') return [last];
+  // A trailing member turn has no reply yet. Show it alone whether Aureus is
+  // still working or the request just failed; pairing it with the previous
+  // assistant answer would imply that old answer belongs to this new request.
+  if (last.message.role === 'USER') return [last];
   return messageEntries.slice(-2);
 }
 
@@ -162,7 +165,7 @@ export function ConversationTimeline({
   const router = useRouter();
   const messageEntries = entries.filter((entry): entry is MessageEntry => entry.type === 'message');
   const workEntries = entries.filter((entry): entry is WorkEntry => entry.type !== 'message');
-  const currentMessages = latestCurrentMessages(messageEntries, pendingResponse);
+  const currentMessages = latestCurrentMessages(messageEntries);
 
   // Point-in-time external actions and interface receipts belong only to the
   // current exchange. Keeping them actionable after the conversation moves on
@@ -216,8 +219,8 @@ export function ConversationTimeline({
 
           {toolReceipts.length > 0 ? (
             <ul className={styles.receipts} aria-label="Completed interface actions">
-              {toolReceipts.map((receipt) => (
-                <li key={receipt}>
+              {toolReceipts.map((receipt, index) => (
+                <li key={receipt + ':' + index}>
                   <span aria-hidden="true">✓</span>
                   <span>{receipt}</span>
                 </li>

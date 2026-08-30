@@ -93,6 +93,12 @@ describe('ConversationTimeline — living conversation', () => {
     expect(screen.getByRole('status', { name: /working on your request/i })).toBeInTheDocument();
   });
 
+  it('does not pair a failed or unanswered member turn with the previous assistant answer', () => {
+    render(<ConversationTimeline entries={messageEntries.slice(0, 3)} pendingResponse={false} {...defaultProps} />);
+    expect(screen.getByText('Current question')).toBeInTheDocument();
+    expect(screen.queryByText('Old answer.')).not.toBeInTheDocument();
+  });
+
   it('shows a server-verified Opportunity action while it belongs to the current exchange', () => {
     const withAction: VirtualTimelineEntry[] = [
       {
