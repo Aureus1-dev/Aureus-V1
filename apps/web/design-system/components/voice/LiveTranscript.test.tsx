@@ -24,6 +24,17 @@ describe('LiveTranscript — caption presentation', () => {
     expect(screen.queryByText('Old voice turn')).not.toBeInTheDocument();
   });
 
+  it('does not pair a new unanswered member turn with the previous Steward reply', () => {
+    render(<LiveTranscript entries={[
+      { id: 'old-member', role: 'member', content: 'Old request', status: 'final', createdAt: '2026-01-01T00:00:00Z' },
+      { id: 'old-steward', role: 'steward', content: 'Old answer', status: 'final', createdAt: '2026-01-01T00:00:01Z' },
+      { id: 'new-member', role: 'member', content: 'New request', status: 'final', createdAt: '2026-01-01T00:00:02Z' },
+    ]} />);
+    expect(screen.getByText('New request')).toBeInTheDocument();
+    expect(screen.queryByText('Old answer')).not.toBeInTheDocument();
+    expect(screen.queryByText('Old request')).not.toBeInTheDocument();
+  });
+
   it('marks interrupted speech visibly', () => {
     render(<LiveTranscript entries={[
       { id: 'resp-2', role: 'steward', content: 'Here is what I fou', status: 'interrupted', createdAt: '2026-01-01T00:00:02Z' },
