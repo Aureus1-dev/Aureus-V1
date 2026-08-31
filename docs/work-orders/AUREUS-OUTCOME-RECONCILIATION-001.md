@@ -100,6 +100,12 @@ The following primitives are not yet proven as complete product capabilities and
 10. **Ready Project** — Kitchen & Bath distilled project state and unresolved expert decisions, separate from raw transcript.
 11. **Completion Case transition** — business-context work may become personal Aureus work only after explicit user request and correct data-boundary split.
 
+12. **Responsibility Passport** — machine-readable responsibility, authority, privacy, resource, budget/freshness, and evidence envelope.
+13. **Authority/Policy Gateway** — non-model enforcement for every consequential action; denial cannot be reinterpreted by a model.
+14. **Responsible Continuation** — preserve the underlying Responsibility and select an authorized alternative when a route fails, is denied, or is unavailable.
+15. **Independent Execution Assurance** — executor evidence is necessary but cannot self-certify important completion.
+16. **Hospitality and service-recovery standard** — one coherent Aureus relationship, prepared handoffs, ownership, proven repair, and privacy-safe continuous plussing.
+
 ## 4. Hard boundaries
 
 This reconciliation does not authorize:
@@ -115,6 +121,8 @@ This reconciliation does not authorize:
 - Library canonical admission by code/tooling alone;
 - affiliate/commercial ranking influence;
 - deploy/merge without the existing human gates.
+- treating Make.com, a model, a tool response, or executor self-report as Aureus authority or independent completion proof;
+- abandoning an accepted Responsibility merely because the first route failed when an authorized continuation exists;
 
 ## 5. Ordered implementation slices after reconciliation
 
@@ -197,17 +205,24 @@ This work order is complete when:
 - unresolved architecture/governance conflicts are visible rather than guessed;
 - exact-head CI passes for the docs-only candidate.
 
-## 8. Current repository truth at creation
+## 8. Repository truth and reconciliation
+
+### At creation
 
 - Aureus-V1 main: `68232e91485d8b8a802712afc301e2d24515ff1b` — CI success run `33327836951`.
-- Aureus-V1 PR #106: `feat/living-conversation-stage`, observed head `dd1f8aba50efcd35991cbbe9748d336ca57e051c` — CI success run `33339099230`; keep isolated.
-- Aureus-V1 PR #103 remains open and must be reconciled/superseded deliberately rather than silently merged.
 - Aureus-Library main: `ea9887c50550e466411742c3f3fc53a3de7f264f`.
 - Aureus-Foundry main: `e6c0a4558145c6f00d5e7734be95af08daf8241a`.
-- Aureus-Foundry PR #7 observed head `99dd0d384f273e5fe170d5b04bd057e0ff3406dc`; latest observed Foundry CI run `33339166113` failed collaboration-contract validation. Do not use that failed head as approval evidence.
+
+### Current reconciliation — 2026-08-31
+
+- Aureus-V1 PR #103 was 86 commits behind current main and is closed unmerged as superseded by PR #106.
+- Aureus-V1 PR #106 repaired head is `3e238328e22f4495b36a2edf3e161930c6f5db54`; exact-head CI run `33351335188` succeeded. Because the first reviewer also repaired the two frozen findings, the repaired head still requires a separate independent review before merge.
+- Aureus-V1 PR #107 is the architecture/reconciliation candidate. Its final exact head must be read from GitHub after the current documentation repairs; it requires fresh exact-head CI and independent architecture review before merge.
+- Aureus-Foundry PR #7 current head is `5cc83ddb406abe2fec45970c20c03bf06b612595`; exact-head Foundry CI run `33351540337` succeeded. The Anthropic API workflows are optional/disabled and cannot serve as the active review dependency because the Founder has Claude Pro/Claude Code but no Anthropic API key.
+- The current operational bridge is therefore provider-neutral GitHub evidence plus a governed manual Claude Pro/Claude Code review handoff. Make.com may route evidence and state, but it is not Aureus intelligence or authority.
 
 ## 9. Next action
 
-Independent review of this reconciliation from the requirement and repository state, then merge of the architecture candidate only after Founder authorization at the exact reviewed SHA.
+Fresh exact-head CI and independent review of this repaired reconciliation from the Founder requirement and current repository state, then merge only at the exact reviewed SHA under the Founder’s 2026-08-31 merge authorization.
 
 Implementation Slice 1 starts on a fresh branch from the then-current `main`; it does not piggyback on this docs branch.
