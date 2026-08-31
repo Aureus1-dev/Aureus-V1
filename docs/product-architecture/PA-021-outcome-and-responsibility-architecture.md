@@ -293,6 +293,45 @@ Every executable action must fit one of these classes:
 
 High-consequence authority may not be expanded by model confidence or user-interface convenience.
 
+
+### 17.1 Responsibility Passport and Authority/Policy Gateway
+
+Every active Responsibility must have a machine-enforced **Responsibility Passport** that binds, at minimum:
+
+- responsibility and party/context identity;
+- objective and success criteria;
+- current authority class and approval state;
+- privacy/data envelope;
+- allowed, approval-required, human-only, and prohibited actions;
+- resource/provider/tool constraints;
+- spend, time, freshness, and expiry limits where applicable;
+- evidence and verification requirements;
+- policy/version provenance.
+
+Every consequential action must pass through an **Authority/Policy Gateway outside the model**. A model may propose a route or action; it may not grant itself permission, reinterpret a denial as approval, widen the passport, or use confidence as authority.
+
+### 17.2 Smallest sufficient resources and Responsible Continuation
+
+Aureus chooses the smallest sufficient authorized combination of APIs, MCP, A2A, Make.com, browser/computer-use, AI models, deterministic code, external systems, and humans required to carry the Responsibility.
+
+Make.com and similar automation systems are execution/integration infrastructure, not Aureus's brain and not authority sources.
+
+If one route is blocked, denied, unavailable, or fails, Aureus does not silently abandon the underlying Responsibility. It performs **Responsible Continuation**:
+
+1. preserve the Responsibility and evidence of the failed/denied route;
+2. determine whether an authorized alternative path exists;
+3. continue through the best allowed path when one exists;
+4. bring the human in only for judgment, authority, credentials, physical action, or verification that genuinely requires them;
+5. move to BLOCKED or RESPONSIBLY_EXHAUSTED only when no responsible authorized continuation remains.
+
+### 17.3 Independent Execution Assurance
+
+Important work requires verification appropriate to its consequence.
+
+The executor may provide evidence, but may not certify its own consequential work. Execution Assurance must use a sufficiently independent verifier, deterministic check, authoritative receipt, human confirmation, or field verification as the Responsibility requires.
+
+A tool-call success response is not completion evidence by itself. If required independent assurance is unavailable, the Responsibility remains unverified rather than being promoted to complete.
+
 ## 18. The Aureus Test
 
 Before a major capability ships, ask:
@@ -313,6 +352,23 @@ Then test whether the design:
 - learns safely from outcomes.
 
 If the capability merely recreates conventional software with a chatbot on top, it should be redesigned.
+
+
+### 18.1 Hospitality, service recovery, and continuous plussing
+
+Aureus applies validated excellence mechanisms from exemplary hospitality and service institutions across member, business, employee, and program experiences without copying surface rituals.
+
+The operating standard is:
+
+- recognize the person and context without making memory feel invasive;
+- prepare before asking the person to repeat known information;
+- anticipate likely friction while preserving choice and authority;
+- make ownership visible;
+- coordinate backstage complexity behind one coherent Aureus relationship;
+- recover failures through: **Hear once → own the case → prepare → repair → prove the repair → tell the person**;
+- continuously “plus” the experience using privacy-safe outcome evidence rather than novelty for its own sake.
+
+Lessons may be generalized across the network only when privacy, consent, tenant, contractual, and governance boundaries permit. Raw private experience data is never silently promoted into shared learning.
 
 ## 19. Migration rule for existing Aureus systems
 
@@ -335,6 +391,13 @@ The generalized machine is considered proven when one Aureus can, in both a mean
 `accept intent → understand → find leverage → create/continue bounded responsibility → visibly operate across required systems/resources → ask for human participation only where necessary → persist unfinished work → verify completion → show outcome/value → emit safe learning evidence`
 
 Kitchen & Bath is the first Business proof. The People proof should use a real help-to-completion journey rather than a demonstration-only toy workflow.
+
+
+### 20.1 Current launch sequence
+
+The current Founder sequence is **Business contracts first, with the People side invite-only**. This supersedes older roadmap language that categorically prohibited a Business pilot until a Day-30 public-member sequence.
+
+It does not remove People safety/readiness gates, authorize a public People launch, or turn the Business customer surface into a personal-data acquisition funnel. The shared-core completion claim still requires both a meaningful Business proof and a meaningful People help-to-completion proof.
 
 ## 21. Non-goals
 
