@@ -10,7 +10,11 @@ export interface LiveTranscriptProps {
 
 export function LiveTranscript({ entries }: LiveTranscriptProps) {
   if (entries.length === 0) return null;
-  const currentEntries = entries.slice(-2);
+  const last = entries[entries.length - 1];
+  // Match the text Hall semantics: when the member has started a new turn
+  // and Aureus has not answered yet, show that turn alone. Otherwise the
+  // previous Steward answer could appear to answer the new request.
+  const currentEntries = last.role === 'member' ? [last] : entries.slice(-2);
 
   return (
     <div
