@@ -193,6 +193,7 @@ describe('ConversationTimeline — living conversation', () => {
     const onApprove = jest.fn();
     const entries: VirtualTimelineEntry[] = [{ key: 'plan:recommendation:rec-1', type: 'plan', timestamp: 'x', plan }];
     render(<ConversationTimeline entries={entries} pendingResponse={false} {...defaultProps} onApprovePlanItem={onApprove} />);
+    expect(screen.getByRole('region', { name: 'Current work' })).toBeInTheDocument();
     expect(screen.getByText('Plan ready')).toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: 'Approve' }));
     expect(onApprove).toHaveBeenCalledWith(plan.primary);
