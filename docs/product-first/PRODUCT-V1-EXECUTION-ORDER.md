@@ -218,6 +218,13 @@ The product target is no longer a collection of member modules plus a CRM-like B
 
 `intent → understand → find leverage → accept bounded responsibility → act/coordinate → bring human in where required → verify completion → record outcome/value → learn safely`
 
+
+### Current Founder launch sequence
+
+Business contracts are the first commercial launch lane. The People side remains invite-only while the shared core is proven. This supersedes older categorical sequencing that prohibited any Business pilot before the Day-30 Member Stability Review; it does not waive People safety/readiness gates or authorize a public People launch.
+
+The Business target is the whole sale from intent through verified operations handoff, built in governed slices. Early answer-to-handoff capability remains a reusable foundation, not the final product ceiling.
+
 ### Release 3 — Converge the shared Aureus Core
 
 #### OR-000 — Architecture reconciliation
