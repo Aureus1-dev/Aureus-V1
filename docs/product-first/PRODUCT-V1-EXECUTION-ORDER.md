@@ -206,3 +206,106 @@ The following are not first-pilot blockers:
 
 Deferred does not mean rejected. Each item returns only after the answer-to-handoff product is reliable and evidence shows it should be next.
 
+
+
+## Founder-approved successor program — Outcome & Responsibility Architecture
+
+**Candidate status:** This section is staged on the PA-021 architecture branch and does not supersede active PR scopes or merge/deploy gates until reviewed and merged.
+
+On 2026-08-30 the Founder approved the Aureus outcome/responsibility direction described in `PA-021 — Aureus Outcome & Responsibility Architecture`.
+
+The product target is no longer a collection of member modules plus a CRM-like Business surface. Those existing systems remain reusable capabilities underneath one higher-level Aureus interaction model:
+
+`intent → understand → find leverage → accept bounded responsibility → act/coordinate → bring human in where required → verify completion → record outcome/value → learn safely`
+
+### Release 3 — Converge the shared Aureus Core
+
+#### OR-000 — Architecture reconciliation
+
+Deliver:
+
+- PA-021;
+- KEEP / UPGRADE / MERGE / REPLACE / ADD map of current V1;
+- no blanket rewrite;
+- explicit reuse analysis for Journey/Goal/Task/Milestone, conversations, consent, opportunities, organizations, business handoff, connected experiences, Foundry, and Library;
+- ordered implementation slices;
+- independent architecture review.
+
+Acceptance:
+
+- docs-only exact-head CI passes;
+- no active implementation PR is silently scope-expanded;
+- conflicts with PA-001–020 or governance are identified rather than hidden;
+- implementation begins only from a fresh successor branch.
+
+#### OR-001 — Responsibility Core
+
+Deliver the smallest reusable responsibility contract and completion state needed by both People and Business, reusing existing persistence where possible.
+
+Acceptance must prove:
+
+- an outcome can be explicitly accepted as bounded Aureus work;
+- authority/privacy envelopes remain explicit;
+- Aureus commitments cannot silently disappear;
+- human-needed state is representable;
+- completion requires evidence;
+- terminal outcome is recorded;
+- existing journeys/tasks/conversations continue to work.
+
+#### OR-002 — People help-to-completion
+
+Prove:
+
+`conversation → verified help/opportunity → user asks Aureus to help finish it → responsibility persists → Aureus guides/acts within authority → user returns → work resumes → outcome is verified`
+
+Do not force an Aureus-account conversion inside a business-client experience merely for growth.
+
+#### OR-003 — Kitchen & Bath Ready Project
+
+Kitchen & Bath remains the first Business vertical.
+
+Prove:
+
+`fuzzy project intent → conversational discovery → adaptive visual/project state → Ready Project → expert validation/decision`
+
+A Ready Project is a distilled actionable project state, not a raw transcript.
+
+Existing CRM/construction systems remain in place when they are the better tool.
+
+#### OR-004 — Revenue completion
+
+Extend Ready Project through proposal/follow-up/decision/contract/deposit boundary/operations handoff with authority-tiered execution.
+
+Autonomous consequential closing is not inferred from this program; each consequential action remains governed.
+
+#### OR-005 — System & capability stewardship
+
+Aureus may USE, TEACH, CONFIGURE, WRAP, CONNECT, AUTOMATE, CONSOLIDATE, REPLACE, BUILD, or REMOVE a tool/capability based on demonstrated outcome value.
+
+Replacement is allowed only when net customer benefit justifies migration/reliability/training/integration cost.
+
+#### OR-006 — Outcome Graph, Value Ledger, and Learning Fabric
+
+Normalize privacy-appropriate events into:
+
+`intent + context + action + system/resource + intermediate result + outcome + value`
+
+Learning may generate evaluation/improvement candidates but may not silently mutate live policy or authority.
+
+#### OR-007 — Golden Founder walkthrough
+
+One exact deployment must demonstrate the same Aureus interaction grammar across:
+
+1. Kitchen & Bath customer;
+2. business owner;
+3. People help-to-completion;
+4. employee/system-orchestration;
+5. mobile/voice continuity where in scope.
+
+### Updated deferral interpretation
+
+Earlier deferrals such as “full CRM replacement” and “autonomous sales closing” remain valid as **default implementation constraints**.
+
+The new architecture does not require Aureus to recreate or replace mature external software. Aureus sits above the tool layer, makes existing tools easier and more valuable, and replaces capabilities only when Aureus can demonstrate a materially better outcome.
+
+Likewise, revenue completion is an authority-tiered responsibility system; it does not authorize autonomous consequential commitments merely because the architecture can represent them.
