@@ -209,7 +209,7 @@ export function ConversationTimeline({
       </section>
 
       {hasWork ? (
-        <section className={styles.workStage} aria-label="Work from this conversation">
+        <section className={styles.workStage} aria-label="Current work">
           <div className={styles.workHeading}>
             <span className={styles.workKicker}>Aureus is working with you</span>
             <span className={styles.workRule} aria-hidden="true" />
