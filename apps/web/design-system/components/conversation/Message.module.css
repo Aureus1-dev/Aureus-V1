@@ -1,72 +1,56 @@
 .message {
   display: flex;
-  margin: 0 0 var(--space-3) 0;
-}
-
-.member {
-  justify-content: flex-end;
-}
-
-.steward {
-  justify-content: flex-start;
-}
-
-.bubble {
-  max-width: 70%;
+  width: 100%;
+  justify-content: center;
   margin: 0;
-  padding: var(--space-4);
-  border-radius: var(--radius-xl);
-  font-size: var(--font-size-base);
-  line-height: var(--line-height-relaxed);
+  animation: caption-in var(--motion-duration-normal) ease-out both;
+}
+.bubble {
+  width: min(100%, 52rem);
+  max-width: none;
+  margin: 0;
+  padding: 0 var(--space-3);
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--color-text-primary);
+  font-size: clamp(1.15rem, 2.4vw, 1.7rem);
+  line-height: 1.45;
+  text-align: center;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
+  text-wrap: balance;
 }
-
+.member .bubble {
+  background: transparent;
+  color: var(--color-text-secondary);
+  font-size: clamp(1rem, 1.8vw, 1.25rem);
+  font-weight: var(--font-weight-normal);
+}
+.steward .bubble {
+  background: transparent;
+  color: var(--color-text-primary);
+  border: 0;
+  font-weight: var(--font-weight-medium);
+}
 .actionStack {
-  display: flex;
-  width: min(70%, 36rem);
-  flex-direction: column;
+  display: grid;
+  width: min(100%, 52rem);
   gap: var(--space-3);
 }
-
-.actionStack .bubble {
-  width: 100%;
-  max-width: none;
-  box-sizing: border-box;
-}
-
-.member .bubble {
-  background: var(--color-action-primary);
-  color: var(--color-surface-primary);
-}
-
-.steward .bubble {
-  background: var(--color-surface-primary);
-  color: var(--color-text-primary);
-  border: 1px solid var(--color-border-subtle);
-}
-
+.actionStack .bubble { width: 100%; }
 @media (max-width: 640px) {
   .bubble {
-    /* 70% forced ordinary Steward sentences into very tall narrow cards on
-       the founder phone walkthrough. A phone transcript should read like a
-       conversation, not a column of oversized chat cards. */
-    max-width: 88%;
-    padding: var(--space-3);
-    line-height: var(--line-height-normal);
+    padding: 0;
+    font-size: clamp(1.1rem, 5vw, 1.45rem);
+    line-height: 1.4;
   }
-
-  .actionStack {
-    width: 88%;
-  }
+  .member .bubble { font-size: clamp(0.95rem, 4.1vw, 1.15rem); }
 }
-
-@media (min-width: 1024px) {
-  .bubble {
-    max-width: 60%;
-  }
-
-  .actionStack {
-    width: min(60%, 36rem);
-  }
+@media (prefers-reduced-motion: reduce) {
+  .message { animation: none; }
+}
+@keyframes caption-in {
+  from { opacity: 0; transform: translateY(0.35rem); }
+  to { opacity: 1; transform: translateY(0); }
 }
