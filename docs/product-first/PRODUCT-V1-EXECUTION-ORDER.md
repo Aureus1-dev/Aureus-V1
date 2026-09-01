@@ -264,6 +264,8 @@ Acceptance must prove:
 
 #### OR-002 — People help-to-completion
 
+Cross-context continuity is governed by `OR-CCT-001 — Completion Case Transition Gate`. OR-001 does not implement this boundary. Any Business/shared → Personal/private transfer introduced in OR-002 or later must satisfy that gate before merge.
+
 Prove:
 
 `conversation → verified help/opportunity → user asks Aureus to help finish it → responsibility persists → Aureus guides/acts within authority → user returns → work resumes → outcome is verified → progress is privately reflected`
