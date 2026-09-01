@@ -12,12 +12,14 @@ const push = jest.fn();
 jest.mock('next/navigation', () => ({ useRouter: () => ({ push }) }));
 
 const messages: MessageDto[] = [
-  { id: '1', conversationId: 'c1', role: 'USER', content: 'Hello', createdAt: '2026-01-01T00:00:00Z' },
-  { id: '2', conversationId: 'c1', role: 'ASSISTANT', content: 'Hi there.', createdAt: '2026-01-01T00:00:01Z' },
+  { id: '1', conversationId: 'c1', role: 'USER', content: 'Old question', createdAt: '2026-01-01T00:00:00Z' },
+  { id: '2', conversationId: 'c1', role: 'ASSISTANT', content: 'Old answer.', createdAt: '2026-01-01T00:00:01Z' },
+  { id: '3', conversationId: 'c1', role: 'USER', content: 'Current question', createdAt: '2026-01-01T00:00:02Z' },
+  { id: '4', conversationId: 'c1', role: 'ASSISTANT', content: 'Current answer.', createdAt: '2026-01-01T00:00:03Z' },
 ];
 
 const messageEntries: VirtualTimelineEntry[] = messages.map((message) => ({
-  key: `message:${message.id}`,
+  key: 'message:' + message.id,
   type: 'message',
   timestamp: message.createdAt,
   message,
@@ -45,6 +47,26 @@ const document: DocumentDto = {
   aiSummary: null, aiSummaryGeneratedAt: null, uploadedAt: 'x', updatedAt: 'x',
 };
 
+const opportunityAction = {
+  opportunityId: 'opp-1',
+  opportunityRef: 'AUR-OPP-000001',
+  title: 'Rental Assistance',
+  provider: 'City Program',
+  url: 'https://example.com/apply',
+  canonicalUrl: 'https://example.com/apply',
+  referralUrl: null,
+  affiliateDisclosure: null,
+  eligibility: 'Published eligibility',
+  geography: 'Philadelphia',
+  payoutNotes: null,
+  timeToCashNotes: null,
+  status: 'verified' as const,
+  lastVerifiedAt: '2026-08-30T00:00:00Z',
+  sourceName: 'Official city source',
+  sourceUrl: 'https://example.com',
+  sourceType: 'ADMIN_ENTRY' as const,
+};
+
 const defaultProps = {
   planSubjectsById: {},
   planOfferResponseByCityResourceId: {},
@@ -53,53 +75,140 @@ const defaultProps = {
   onDismissPlanItem: jest.fn(),
 };
 
-describe('ConversationTimeline', () => {
-  beforeEach(() => {
-    jest.clearAllMocks();
-  });
+describe('ConversationTimeline — living conversation', () => {
+  beforeEach(() => jest.clearAllMocks());
 
-  it('renders messages in order with an accessible log role — the regression guard for plain conversations', () => {
+  it('keeps only the latest exchange in the live foreground', () => {
     render(<ConversationTimeline entries={messageEntries} pendingResponse={false} {...defaultProps} />);
-    const log = screen.getByRole('log');
-    expect(log.children).toHaveLength(2);
-    expect(screen.getByText('Hello')).toBeInTheDocument();
-    expect(screen.getByText('Hi there.')).toBeInTheDocument();
+    expect(screen.getByText('Current question')).toBeInTheDocument();
+    expect(screen.getByText('Current answer.')).toBeInTheDocument();
+    expect(screen.queryByText('Old question')).not.toBeInTheDocument();
+    expect(screen.queryByText('Old answer.')).not.toBeInTheDocument();
   });
 
-  it('shows the thinking indicator after the last entry while a response is pending', () => {
-    render(<ConversationTimeline entries={messageEntries} pendingResponse={true} {...defaultProps} />);
-    expect(screen.getByRole('status', { name: /thinking/i })).toBeInTheDocument();
+  it('shows only the new member caption plus an honest working state while pending', () => {
+    render(<ConversationTimeline entries={messageEntries.slice(0, 3)} pendingResponse={true} {...defaultProps} />);
+    expect(screen.getByText('Current question')).toBeInTheDocument();
+    expect(screen.queryByText('Old answer.')).not.toBeInTheDocument();
+    expect(screen.getByRole('status', { name: /working on your request/i })).toBeInTheDocument();
   });
 
-  it('renders an inline plan entry and routes approve/dismiss through the passed-in callbacks — never re-implements approval', async () => {
+  it('does not pair a failed or unanswered member turn with the previous assistant answer', () => {
+    render(<ConversationTimeline entries={messageEntries.slice(0, 3)} pendingResponse={false} {...defaultProps} />);
+    expect(screen.getByText('Current question')).toBeInTheDocument();
+    expect(screen.queryByText('Old answer.')).not.toBeInTheDocument();
+  });
+
+  it('shows a server-verified Opportunity action while it belongs to the current exchange', () => {
+    const withAction: VirtualTimelineEntry[] = [
+      {
+        key: 'message:user-action',
+        type: 'message',
+        timestamp: '2026-01-01T00:00:04Z',
+        message: {
+          id: 'user-action',
+          conversationId: 'c1',
+          role: 'USER',
+          content: 'Show me where to apply.',
+          createdAt: '2026-01-01T00:00:04Z',
+        },
+      },
+      {
+        key: 'message:action',
+        type: 'message',
+        timestamp: '2026-01-01T00:00:05Z',
+        message: {
+          id: 'action',
+          conversationId: 'c1',
+          role: 'ASSISTANT',
+          content: 'I found a verified action.',
+          createdAt: '2026-01-01T00:00:05Z',
+          opportunityAction,
+        },
+      },
+    ];
+    render(<ConversationTimeline entries={withAction} pendingResponse={false} {...defaultProps} />);
+    expect(screen.getByText('Rental Assistance')).toBeInTheDocument();
+    expect(screen.getByText(/Verified action ready · Official city source/i)).toBeInTheDocument();
+  });
+
+  it('does not keep an older point-in-time external action clickable after a later exchange replaces it', () => {
+    const withOldAction: VirtualTimelineEntry[] = [
+      {
+        key: 'message:old-user',
+        type: 'message',
+        timestamp: '2026-01-01T00:00:00Z',
+        message: {
+          id: 'old-user',
+          conversationId: 'c1',
+          role: 'USER',
+          content: 'Show me where to apply.',
+          createdAt: '2026-01-01T00:00:00Z',
+        },
+      },
+      {
+        key: 'message:old-action',
+        type: 'message',
+        timestamp: '2026-01-01T00:00:01Z',
+        message: {
+          id: 'old-action',
+          conversationId: 'c1',
+          role: 'ASSISTANT',
+          content: 'I found a verified action.',
+          createdAt: '2026-01-01T00:00:01Z',
+          opportunityAction,
+        },
+      },
+      ...messageEntries.slice(2),
+    ];
+    render(<ConversationTimeline entries={withOldAction} pendingResponse={false} {...defaultProps} />);
+    expect(screen.queryByText('Rental Assistance')).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: /open verified application/i })).not.toBeInTheDocument();
+  });
+
+  it('shows only allow-listed completed interface receipts and never raw arguments', () => {
+    const entries: VirtualTimelineEntry[] = [{
+      key: 'message:tool',
+      type: 'message',
+      timestamp: 'x',
+      message: {
+        id: 'tool',
+        conversationId: 'c1',
+        role: 'ASSISTANT',
+        content: 'Here you go.',
+        createdAt: 'x',
+        toolCalls: [
+          { id: 'call-1', name: 'navigate_to_route', arguments: '{"route":"opportunities","secret":"never-render"}' },
+          { id: 'call-2', name: 'unknown_tool', arguments: '{"value":"also-never-render"}' },
+        ],
+      },
+    }];
+    render(<ConversationTimeline entries={entries} pendingResponse={false} {...defaultProps} />);
+    expect(screen.getByText('Opened Opportunities')).toBeInTheDocument();
+    expect(screen.queryByText(/never-render/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/also-never-render/)).not.toBeInTheDocument();
+  });
+
+  it('renders a plan as persistent work and preserves the existing approval callback', async () => {
     const onApprove = jest.fn();
     const entries: VirtualTimelineEntry[] = [{ key: 'plan:recommendation:rec-1', type: 'plan', timestamp: 'x', plan }];
     render(<ConversationTimeline entries={entries} pendingResponse={false} {...defaultProps} onApprovePlanItem={onApprove} />);
-
-    expect(screen.getByText('This matches your goal.')).toBeInTheDocument();
+    expect(screen.getByRole('region', { name: 'Current work' })).toBeInTheDocument();
+    expect(screen.getByText('Plan ready')).toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: 'Approve' }));
     expect(onApprove).toHaveBeenCalledWith(plan.primary);
   });
 
-  it('renders an inline journey-update entry that navigates to /journey on open', async () => {
-    const entries: VirtualTimelineEntry[] = [{ key: 'journey-update:goal-1', type: 'journey-update', timestamp: 'x', goal }];
+  it('keeps journey and document results in the work stage', async () => {
+    const entries: VirtualTimelineEntry[] = [
+      { key: 'journey-update:goal-1', type: 'journey-update', timestamp: 'x', goal },
+      { key: 'document:doc-1', type: 'document', timestamp: 'y', document },
+    ];
     render(<ConversationTimeline entries={entries} pendingResponse={false} {...defaultProps} />);
-
-    expect(screen.getByText('Find a better job')).toBeInTheDocument();
+    expect(screen.getByText('Journey updated')).toBeInTheDocument();
+    expect(screen.getByText('Document ready')).toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: 'View progress' }));
     expect(push).toHaveBeenCalledWith('/journey');
-  });
-
-  it('renders an inline document entry collapsed, expanding to the full text in place rather than navigating away', async () => {
-    const entries: VirtualTimelineEntry[] = [{ key: 'document:doc-1', type: 'document', timestamp: 'x', document }];
-    render(<ConversationTimeline entries={entries} pendingResponse={false} {...defaultProps} />);
-
-    expect(screen.getByText('Lease Agreement')).toBeInTheDocument();
-    expect(screen.queryByText('Full lease text.')).not.toBeInTheDocument();
-
-    await userEvent.click(screen.getByRole('button', { name: 'View full text' }));
-    expect(screen.getByText('Full lease text.')).toBeInTheDocument();
-    expect(push).not.toHaveBeenCalled();
   });
 
   it('has no accessibility violations', async () => {

@@ -258,6 +258,7 @@ export function ConversationSurface({ initialMode = 'text' }: ConversationSurfac
       <ConversationHistory
         conversations={state.conversations}
         activeConversationId={state.activeConversationId}
+        messages={timeline}
         onSelect={(id) => void selectConversation(id)}
         onStartNew={startNewConversation}
       />
