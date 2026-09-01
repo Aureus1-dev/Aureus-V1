@@ -232,6 +232,8 @@ The Business target is the whole sale from intent through verified operations ha
 Deliver:
 
 - PA-021;
+- PA-022 — Private Steward & Visual Flourishing Experience;
+- AUREUS-FINAL-DISCOVERY-AND-EXCELLENCE-SYNTHESIS-001;
 - KEEP / UPGRADE / MERGE / REPLACE / ADD map of current V1;
 - no blanket rewrite;
 - explicit reuse analysis for Journey/Goal/Task/Milestone, conversations, consent, opportunities, organizations, business handoff, connected experiences, Foundry, and Library;
@@ -252,6 +254,7 @@ Deliver the smallest reusable responsibility contract and completion state neede
 Acceptance must prove:
 
 - an outcome can be explicitly accepted as bounded Aureus work;
+- Principal/context is explicit enough to prevent cross-context ambiguity;
 - authority/privacy envelopes remain explicit;
 - Aureus commitments cannot silently disappear;
 - human-needed state is representable;
@@ -263,7 +266,9 @@ Acceptance must prove:
 
 Prove:
 
-`conversation → verified help/opportunity → user asks Aureus to help finish it → responsibility persists → Aureus guides/acts within authority → user returns → work resumes → outcome is verified`
+`conversation → verified help/opportunity → user asks Aureus to help finish it → responsibility persists → Aureus guides/acts within authority → user returns → work resumes → outcome is verified → progress is privately reflected`
+
+The member should begin to feel one private Steward rather than a collection of modules. The first implementation should expose truthful Responsibility/progress state and privacy controls without building a generalized life-profile or social timeline.
 
 Do not force an Aureus-account conversion inside a business-client experience merely for growth.
 
@@ -277,11 +282,17 @@ Prove:
 
 A Ready Project is a distilled actionable project state, not a raw transcript.
 
+The slice should establish the first Transaction Barrier Graph for the vertical: desire, fit, price, funding, availability, timing, knowledge/uncertainty, trust, decision authority, administrative friction, and alternatives as applicable.
+
 Existing CRM/construction systems remain in place when they are the better tool.
 
 #### OR-004 — Revenue completion
 
 Extend Ready Project through proposal/follow-up/decision/contract/deposit boundary/operations handoff with authority-tiered execution.
+
+Measure Economic Stewardship across **Earn / Convert / Keep / Compound** where evidence exists. A request for more leads must not prevent Aureus from identifying a materially larger conversion, leakage, margin, financing, scheduling, or trust problem.
+
+Transaction Stewardship applies throughout: legitimate business advocacy may not become deceptive, predatory, exploitative, or materially harmful steering.
 
 Autonomous consequential closing is not inferred from this program; each consequential action remains governed.
 
@@ -297,7 +308,11 @@ Normalize privacy-appropriate events into:
 
 `intent + context + action + system/resource + intermediate result + outcome + value`
 
-Learning may generate evaluation/improvement candidates but may not silently mutate live policy or authority.
+Add provenance and an Uncertainty Map where material: verified/observed/reported/inferred/estimated/unknown.
+
+Learning must distinguish correlation from causal evidence where possible. It may generate evaluation/improvement candidates but may not silently mutate live policy or authority.
+
+This slice may begin governed Excellence Transfer using structured lessons from Humanity's Learning, Local Learning, and eligible Network Learning; private member/business data and trade secrets are not involuntary network learning.
 
 #### OR-007 — Golden Founder walkthrough
 
@@ -307,7 +322,10 @@ One exact deployment must demonstrate the same Aureus interaction grammar across
 2. business owner;
 3. People help-to-completion;
 4. employee/system-orchestration;
-5. mobile/voice continuity where in scope.
+5. mobile/voice continuity where in scope;
+6. private-Steward visual flourishing: active work, meaningful progress, privacy/memory controls, and at least one intentionally preserved milestone without cross-context leakage;
+7. Business Economic Stewardship / Transaction Barrier evidence;
+8. service-recovery / Repair Obligation behavior for at least one controlled failure.
 
 ### Updated deferral interpretation
 
@@ -316,3 +334,31 @@ Earlier deferrals such as “full CRM replacement” and “autonomous sales clo
 The new architecture does not require Aureus to recreate or replace mature external software. Aureus sits above the tool layer, makes existing tools easier and more valuable, and replaces capabilities only when Aureus can demonstrate a materially better outcome.
 
 Likewise, revenue completion is an authority-tiered responsibility system; it does not authorize autonomous consequential commitments merely because the architecture can represent them.
+
+
+### Release 3 cross-cutting rules from final discovery
+
+The OR program is governed by these rules across every slice:
+
+- **One Aureus, explicit Principal.** Public identity may stay coherent while authority/data remain context-specific.
+- **Context Firewall.** Give each resource only the minimum data/authority needed for the exact action.
+- **Resource & Authority Graph.** Important delegation must trace back to Principal + Responsibility + Passport/policy.
+- **Responsibility Memory / No Abandonment.** Accepted work cannot disappear because a conversation ended or a route failed.
+- **Responsible Continuation is not denial bypass.** Every alternative route requires its own valid authority/policy decision.
+- **Execution Assurance.** Important work cannot be self-certified by its executor.
+- **Repair Obligation.** Aureus-caused failure must be contained, repaired, re-verified, and resumed where possible.
+- **Human Attention Budget.** Avoidable repetition, chasing, app navigation, waiting, and coordination are product defects.
+- **Outcome Surface.** Bring relevant work to the person; do not expose unnecessary machinery.
+- **Private Steward / Visual Flourishing.** Show care, progress, achievement, intentionally preserved life/business moments, and possibility without turning memory into surveillance or engagement gamification.
+- **Economic Stewardship.** Earn / Convert / Keep / Compound legitimate value; do not merely extract more.
+- **Transaction Steward.** Business conversion remains bounded by customer truth, material fairness, and Aureus Standard of Care.
+- **Uncertainty before fluency.** Known/observed/reported/inferred/estimated/unknown distinctions remain visible where material.
+- **Excellence Transfer.** Reuse validated mechanisms, including their sacrifices and applicability limits, rather than copying surface aesthetics.
+- **Opportunity Creation / Systemic Repair are later-stage.** They remain candidates after first proofs and receive domain-specific legal/fairness review.
+- **Shadow Outcome / causal learning are support layers, not prediction claims.** Simulation and correlation never masquerade as verified reality.
+
+The broad pre-build research gate is complete after independent review of this architecture candidate. Default operating cycle thereafter is:
+
+`Convert → Build → Test → Assure → Observe → Learn → Plus`
+
+Targeted research continues only when a real implementation exposes a law, vendor, standard, integration, or architecture-changing unknown.
