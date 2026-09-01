@@ -3,7 +3,8 @@
 **Status:** Architecture reconciliation candidate  
 **Founder approval:** 2026-08-30 — approved the proposed Aureus outcome/responsibility architecture and authorized build continuation  
 **Repository:** Aureus-V1  
-**Base:** `68232e91485d8b8a802712afc301e2d24515ff1b`  
+**Original base:** `68232e91485d8b8a802712afc301e2d24515ff1b`  
+**Current review base:** `a43375b85de2dd6424e124c9aed79c4b4b77f2ab`  
 **Branch:** `docs/aureus-outcome-architecture-v2`  
 **Architecture:** `docs/product-architecture/PA-021-outcome-and-responsibility-architecture.md`
 
@@ -213,16 +214,17 @@ This work order is complete when:
 - Aureus-Library main: `ea9887c50550e466411742c3f3fc53a3de7f264f`.
 - Aureus-Foundry main: `e6c0a4558145c6f00d5e7734be95af08daf8241a`.
 
-### Current reconciliation — 2026-08-31
+### Current reconciliation — after PR #106 merge
 
-- Aureus-V1 PR #103 was 86 commits behind current main and is closed unmerged as superseded by PR #106.
-- Aureus-V1 PR #106 repaired head is `3e238328e22f4495b36a2edf3e161930c6f5db54`; exact-head CI run `33351335188` succeeded. Because the first reviewer also repaired the two frozen findings, the repaired head still requires a separate independent review before merge.
-- Aureus-V1 PR #107 is the architecture/reconciliation candidate. Its final exact head must be read from GitHub after the current documentation repairs; it requires fresh exact-head CI and independent architecture review before merge.
-- Aureus-Foundry PR #7 current head is `5cc83ddb406abe2fec45970c20c03bf06b612595`; exact-head Foundry CI run `33351540337` succeeded. The Anthropic API workflows are optional/disabled and cannot serve as the active review dependency because the Founder has Claude Pro/Claude Code but no Anthropic API key.
-- The current operational bridge is therefore provider-neutral GitHub evidence plus a governed manual Claude Pro/Claude Code review handoff. Make.com may route evidence and state, but it is not Aureus intelligence or authority.
+- Aureus-V1 PR #103 remains closed unmerged as superseded.
+- Aureus-V1 PR #106 was independently reviewed at exact head `3e238328e22f4495b36a2edf3e161930c6f5db54` with no blocking findings and merged. Current V1 `main` is `a43375b85de2dd6424e124c9aed79c4b4b77f2ab`.
+- Aureus-V1 PR #107 is the architecture/reconciliation candidate. Its branch has been synchronized with current `main`; fresh exact-head CI and a separate independent architecture review are required after these repository-truth repairs.
+- Aureus-Foundry PR #7 current head is `14e24c758780e2272cb443664f6e8e14bea37822`; exact-head Foundry CI run `33451635553` succeeded. The active reviewer path is Claude Pro/Claude Code; Anthropic-API automation is optional and is not a dependency.
+- Aureus-Library `main` remains `ea9887c50550e466411742c3f3fc53a3de7f264f`.
+- The operational bridge remains provider-neutral GitHub evidence plus governed Claude Pro/Claude Code review. Make.com may route evidence and state, but it is not Aureus intelligence or authority.
 
 ## 9. Next action
 
-Fresh exact-head CI and independent review of this repaired reconciliation from the Founder requirement and current repository state, then merge only at the exact reviewed SHA under the Founder’s 2026-08-31 merge authorization.
+Fresh exact-head CI and independent review of this repaired reconciliation from the Founder requirement and current repository state, then return for explicit Founder merge approval at the exact reviewed SHA.
 
 Implementation Slice 1 starts on a fresh branch from the then-current `main`; it does not piggyback on this docs branch.
