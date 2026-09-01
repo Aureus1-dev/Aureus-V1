@@ -4,7 +4,9 @@
 **Status:** Founder-approved architecture candidate; not canonical until governed review and merge  
 **Founder direction:** 2026-08-30  
 **Original base:** Aureus-V1 `main` `68232e91485d8b8a802712afc301e2d24515ff1b`  
-**Current review base after PR #106 merge:** `a43375b85de2dd6424e124c9aed79c4b4b77f2ab`
+**Current review base after PR #106 merge:** `a43375b85de2dd6424e124c9aed79c4b4b77f2ab`  
+**Companion experience architecture:** `PA-022 — Private Steward & Visual Flourishing Experience`  
+**Discovery/decision record:** `AUREUS-FINAL-DISCOVERY-AND-EXCELLENCE-SYNTHESIS-001`
 
 ## 1. Purpose
 
@@ -427,3 +429,150 @@ New higher-level question:
 > What outcome is being sought, what responsibility is Aureus accepting, and which existing capabilities/systems should be composed to carry it safely to completion?
 
 PA-001 through PA-020 remain the capability map underneath this layer until individually revised through governance.
+
+
+## 23. Final discovery reconciliation — normative additions
+
+The final pre-build synthesis added several named primitives that are now part of the PA-021 architecture even where earlier sections used broader wording.
+
+### 23.1 Principal
+
+Each Responsibility must have a legible **Principal**: the party whose legitimate outcome Aureus is serving in the current context.
+
+The same person may be a personal member, owner, employee, customer, or participant in a shared transaction. One public Aureus does not collapse those roles, permissions, or data boundaries.
+
+### 23.2 Context Firewall
+
+Every delegated model, agent, tool, vendor, integration, or human receives only the minimum data and authority required for the exact Responsibility/action.
+
+The Context Firewall is an enforcement property of orchestration, not a prompt courtesy.
+
+### 23.3 Resource & Authority Graph
+
+Every consequential delegated action should be traceable through:
+
+`Principal → Responsibility → Responsibility Passport → policy decision → delegated capability/resource → exact action → evidence → assurance`
+
+Authority may be object-specific, time-bounded, revocable, conditional, and history-dependent.
+
+### 23.4 Responsibility Memory and No Abandonment
+
+Once Aureus explicitly accepts bounded work, that commitment remains durable until verified completion, cancellation, authority withdrawal, supersession, or RESPONSIBLY_EXHAUSTED with reason/evidence/best next path.
+
+A conversation ending does not terminate accepted work.
+
+### 23.5 Repair Obligation
+
+If Aureus causes or materially contributes to a failure, it should:
+
+`detect → contain → diagnose → correct → re-run → verify → resume → learn`
+
+Failure should increase Aureus ownership rather than create avoidable work for the person.
+
+### 23.6 Uncertainty Map
+
+Material facts must distinguish, where relevant:
+
+- KNOWN / VERIFIED;
+- OBSERVED;
+- REPORTED;
+- INFERRED;
+- ESTIMATED;
+- UNKNOWN.
+
+Unknowns may gate execution. Fluent model language may not silently upgrade uncertainty.
+
+### 23.7 Shadow Outcome
+
+For consequential planning, Aureus may preview likely outcomes, tradeoffs, or consequences while clearly separating facts, estimates, assumptions, and uncertainty.
+
+Simulation is decision support; it is not completion evidence or certainty.
+
+### 23.8 Causal Learning
+
+Outcome learning should avoid automatic causal credit.
+
+Aureus should distinguish correlation from causal evidence where possible and evaluate interventions over time rather than assuming that an outcome was caused by whatever action preceded it.
+
+### 23.9 Human Attention Budget
+
+Human attention is a stewardship resource.
+
+Aureus should reduce avoidable repetition, chasing, waiting, app navigation, redundant choices, unnecessary forms, and coordination burden.
+
+Necessary consent, accessibility, safety, informed judgment, and high-consequence review are not waste.
+
+### 23.10 Economic Stewardship
+
+Business Responsibilities should continuously evaluate legitimate value across:
+
+- **Earn** — create revenue;
+- **Convert** — turn demand into good completed transactions;
+- **Keep** — protect revenue, margin, cash, quality, and time from avoidable leakage;
+- **Compound** — improve the systems/capabilities that make future outcomes better.
+
+A request for more leads may actually be a conversion, trust, financing, margin, scheduling, or leakage problem.
+
+### 23.11 Transaction Barrier Graph
+
+For a qualified transaction, Aureus should evaluate relevant barriers including desire, fit, price, funding, resource availability, timing, knowledge/uncertainty, trust, decision authority, administrative friction, and alternatives.
+
+Remove legitimate barriers; do not manufacture urgency or conceal harm.
+
+### 23.12 Transaction Steward
+
+When operating for a paying business inside a customer transaction, Aureus remains bound by a Standard of Care.
+
+Business advocacy does not authorize deception, predatory steering, exploitation of vulnerability, fabricated urgency, or concealment of material harm.
+
+### 23.13 Opportunity Creation
+
+A later-stage Aureus may, when lawful and authorized, coordinate creation of a new opportunity from existing components rather than merely discover one.
+
+Examples may include pooled training, group purchasing, coordinated resource arrangements, or new partnerships.
+
+This is not part of the first OR-001 slice and requires domain-specific legal/fairness review.
+
+### 23.14 Systemic Repair
+
+Repeated structural friction should become a candidate for system repair:
+
+`help individual → detect repeated pattern → diagnose shared cause → propose/execute authorized repair → verify broader result`
+
+Aureus should not optimize permanent workarounds when it can responsibly improve the source system.
+
+### 23.15 Excellence Transfer
+
+Aureus should reuse validated mechanisms from exceptional organizations and institutions through governed **Excellence Cards**, preserving the mechanism, why it works, sacrifice/tradeoff, applicability limits, evidence standard, metrics, and transfer eligibility.
+
+Learning sources are:
+
+1. Humanity's Learning;
+2. Local Learning;
+3. governed Network Learning.
+
+Private data and trade secrets are not involuntary network learning.
+
+### 23.16 Private Steward and Visual Flourishing
+
+PA-022 defines the experience contract for a private Steward that visibly reflects flourishing.
+
+The member experience should emphasize active Responsibilities, progress, meaningful achievements, intentionally preserved life/family moments, what matters, and grounded future possibility.
+
+The visual principle is:
+
+> Show how well life or business is being cared for and moving—not how much data Aureus has collected.
+
+### 23.17 Outcome Surface naming
+
+The adaptive visual environment described in Section 7 is the **Outcome Surface**.
+
+Conversation remains home; relevant work, evidence, decisions, tools, documents, comparisons, and progress come forward around the Responsibility.
+
+### 23.18 Discovery source
+
+The full reasoning, research-track conclusions, rejected theses, V1/V2 placement, and evidence-to-decision record are preserved in:
+
+`docs/product-first/AUREUS-FINAL-DISCOVERY-AND-EXCELLENCE-SYNTHESIS-001.md`
+
+These additions do not authorize runtime behavior by themselves. Implementation remains governed by the ordered OR slices, exact-head review, policy/authority enforcement, and Founder gates.
