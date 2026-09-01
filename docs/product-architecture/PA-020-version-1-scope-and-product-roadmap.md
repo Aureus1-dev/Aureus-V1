@@ -117,3 +117,29 @@ PA-020 completes the foundational Product Architecture series for Aureus Version
 ---
 
 End of Document
+
+---
+
+Candidate Reconciliation Note — Current V1 direction
+
+The Founder-approved PA-021 / PA-022 program staged in PR #107 updates the Version 1 product target and launch sequence while preserving the reusable capability systems above.
+
+When that reconciliation is governed and merged, Version 1 is organized around a shared Aureus Core rather than a requirement to expose every listed system as a separate member module.
+
+Current sequence:
+
+1. Business contracts are the first commercial lane.
+2. The People side remains invite-only while the shared core is proven.
+3. Kitchen & Bath remains the first complete Business proof.
+4. A meaningful People help-to-completion journey remains required to prove that the shared Responsibility Core works across contexts.
+5. One public Aureus is the conversational identity; specialized roles/capabilities remain backstage unless disclosure is useful.
+6. External systems are preserved when they are the better capability; full CRM/software replacement is not a V1 objective.
+7. Consequential authority remains governed outside the model.
+8. Independent Execution Assurance is part of completion for important work.
+9. The Private Steward / Visual Flourishing experience is part of the V1 golden walkthrough direction, not a separate social/profile product.
+
+The V1 proof target is therefore:
+
+> one Aureus can understand a meaningful outcome, find leverage, accept bounded Responsibility, operate through the smallest sufficient authorized resources, bring the human in only where needed, preserve unfinished work, repair/reroute failure, independently assure important completion, verify the result, show value/progress, and reflect flourishing without violating privacy—demonstrated across Kitchen & Bath Business and a meaningful People journey.
+
+This note supersedes roadmap interpretations that require a public People launch before any Business contract or treat the original module catalog as the complete V1 experience.

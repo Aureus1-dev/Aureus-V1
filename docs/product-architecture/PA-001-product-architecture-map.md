@@ -242,11 +242,15 @@ Primary Responsibility: Ensure the platform remains secure, reliable, measurable
 
 Architectural Rule
 
-Every feature proposed for Aureus must belong to one—and only one—core product system.
+Every implementation capability must have one clear primary owning boundary so persistence, policy, and maintenance responsibilities do not become ambiguous.
 
-If a feature appears to belong to multiple systems, the architecture should be refined until clear ownership is established.
+A higher-level Responsibility may intentionally compose multiple capabilities/systems to achieve one outcome. PA-021 therefore supersedes the earlier interpretation that every user-facing feature or outcome must live inside exactly one product module.
 
-This principle prevents duplication, simplifies maintenance, and preserves the long-term integrity of the platform.
+The rule is now:
+
+> one clear owner for each capability; composition across capabilities for the outcome.
+
+This preserves implementation accountability without forcing the user to navigate Aureus as a collection of modules.
 
 ---
 
@@ -259,3 +263,19 @@ No feature should be designed outside of this architectural framework without an
 ---
 
 End of Document
+
+---
+
+Candidate Reconciliation Note — PA-021 / PA-022
+
+The Founder-approved outcome architecture staged in PR #107 adds a higher-level composition layer above the twelve capability systems listed in this document.
+
+When PA-021/PA-022 are governed and merged:
+
+- **Responsibility**, not a module, becomes the primary cross-domain work object;
+- one public Aureus composes the necessary capability systems behind the conversation;
+- Principal, Responsibility Passport, Authority/Policy Gateway, Context Firewall, Execution Assurance, Responsible Continuation, and evidence-gated completion govern work across those systems;
+- the Outcome Surface brings relevant work to the person instead of making the person operate modules;
+- the Private Steward / Visual Flourishing experience becomes the member-facing composition standard.
+
+The twelve systems remain useful capability ownership boundaries unless separately revised. This note prevents PA-001's older module-first wording from being read as a requirement to undo PA-021's outcome-first composition.
