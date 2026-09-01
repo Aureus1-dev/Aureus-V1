@@ -3,7 +3,8 @@
 **Version:** 0.1  
 **Status:** Founder-approved architecture candidate; not canonical until governed review and merge  
 **Founder direction:** 2026-08-30  
-**Base:** Aureus-V1 `main` `68232e91485d8b8a802712afc301e2d24515ff1b`
+**Original base:** Aureus-V1 `main` `68232e91485d8b8a802712afc301e2d24515ff1b`  
+**Current review base after PR #106 merge:** `a43375b85de2dd6424e124c9aed79c4b4b77f2ab`
 
 ## 1. Purpose
 
