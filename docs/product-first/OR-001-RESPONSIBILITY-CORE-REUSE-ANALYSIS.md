@@ -1,7 +1,8 @@
 # OR-001 Responsibility Core — Reuse Analysis
 
 **Status:** Design evidence for PA-021 / AUREUS-OUTCOME-RECONCILIATION-001  
-**Repository baseline inspected:** `68232e91485d8b8a802712afc301e2d24515ff1b`  
+**Original repository baseline inspected:** `68232e91485d8b8a802712afc301e2d24515ff1b`  
+**Current architecture-review base:** `a43375b85de2dd6424e124c9aed79c4b4b77f2ab`  
 **No runtime/schema change in this document.**
 
 ## Question
@@ -247,3 +248,47 @@ This is enough to prove the abstraction without building a generalized workflow 
 - no broad Value Ledger UI.
 
 Those belong to later slices after the core responsibility boundary is proven.
+
+
+## Final reconciliation constraints on OR-001
+
+The final discovery synthesis and PA-022 do **not** justify expanding OR-001 into a generalized life-memory, economics, agent-orchestration, or workflow engine.
+
+They do add the following requirements to the thin Responsibility proof:
+
+1. **Principal must be explicit.** `contextType` plus owner/context references must be sufficient to determine whose legitimate outcome is being served and to deny ambiguous cross-context access.
+2. **Passport linkage must be explicit.** OR-001 may initially use a versioned policy/reference rather than a full generalized Passport subsystem, but executable state changes may not be authorized by model confidence.
+3. **Context Firewall tests are required at the Responsibility boundary.** The first proof must show that a member cannot read/write another member's Responsibility and that business/shared contexts cannot be inferred from identity alone.
+4. **No Abandonment semantics must be testable.** A new conversation, changed transcript, or ordinary return visit may not silently delete accepted work.
+5. **Evidence state must preserve uncertainty.** The first completion proof should distinguish a referenced authoritative result from an unverified model/user claim where that difference matters.
+6. **Responsible Continuation must not bypass denial.** OR-001 needs at least one deny-path test showing a denied action remains denied even if another route is proposed; alternative paths must independently satisfy policy.
+7. **Repair remains event evidence, not a new workflow engine.** If the first domain has a failed/retried step, preserve enough append-only evidence to distinguish attempt, failure, correction, and verified completion.
+8. **Personal memory is not the Responsibility table.** PA-022 life moments, preferences, and visual flourishing must not be crammed into Responsibility metadata.
+9. **Economic Stewardship is not OR-001 scope.** Transaction Barrier Graph, leakage detection, Earn/Convert/Keep/Compound, and Business optimization belong to later domain slices.
+10. **Excellence/learning is not OR-001 authority.** OR-001 may emit bounded outcome/evidence events later consumed by governed evaluation; it must not learn live policy or mutate authority.
+
+### Minimal privacy/authority test matrix
+
+Before OR-001 can pass, the implementation plan should include deny paths for:
+
+- user A reading/writing user B Responsibility;
+- a Business tenant reading another tenant's Responsibility;
+- a business-customer/shared Responsibility exposing business-private notes;
+- a personal Responsibility receiving business-private state without an explicit authorized transition;
+- model-proposed state transition outside allowed server policy;
+- stale/revoked approval being treated as current authority;
+- unverified evidence being promoted to COMPLETED;
+- a denied route being relabeled as a successful alternate path without independent policy approval.
+
+### Visual-flourishing boundary
+
+OR-001 should expose only the minimum structured state needed for a future Outcome Surface to truthfully render:
+
+- active Responsibility;
+- current status;
+- what Aureus is carrying;
+- what needs the human;
+- completion evidence reference;
+- verified terminal outcome.
+
+The richer PA-022 private Steward experience comes later. The first core must make that experience possible without turning the persistence model into a profile/social timeline.
