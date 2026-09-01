@@ -521,3 +521,84 @@ The proof is:
 
 > One Aureus can accept a meaningful goal, understand it, check for a better responsible path, search for leverage, visibly work around the outcome, take bounded responsibility with enforceable authority, select the smallest sufficient resources, execute what it is allowed to execute, independently assure important work, bring the human in exactly when needed, persist unfinished work, repair or reroute failures, reach and verify completion, show what happened and what value was created, reflect meaningful flourishing without invading privacy, and learn safely from the result—demonstrated in Kitchen & Bath Business and a meaningful People journey.
 
+
+
+## 13. Additional retained mechanisms from final design work
+
+### 13.1 Universal Business Translation Layer / canonical ontology
+
+Aureus should understand the business world through its own stable concepts rather than inheriting the ontology of whichever vendor is connected.
+
+Core canonical concepts include:
+
+- Person;
+- Organization;
+- Relationship;
+- Principal;
+- Outcome;
+- Responsibility;
+- Commitment;
+- Capability;
+- Action;
+- Opportunity;
+- Evidence;
+- Value;
+- Resource;
+- Transaction;
+- System.
+
+Vendor objects map into these concepts while authoritative external systems retain source-of-truth status for the facts they own.
+
+This translation layer is what allows Aureus to sit above CRM, accounting, construction, communications, HR, scheduling, and future systems without becoming conceptually owned by any one vendor.
+
+### 13.2 AI Estate Stewardship
+
+Businesses will increasingly have many AI agents/models/automations.
+
+Aureus should eventually help answer:
+
+- What AI capabilities does this company have?
+- Who/what owns each one?
+- What data and systems can it access?
+- Which Principal/Responsibility can authorize it?
+- What value is it actually producing?
+- Is it duplicated?
+- Is its authority excessive?
+- Is the underlying model/tool still the best validated resource?
+- Should the capability be kept, improved, constrained, replaced, suspended, or removed?
+
+This is a later Business capability built from the same Resource & Authority Graph and capability lifecycle. It is not a reason to expand OR-001.
+
+### 13.3 Hospitality Authority Envelope
+
+A business may intentionally delegate bounded service-recovery or goodwill authority to Aureus.
+
+Examples could include a configured callback priority, fee waiver, replacement, service credit, expedited handling, or other pre-authorized recovery action where lawful and appropriate.
+
+Such discretion must be:
+
+- explicit;
+- bounded by amount/type/context;
+- tenant-specific;
+- auditable;
+- revocable;
+- prohibited from inventing compensation authority;
+- unable to cross legal, financial, or privacy gates.
+
+The purpose is to let hospitality become operational without making the model the source of authority.
+
+### 13.4 Excellence Atlas
+
+The long-term **Excellence Atlas** is the governed collection of Excellence Cards and evidence about mechanisms learned from exceptional organizations, institutions, small businesses, failures, and local practice.
+
+It should preserve not only "what works" but:
+
+- what problem was solved;
+- what mechanism caused the improvement;
+- what sacrifice or tradeoff made it possible;
+- where it fails;
+- who may reuse it;
+- what evidence supports transfer;
+- what measurement would prove the Aureus adaptation works.
+
+Great mechanisms may come from famous organizations or obscure local excellence. Fame is not evidence.
