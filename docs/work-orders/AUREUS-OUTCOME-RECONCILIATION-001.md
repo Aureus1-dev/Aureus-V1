@@ -6,7 +6,9 @@
 **Original base:** `68232e91485d8b8a802712afc301e2d24515ff1b`  
 **Current review base:** `a43375b85de2dd6424e124c9aed79c4b4b77f2ab`  
 **Branch:** `docs/aureus-outcome-architecture-v2`  
-**Architecture:** `docs/product-architecture/PA-021-outcome-and-responsibility-architecture.md`
+**Architecture:** `docs/product-architecture/PA-021-outcome-and-responsibility-architecture.md`  
+**Companion experience architecture:** `docs/product-architecture/PA-022-private-steward-and-visual-flourishing-experience.md`  
+**Discovery synthesis:** `docs/product-first/AUREUS-FINAL-DISCOVERY-AND-EXCELLENCE-SYNTHESIS-001.md`
 
 ## 1. Objective
 
@@ -106,6 +108,19 @@ The following primitives are not yet proven as complete product capabilities and
 14. **Responsible Continuation** — preserve the underlying Responsibility and select an authorized alternative when a route fails, is denied, or is unavailable.
 15. **Independent Execution Assurance** — executor evidence is necessary but cannot self-certify important completion.
 16. **Hospitality and service-recovery standard** — one coherent Aureus relationship, prepared handoffs, ownership, proven repair, and privacy-safe continuous plussing.
+17. **Principal contract** — explicit party whose legitimate outcome is being served in the current context.
+18. **Context Firewall** — minimum-necessary data/authority disclosure to each delegated resource.
+19. **Resource & Authority Graph** — traceable delegation from Principal and Responsibility to exact action/evidence.
+20. **Responsibility Memory / No Abandonment** — accepted work remains durable until a valid terminal state.
+21. **Repair Obligation** — Aureus-caused failure creates contain/repair/re-verify/resume responsibility.
+22. **Uncertainty Map** — known/observed/reported/inferred/estimated/unknown distinctions where material.
+23. **Human Attention Budget** — avoidable user repetition, chasing, app navigation, waiting, and coordination are measurable burdens.
+24. **Economic Stewardship + Transaction Barrier Graph** — Earn/Convert/Keep/Compound plus legitimate barrier removal.
+25. **Transaction Steward** — business advocacy bounded by independent Standard of Care.
+26. **Excellence Transfer** — Humanity's Learning, Local Learning, governed Network Learning, and structured Excellence Cards.
+27. **Opportunity Creation + Systemic Repair** — later governed ability to create opportunities and fix repeated structural friction.
+28. **Shadow Outcome + Causal Learning** — uncertainty-aware consequence preview and disciplined outcome attribution.
+29. **Private Steward & Visual Flourishing** — private belonging, user-controlled memory/life moments, growth/achievement visibility, and business-equivalent flourishing surfaces.
 
 ## 4. Hard boundaries
 
@@ -182,7 +197,21 @@ One exact deployed SHA must pass:
 - Business-owner “what needs me?” journey.
 - People help-to-completion journey.
 - Employee/system-orchestration journey.
+- private-Steward visual flourishing and privacy/control comprehension;
+- business Economic Stewardship / Transaction Barrier evidence;
 - voice/text continuity and mobile acceptance where in scope.
+
+### Cross-cutting requirements for every slice
+
+- Principal/context must be explicit enough to prevent one-Aureus identity from collapsing authority boundaries.
+- Context Firewall and Responsibility Passport rules apply before delegated execution.
+- Responsible Continuation may find an alternate route but may never route around a legitimate denial, revoked authority, safety rule, or privacy boundary.
+- Important completion requires proportionate independent assurance.
+- Human attention is protected; unnecessary user work is treated as a defect.
+- Material uncertainty is labeled rather than hidden by fluent UI/model language.
+- Private/member data is never silently promoted into Network Learning.
+- Economic optimization is bounded by Transaction Stewardship and the Aureus Standard of Care.
+- Visual flourishing is user-centered, accessible, privacy-safe, and never a surveillance or gamification layer.
 
 ## 6. Builder/reviewer roles
 
@@ -198,6 +227,8 @@ One exact deployed SHA must pass:
 This work order is complete when:
 
 - PA-021 exists as the explicit candidate higher-level architecture;
+- PA-022 exists as the explicit Private Steward / Visual Flourishing experience architecture;
+- the final discovery/excellence synthesis preserves the nine research tracks, final architectural additions, rejected theses, and V1/V2 placement;
 - every major existing product capability is classified KEEP/UPGRADE/MERGE/REPLACE/ADD;
 - no current active PR is silently scope-expanded;
 - an ordered successor-slice sequence exists;
@@ -218,7 +249,7 @@ This work order is complete when:
 
 - Aureus-V1 PR #103 remains closed unmerged as superseded.
 - Aureus-V1 PR #106 was independently reviewed at exact head `3e238328e22f4495b36a2edf3e161930c6f5db54` with no blocking findings and merged. Current V1 `main` is `a43375b85de2dd6424e124c9aed79c4b4b77f2ab`.
-- Aureus-V1 PR #107 is the architecture/reconciliation candidate. Its branch has been synchronized with current `main`; fresh exact-head CI and a separate independent architecture review are required after these repository-truth repairs.
+- Aureus-V1 PR #107 is the architecture/reconciliation candidate. Its branch is synchronized with current `main` and now includes the final discovery synthesis plus PA-022; its final exact head must be read from GitHub after this reconciliation and receives fresh CI plus independent architecture review.
 - Aureus-Foundry PR #7 current head is `14e24c758780e2272cb443664f6e8e14bea37822`; exact-head Foundry CI run `33451635553` succeeded. The active reviewer path is Claude Pro/Claude Code; Anthropic-API automation is optional and is not a dependency.
 - Aureus-Library `main` remains `ea9887c50550e466411742c3f3fc53a3de7f264f`.
 - The operational bridge remains provider-neutral GitHub evidence plus governed Claude Pro/Claude Code review. Make.com may route evidence and state, but it is not Aureus intelligence or authority.
