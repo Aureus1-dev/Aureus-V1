@@ -250,7 +250,7 @@ This work order is complete when:
 - Aureus-V1 PR #103 remains closed unmerged as superseded.
 - Aureus-V1 PR #106 was independently reviewed at exact head `3e238328e22f4495b36a2edf3e161930c6f5db54` with no blocking findings and merged. Current V1 `main` is `a43375b85de2dd6424e124c9aed79c4b4b77f2ab`.
 - Aureus-V1 PR #107 is the architecture/reconciliation candidate. Its branch is synchronized with current `main` and now includes the final discovery synthesis plus PA-022; its final exact head must be read from GitHub after this reconciliation and receives fresh CI plus independent architecture review.
-- Aureus-Foundry PR #7 current head is `14e24c758780e2272cb443664f6e8e14bea37822`; exact-head Foundry CI run `33451635553` succeeded. The active reviewer path is Claude Pro/Claude Code; Anthropic-API automation is optional and is not a dependency.
+- Aureus-Foundry PR #7 remains the draft governed Claude Pro/Claude Code meeting room. Its exact head is read from GitHub after each review-packet update; the ACTIVE_WORK_ORDER must pin the exact V1 PR #107 candidate head before review. Anthropic-API automation is optional and is not a dependency.
 - Aureus-Library `main` remains `ea9887c50550e466411742c3f3fc53a3de7f264f`.
 - The operational bridge remains provider-neutral GitHub evidence plus governed Claude Pro/Claude Code review. Make.com may route evidence and state, but it is not Aureus intelligence or authority.
 
