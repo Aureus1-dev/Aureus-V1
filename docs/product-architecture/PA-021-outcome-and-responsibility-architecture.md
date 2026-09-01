@@ -576,3 +576,24 @@ The full reasoning, research-track conclusions, rejected theses, V1/V2 placement
 `docs/product-first/AUREUS-FINAL-DISCOVERY-AND-EXCELLENCE-SYNTHESIS-001.md`
 
 These additions do not authorize runtime behavior by themselves. Implementation remains governed by the ordered OR slices, exact-head review, policy/authority enforcement, and Founder gates.
+
+
+### 23.19 Universal Business Translation Layer
+
+Aureus should preserve its own canonical concepts—Person, Organization, Relationship, Principal, Outcome, Responsibility, Commitment, Capability, Action, Opportunity, Evidence, Value, Resource, Transaction, and System—while mapping vendor-specific records into them.
+
+External systems remain authoritative for the facts they own. The translation layer prevents Aureus from becoming conceptually coupled to any one CRM, accounting, construction, HR, or automation vendor.
+
+### 23.20 AI Estate Stewardship
+
+The same capability/resource governance may later support an AI Estate Stewardship view for businesses: discover AI/automation resources, ownership, access, relationships, runtime behavior, cost/value, duplication, authority, and keep/improve/constrain/replace/suspend/remove decisions.
+
+This is a later Business capability and is not OR-001 scope.
+
+### 23.21 Hospitality Authority Envelope
+
+A business may explicitly delegate bounded service-recovery/goodwill authority to Aureus where lawful and appropriate.
+
+Any such authority must be tenant-specific, amount/type/context-bounded, auditable, revocable, and enforced through the Responsibility Passport and external Authority/Policy Gateway.
+
+A model may never invent goodwill, refund, credit, waiver, replacement, or compensation authority.
