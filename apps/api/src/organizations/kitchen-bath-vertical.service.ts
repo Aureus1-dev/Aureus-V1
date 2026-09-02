@@ -207,6 +207,9 @@ export class KitchenBathVerticalService {
     decisionStatus?: string;
     budgetRange?: string;
     designNeeds?: string;
+    priorities?: string[];
+    mustHaves?: string;
+    concerns?: string;
   }): Prisma.InputJsonObject[] {
     return [
       { key: 'vertical', label: 'Vertical', value: 'KITCHEN_BATH', basis: 'Approved tenant pack' },
@@ -221,6 +224,30 @@ export class KitchenBathVerticalService {
         : []),
       ...(intake.designNeeds
         ? [{ key: 'design_needs', label: 'Design needs', value: intake.designNeeds, basis: 'Visitor supplied' }]
+        : []),
+      ...(intake.priorities?.length
+        ? [{
+            key: 'priorities',
+            label: 'What matters most',
+            value: intake.priorities,
+            basis: 'Visitor supplied; optional; no scoring',
+          }]
+        : []),
+      ...(intake.mustHaves
+        ? [{
+            key: 'must_haves',
+            label: 'Must-haves',
+            value: intake.mustHaves,
+            basis: 'Visitor supplied; optional',
+          }]
+        : []),
+      ...(intake.concerns
+        ? [{
+            key: 'concerns',
+            label: 'Concerns / things to avoid',
+            value: intake.concerns,
+            basis: 'Visitor supplied; optional',
+          }]
         : []),
     ] as Prisma.InputJsonObject[];
   }
