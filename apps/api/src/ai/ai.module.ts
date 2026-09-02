@@ -124,6 +124,6 @@ import { AI_TURN_EVENT_REPOSITORY } from './voice/repositories/ai-turn-event.rep
     AiOrchestratorService,
     { provide: AI_ORCHESTRATION_RUN_REPOSITORY, useClass: PrismaAiOrchestrationRunRepository },
   ],
-  exports: [AiRequestsService, AiOrchestratorService, GuidedApplicationService],
+  exports: [AiRequestsService, AiOrchestratorService, GuidedApplicationService, ConversationsService],
 })
 export class AiModule {}
