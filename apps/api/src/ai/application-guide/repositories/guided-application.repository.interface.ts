@@ -31,6 +31,11 @@ export interface IGuidedApplicationRepository {
     userId: string,
   ): Promise<GuidedApplicationSession | null>;
 
+  findOwnedById(
+    id: string,
+    userId: string,
+  ): Promise<GuidedApplicationSession | null>;
+
   /**
    * Every mutating method below re-asserts { id, userId, status: ACTIVE } in
    * the write's own filter — not merely in a prior read — so a concurrent
