@@ -172,6 +172,35 @@ describe('KitchenBathPublicService', () => {
     expect(result.readyProject).not.toHaveProperty('source.consentVersion');
   });
 
+  it('uses the sanitized Kitchen & Bath scope as the canonical generic handoff summary', async () => {
+    const { service, leads } = fixture(true);
+
+    await service.submit(
+      'shop',
+      'conversation',
+      'x'.repeat(48),
+      {
+        ...baseDto,
+        projectSummary: 'A conflicting generic summary from a custom client.',
+        kitchenBath: {
+          ...baseDto.kitchenBath,
+          scope: '<b>Keep this</b> kitchen scope as the canonical project description.',
+        },
+      },
+    );
+
+    expect(leads.submitPublicHandoff).toHaveBeenCalledWith(
+      'shop',
+      'conversation',
+      'x'.repeat(48),
+      expect.objectContaining({
+        projectSummary:
+          'Keep this kitchen scope as the canonical project description.',
+      }),
+      expect.any(Object),
+    );
+  });
+
   it('sanitizes new customer value fields before putting them in the transactional source envelope', async () => {
     const { service, leads } = fixture(true);
 
