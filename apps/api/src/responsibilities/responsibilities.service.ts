@@ -154,6 +154,18 @@ export class ResponsibilitiesService {
     return ResponsibilityResponseDto.fromEntity(responsibility);
   }
 
+  async findLatestApplicationGuidanceForConversation(
+    conversationId: string,
+    caller: AuthenticatedUser,
+  ): Promise<ResponsibilityResponseDto | null> {
+    const current = await this.repo.findLatestPersonalByConversationKind(
+      caller.id,
+      conversationId,
+      ResponsibilityKind.OPPORTUNITY_APPLICATION_GUIDANCE,
+    );
+    return current ? ResponsibilityResponseDto.fromEntity(current) : null;
+  }
+
   async findOpenApplicationGuidance(
     opportunityId: string,
     caller: AuthenticatedUser,
