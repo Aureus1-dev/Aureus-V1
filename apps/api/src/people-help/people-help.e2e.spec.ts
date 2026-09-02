@@ -321,4 +321,39 @@ describe('OR-002 People help-to-completion — E2E', () => {
     });
     expect(count).toBe(1);
   });
+
+  it('an old ended session cannot mutate a later Responsibility for the same Opportunity', async () => {
+    const oldCompletedSessionId = sessionId;
+    const oldResponsibilityId = responsibilityId;
+
+    const restarted = await request(app.getHttpServer())
+      .post('/people-help/application')
+      .set('Authorization', 'Bearer ' + ownerToken)
+      .send({ conversationId, opportunityId })
+      .expect(201);
+
+    const newResponsibilityId = restarted.body.responsibility.id;
+    expect(newResponsibilityId).not.toBe(oldResponsibilityId);
+    expect(restarted.body.responsibility.status).toBe(
+      ResponsibilityStatus.ACTIVE,
+    );
+
+    const retryOld = await request(app.getHttpServer())
+      .post(
+        '/people-help/application/' + oldCompletedSessionId + '/outcome',
+      )
+      .set('Authorization', 'Bearer ' + ownerToken)
+      .send({ outcome: TrackingStatus.APPLIED })
+      .expect(201);
+
+    expect(retryOld.body.responsibility.id).toBe(oldResponsibilityId);
+    expect(retryOld.body.responsibility.status).toBe(
+      ResponsibilityStatus.COMPLETED,
+    );
+
+    const newResponsibility = await prisma.db.responsibility.findUniqueOrThrow({
+      where: { id: newResponsibilityId },
+    });
+    expect(newResponsibility.status).toBe(ResponsibilityStatus.ACTIVE);
+  });
 });
