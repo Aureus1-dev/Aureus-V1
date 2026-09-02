@@ -18,7 +18,10 @@ import { PrismaService } from '../prisma/prisma.service';
 import { CreateWardLeadDto } from './dto/create-ward-lead.dto';
 import { KitchenBathIntakeDto } from './dto/kitchen-bath-intake.dto';
 import { WardLeadService } from './ward-lead.service';
-import { buildKitchenBathReadyProject } from './kitchen-bath-ready-project';
+import {
+  buildKitchenBathReadyProject,
+  toPublicKitchenBathReadyProject,
+} from './kitchen-bath-ready-project';
 
 @Injectable()
 export class KitchenBathPublicService {
@@ -120,7 +123,9 @@ export class KitchenBathPublicService {
 
     return {
       ...handoff,
-      readyProject: buildKitchenBathReadyProject(lead),
+      readyProject: toPublicKitchenBathReadyProject(
+        buildKitchenBathReadyProject(lead),
+      ),
     };
   }
 
