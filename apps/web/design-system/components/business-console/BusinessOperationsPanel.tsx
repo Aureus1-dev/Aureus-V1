@@ -16,6 +16,7 @@ import {
 } from '../../../lib/api/business-operations';
 import { listMyBusinessTenants } from '../../../lib/api/business-console';
 import { useSession } from '../../../state';
+import { KitchenBathReadyProjectCard } from '../public-ward/KitchenBathReadyProjectCard';
 import styles from './BusinessOperationsPanel.module.css';
 
 const NEXT_STATUS: Partial<Record<WardLeadStatus, WardLeadStatus[]>> = {
@@ -270,7 +271,17 @@ export function BusinessOperationsPanel() {
             ))}
           </div>
 
-          <h4>Grounded conversation</h4>
+          {selected.readyProject ? (
+            <>
+              <h4>Ready Project</h4>
+              <KitchenBathReadyProjectCard
+                project={selected.readyProject}
+                audience="business"
+              />
+            </>
+          ) : null}
+
+          <h4>Source conversation evidence</h4>
           {selected.conversation.messages.map((item) => (
             <div key={item.id} className={styles.message}>
               <strong>{item.role === 'WARD' ? 'Ward' : 'Visitor'}</strong>
