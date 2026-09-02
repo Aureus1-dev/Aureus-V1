@@ -1,13 +1,9 @@
 import {
+  Prisma,
   Responsibility,
-  ResponsibilityActorClass,
-  ResponsibilityAuthorityClass,
-  ResponsibilityContextType,
   ResponsibilityEvent,
   ResponsibilityEvidenceLevel,
   ResponsibilityKind,
-  ResponsibilityPrivacyScope,
-  ResponsibilityStatus,
 } from '@prisma/client';
 
 export const RESPONSIBILITY_REPOSITORY = 'RESPONSIBILITY_REPOSITORY';
@@ -18,9 +14,11 @@ export type ResponsibilityWithEvents = Responsibility & {
 
 export interface CreateAcceptedResponsibilityInput {
   principalUserId: string;
+  kind: ResponsibilityKind;
   objective: string;
   originConversationId: string;
   originOpportunityId: string;
+  successCriteria: Prisma.InputJsonValue;
 }
 
 export interface ResponsibilityEvidenceInput {
@@ -32,9 +30,10 @@ export interface ResponsibilityEvidenceInput {
 }
 
 export interface IResponsibilityRepository {
-  findOpenOpportunityDecision(
+  findOpenOpportunityResponsibility(
     principalUserId: string,
     opportunityId: string,
+    kind: ResponsibilityKind,
   ): Promise<ResponsibilityWithEvents | null>;
 
   createAccepted(
@@ -55,10 +54,14 @@ export interface IResponsibilityRepository {
     principalUserId: string,
   ): Promise<ResponsibilityWithEvents>;
 
+  resumeFromWaitingOnUser(
+    id: string,
+    principalUserId: string,
+  ): Promise<ResponsibilityWithEvents>;
+
   completeWithEvidence(
     id: string,
     principalUserId: string,
     evidence: ResponsibilityEvidenceInput,
   ): Promise<ResponsibilityWithEvents>;
 }
-
