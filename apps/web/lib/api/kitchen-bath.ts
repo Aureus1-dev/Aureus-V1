@@ -80,12 +80,16 @@ export interface KitchenBathReadyProject {
     decisionStatus: string | null;
     budgetRange: string | null;
     designNeeds: string | null;
-    attachments: unknown[];
+    attachments: Array<{
+      fileName: string;
+      mimeType: string;
+      sizeBytes: number;
+    }>;
   };
   source: {
     basis: 'CONSENTED_WARD_HANDOFF';
     consentVersion: string;
-    intakeHash: string | null;
+    intakeIntegrity: 'SYSTEM_HASH_PRESENT' | 'MISSING';
     conversationTurns: number | null;
     submittedAt: string;
     retentionExpiresAt: string;
