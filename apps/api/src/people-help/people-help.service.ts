@@ -12,6 +12,7 @@ import {
   ActivePeopleApplicationHelpResponseDto,
   CompletePeopleApplicationHelpResponseDto,
   PeopleApplicationHelpResponseDto,
+  PausePeopleApplicationHelpResponseDto,
   PeopleApplicationOutcome,
   StartPeopleApplicationHelpDto,
 } from './people-help.dto';
@@ -63,7 +64,7 @@ export class PeopleHelpService {
   async pause(
     sessionId: string,
     caller: AuthenticatedUser,
-  ): Promise<{ paused: true; responsibilityId: string | null }> {
+  ): Promise<PausePeopleApplicationHelpResponseDto> {
     const session =
       await this.guidedApplications.getOwnedActiveForCoordination(
         sessionId,
@@ -80,7 +81,7 @@ export class PeopleHelpService {
     await this.guidedApplications.endSession(session.id, caller);
 
     if (!responsibility) {
-      return { paused: true, responsibilityId: null };
+      return { paused: true, responsibility: null };
     }
 
     const waiting = await this.responsibilities.pauseApplicationGuidance(
@@ -88,7 +89,7 @@ export class PeopleHelpService {
       caller,
     );
 
-    return { paused: true, responsibilityId: waiting.id };
+    return { paused: true, responsibility: waiting };
   }
 
   async complete(
