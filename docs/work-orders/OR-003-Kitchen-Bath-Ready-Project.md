@@ -177,6 +177,8 @@ The result should make clear:
 - what still needs an expert;
 - that no quote/appointment/approval was fabricated.
 
+Front-of-house stays simpler than back-of-house: the customer does not need the full internal Transaction Barrier Graph. The customer sees understood project state, stated priorities, what was shared, expert-required next work, and boundaries. The business view may expose the full graph and its evidence basis.
+
 The existing consent and 90-day retention/deletion boundary remain unchanged.
 
 ## 9. Business experience
@@ -202,7 +204,8 @@ The raw conversation remains available as attributable evidence, not the primary
 - A stale/different second K&B intake for one handoff remains a conflict under the existing intake hash rule.
 - Cross-tenant reads remain impossible through the existing tenant-scoped lead query.
 - Deleting/expiring the handoff removes the source; no independent Ready Project copy survives.
-- Public response must not expose tenant-private notes or business-only information.
+- Public response must not expose tenant-private notes, business-only information, internal storage references, submission fingerprints, or the raw Kitchen & Bath intake integrity hash.
+- Ready Project attachment context may expose customer-supplied file name/type/size, but not the opaque storage pointer.
 - Business response must not expose data outside the consented handoff envelope.
 
 ## 11. Deny paths / tests
