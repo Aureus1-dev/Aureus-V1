@@ -5,13 +5,12 @@ import {
 } from '@nestjs/common';
 import { TrackingStatus } from '@prisma/client';
 import { AuthenticatedUser } from '../auth/strategies/jwt.strategy';
-import {
-  GuidedApplicationService,
-} from '../ai/application-guide/guided-application.service';
+import { GuidedApplicationService } from '../ai/application-guide/guided-application.service';
 import { SavedOpportunitiesService } from '../opportunities/saved/saved-opportunities.service';
 import { ResponsibilitiesService } from '../responsibilities/responsibilities.service';
 import {
   ActivePeopleApplicationHelpResponseDto,
+  CompletePeopleApplicationHelpResponseDto,
   PeopleApplicationHelpResponseDto,
   PeopleApplicationOutcome,
   StartPeopleApplicationHelpDto,
@@ -29,9 +28,9 @@ export class PeopleHelpService {
     dto: StartPeopleApplicationHelpDto,
     caller: AuthenticatedUser,
   ): Promise<PeopleApplicationHelpResponseDto> {
-    // Accepting the Responsibility first is intentional. If a later guide
-    // session creation fails because of an internal/transient problem, Aureus
-    // must not silently forget the work it already agreed to carry.
+    // Accept the durable Responsibility before opening the tool-level guide.
+    // If a later guide-session operation fails transiently, Aureus does not
+    // forget work it already agreed to carry.
     const responsibility =
       await this.responsibilities.acceptApplicationGuidance(dto, caller);
 
@@ -56,8 +55,8 @@ export class PeopleHelpService {
         caller,
       );
 
-    // A pre-OR-002 legacy guide can still be resumed safely. We do not mutate
-    // a GET into an implicit Responsibility acceptance.
+    // A legacy pre-OR-002 guide can still be resumed safely. GET never
+    // mutates that legacy session into an implicit Responsibility acceptance.
     return { session, responsibility };
   }
 
@@ -77,8 +76,7 @@ export class PeopleHelpService {
         caller,
       );
 
-    // Privacy first: close the screen-guidance session/revoke consent before
-    // changing higher-level progress state.
+    // Privacy first: end/revoke the guide before changing higher-level state.
     await this.guidedApplications.endSession(session.id, caller);
 
     if (!responsibility) {
@@ -97,7 +95,7 @@ export class PeopleHelpService {
     sessionId: string,
     outcome: PeopleApplicationOutcome,
     caller: AuthenticatedUser,
-  ): Promise<PeopleApplicationHelpResponseDto> {
+  ): Promise<CompletePeopleApplicationHelpResponseDto> {
     if (
       outcome !== TrackingStatus.APPLIED &&
       outcome !== TrackingStatus.NOT_INTERESTED
@@ -107,7 +105,7 @@ export class PeopleHelpService {
       );
     }
 
-    const sessionEntity =
+    const session =
       await this.guidedApplications.getOwnedActiveForCoordination(
         sessionId,
         caller,
@@ -115,7 +113,7 @@ export class PeopleHelpService {
 
     const responsibility =
       await this.responsibilities.findOpenApplicationGuidance(
-        sessionEntity.opportunityId,
+        session.opportunityId,
         caller,
       );
     if (!responsibility) {
@@ -126,22 +124,24 @@ export class PeopleHelpService {
 
     let saved = await this.savedOpportunities.findOne(
       caller.id,
-      sessionEntity.opportunityId,
+      session.opportunityId,
     );
+
     if (!saved) {
       try {
         saved = await this.savedOpportunities.save(caller.id, {
-          opportunityId: sessionEntity.opportunityId,
+          opportunityId: session.opportunityId,
         });
       } catch {
-        // A concurrent save may win. Re-read instead of turning an otherwise
-        // idempotent member outcome into an avoidable 409/500.
+        // A concurrent save can legitimately win. Re-read to keep the member's
+        // explicit outcome operation idempotent instead of surfacing a race.
         saved = await this.savedOpportunities.findOne(
           caller.id,
-          sessionEntity.opportunityId,
+          session.opportunityId,
         );
       }
     }
+
     if (!saved) {
       throw new ConflictException(
         'Aureus could not persist the member application outcome',
@@ -150,13 +150,13 @@ export class PeopleHelpService {
 
     const updatedSaved = await this.savedOpportunities.update(
       caller.id,
-      sessionEntity.opportunityId,
+      session.opportunityId,
       { trackingStatus: outcome },
     );
 
-    // End/revoke guidance before marking the Responsibility complete. A
-    // completed Responsibility must never leave screen consent active.
-    await this.guidedApplications.endSession(sessionEntity.id, caller);
+    // A completed Responsibility must never leave screen-consent authority
+    // active, so tool-level guidance is ended before the root is completed.
+    await this.guidedApplications.endSession(session.id, caller);
 
     const completed =
       await this.responsibilities.completeApplicationGuidance(
@@ -166,25 +166,10 @@ export class PeopleHelpService {
         updatedSaved.trackingStatus,
       );
 
-    // Return the final ended session shape truthfully from the pre-end entity;
-    // the client removes the active guide immediately after this response.
-    const session = {
-      id: sessionEntity.id,
-      conversationId: sessionEntity.conversationId,
-      opportunityId: sessionEntity.opportunityId,
-      opportunityTitle: '',
-      provider: '',
-      applicationUrl: sessionEntity.applicationUrl,
-      status: 'ENDED',
-      screenCaptureConsentGrantedAt:
-        sessionEntity.screenCaptureConsentGrantedAt,
-      screenCaptureConsentRevokedAt: new Date(),
-      lastFrameAnalyzedAt: sessionEntity.lastFrameAnalyzedAt,
-    };
-
     return {
       responsibility: completed,
-      session: session as PeopleApplicationHelpResponseDto['session'],
+      ended: true,
+      outcome,
     };
   }
 }
