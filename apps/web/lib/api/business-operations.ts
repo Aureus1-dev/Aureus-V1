@@ -1,4 +1,5 @@
 import { apiRequest } from './http';
+import type { KitchenBathReadyProject } from './kitchen-bath';
 
 export type WardLeadStatus = 'SUBMITTED' | 'ACCEPTED' | 'CONTACTED' | 'CLOSED' | 'LOST';
 
@@ -74,6 +75,7 @@ export interface BusinessLeadSummary {
 
 export interface BusinessLeadDetail extends BusinessLeadSummary {
   outcomeReason: string | null;
+  readyProject: KitchenBathReadyProject | null;
   events: Array<{
     id: string;
     type: string;
