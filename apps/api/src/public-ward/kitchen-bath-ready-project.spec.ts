@@ -127,6 +127,67 @@ describe('buildKitchenBathReadyProject', () => {
     );
   });
 
+  it('rejects malformed required enums and integrity values while ignoring corrupt optional enums', () => {
+    const project = buildKitchenBathReadyProject({
+      ...BASE,
+      qualificationSignals: signals({
+        project_type: 'NOT_A_PROJECT_TYPE',
+        kitchen_bath_intake_hash: 'not-a-sha',
+        priorities: ['FUNCTION_AND_LAYOUT', 'SECRET_SCORE_BUCKET'],
+        budget_range: 'MADE_UP_BUDGET',
+        decision_status: 'INFERRED_DECIDER',
+        conversation_turns: '4turns',
+      }),
+    })!;
+
+    expect(project.readinessStatus).toBe('INCOMPLETE_SOURCE');
+    expect(project.missingRequiredSource).toEqual(
+      expect.arrayContaining(['projectType', 'intakeHash']),
+    );
+    expect(project.customerIntent.projectType).toBeNull();
+    expect(project.customerIntent.priorities).toEqual(['FUNCTION_AND_LAYOUT']);
+    expect(project.constraints.budgetRange).toBeNull();
+    expect(project.constraints.decisionStatus).toBeNull();
+    expect(project.source.intakeIntegrity).toBe('MISSING');
+    expect(project.source.conversationTurns).toBeNull();
+    expect(
+      project.transactionBarriers.find(
+        (item) => item.key === 'DECISION_AUTHORITY',
+      )?.status,
+    ).toBe('OPEN');
+  });
+
+  it('drops malformed attachment metadata rather than exposing it', () => {
+    const project = buildKitchenBathReadyProject({
+      ...BASE,
+      qualificationSignals: signals({
+        project_attachments: [
+          {
+            fileName: 'bad.jpg',
+            mimeType: 'image/jpeg',
+            sizeBytes: -1,
+            storageRef: 'opaque://secret',
+          },
+          {
+            fileName: 'good.jpg',
+            mimeType: 'image/jpeg',
+            sizeBytes: 100,
+            storageRef: 'opaque://also-secret',
+          },
+        ],
+      }),
+    })!;
+
+    expect(project.constraints.attachments).toEqual([
+      {
+        fileName: 'good.jpg',
+        mimeType: 'image/jpeg',
+        sizeBytes: 100,
+      },
+    ]);
+    expect(JSON.stringify(project)).not.toContain('opaque://');
+  });
+
   it('returns no Ready Project for a non-Kitchen-and-Bath handoff', () => {
     expect(
       buildKitchenBathReadyProject({
