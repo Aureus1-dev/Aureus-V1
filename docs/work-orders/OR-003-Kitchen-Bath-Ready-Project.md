@@ -184,7 +184,7 @@ The result should make clear:
 - what still needs an expert;
 - that no quote/appointment/approval was fabricated.
 
-Front-of-house stays simpler than back-of-house: the customer does not need the full internal Transaction Barrier Graph. The customer sees understood project state, stated priorities, what was shared, expert-required next work, and boundaries. The business view may expose the full graph and its evidence basis.
+Front-of-house stays simpler than back-of-house at the **data-contract level**, not only in rendering: the public Ready Project response omits the full Transaction Barrier Graph, lead-internal identity, intake-integrity state, conversation-turn count, and other back-office provenance. The customer receives understood project state, stated priorities, what was shared, expert-required next work, boundaries, and a minimal consented-handoff evidence basis. The authenticated business detail may expose the full graph and its evidence basis.
 
 The existing consent and 90-day retention/deletion boundary remain unchanged.
 
@@ -212,6 +212,7 @@ The raw conversation remains available as attributable evidence, not the primary
 - Cross-tenant reads remain impossible through the existing tenant-scoped lead query.
 - Deleting/expiring the handoff removes the source; no independent Ready Project copy survives.
 - Public response must not expose tenant-private notes, business-only information, internal storage references, submission fingerprints, or the raw Kitchen & Bath intake integrity hash.
+- The public Ready Project contract itself omits the full Transaction Barrier Graph and back-office provenance fields; hiding them only in the UI is insufficient.
 - Ready Project attachment context may expose customer-supplied file name/type/size, but not the opaque storage pointer.
 - Business response must not expose data outside the consented handoff envelope.
 
@@ -224,7 +225,7 @@ Tests must prove at minimum:
 3. non-K&B lead produces no Ready Project;
 4. malformed K&B source produces `INCOMPLETE_SOURCE`, not guessed facts;
 5. priority/must-have/concern fields are sanitized, bounded, and stored as visitor-supplied signals;
-6. no score/ranking/fit label is generated;
+6. no hidden score, ranking, propensity, or fit-score label is generated;
 7. PRICE remains BUSINESS_REQUIRED with no fabricated amount;
 8. FIT remains EXPERT_REQUIRED with no inferred measurements/feasibility;
 9. TRUST remains NOT_ASSESSED;
