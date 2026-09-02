@@ -92,7 +92,7 @@ describe('ResponsibilityProgressCard', () => {
     );
 
     expect(
-      screen.getByText(/Application status: submitted/applied — reported by you/i),
+      screen.getByText(/Application status: submitted\/applied — reported by you/i),
     ).toBeInTheDocument();
     expect(screen.queryByText(/approved by/i)).not.toBeInTheDocument();
   });
