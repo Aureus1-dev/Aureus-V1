@@ -49,12 +49,16 @@ export interface KitchenBathReadyProject {
     decisionStatus: string | null;
     budgetRange: string | null;
     designNeeds: string | null;
-    attachments: unknown[];
+    attachments: Array<{
+      fileName: string;
+      mimeType: string;
+      sizeBytes: number;
+    }>;
   };
   source: {
     basis: 'CONSENTED_WARD_HANDOFF';
     consentVersion: string;
-    intakeHash: string | null;
+    intakeIntegrity: 'SYSTEM_HASH_PRESENT' | 'MISSING';
     conversationTurns: number | null;
     submittedAt: Date | string;
     retentionExpiresAt: Date | string;
@@ -108,9 +112,30 @@ function stringArraySignal(signals: Signal[], key: string): string[] {
   );
 }
 
-function attachmentsSignal(signals: Signal[]): unknown[] {
+function attachmentsSignal(
+  signals: Signal[],
+): Array<{ fileName: string; mimeType: string; sizeBytes: number }> {
   const value = signal(signals, 'project_attachments');
-  return Array.isArray(value) ? value : [];
+  if (!Array.isArray(value)) return [];
+
+  return value.flatMap((item) => {
+    if (!item || Array.isArray(item) || typeof item !== 'object') return [];
+    const record = item as Record<string, unknown>;
+    if (
+      typeof record.fileName !== 'string' ||
+      typeof record.mimeType !== 'string' ||
+      typeof record.sizeBytes !== 'number'
+    ) {
+      return [];
+    }
+    // storageRef deliberately stays in the retained tenant/source envelope.
+    // The Ready Project needs useful file context, not an internal storage pointer.
+    return [{
+      fileName: record.fileName,
+      mimeType: record.mimeType,
+      sizeBytes: record.sizeBytes,
+    }];
+  });
 }
 
 function conversationTurns(signals: Signal[]): number | null {
@@ -249,7 +274,7 @@ export function buildKitchenBathReadyProject(
     source: {
       basis: 'CONSENTED_WARD_HANDOFF',
       consentVersion: lead.consentVersion,
-      intakeHash,
+      intakeIntegrity: intakeHash ? 'SYSTEM_HASH_PRESENT' : 'MISSING',
       conversationTurns: conversationTurns(signals),
       submittedAt: lead.submittedAt,
       retentionExpiresAt: lead.retentionExpiresAt,
