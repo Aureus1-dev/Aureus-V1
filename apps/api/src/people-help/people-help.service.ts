@@ -3,7 +3,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { TrackingStatus } from '@prisma/client';
+import { GuidedApplicationSessionStatus, ResponsibilityStatus, TrackingStatus } from '@prisma/client';
 import { AuthenticatedUser } from '../auth/strategies/jwt.strategy';
 import { GuidedApplicationService } from '../ai/application-guide/guided-application.service';
 import { SavedOpportunitiesService } from '../opportunities/saved/saved-opportunities.service';
@@ -75,22 +75,40 @@ export class PeopleHelpService {
     caller: AuthenticatedUser,
   ): Promise<PausePeopleApplicationHelpResponseDto> {
     const session =
-      await this.guidedApplications.getOwnedActiveForCoordination(
+      await this.guidedApplications.getOwnedForCoordination(
         sessionId,
         caller,
       );
 
-    const responsibility =
+    let responsibility =
       await this.responsibilities.findOpenApplicationGuidance(
         session.opportunityId,
         caller,
       );
 
-    // Privacy first: end/revoke the guide before changing higher-level state.
-    await this.guidedApplications.endSession(session.id, caller);
+    if (!responsibility) {
+      const latest =
+        await this.responsibilities.findLatestApplicationGuidanceForConversation(
+          session.conversationId,
+          caller,
+        );
+      responsibility =
+        latest?.originOpportunityId === session.opportunityId ? latest : null;
+    }
+
+    // Privacy first: an active tool session is ended/revoked before changing
+    // higher-level progress. A retry against an already-ended owned session is
+    // a no-op rather than a false 404.
+    if (session.status === GuidedApplicationSessionStatus.ACTIVE) {
+      await this.guidedApplications.endSession(session.id, caller);
+    }
 
     if (!responsibility) {
       return { paused: true, responsibility: null };
+    }
+
+    if (responsibility.status === ResponsibilityStatus.COMPLETED) {
+      return { paused: true, responsibility };
     }
 
     const waiting = await this.responsibilities.pauseApplicationGuidance(
@@ -116,20 +134,47 @@ export class PeopleHelpService {
     }
 
     const session =
-      await this.guidedApplications.getOwnedActiveForCoordination(
+      await this.guidedApplications.getOwnedForCoordination(
         sessionId,
         caller,
       );
 
-    const responsibility =
+    let responsibility =
       await this.responsibilities.findOpenApplicationGuidance(
         session.opportunityId,
         caller,
       );
+
+    if (!responsibility) {
+      const latest =
+        await this.responsibilities.findLatestApplicationGuidanceForConversation(
+          session.conversationId,
+          caller,
+        );
+      responsibility =
+        latest?.originOpportunityId === session.opportunityId ? latest : null;
+    }
+
     if (!responsibility) {
       throw new NotFoundException(
         'Application-help Responsibility not found',
       );
+    }
+
+    if (responsibility.status === ResponsibilityStatus.COMPLETED) {
+      const completion = [...responsibility.events]
+        .reverse()
+        .find((event) => event.type === 'COMPLETED');
+      if (completion?.sourceState !== outcome) {
+        throw new ConflictException(
+          'This application-help Responsibility is already complete with a different recorded outcome',
+        );
+      }
+      return {
+        responsibility,
+        ended: true,
+        outcome,
+      };
     }
 
     let saved = await this.savedOpportunities.findOne(
@@ -166,7 +211,9 @@ export class PeopleHelpService {
 
     // A completed Responsibility must never leave screen-consent authority
     // active, so tool-level guidance is ended before the root is completed.
-    await this.guidedApplications.endSession(session.id, caller);
+    if (session.status === GuidedApplicationSessionStatus.ACTIVE) {
+      await this.guidedApplications.endSession(session.id, caller);
+    }
 
     const completed =
       await this.responsibilities.completeApplicationGuidance(
