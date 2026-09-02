@@ -15,6 +15,7 @@ const session: api.GuidedApplicationSessionDto = {
   id: 'session-1',
   conversationId: 'conversation-1',
   opportunityId: 'opportunity-1',
+  responsibilityId: null,
   opportunityTitle: 'Water assistance application',
   provider: 'Official Agency',
   applicationUrl: 'https://example.gov/apply',
