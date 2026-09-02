@@ -54,3 +54,11 @@ export class CompletePeopleApplicationHelpResponseDto {
   @ApiProperty({ enum: PEOPLE_APPLICATION_OUTCOMES })
   outcome!: PeopleApplicationOutcome;
 }
+
+export class PausePeopleApplicationHelpResponseDto {
+  @ApiProperty({ example: true })
+  paused!: true;
+
+  @ApiPropertyOptional({ type: ResponsibilityResponseDto, nullable: true })
+  responsibility!: ResponsibilityResponseDto | null;
+}
