@@ -116,10 +116,15 @@ export class KitchenBathPublicService {
         : []),
     ] as Prisma.InputJsonArray;
 
-    await this.prisma.db.wardLead.updateMany({
+    const updated = await this.prisma.db.wardLead.updateMany({
       where: { id: lead.id, organizationId: tenant.id },
       data: { qualificationSignals: signals },
     });
+    if (updated.count !== 1) {
+      throw new ConflictException(
+        'The handoff changed before its Ready Project could be confirmed. Reload before retrying.',
+      );
+    }
 
     return {
       ...handoff,
