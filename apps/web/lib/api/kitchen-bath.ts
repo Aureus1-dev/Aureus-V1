@@ -14,6 +14,18 @@ export type KitchenBathDecisionStatus =
   | 'OWNER_WITH_OTHER_DECISION_MAKERS'
   | 'AUTHORIZED_REPRESENTATIVE'
   | 'EXPLORING';
+export type KitchenBathPriority =
+  | 'LOOK_AND_FEEL'
+  | 'FUNCTION_AND_LAYOUT'
+  | 'DURABILITY'
+  | 'BUDGET_CONTROL'
+  | 'TIMING'
+  | 'ACCESSIBILITY'
+  | 'LOW_MAINTENANCE'
+  | 'RESALE_VALUE'
+  | 'ENERGY_EFFICIENCY'
+  | 'OTHER';
+
 export type KitchenBathBudgetRange =
   | 'UNDER_25000'
   | 'FROM_25000_TO_50000'
@@ -36,8 +48,73 @@ export interface KitchenBathIntake {
   decisionStatus?: KitchenBathDecisionStatus;
   budgetRange?: KitchenBathBudgetRange;
   designNeeds?: string;
+  priorities?: KitchenBathPriority[];
+  mustHaves?: string;
+  concerns?: string;
   attachments?: KitchenBathAttachmentReference[];
 }
+
+export type ReadyProjectBarrierStatus =
+  | 'CUSTOMER_STATED'
+  | 'OPEN'
+  | 'EXPERT_REQUIRED'
+  | 'BUSINESS_REQUIRED'
+  | 'NOT_ASSESSED';
+
+export interface KitchenBathReadyProject {
+  contractVersion: 'or003-ready-project-v1';
+  leadId: string;
+  vertical: 'KITCHEN_BATH';
+  readinessStatus: 'READY_FOR_EXPERT_REVIEW' | 'INCOMPLETE_SOURCE';
+  customerIntent: {
+    projectType: string | null;
+    rooms: string[];
+    scope: string | null;
+    priorities: string[];
+    mustHaves: string | null;
+    concerns: string | null;
+  };
+  constraints: {
+    projectLocation: string | null;
+    desiredTiming: string | null;
+    decisionStatus: string | null;
+    budgetRange: string | null;
+    designNeeds: string | null;
+    attachments: unknown[];
+  };
+  source: {
+    basis: 'CONSENTED_WARD_HANDOFF';
+    consentVersion: string;
+    intakeHash: string | null;
+    conversationTurns: number | null;
+    submittedAt: string;
+    retentionExpiresAt: string;
+    modelInferencesIncluded: false;
+  };
+  transactionBarriers: Array<{
+    key:
+      | 'DESIRE'
+      | 'FIT'
+      | 'PRICE'
+      | 'FUNDING'
+      | 'AVAILABILITY'
+      | 'TIMING'
+      | 'KNOWLEDGE_UNCERTAINTY'
+      | 'TRUST'
+      | 'DECISION_AUTHORITY'
+      | 'ADMINISTRATIVE_FRICTION'
+      | 'ALTERNATIVES';
+    status: ReadyProjectBarrierStatus;
+    basis: string;
+  }>;
+  expertValidationRequired: string[];
+  boundaries: string[];
+  missingRequiredSource: string[];
+}
+
+export type KitchenBathHandoffResult = PublicWardHandoff & {
+  readyProject: KitchenBathReadyProject | null;
+};
 
 export interface KitchenBathPackProfile {
   active: boolean;
@@ -64,7 +141,7 @@ export function createKitchenBathHandoff(
   conversationId: string,
   accessToken: string,
   handoff: CreatePublicWardHandoff & { kitchenBath: KitchenBathIntake },
-): Promise<PublicWardHandoff> {
+): Promise<KitchenBathHandoffResult> {
   return apiRequest(
     `${path(slug)}/conversations/${encodeURIComponent(conversationId)}/kitchen-bath-handoff`,
     {
