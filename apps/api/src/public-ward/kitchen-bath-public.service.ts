@@ -62,7 +62,37 @@ export class KitchenBathPublicService {
 
     const cleaned = this.cleanIntake(dto.kitchenBath);
     const intakeHash = this.hash(JSON.stringify(cleaned));
-    const handoff = await this.leads.submitPublicHandoff(slug, conversationId, token, dto);
+    const kitchenBathSignals = [
+      ...KitchenBathVerticalService.intakeSignals(cleaned),
+      {
+        key: 'kitchen_bath_intake_hash',
+        label: 'Remodel intake integrity',
+        value: intakeHash,
+        basis: 'System SHA-256',
+      },
+      ...(cleaned.attachments?.length
+        ? [
+            {
+              key: 'project_attachments',
+              label: 'Optional project files',
+              value: cleaned.attachments,
+              basis:
+                'Visitor supplied under handoff consent; retained with this handoff',
+            },
+          ]
+        : []),
+    ] as Prisma.InputJsonObject[];
+
+    const handoff = await this.leads.submitPublicHandoff(
+      slug,
+      conversationId,
+      token,
+      dto,
+      {
+        qualificationSignals: kitchenBathSignals,
+        fingerprintContext: `KITCHEN_BATH:${intakeHash}`,
+      },
+    );
 
     const lead = await this.prisma.db.wardLead.findFirst({
       where: { id: handoff.handoffId, organizationId: tenant.id },
@@ -78,107 +108,10 @@ export class KitchenBathPublicService {
     });
     if (!lead) throw new NotFoundException('Handoff not found');
 
-    const current = Array.isArray(lead.qualificationSignals)
-      ? (lead.qualificationSignals as Prisma.JsonArray)
-      : [];
-    const existingHash = current.find((entry) => {
-      if (!entry || Array.isArray(entry) || typeof entry !== 'object') return false;
-      return (entry as Prisma.JsonObject).key === 'kitchen_bath_intake_hash';
-    });
-    if (existingHash && !Array.isArray(existingHash) && typeof existingHash === 'object') {
-      if ((existingHash as Prisma.JsonObject).value !== intakeHash) {
-        throw new ConflictException('This conversation already has different remodel intake details');
-      }
-      return {
-        ...handoff,
-        readyProject: buildKitchenBathReadyProject(lead),
-      };
-    }
-
-    const signals = [
-      ...current,
-      ...KitchenBathVerticalService.intakeSignals(cleaned),
-      {
-        key: 'kitchen_bath_intake_hash',
-        label: 'Remodel intake integrity',
-        value: intakeHash,
-        basis: 'System SHA-256',
-      },
-      ...(cleaned.attachments?.length
-        ? [
-            {
-              key: 'project_attachments',
-              label: 'Optional project files',
-              value: cleaned.attachments,
-              basis: 'Visitor supplied under handoff consent; retained with this handoff',
-            },
-          ]
-        : []),
-    ] as Prisma.InputJsonArray;
-
-    const updated = await this.prisma.db.wardLead.updateMany({
-      where: {
-        id: lead.id,
-        organizationId: tenant.id,
-        qualificationSignals: {
-          equals: current as Prisma.InputJsonValue,
-        },
-      },
-      data: { qualificationSignals: signals },
-    });
-
-    if (updated.count !== 1) {
-      const concurrent = await this.prisma.db.wardLead.findFirst({
-        where: { id: lead.id, organizationId: tenant.id },
-        select: {
-          id: true,
-          projectLocation: true,
-          desiredTiming: true,
-          consentVersion: true,
-          submittedAt: true,
-          retentionExpiresAt: true,
-          qualificationSignals: true,
-        },
-      });
-      if (!concurrent) {
-        throw new ConflictException(
-          'The handoff changed before its Ready Project could be confirmed. Reload before retrying.',
-        );
-      }
-
-      const concurrentSignals = Array.isArray(concurrent.qualificationSignals)
-        ? (concurrent.qualificationSignals as Prisma.JsonArray)
-        : [];
-      const concurrentHash = concurrentSignals.find((entry) => {
-        if (!entry || Array.isArray(entry) || typeof entry !== 'object') return false;
-        return (entry as Prisma.JsonObject).key === 'kitchen_bath_intake_hash';
-      });
-
-      if (
-        concurrentHash &&
-        !Array.isArray(concurrentHash) &&
-        typeof concurrentHash === 'object' &&
-        (concurrentHash as Prisma.JsonObject).value === intakeHash
-      ) {
-        return {
-          ...handoff,
-          readyProject: buildKitchenBathReadyProject(concurrent),
-        };
-      }
-
-      throw new ConflictException(
-        'This conversation already has different remodel intake details',
-      );
-    }
-
     return {
       ...handoff,
-      readyProject: buildKitchenBathReadyProject({
-        ...lead,
-        qualificationSignals: signals,
-      }),
+      readyProject: buildKitchenBathReadyProject(lead),
     };
-  }
 
   private cleanIntake(intake: KitchenBathIntakeDto) {
     return {
