@@ -96,11 +96,15 @@ export class KitchenBathPublicService {
         : []),
     ] as Prisma.InputJsonObject[];
 
+    const handoffDto: CreateWardLeadDto = {
+      ...dto,
+      projectSummary: cleaned.scope,
+    };
     const handoff = await this.leads.submitPublicHandoff(
       slug,
       conversationId,
       token,
-      dto,
+      handoffDto,
       {
         qualificationSignals: kitchenBathSignals,
         fingerprintContext: `KITCHEN_BATH:${intakeHash}`,
