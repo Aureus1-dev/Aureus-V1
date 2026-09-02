@@ -80,3 +80,18 @@ ALTER TABLE "ResponsibilityEvent"
       )
     )
   );
+
+
+-- Bind OR-002 tool sessions to the exact Responsibility they serve. Nullable
+-- keeps legacy/direct See→Guide sessions valid without silently accepting a
+-- Responsibility for them.
+ALTER TABLE "GuidedApplicationSession"
+  ADD COLUMN "responsibilityId" UUID;
+
+CREATE INDEX "GuidedApplicationSession_responsibilityId_idx"
+  ON "GuidedApplicationSession"("responsibilityId");
+
+ALTER TABLE "GuidedApplicationSession"
+  ADD CONSTRAINT "GuidedApplicationSession_responsibilityId_fkey"
+  FOREIGN KEY ("responsibilityId") REFERENCES "Responsibility"("id")
+  ON DELETE SET NULL ON UPDATE CASCADE;
