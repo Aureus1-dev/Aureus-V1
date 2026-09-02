@@ -29,7 +29,7 @@ function makeProject(
     source: {
       basis: 'CONSENTED_WARD_HANDOFF',
       consentVersion: 'lead-handoff-v1',
-      intakeHash: 'a'.repeat(64),
+      intakeIntegrity: 'SYSTEM_HASH_PRESENT',
       conversationTurns: 4,
       submittedAt: '2026-09-02T00:00:00.000Z',
       retentionExpiresAt: '2026-12-01T00:00:00.000Z',
