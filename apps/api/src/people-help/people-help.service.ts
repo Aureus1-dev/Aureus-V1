@@ -225,6 +225,8 @@ export class PeopleHelpService {
       caller,
     );
 
+    if (!responsibility) return null;
+
     if (
       responsibility.kind !==
         ResponsibilityKind.OPPORTUNITY_APPLICATION_GUIDANCE ||
