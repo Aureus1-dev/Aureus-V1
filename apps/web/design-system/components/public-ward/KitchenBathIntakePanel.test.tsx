@@ -27,7 +27,6 @@ const mockWard = getPublicWard as jest.MockedFunction<typeof getPublicWard>;
 
 const readyProject = {
   contractVersion: 'or003-ready-project-v1' as const,
-  leadId: 'lead-1',
   vertical: 'KITCHEN_BATH' as const,
   readinessStatus: 'READY_FOR_EXPERT_REVIEW' as const,
   customerIntent: {
@@ -48,25 +47,8 @@ const readyProject = {
   },
   source: {
     basis: 'CONSENTED_WARD_HANDOFF' as const,
-    consentVersion: 'lead-handoff-v1',
-    intakeIntegrity: 'SYSTEM_HASH_PRESENT' as const,
-    conversationTurns: 2,
-    submittedAt: '2026-09-02T00:00:00.000Z',
-    retentionExpiresAt: '2026-12-01T00:00:00.000Z',
     modelInferencesIncluded: false as const,
   },
-  transactionBarriers: [
-    {
-      key: 'PRICE' as const,
-      status: 'BUSINESS_REQUIRED' as const,
-      basis: 'This intake does not establish final project price.',
-    },
-    {
-      key: 'FIT' as const,
-      status: 'EXPERT_REQUIRED' as const,
-      basis: 'Physical measurements require expert review.',
-    },
-  ],
   expertValidationRequired: ['Confirm physical measurements and site conditions.'],
   boundaries: ['This is not a quote or appointment.'],
   missingRequiredSource: [],
