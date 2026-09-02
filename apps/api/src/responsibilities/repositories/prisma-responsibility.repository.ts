@@ -133,6 +133,23 @@ export class PrismaResponsibilityRepository implements IResponsibilityRepository
     }
   }
 
+  findLatestPersonalByConversationKind(
+    principalUserId: string,
+    conversationId: string,
+    kind: ResponsibilityKind,
+  ): Promise<ResponsibilityWithEvents | null> {
+    return this.prisma.db.responsibility.findFirst({
+      where: {
+        contextType: ResponsibilityContextType.PERSONAL,
+        principalUserId,
+        originConversationId: conversationId,
+        kind,
+      },
+      include: EVENT_INCLUDE,
+      orderBy: { createdAt: 'desc' },
+    });
+  }
+
   findPersonalById(
     id: string,
     principalUserId: string,
