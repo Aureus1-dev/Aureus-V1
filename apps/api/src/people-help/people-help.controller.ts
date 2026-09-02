@@ -22,6 +22,7 @@ import {
   ActivePeopleApplicationHelpResponseDto,
   CompletePeopleApplicationHelpResponseDto,
   PeopleApplicationHelpResponseDto,
+  PausePeopleApplicationHelpResponseDto,
   RecordPeopleApplicationOutcomeDto,
   StartPeopleApplicationHelpDto,
 } from './people-help.dto';
@@ -77,7 +78,7 @@ export class PeopleHelpController {
   pause(
     @Param('sessionId') sessionId: string,
     @CurrentUser() caller: AuthenticatedUser,
-  ): Promise<{ paused: true; responsibilityId: string | null }> {
+  ): Promise<PausePeopleApplicationHelpResponseDto> {
     return this.peopleHelp.pause(sessionId, caller);
   }
 
