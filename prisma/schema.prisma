@@ -87,6 +87,7 @@ enum ResponsibilityContextType {
 
 enum ResponsibilityKind {
   OPPORTUNITY_DECISION
+  OPPORTUNITY_APPLICATION_GUIDANCE
 }
 
 enum ResponsibilityStatus {
@@ -361,7 +362,8 @@ model Responsibility {
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt
 
-  events ResponsibilityEvent[]
+  events                    ResponsibilityEvent[]
+  guidedApplicationSessions GuidedApplicationSession[]
 
   @@index([contextType, principalUserId, status, updatedAt])
   @@index([principalOrganizationId, status, updatedAt])
@@ -2446,6 +2448,11 @@ model GuidedApplicationSession {
   opportunityId  String                         @db.Uuid
   opportunity    Opportunity                    @relation(fields: [opportunityId], references: [id], onDelete: Cascade)
 
+  // OR-002 binds a People-help guide to the exact Responsibility it serves.
+  // Null preserves pre-OR-002 / direct See→Guide sessions as legacy guidance.
+  responsibilityId String?         @db.Uuid
+  responsibility   Responsibility? @relation(fields: [responsibilityId], references: [id], onDelete: SetNull)
+
   // Snapshot of the verified canonical application destination selected at
   // session start. Screenshots and extracted field values are deliberately
   // never stored in this model.
@@ -2463,6 +2470,7 @@ model GuidedApplicationSession {
   @@index([userId, status])
   @@index([conversationId, status])
   @@index([opportunityId])
+  @@index([responsibilityId])
 }
 
 model AiMessage {

@@ -18,11 +18,12 @@ import {
 } from '../../../lib/api/needs';
 import type { PlanItemDto } from '../../../lib/api/plan';
 import type { OpportunityActionDto } from '../../../lib/api/conversations';
+import { type GuidedApplicationSessionDto } from '../../../lib/api/application-guide';
 import {
-  getActiveGuidedApplicationSession,
-  startGuidedApplicationSession,
-  type GuidedApplicationSessionDto,
-} from '../../../lib/api/application-guide';
+  getActivePeopleApplicationHelp,
+  startPeopleApplicationHelp,
+  type PeopleResponsibilityDto,
+} from '../../../lib/api/people-help';
 import { planItemKey } from '../plan/PlanCard';
 import { EmptyState } from '../EmptyState/EmptyState';
 import { ErrorState } from '../ErrorState/ErrorState';
@@ -31,6 +32,7 @@ import { VoiceSurface } from '../voice';
 import { ConversationHistory } from './ConversationHistory';
 import { ConversationTimeline } from './ConversationTimeline';
 import { ApplicationGuidePanel } from './ApplicationGuidePanel';
+import { ResponsibilityProgressCard } from './ResponsibilityProgressCard';
 import { MessageComposer } from './MessageComposer';
 import { conversationErrorCopy } from './conversation-error-copy';
 import { buildVirtualTimeline, type BuiltPlan } from './build-virtual-timeline';
@@ -78,6 +80,8 @@ export function ConversationSurface({ initialMode = 'text' }: ConversationSurfac
   const [mode, setMode] = useState<'text' | 'voice'>(initialMode);
   const [applicationGuideSession, setApplicationGuideSession] =
     useState<GuidedApplicationSessionDto | null>(null);
+  const [applicationHelpResponsibility, setApplicationHelpResponsibility] =
+    useState<PeopleResponsibilityDto | null>(null);
   const [applicationGuideError, setApplicationGuideError] = useState<string | null>(null);
   const [applicationGuideStarting, setApplicationGuideStarting] = useState(false);
 
@@ -125,19 +129,24 @@ export function ConversationSurface({ initialMode = 'text' }: ConversationSurfac
   useEffect(() => {
     if (!session.accessToken || !state.activeConversationId) {
       setApplicationGuideSession(null);
+      setApplicationHelpResponsibility(null);
       return;
     }
 
     let cancelled = false;
-    void getActiveGuidedApplicationSession(
+    void getActivePeopleApplicationHelp(
       session.accessToken,
       state.activeConversationId,
     )
       .then((active) => {
-        if (!cancelled) setApplicationGuideSession(active);
+        if (cancelled) return;
+        setApplicationGuideSession(active?.session ?? null);
+        setApplicationHelpResponsibility(active?.responsibility ?? null);
       })
       .catch(() => {
-        if (!cancelled) setApplicationGuideSession(null);
+        if (cancelled) return;
+        setApplicationGuideSession(null);
+        setApplicationHelpResponsibility(null);
       });
 
     return () => {
@@ -191,24 +200,31 @@ export function ConversationSurface({ initialMode = 'text' }: ConversationSurfac
     : [];
   const planSubjectsById = useRecommendationSubjects(planRecommendations);
 
-  const startApplicationGuide = async (action: OpportunityActionDto) => {
+  const startApplicationGuideForOpportunity = async (
+    opportunityId: string,
+  ) => {
     if (!session.accessToken || !state.activeConversationId || applicationGuideStarting) return;
     setApplicationGuideStarting(true);
     setApplicationGuideError(null);
     try {
-      const guided = await startGuidedApplicationSession(
+      const help = await startPeopleApplicationHelp(
         session.accessToken,
         state.activeConversationId,
-        action.opportunityId,
+        opportunityId,
       );
-      setApplicationGuideSession(guided);
+      setApplicationGuideSession(help.session);
+      setApplicationHelpResponsibility(help.responsibility);
     } catch {
       setApplicationGuideError(
-        'Aureus could not start screen guidance for this application. The verified application link still works on its own.',
+        'Aureus could not start or resume application help. The Responsibility remains visible if Aureus already accepted it.',
       );
     } finally {
       setApplicationGuideStarting(false);
     }
+  };
+
+  const startApplicationGuide = async (action: OpportunityActionDto) => {
+    await startApplicationGuideForOpportunity(action.opportunityId);
   };
 
   const decidePlanItem = async (item: PlanItemDto, accepted: boolean) => {
@@ -323,11 +339,30 @@ export function ConversationSurface({ initialMode = 'text' }: ConversationSurfac
             <p className={styles.guideError} role="alert">{applicationGuideError}</p>
           ) : null}
 
+          {applicationHelpResponsibility ? (
+            <ResponsibilityProgressCard
+              responsibility={applicationHelpResponsibility}
+              busy={applicationGuideStarting}
+              onResume={
+                !applicationGuideSession &&
+                applicationHelpResponsibility.originOpportunityId &&
+                applicationHelpResponsibility.status !== 'COMPLETED'
+                  ? () =>
+                      void startApplicationGuideForOpportunity(
+                        applicationHelpResponsibility.originOpportunityId!,
+                      )
+                  : undefined
+              }
+            />
+          ) : null}
+
           {applicationGuideSession && session.accessToken ? (
             <ApplicationGuidePanel
               accessToken={session.accessToken}
               session={applicationGuideSession}
+              responsibility={applicationHelpResponsibility}
               onSessionChange={setApplicationGuideSession}
+              onResponsibilityChange={setApplicationHelpResponsibility}
               onEnded={() => {
                 setApplicationGuideSession(null);
                 setApplicationGuideError(null);

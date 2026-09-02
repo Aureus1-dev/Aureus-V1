@@ -13,6 +13,7 @@ export interface CreateGuidedApplicationSessionInput {
   userId: string;
   conversationId: string;
   opportunityId: string;
+  responsibilityId?: string | null;
   applicationUrl: string;
 }
 
@@ -27,6 +28,11 @@ export interface IGuidedApplicationRepository {
   ): Promise<GuidedApplicationSessionWithOpportunity | null>;
 
   findOwnedActiveById(
+    id: string,
+    userId: string,
+  ): Promise<GuidedApplicationSession | null>;
+
+  findOwnedById(
     id: string,
     userId: string,
   ): Promise<GuidedApplicationSession | null>;

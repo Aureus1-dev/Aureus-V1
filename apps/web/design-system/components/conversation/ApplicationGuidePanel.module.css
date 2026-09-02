@@ -163,3 +163,25 @@
     justify-content: center;
   }
 }
+
+
+.outcomeActions {
+  display: grid;
+  gap: 0.65rem;
+  padding: 0.85rem;
+  border-radius: 0.85rem;
+  background: var(--surface-subtle, rgba(255, 255, 255, 0.035));
+}
+
+.outcomeNote {
+  margin: 0;
+  font-size: 0.88rem;
+  line-height: 1.5;
+  opacity: 0.8;
+}
+
+.outcomeButtons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+}

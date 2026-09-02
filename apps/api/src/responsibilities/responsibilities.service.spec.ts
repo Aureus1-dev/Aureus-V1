@@ -60,11 +60,13 @@ function responsibility(
 
 describe('ResponsibilitiesService', () => {
   const repo: jest.Mocked<IResponsibilityRepository> = {
-    findOpenOpportunityDecision: jest.fn(),
+    findOpenOpportunityResponsibility: jest.fn(),
+    findLatestPersonalByConversationKind: jest.fn(),
     createAccepted: jest.fn(),
     findPersonalById: jest.fn(),
     findPersonalByUser: jest.fn(),
     markWaitingOnUser: jest.fn(),
+    resumeFromWaitingOnUser: jest.fn(),
     completeWithEvidence: jest.fn(),
   };
 
@@ -77,6 +79,9 @@ describe('ResponsibilitiesService', () => {
   const savedOpportunities = {
     findOne: jest.fn(),
   };
+  const opportunityLinks = {
+    toRegistryEntry: jest.fn(),
+  };
 
   let service: ResponsibilitiesService;
 
@@ -87,6 +92,7 @@ describe('ResponsibilitiesService', () => {
       conversations as never,
       opportunities as never,
       savedOpportunities as never,
+      opportunityLinks as never,
     );
 
     conversations.findById.mockResolvedValue({
@@ -101,7 +107,11 @@ describe('ResponsibilitiesService', () => {
       deletedAt: null,
       deadline: null,
     });
-    repo.findOpenOpportunityDecision.mockResolvedValue(null);
+    repo.findOpenOpportunityResponsibility.mockResolvedValue(null);
+    opportunityLinks.toRegistryEntry.mockReturnValue({
+      status: 'verified',
+      canonicalUrl: 'https://benefits.example.gov/apply',
+    });
   });
 
   it('accepts only server-owned PERSONAL/GUIDANCE_ONLY policy from a member-owned conversation and verified opportunity', async () => {
@@ -118,9 +128,13 @@ describe('ResponsibilitiesService', () => {
 
     expect(repo.createAccepted).toHaveBeenCalledWith({
       principalUserId: caller.id,
+      kind: ResponsibilityKind.OPPORTUNITY_DECISION,
       objective: 'Decide the next step for Verified program',
       originConversationId: '22222222-2222-4222-8222-222222222222',
       originOpportunityId: '33333333-3333-4333-8333-333333333333',
+      successCriteria: expect.objectContaining({
+        type: 'OPPORTUNITY_DECISION_RECORDED',
+      }),
     });
     expect(result.contextType).toBe(ResponsibilityContextType.PERSONAL);
     expect(result.authorityClass).toBe(ResponsibilityAuthorityClass.GUIDANCE_ONLY);
@@ -171,7 +185,7 @@ describe('ResponsibilitiesService', () => {
 
   it('returns an existing open decision responsibility instead of duplicating the commitment', async () => {
     const existing = responsibility();
-    repo.findOpenOpportunityDecision.mockResolvedValue(existing);
+    repo.findOpenOpportunityResponsibility.mockResolvedValue(existing);
 
     const result = await service.accept(
       {
@@ -183,6 +197,130 @@ describe('ResponsibilitiesService', () => {
 
     expect(result.id).toBe(existing.id);
     expect(repo.createAccepted).not.toHaveBeenCalled();
+  });
+
+  it('accepts application guidance as a separate PERSONAL/GUIDANCE_ONLY Responsibility only for a verified HTTPS destination', async () => {
+    const created = responsibility({
+      kind: ResponsibilityKind.OPPORTUNITY_APPLICATION_GUIDANCE,
+      objective: 'Help me work through the verified application for Verified program',
+    });
+    repo.createAccepted.mockResolvedValue(created);
+
+    const result = await service.acceptApplicationGuidance(
+      {
+        conversationId: '22222222-2222-4222-8222-222222222222',
+        opportunityId: '33333333-3333-4333-8333-333333333333',
+      },
+      caller,
+    );
+
+    expect(repo.createAccepted).toHaveBeenCalledWith(
+      expect.objectContaining({
+        principalUserId: caller.id,
+        kind: ResponsibilityKind.OPPORTUNITY_APPLICATION_GUIDANCE,
+        originConversationId: '22222222-2222-4222-8222-222222222222',
+        originOpportunityId: '33333333-3333-4333-8333-333333333333',
+        successCriteria: expect.objectContaining({
+          type: 'APPLICATION_GUIDANCE_MEMBER_OUTCOME_RECORDED',
+        }),
+      }),
+    );
+    expect(result.kind).toBe(
+      ResponsibilityKind.OPPORTUNITY_APPLICATION_GUIDANCE,
+    );
+  });
+
+  it('refuses application guidance when the canonical destination is not verified HTTPS', async () => {
+    opportunityLinks.toRegistryEntry.mockReturnValue({
+      status: 'verified',
+      canonicalUrl: 'http://benefits.example.gov/apply',
+    });
+
+    await expect(
+      service.acceptApplicationGuidance(
+        {
+          conversationId: '22222222-2222-4222-8222-222222222222',
+          opportunityId: '33333333-3333-4333-8333-333333333333',
+        },
+        caller,
+      ),
+    ).rejects.toBeInstanceOf(ConflictException);
+
+    expect(repo.createAccepted).not.toHaveBeenCalled();
+  });
+
+  it('resumes the same open application-guidance Responsibility instead of creating a second commitment', async () => {
+    const waiting = responsibility({
+      kind: ResponsibilityKind.OPPORTUNITY_APPLICATION_GUIDANCE,
+      status: ResponsibilityStatus.WAITING_ON_USER,
+    });
+    const resumed = responsibility({
+      kind: ResponsibilityKind.OPPORTUNITY_APPLICATION_GUIDANCE,
+      status: ResponsibilityStatus.ACTIVE,
+    });
+    repo.findOpenOpportunityResponsibility.mockResolvedValue(waiting);
+    repo.resumeFromWaitingOnUser.mockResolvedValue(resumed);
+
+    const result = await service.acceptApplicationGuidance(
+      {
+        conversationId: '22222222-2222-4222-8222-222222222222',
+        opportunityId: '33333333-3333-4333-8333-333333333333',
+      },
+      caller,
+    );
+
+    expect(repo.resumeFromWaitingOnUser).toHaveBeenCalledWith(
+      waiting.id,
+      caller.id,
+    );
+    expect(repo.createAccepted).not.toHaveBeenCalled();
+    expect(result.status).toBe(ResponsibilityStatus.ACTIVE);
+  });
+
+  it('completes application guidance only from explicit terminal member-reported opportunity status', async () => {
+    const current = responsibility({
+      kind: ResponsibilityKind.OPPORTUNITY_APPLICATION_GUIDANCE,
+    });
+    const completed = responsibility({
+      kind: ResponsibilityKind.OPPORTUNITY_APPLICATION_GUIDANCE,
+      status: ResponsibilityStatus.COMPLETED,
+      completedAt: NOW,
+    });
+    repo.findPersonalById.mockResolvedValue(current);
+    repo.completeWithEvidence.mockResolvedValue(completed);
+
+    const result = await service.completeApplicationGuidance(
+      current.id,
+      caller,
+      'saved-application-1',
+      TrackingStatus.APPLIED,
+    );
+
+    expect(repo.completeWithEvidence).toHaveBeenCalledWith(
+      current.id,
+      caller.id,
+      {
+        sourceSystem: 'OPPORTUNITY_ENGINE',
+        sourceRecordType: 'SavedOpportunity',
+        sourceRecordId: 'saved-application-1',
+        sourceState: TrackingStatus.APPLIED,
+        evidenceLevel: ResponsibilityEvidenceLevel.REPORTED,
+      },
+    );
+    expect(result.status).toBe(ResponsibilityStatus.COMPLETED);
+  });
+
+  it('does not accept APPLYING as completion evidence for application guidance', async () => {
+    await expect(
+      service.completeApplicationGuidance(
+        'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+        caller,
+        'saved-application-1',
+        TrackingStatus.APPLYING,
+      ),
+    ).rejects.toBeInstanceOf(ConflictException);
+
+    expect(repo.completeWithEvidence).not.toHaveBeenCalled();
   });
 
   it('moves ACTIVE work to WAITING_ON_USER when no concrete saved-opportunity decision exists', async () => {

@@ -270,6 +270,22 @@ export class GuidedApplicationService {
     dto: StartGuidedApplicationSessionDto,
     caller: AuthenticatedUser,
   ): Promise<GuidedApplicationSessionResponseDto> {
+    return this.startSessionInternal(dto, caller, null);
+  }
+
+  async startSessionForResponsibility(
+    dto: StartGuidedApplicationSessionDto,
+    caller: AuthenticatedUser,
+    responsibilityId: string,
+  ): Promise<GuidedApplicationSessionResponseDto> {
+    return this.startSessionInternal(dto, caller, responsibilityId);
+  }
+
+  private async startSessionInternal(
+    dto: StartGuidedApplicationSessionDto,
+    caller: AuthenticatedUser,
+    responsibilityId: string | null,
+  ): Promise<GuidedApplicationSessionResponseDto> {
     const conversation = await this.conversations.findById(dto.conversationId);
     if (!conversation || conversation.userId !== caller.id) {
       throw new NotFoundException('Conversation not found');
@@ -299,11 +315,18 @@ export class GuidedApplicationService {
       dto.conversationId,
     );
 
-    if (
+    const sameToolTarget =
       current?.opportunityId === dto.opportunityId &&
-      current.applicationUrl === applicationUrl
-    ) {
-      return this.toResponse(current, opportunity.title, opportunity.provider);
+      current.applicationUrl === applicationUrl;
+
+    // Direct legacy See→Guide may keep an already-active same-target session.
+    // OR-002 People help may only reuse the session when it is bound to the
+    // exact Responsibility being resumed.
+    const bindingMatches =
+      responsibilityId === null || current?.responsibilityId === responsibilityId;
+
+    if (sameToolTarget && bindingMatches) {
+      return this.toResponse(current!, opportunity.title, opportunity.provider);
     }
 
     if (current) {
@@ -314,6 +337,7 @@ export class GuidedApplicationService {
       userId: caller.id,
       conversationId: dto.conversationId,
       opportunityId: dto.opportunityId,
+      responsibilityId,
       applicationUrl,
     });
 
@@ -478,6 +502,22 @@ export class GuidedApplicationService {
     await this.sessions.end(session.id, caller.id, now);
   }
 
+  /**
+   * Internal coordination hook for OR-002. This deliberately exposes only the
+   * already-owned active session entity after the same self-scope check used
+   * by consent/analyze/end. It grants no new screen, data, or action authority.
+   */
+  async getOwnedForCoordination(
+    sessionId: string,
+    caller: AuthenticatedUser,
+  ): Promise<GuidedApplicationSession> {
+    const session = await this.sessions.findOwnedById(sessionId, caller.id);
+    if (!session) {
+      throw new NotFoundException('Application guidance session not found');
+    }
+    return session;
+  }
+
   private async getOwnedActive(
     sessionId: string,
     userId: string,
@@ -496,6 +536,7 @@ export class GuidedApplicationService {
       id: session.id,
       conversationId: session.conversationId,
       opportunityId: session.opportunityId,
+      responsibilityId: session.responsibilityId,
       opportunityTitle,
       provider,
       applicationUrl: session.applicationUrl,

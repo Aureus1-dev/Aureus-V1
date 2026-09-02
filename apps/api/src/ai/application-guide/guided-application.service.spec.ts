@@ -37,6 +37,7 @@ const sessions = {
   create: jest.fn(),
   findActiveByConversation: jest.fn(),
   findOwnedActiveById: jest.fn(),
+  findOwnedById: jest.fn(),
   end: jest.fn(),
   setConsent: jest.fn(),
   markAnalyzed: jest.fn(),
@@ -59,6 +60,7 @@ const activeSession = {
   userId: USER.id,
   conversationId,
   opportunityId,
+  responsibilityId: null,
   applicationUrl: 'https://benefits.example.gov/apply',
   status: GuidedApplicationSessionStatus.ACTIVE,
   screenCaptureConsentGrantedAt: new Date(),
@@ -193,6 +195,7 @@ describe('GuidedApplicationService', () => {
       userId: USER.id,
       conversationId,
       opportunityId,
+      responsibilityId: null,
       applicationUrl: activeSession.applicationUrl,
     });
     expect(result.applicationUrl).toBe(activeSession.applicationUrl);

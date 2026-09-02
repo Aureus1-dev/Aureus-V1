@@ -74,6 +74,7 @@ export class GuidedApplicationSessionResponseDto {
   @ApiProperty() id: string;
   @ApiProperty() conversationId: string;
   @ApiProperty() opportunityId: string;
+  @ApiProperty({ nullable: true }) responsibilityId: string | null;
   @ApiProperty() opportunityTitle: string;
   @ApiProperty() provider: string;
   @ApiProperty() applicationUrl: string;

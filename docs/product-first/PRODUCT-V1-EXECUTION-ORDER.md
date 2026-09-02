@@ -249,7 +249,7 @@ Acceptance:
 
 #### OR-001 — Responsibility Core
 
-**Implementation:** active on `feat/or-001-responsibility-core` from V1 main `2c545de9e25b3c740db0fec6183f6ef9efbf541b`.  
+**Implementation:** merged through PR #110. Exact reviewed content head `e5125181a06e6bb9bfecc5d2c15c5eb4dc57a7fc`; resulting main `29e402941cece696040dbbf6ae675b308a8291db`. Post-merge CI `33579400562` SUCCESS.  
 **Work order:** `docs/work-orders/OR-001-Responsibility-Core.md`.
 
 Deliver the smallest reusable responsibility contract and completion state needed by both People and Business, reusing existing persistence where possible. The first proof is intentionally PERSONAL-only and uses an `OPPORTUNITY_DECISION` Responsibility so the cross-domain root is proven without prematurely implementing Business/shared contexts.
@@ -266,6 +266,9 @@ Acceptance must prove:
 - existing journeys/tasks/conversations continue to work.
 
 #### OR-002 — People help-to-completion
+
+**Implementation:** active on `feat/or-002-people-help-completion` from V1 main `29e402941cece696040dbbf6ae675b308a8291db`.  
+**Work order:** `docs/work-orders/OR-002-People-Help-to-Completion.md`.
 
 Cross-context continuity is governed by `OR-CCT-001 — Completion Case Transition Gate`. OR-001 does not implement this boundary. Any Business/shared → Personal/private transfer introduced in OR-002 or later must satisfy that gate before merge.
 

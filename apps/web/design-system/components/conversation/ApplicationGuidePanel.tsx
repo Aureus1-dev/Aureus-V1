@@ -8,6 +8,11 @@ import {
   type GuidedApplicationAnalysisDto,
   type GuidedApplicationSessionDto,
 } from '../../../lib/api/application-guide';
+import {
+  completePeopleApplicationHelp,
+  pausePeopleApplicationHelp,
+  type PeopleResponsibilityDto,
+} from '../../../lib/api/people-help';
 import { Button } from '../Button/Button';
 import styles from './ApplicationGuidePanel.module.css';
 
@@ -27,7 +32,9 @@ interface CapturedFrame {
 export interface ApplicationGuidePanelProps {
   accessToken: string;
   session: GuidedApplicationSessionDto;
+  responsibility: PeopleResponsibilityDto | null;
   onSessionChange: (session: GuidedApplicationSessionDto) => void;
+  onResponsibilityChange: (responsibility: PeopleResponsibilityDto | null) => void;
   onEnded: () => void;
 }
 
@@ -150,7 +157,9 @@ async function captureUploadedImage(file: File): Promise<CapturedFrame> {
 export function ApplicationGuidePanel({
   accessToken,
   session,
+  responsibility,
   onSessionChange,
+  onResponsibilityChange,
   onEnded,
 }: ApplicationGuidePanelProps) {
   const [stream, setStream] = useState<MediaStream | null>(null);
@@ -345,10 +354,43 @@ export function ApplicationGuidePanel({
     streamRef.current = null;
     setStream(null);
     try {
-      await endGuidedApplicationSession(accessToken, session.id);
+      if (responsibility) {
+        const paused = await pausePeopleApplicationHelp(accessToken, session.id);
+        onResponsibilityChange(paused.responsibility);
+      } else {
+        await endGuidedApplicationSession(accessToken, session.id);
+      }
       onEnded();
     } catch {
-      setError('The local share is stopped, but Aureus could not close the guidance session.');
+      setError(
+        'The local share is stopped, but Aureus could not finish pausing this guidance session.',
+      );
+    } finally {
+      revocationInFlightRef.current = false;
+      setBusy(false);
+    }
+  }
+
+  async function recordOutcome(outcome: 'APPLIED' | 'NOT_INTERESTED') {
+    if (!responsibility) return;
+    setBusy(true);
+    setError(null);
+    revocationInFlightRef.current = true;
+    stopStream(streamRef.current);
+    streamRef.current = null;
+    setStream(null);
+    try {
+      const completed = await completePeopleApplicationHelp(
+        accessToken,
+        session.id,
+        outcome,
+      );
+      onResponsibilityChange(completed.responsibility);
+      onEnded();
+    } catch {
+      setError(
+        'Aureus could not record that outcome. Nothing will be marked complete until the server accepts your explicit update.',
+      );
     } finally {
       revocationInFlightRef.current = false;
       setBusy(false);
@@ -364,7 +406,7 @@ export function ApplicationGuidePanel({
           <p className={styles.provider}>{session.provider}</p>
         </div>
         <Button type="button" variant="secondary" disabled={busy} onClick={() => void endGuide()}>
-          End guide
+          {responsibility ? 'Pause for now' : 'End guide'}
         </Button>
       </div>
 
@@ -381,6 +423,32 @@ export function ApplicationGuidePanel({
       >
         Open verified application
       </a>
+
+      {responsibility ? (
+        <div className={styles.outcomeActions}>
+          <p className={styles.outcomeNote}>
+            When it is true, tell Aureus what you did. This is recorded as
+            reported by you — not as third-party approval or award.
+          </p>
+          <div className={styles.outcomeButtons}>
+            <Button
+              type="button"
+              disabled={busy}
+              onClick={() => void recordOutcome('APPLIED')}
+            >
+              I submitted / applied
+            </Button>
+            <Button
+              type="button"
+              variant="secondary"
+              disabled={busy}
+              onClick={() => void recordOutcome('NOT_INTERESTED')}
+            >
+              I&apos;m not continuing
+            </Button>
+          </div>
+        </div>
+      ) : null}
 
       <label className={styles.consent}>
         <input

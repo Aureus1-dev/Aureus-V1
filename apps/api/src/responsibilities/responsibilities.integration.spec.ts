@@ -57,12 +57,16 @@ describe('Responsibility Core — Prisma integration', () => {
 
     const first = await repo.createAccepted({
       principalUserId: userId,
+      kind: ResponsibilityKind.OPPORTUNITY_DECISION,
+      successCriteria: { type: 'OPPORTUNITY_DECISION_RECORDED' },
       objective: 'Decide the next step for the integration opportunity',
       originConversationId: conversationId,
       originOpportunityId: opportunityId,
     });
     const second = await repo.createAccepted({
       principalUserId: userId,
+      kind: ResponsibilityKind.OPPORTUNITY_DECISION,
+      successCriteria: { type: 'OPPORTUNITY_DECISION_RECORDED' },
       objective: 'A duplicate caller cannot create a second open commitment',
       originConversationId: conversationId,
       originOpportunityId: opportunityId,
@@ -83,6 +87,8 @@ describe('Responsibility Core — Prisma integration', () => {
   it('records USER_INPUT_REQUIRED once and then completes once with referenced reported evidence', async () => {
     const created = await repo.createAccepted({
       principalUserId: userId,
+      kind: ResponsibilityKind.OPPORTUNITY_DECISION,
+      successCriteria: { type: 'OPPORTUNITY_DECISION_RECORDED' },
       objective: 'Decide the next step for another integration opportunity',
       originConversationId: randomUUID(),
       originOpportunityId: randomUUID(),
@@ -143,6 +149,8 @@ describe('Responsibility Core — Prisma integration', () => {
   it('hides a personal Responsibility from another principal at the repository boundary', async () => {
     const created = await repo.createAccepted({
       principalUserId: userId,
+      kind: ResponsibilityKind.OPPORTUNITY_DECISION,
+      successCriteria: { type: 'OPPORTUNITY_DECISION_RECORDED' },
       objective: 'Private personal responsibility',
       originConversationId: randomUUID(),
       originOpportunityId: randomUUID(),
@@ -174,12 +182,64 @@ describe('Responsibility Core — Prisma integration', () => {
     ).rejects.toThrow();
   });
 
+  it('resumes one application-help Responsibility with exactly one STATE_CHANGED event', async () => {
+    const created = await repo.createAccepted({
+      principalUserId: userId,
+      kind: ResponsibilityKind.OPPORTUNITY_APPLICATION_GUIDANCE,
+      successCriteria: {
+        type: 'APPLICATION_GUIDANCE_MEMBER_OUTCOME_RECORDED',
+      },
+      objective: 'Help me work through the verified application',
+      originConversationId: randomUUID(),
+      originOpportunityId: randomUUID(),
+    });
+
+    const waiting = await repo.markWaitingOnUser(created.id, userId);
+    const resumed = await repo.resumeFromWaitingOnUser(created.id, userId);
+    const resumedAgain = await repo.resumeFromWaitingOnUser(created.id, userId);
+
+    expect(waiting.status).toBe(ResponsibilityStatus.WAITING_ON_USER);
+    expect(resumed.status).toBe(ResponsibilityStatus.ACTIVE);
+    expect(resumedAgain.status).toBe(ResponsibilityStatus.ACTIVE);
+    expect(
+      resumedAgain.events.filter(
+        (event) => event.type === ResponsibilityEventType.STATE_CHANGED,
+      ),
+    ).toHaveLength(1);
+  });
+
+  it('rejects BUSINESS_TENANT application guidance at the database boundary', async () => {
+    await expect(
+      prisma.db.responsibility.create({
+        data: {
+          kind: ResponsibilityKind.OPPORTUNITY_APPLICATION_GUIDANCE,
+          objective: 'Cross-context application guidance must fail',
+          status: ResponsibilityStatus.ACTIVE,
+          contextType: ResponsibilityContextType.BUSINESS_TENANT,
+          principalUserId: null,
+          principalOrganizationId: organizationId,
+          originConversationId: randomUUID(),
+          originOpportunityId: randomUUID(),
+          successCriteria: {
+            type: 'APPLICATION_GUIDANCE_MEMBER_OUTCOME_RECORDED',
+          },
+          authorityClass: ResponsibilityAuthorityClass.GUIDANCE_ONLY,
+          authorityPolicyVersion: 'responsibility-guidance-v1',
+          privacyScope: ResponsibilityPrivacyScope.BUSINESS_PRIVATE,
+          privacyPolicyVersion: 'business-private-v1',
+        },
+      }),
+    ).rejects.toThrow();
+  });
+
   it('cascades personal Responsibility/event state when the owning User is deleted', async () => {
     const ephemeral = await prisma.db.user.create({
       data: { email: 'cascade-' + marker + '@example.test' },
     });
     const created = await repo.createAccepted({
       principalUserId: ephemeral.id,
+      kind: ResponsibilityKind.OPPORTUNITY_DECISION,
+      successCriteria: { type: 'OPPORTUNITY_DECISION_RECORDED' },
       objective: 'Cascade lifecycle proof',
       originConversationId: randomUUID(),
       originOpportunityId: randomUUID(),
