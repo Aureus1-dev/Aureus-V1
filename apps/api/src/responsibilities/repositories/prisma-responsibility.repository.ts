@@ -236,7 +236,8 @@ export class PrismaResponsibilityRepository implements IResponsibilityRepository
       if (!current) throw new NotFoundException('Responsibility not found');
       if (current.status === ResponsibilityStatus.COMPLETED) return current;
 
-      const completedAt = new Date();
+      const evidencedAt = new Date();
+      const completedAt = new Date(evidencedAt.getTime() + 1);
       const { count } = await tx.responsibility.updateMany({
         where: {
           id,
@@ -265,6 +266,7 @@ export class PrismaResponsibilityRepository implements IResponsibilityRepository
               actorUserId: null,
               fromStatus: null,
               toStatus: null,
+              occurredAt: evidencedAt,
               ...evidence,
             },
             {
@@ -274,6 +276,7 @@ export class PrismaResponsibilityRepository implements IResponsibilityRepository
               actorUserId: null,
               fromStatus: current.status,
               toStatus: ResponsibilityStatus.COMPLETED,
+              occurredAt: completedAt,
               ...evidence,
             },
           ],
