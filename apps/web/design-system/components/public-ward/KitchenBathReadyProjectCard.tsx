@@ -78,6 +78,12 @@ export function KitchenBathReadyProjectCard({
         </span>
       </header>
 
+      <p className={styles.sourceNote}>
+        {audience === 'customer'
+          ? 'This project view is built from what you shared in this consented handoff. Aureus did not add model-inferred project facts.'
+          : 'Evidence basis: consented customer handoff plus system-recorded handoff metadata. No model-inferred project facts are admitted to this Ready Project.'}
+      </p>
+
       <div className={styles.summaryGrid}>
         <div>
           <span>Project</span>
@@ -161,6 +167,17 @@ export function KitchenBathReadyProjectCard({
           ))}
         </ul>
       </div>
+
+      {audience === 'customer' ? (
+        <div className={styles.section}>
+          <h4>What the business has now</h4>
+          <p>
+            The business received this structured project context and the Ward
+            conversation you consented to share, so its expert can start from
+            what you already told Aureus rather than making you repeat it.
+          </p>
+        </div>
+      ) : null}
 
       <div className={styles.boundary}>
         <strong>This is not a quote or appointment.</strong>
