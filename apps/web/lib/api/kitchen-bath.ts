@@ -61,9 +61,8 @@ export type ReadyProjectBarrierStatus =
   | 'BUSINESS_REQUIRED'
   | 'NOT_ASSESSED';
 
-export interface KitchenBathReadyProject {
+export interface KitchenBathCustomerReadyProject {
   contractVersion: 'or003-ready-project-v1';
-  leadId: string;
   vertical: 'KITCHEN_BATH';
   readinessStatus: 'READY_FOR_EXPERT_REVIEW' | 'INCOMPLETE_SOURCE';
   customerIntent: {
@@ -88,12 +87,22 @@ export interface KitchenBathReadyProject {
   };
   source: {
     basis: 'CONSENTED_WARD_HANDOFF';
+    modelInferencesIncluded: false;
+  };
+  expertValidationRequired: string[];
+  boundaries: string[];
+  missingRequiredSource: string[];
+}
+
+export interface KitchenBathReadyProject
+  extends KitchenBathCustomerReadyProject {
+  leadId: string;
+  source: KitchenBathCustomerReadyProject['source'] & {
     consentVersion: string;
     intakeIntegrity: 'SYSTEM_HASH_PRESENT' | 'MISSING';
     conversationTurns: number | null;
     submittedAt: string;
     retentionExpiresAt: string;
-    modelInferencesIncluded: false;
   };
   transactionBarriers: Array<{
     key:
@@ -111,13 +120,10 @@ export interface KitchenBathReadyProject {
     status: ReadyProjectBarrierStatus;
     basis: string;
   }>;
-  expertValidationRequired: string[];
-  boundaries: string[];
-  missingRequiredSource: string[];
 }
 
 export type KitchenBathHandoffResult = PublicWardHandoff & {
-  readyProject: KitchenBathReadyProject | null;
+  readyProject: KitchenBathCustomerReadyProject | null;
 };
 
 export interface KitchenBathPackProfile {
