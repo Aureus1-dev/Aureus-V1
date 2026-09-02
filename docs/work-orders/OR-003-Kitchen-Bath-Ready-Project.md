@@ -35,6 +35,13 @@ Reuse the existing PF-009 Kitchen & Bath path:
 
 The Ready Project is a deterministic projection of the already-retained, consented project state. The retained WardLead + Kitchen & Bath qualification envelope remain authoritative for this slice.
 
+The Kitchen & Bath qualification envelope is written atomically with the consented WardLead creation through a server-owned internal handoff context. The K&B intake hash is also bound into the handoff submission fingerprint. This means:
+
+- no generic handoff is committed first and enriched later;
+- identical retries converge on the same retained handoff;
+- a different concurrent/second K&B intake cannot overwrite the first;
+- if the transaction fails, neither the handoff nor its K&B source is committed.
+
 A Ready Project projection may be regenerated from those stored facts. That avoids a second mutable copy drifting away from the customer-supplied source.
 
 ## 3. Why OR-003 does not create a Business Responsibility row yet
@@ -201,7 +208,7 @@ The raw conversation remains available as attributable evidence, not the primary
 - No LLM-generated fact is admitted into the packet in OR-003.
 - If the K&B source envelope is missing or malformed, fail closed to `INCOMPLETE_SOURCE`; do not guess.
 - Existing non-Kitchen & Bath handoffs return no Ready Project.
-- A stale/different second K&B intake for one handoff remains a conflict under the existing intake hash rule.
+- A stale/different second K&B intake for one handoff remains a conflict because the K&B intake hash is part of the server-owned duplicate fingerprint.
 - Cross-tenant reads remain impossible through the existing tenant-scoped lead query.
 - Deleting/expiring the handoff removes the source; no independent Ready Project copy survives.
 - Public response must not expose tenant-private notes, business-only information, internal storage references, submission fingerprints, or the raw Kitchen & Bath intake integrity hash.
@@ -229,7 +236,9 @@ Tests must prove at minimum:
 15. exact same handoff retry regenerates the same project state without duplicate persistence;
 16. different second intake still fails conflict;
 17. deleting/expiring the WardLead source leaves no separate Ready Project persistence behind;
-18. OR-CCT-001 remains unimplemented and no account conversion occurs.
+18. OR-CCT-001 remains unimplemented and no account conversion occurs;
+19. K&B source signals and the consented handoff persist atomically;
+20. identical server-context retries converge while different K&B fingerprint contexts fail closed.
 
 ## 12. Explicit non-goals
 
