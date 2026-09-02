@@ -63,6 +63,8 @@ Server must:
 
 No Business/shared context is created or transferred.
 
+Each OR-002 `GuidedApplicationSession` is bound to the exact Responsibility it serves. Legacy/direct See → Guide sessions may remain unbound, but People-help pause/outcome commands must never infer a current Responsibility merely from Opportunity ID. An ended session from an older completed Responsibility cannot mutate a later Responsibility for the same Opportunity.
+
 ### Leave / return
 
 A browser close or ordinary navigation does not destroy the Responsibility.
@@ -171,7 +173,9 @@ Tests must prove:
 15. completed Responsibility is not silently reopened by an ordinary page load;
 16. Business/shared Responsibility rows remain invisible;
 17. no cross-context transition occurs;
-18. screenshot bytes and extracted field values remain unpersisted as before.
+18. screenshot bytes and extracted field values remain unpersisted as before;
+19. an old/ended guide session cannot mutate a later Responsibility for the same Opportunity;
+20. a guide-to-Responsibility binding that points to another principal, wrong Responsibility kind, or different Opportunity fails closed.
 
 ## 9. Explicit non-goals
 
