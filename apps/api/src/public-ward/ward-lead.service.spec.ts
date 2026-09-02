@@ -185,6 +185,100 @@ describe('WardLeadService', () => {
     expect(result.confirmation).toContain('shared with Example Kitchens');
   });
 
+  it('persists server-owned vertical signals atomically and binds them into the duplicate fingerprint', async () => {
+    const serverContext = {
+      qualificationSignals: [
+        {
+          key: 'vertical',
+          label: 'Vertical',
+          value: 'KITCHEN_BATH',
+          basis: 'Approved tenant pack',
+        },
+        {
+          key: 'kitchen_bath_intake_hash',
+          label: 'Remodel intake integrity',
+          value: 'f'.repeat(64),
+          basis: 'System SHA-256',
+        },
+      ],
+      fingerprintContext: `KITCHEN_BATH:${'f'.repeat(64)}`,
+    };
+
+    await service.submitPublicHandoff(
+      'example-kitchens',
+      CONVERSATION_ID,
+      TOKEN,
+      dto,
+      serverContext,
+    );
+
+    const created = await db.wardLead.create.mock.results[0].value;
+    expect(created.qualificationSignals).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ key: 'contact_method', value: 'EMAIL' }),
+        expect.objectContaining({ key: 'vertical', value: 'KITCHEN_BATH' }),
+        expect.objectContaining({
+          key: 'kitchen_bath_intake_hash',
+          value: 'f'.repeat(64),
+        }),
+      ]),
+    );
+
+    db.wardLead.findUnique.mockResolvedValue(created);
+
+    await expect(
+      service.submitPublicHandoff(
+        'example-kitchens',
+        CONVERSATION_ID,
+        TOKEN,
+        dto,
+        {
+          ...serverContext,
+          fingerprintContext: `KITCHEN_BATH:${'e'.repeat(64)}`,
+        },
+      ),
+    ).rejects.toThrow(ConflictException);
+
+    expect(db.wardLead.create).toHaveBeenCalledTimes(1);
+    expect(notifications.notify).toHaveBeenCalledTimes(1);
+  });
+
+  it('returns the same atomically enriched handoff for an identical server-context retry', async () => {
+    const serverContext = {
+      qualificationSignals: [
+        {
+          key: 'vertical',
+          label: 'Vertical',
+          value: 'KITCHEN_BATH',
+          basis: 'Approved tenant pack',
+        },
+      ],
+      fingerprintContext: `KITCHEN_BATH:${'f'.repeat(64)}`,
+    };
+
+    const first = await service.submitPublicHandoff(
+      'example-kitchens',
+      CONVERSATION_ID,
+      TOKEN,
+      dto,
+      serverContext,
+    );
+    const created = await db.wardLead.create.mock.results[0].value;
+    db.wardLead.findUnique.mockResolvedValue(created);
+
+    const retry = await service.submitPublicHandoff(
+      'example-kitchens',
+      CONVERSATION_ID,
+      TOKEN,
+      dto,
+      serverContext,
+    );
+
+    expect(retry.handoffId).toBe(first.handoffId);
+    expect(db.wardLead.create).toHaveBeenCalledTimes(1);
+    expect(notifications.notify).toHaveBeenCalledTimes(1);
+  });
+
   it('rejects missing consent in the service boundary before reading tenant data', async () => {
     await expect(
       service.submitPublicHandoff('example-kitchens', CONVERSATION_ID, TOKEN, {
