@@ -1,5 +1,8 @@
 import type { Prisma } from '@prisma/client';
-import { buildKitchenBathReadyProject } from './kitchen-bath-ready-project';
+import {
+  buildKitchenBathReadyProject,
+  toPublicKitchenBathReadyProject,
+} from './kitchen-bath-ready-project';
 
 const BASE = {
   id: '11111111-1111-4111-8111-111111111111',
@@ -197,6 +200,25 @@ describe('buildKitchenBathReadyProject', () => {
         ] as Prisma.JsonArray,
       }),
     ).toBeNull();
+  });
+
+  it('removes back-office barrier and provenance machinery from the public projection', () => {
+    const full = buildKitchenBathReadyProject({
+      ...BASE,
+      qualificationSignals: signals(),
+    })!;
+    const publicProject = toPublicKitchenBathReadyProject(full)!;
+
+    expect(publicProject).not.toHaveProperty('leadId');
+    expect(publicProject).not.toHaveProperty('transactionBarriers');
+    expect(publicProject.source).toEqual({
+      basis: 'CONSENTED_WARD_HANDOFF',
+      modelInferencesIncluded: false,
+    });
+    expect(publicProject).not.toHaveProperty('source.consentVersion');
+    expect(publicProject).not.toHaveProperty('source.intakeIntegrity');
+    expect(publicProject).not.toHaveProperty('source.conversationTurns');
+    expect(JSON.stringify(publicProject)).not.toContain('storageRef');
   });
 
   it('does not emit a hidden score, ranking, propensity, or fit judgment', () => {
