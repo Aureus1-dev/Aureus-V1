@@ -34,6 +34,7 @@ import { AssignWardLeadDto } from './dto/assign-ward-lead.dto';
 import { CreateWardLeadDto } from './dto/create-ward-lead.dto';
 import { ListWardLeadsQueryDto } from './dto/list-ward-leads-query.dto';
 import { TransitionWardLeadDto } from './dto/transition-ward-lead.dto';
+import { buildKitchenBathReadyProject } from './kitchen-bath-ready-project';
 import {
   WARD_LEAD_CONSENT_DATA_CLASSES,
   WARD_LEAD_CONSENT_PURPOSE,
@@ -85,6 +86,11 @@ interface CleanLeadInput {
   desiredTiming?: CreateWardLeadDto['desiredTiming'];
 }
 
+interface ServerHandoffContext {
+  qualificationSignals?: Prisma.InputJsonObject[];
+  fingerprintContext?: string;
+}
+
 @Injectable()
 export class WardLeadService {
   private readonly logger = new Logger(WardLeadService.name);
@@ -99,6 +105,7 @@ export class WardLeadService {
     conversationId: string,
     token: string | undefined,
     dto: CreateWardLeadDto,
+    serverContext?: ServerHandoffContext,
   ) {
     if (dto.consentGranted !== true || dto.consentVersion !== WARD_LEAD_CONSENT_VERSION) {
       throw new BadRequestException('The current handoff consent must be affirmatively granted');
@@ -115,7 +122,11 @@ export class WardLeadService {
     if (dto.consentTextSha256 !== consentTextSha256) {
       throw new ConflictException('The handoff consent changed. Reload it before deciding.');
     }
-    const fingerprint = this.fingerprint(input, consentTextSha256);
+    const fingerprint = this.fingerprint(
+      input,
+      consentTextSha256,
+      serverContext?.fingerprintContext,
+    );
     const existing = await this.prisma.db.wardLead.findUnique({
       where: { conversationId },
     });
@@ -135,7 +146,10 @@ export class WardLeadService {
 
     const now = new Date();
     const retentionExpiresAt = new Date(now.getTime() + RETENTION_MS);
-    const signals = this.buildQualificationSignals(input, conversation.turnCount);
+    const signals = [
+      ...this.buildQualificationSignals(input, conversation.turnCount),
+      ...(serverContext?.qualificationSignals ?? []),
+    ];
 
     let lead: WardLead;
     try {
@@ -298,9 +312,10 @@ export class WardLeadService {
       },
     });
     if (!lead) throw new NotFoundException(`Lead '${leadId}' not found`);
+    const readyProject = buildKitchenBathReadyProject(lead);
     const safeLead: Partial<typeof lead> = { ...lead };
     delete safeLead.submissionFingerprint;
-    return safeLead;
+    return { ...safeLead, readyProject };
   }
 
   async assignBusinessLead(
@@ -652,7 +667,11 @@ export class WardLeadService {
     };
   }
 
-  private fingerprint(input: CleanLeadInput, consentTextSha256: string): string {
+  private fingerprint(
+    input: CleanLeadInput,
+    consentTextSha256: string,
+    fingerprintContext?: string,
+  ): string {
     return this.hash(
       JSON.stringify({
         displayName: input.displayName,
@@ -663,6 +682,7 @@ export class WardLeadService {
         desiredTiming: input.desiredTiming ?? null,
         consentVersion: WARD_LEAD_CONSENT_VERSION,
         consentTextSha256,
+        ...(fingerprintContext ? { fingerprintContext } : {}),
       }),
     );
   }

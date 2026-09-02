@@ -20,7 +20,7 @@ The dashboard is not another customer-facing Aureus feature. It is the control p
 
 | Repository | Current `main` | Role today |
 |---|---|---|
-| Aureus-V1 | `29e402941cece696040dbbf6ae675b308a8291db` | Product/runtime owner. OR-001 PR #110 is merged; post-merge CI run `33579400562` is SUCCESS. OR-002 builds from this exact main. |
+| Aureus-V1 | `80a0e1f5083c751bc91e9830122fc01d6516dfd1` | Product/runtime owner. OR-002 PR #111 is merged; post-merge CI run `33588099069` is SUCCESS including Docker. OR-003 builds from this exact main. |
 | Aureus-Foundry | `e6c0a4558145c6f00d5e7734be95af08daf8241a` | Main remains the production-neutral baseline. Draft PR #7 is the governed Claude review meeting room; latest closure-review head `6ea7ae4327933d9789c231433fb3251654a39bbc` passed Foundry CI but is not merged. |
 | Aureus-Library | `ea9887c50550e466411742c3f3fc53a3de7f264f` | Governed durable knowledge and release integrity layer |
 
@@ -68,46 +68,42 @@ The current job is no longer to invent those foundations. It is to complete, har
 - Post-merge CI run `33579400562`: SUCCESS.
 - First proof: owned conversation + verified Opportunity → explicit bounded Responsibility → durable commitment → waiting-on-member → referenced REPORTED domain evidence → deterministic completion.
 
-### NOW — OR-002 People help-to-completion
+### CLOSED — OR-002 People help-to-completion
 
-**Working branch:** `feat/or-002-people-help-completion`  
-**Base:** `29e402941cece696040dbbf6ae675b308a8291db`  
-**Work order:** `docs/work-orders/OR-002-People-Help-to-Completion.md`  
-**Architecture:** PA-021 / PA-022  
-**Cross-context boundary:** OR-CCT-001
+- V1 PR #111 merged the first durable People help-to-completion experience.
+- Exact independently reviewed content head: `2af8ec409c34a4992d2a000992937fcd029afac3`.
+- Claude verdict: PASS / READY FOR FOUNDER MERGE DECISION; no P0/P1 findings.
+- Resulting main: `80a0e1f5083c751bc91e9830122fc01d6516dfd1`.
+- Post-merge CI run `33588099069`: SUCCESS including Docker.
+- Proof: verified application help → durable private Responsibility → leave/return → exact session/Responsibility binding → pause/resume → explicit member-reported outcome → truthful completion surface.
 
-Goal: make the first personal Responsibility feel like actual stewardship in the Hall rather than a backend record.
+### NOW — OR-003 Kitchen & Bath Ready Project
 
-First proof:
+**Working branch:** `feat/or-003-kitchen-bath-ready-project`  
+**Base:** `80a0e1f5083c751bc91e9830122fc01d6516dfd1`  
+**Work order:** `docs/work-orders/OR-003-Kitchen-Bath-Ready-Project.md`
 
-`verified application opportunity → member asks Aureus to help → durable PERSONAL Responsibility → verified See → Guide session → leave/return → pause/resume same Responsibility → explicit member outcome → truthful private progress`
+Goal:
 
-OR-002 reuses the existing GuidedApplicationSession and SavedOpportunity domains. It does not create a second application engine.
+`fuzzy project intent → customer-supplied discovery → distilled Ready Project → explicit Transaction Barrier Graph → exact expert validation still required`
 
-The application outcome remains explicitly **member-reported**. Aureus does not call a reported `APPLIED` status third-party approval, benefit receipt, award, or independent verification.
+OR-003 reuses the consented PF-009 Kitchen & Bath handoff rather than creating a second CRM/project source of truth. The Ready Project is a deterministic projection of retained customer-supplied/system-observed facts; the raw Ward transcript remains attributable evidence but is no longer the contractor's primary reconstruction interface.
 
-The Conversation Surface now gains the first Private Steward progress treatment:
+The first barrier graph keeps uncertainty explicit: desire, fit, price, funding, availability, timing, knowledge/uncertainty, trust, decision authority, administrative friction, and alternatives. No hidden lead score or inferred trust/propensity is introduced.
 
-- “Aureus is carrying this with you”;
-- private-to-account label;
-- ordinary-language Responsibility status;
-- explicit guidance/attestation boundary;
-- resumable waiting state;
-- truthful “reported by you” outcome label.
-
-OR-002 remains PERSONAL / GUIDANCE_ONLY / PERSONAL_PRIVATE and introduces no Business/shared context or Completion Case transfer.
+This slice intentionally does **not** manufacture a Business-customer Responsibility principal for account-free visitors. Current Responsibility principal constraints and OR-CCT-001 remain intact.
 
 Acceptance requires:
 
-1. start/pause/resume/complete lifecycle and deny-path tests;
-2. exact-head CI + Docker success;
-3. fresh independent Claude review of the frozen SHA;
-4. Founder merge decision;
-5. no deployment/production claim from CI alone.
+1. deterministic Ready Project and deny-path tests;
+2. customer/business Outcome Surface tests;
+3. exact-head CI + Docker success;
+4. fresh independent Claude review;
+5. Founder merge decision.
 
-### NEXT after OR-002
+### NEXT after OR-003
 
-Proceed to OR-003 Kitchen & Bath Ready Project from the resulting exact green main. OR-003 is the first Business proof that applies the same Aureus interaction grammar to fuzzy project intent → distilled Ready Project → expert validation.
+Proceed to OR-004 Revenue Completion from the resulting exact green main.
 
 ## 4. Definition of complete V1
 
