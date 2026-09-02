@@ -226,7 +226,6 @@ model User {
   harvestPlans               HarvestPlan[]
   guidedApplicationSessions  GuidedApplicationSession[]
   responsibilitiesAsPrincipal Responsibility[]      @relation("ResponsibilityPrincipalUser")
-  responsibilityEventsAsActor ResponsibilityEvent[] @relation("ResponsibilityEventActor")
 }
 
 // ===========================================================================
@@ -376,8 +375,10 @@ model ResponsibilityEvent {
   responsibility   Responsibility           @relation(fields: [responsibilityId], references: [id], onDelete: Cascade)
   type             ResponsibilityEventType
   actorClass       ResponsibilityActorClass
+  // Immutable provenance reference, deliberately not a live FK. Event actor
+  // history must not mutate if a User lifecycle later removes the actor row.
+  // The Responsibility itself still owns lifecycle through its principal FK.
   actorUserId      String?                  @db.Uuid
-  actorUser        User?                    @relation("ResponsibilityEventActor", fields: [actorUserId], references: [id], onDelete: SetNull)
   fromStatus       ResponsibilityStatus?
   toStatus         ResponsibilityStatus?
 
