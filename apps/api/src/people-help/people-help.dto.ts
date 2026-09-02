@@ -37,8 +37,8 @@ export class PeopleApplicationHelpResponseDto {
 }
 
 export class ActivePeopleApplicationHelpResponseDto {
-  @ApiProperty({ type: GuidedApplicationSessionResponseDto })
-  session!: GuidedApplicationSessionResponseDto;
+  @ApiPropertyOptional({ type: GuidedApplicationSessionResponseDto, nullable: true })
+  session!: GuidedApplicationSessionResponseDto | null;
 
   @ApiPropertyOptional({ type: ResponsibilityResponseDto, nullable: true })
   responsibility!: ResponsibilityResponseDto | null;
