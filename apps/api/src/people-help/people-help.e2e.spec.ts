@@ -196,6 +196,7 @@ describe('OR-002 People help-to-completion — E2E', () => {
     responsibilityId = first.body.responsibility.id;
     sessionId = first.body.session.id;
 
+    expect(first.body.session.responsibilityId).toBe(responsibilityId);
     expect(first.body.responsibility.kind).toBe(
       ResponsibilityKind.OPPORTUNITY_APPLICATION_GUIDANCE,
     );
@@ -256,6 +257,7 @@ describe('OR-002 People help-to-completion — E2E', () => {
       ResponsibilityStatus.ACTIVE,
     );
     expect(resumed.body.session.id).not.toBe(sessionId);
+    expect(resumed.body.session.responsibilityId).toBe(responsibilityId);
     sessionId = resumed.body.session.id;
 
     const stateChanges = resumed.body.responsibility.events.filter(
