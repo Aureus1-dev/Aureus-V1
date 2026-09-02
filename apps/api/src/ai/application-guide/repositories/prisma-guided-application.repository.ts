@@ -48,6 +48,15 @@ export class PrismaGuidedApplicationRepository
     });
   }
 
+  findOwnedById(
+    id: string,
+    userId: string,
+  ): Promise<GuidedApplicationSession | null> {
+    return this.prisma.db.guidedApplicationSession.findFirst({
+      where: { id, userId },
+    });
+  }
+
   async end(
     id: string,
     userId: string,
