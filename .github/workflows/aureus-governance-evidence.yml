@@ -1,0 +1,327 @@
+name: Aureus Governance Evidence
+
+on:
+  pull_request_target:
+    types: [opened, reopened, synchronize, closed]
+  workflow_run:
+    workflows: [CI, Foundry CI, Library CI]
+    types: [completed]
+  workflow_dispatch:
+    inputs:
+      event_type:
+        description: Governed event to send
+        required: true
+        type: choice
+        options:
+          - PR_OPENED
+          - PR_SYNCHRONIZED
+          - CI_COMPLETED
+          - CLAUDE_REVIEW_COMPLETED
+          - VERIFIER_COMPLETED
+          - FOUNDER_DECISION
+          - MERGE_COMPLETED
+          - DEPLOY_COMPLETED
+      pr_number:
+        description: Pull request number
+        required: true
+        type: string
+      branch:
+        description: Candidate branch
+        required: true
+        type: string
+      base_sha:
+        description: Exact base SHA
+        required: true
+        type: string
+      head_sha:
+        description: Exact candidate head SHA
+        required: true
+        type: string
+      work_order_id:
+        description: Stable work-order identifier
+        required: true
+        type: string
+      consequence_class:
+        description: Consequence class
+        required: true
+        default: YELLOW
+        type: choice
+        options: [GREEN, YELLOW, RED]
+      requested_authority:
+        description: Requested authority; use FOUNDER only for a Founder decision
+        required: true
+        default: REVIEW
+        type: string
+      deterministic_checks_status:
+        description: PASS, HOLD, or PENDING
+        required: true
+        default: PENDING
+        type: choice
+        options: [PENDING, PASS, HOLD]
+      review_status:
+        description: PASS, HOLD, or PENDING
+        required: true
+        default: PENDING
+        type: choice
+        options: [PENDING, PASS, HOLD]
+      verification_status:
+        description: PASS, HOLD, or PENDING
+        required: true
+        default: PENDING
+        type: choice
+        options: [PENDING, PASS, HOLD]
+      approval_status:
+        description: AUTHORIZED, HOLD, or PENDING
+        required: true
+        default: PENDING
+        type: choice
+        options: [PENDING, AUTHORIZED, HOLD]
+      merge_status:
+        description: COMPLETED, HOLD, or PENDING
+        required: true
+        default: PENDING
+        type: choice
+        options: [PENDING, COMPLETED, HOLD]
+      deploy_status:
+        description: COMPLETED, HOLD, or PENDING
+        required: true
+        default: PENDING
+        type: choice
+        options: [PENDING, COMPLETED, HOLD]
+      builder:
+        description: Builder identity recorded at PR_OPENED
+        required: true
+        default: Codex Integrator
+        type: string
+      reviewer:
+        description: Assigned independent reviewer identity
+        required: true
+        default: Claude Pro or Claude Code
+        type: string
+      verifier:
+        description: Assigned independent verifier identity, distinct from builder and reviewer
+        required: true
+        default: Independent Verifier
+        type: string
+      evidence_summary:
+        description: Concise evidence summary
+        required: true
+        type: string
+      findings_url:
+        description: Durable findings URL, if any
+        required: false
+        type: string
+
+permissions:
+  contents: read
+  pull-requests: read
+  actions: read
+
+concurrency:
+  group: aureus-governance-${{ github.repository }}-${{ github.event_name }}-${{ github.event.pull_request.number || github.event.workflow_run.id || github.run_id }}
+  cancel-in-progress: false
+
+jobs:
+  deliver:
+    if: >-
+      (github.event_name != 'workflow_dispatch' || github.ref == 'refs/heads/main') &&
+      (github.event_name != 'pull_request_target' || github.event.action != 'closed' || github.event.pull_request.merged == true)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      AUREUS_GOVERNANCE_WEBHOOK_URL: ${{ secrets.AUREUS_GOVERNANCE_WEBHOOK_URL }}
+      INPUT_EVENT_TYPE: ${{ inputs.event_type }}
+      INPUT_PR_NUMBER: ${{ inputs.pr_number }}
+      INPUT_BRANCH: ${{ inputs.branch }}
+      INPUT_BASE_SHA: ${{ inputs.base_sha }}
+      INPUT_HEAD_SHA: ${{ inputs.head_sha }}
+      INPUT_WORK_ORDER_ID: ${{ inputs.work_order_id }}
+      INPUT_CONSEQUENCE_CLASS: ${{ inputs.consequence_class }}
+      INPUT_REQUESTED_AUTHORITY: ${{ inputs.requested_authority }}
+      INPUT_CHECKS_STATUS: ${{ inputs.deterministic_checks_status }}
+      INPUT_REVIEW_STATUS: ${{ inputs.review_status }}
+      INPUT_VERIFICATION_STATUS: ${{ inputs.verification_status }}
+      INPUT_APPROVAL_STATUS: ${{ inputs.approval_status }}
+      INPUT_MERGE_STATUS: ${{ inputs.merge_status }}
+      INPUT_DEPLOY_STATUS: ${{ inputs.deploy_status }}
+      INPUT_BUILDER: ${{ inputs.builder }}
+      INPUT_REVIEWER: ${{ inputs.reviewer }}
+      INPUT_VERIFIER: ${{ inputs.verifier }}
+      INPUT_EVIDENCE_SUMMARY: ${{ inputs.evidence_summary }}
+      INPUT_FINDINGS_URL: ${{ inputs.findings_url }}
+
+    steps:
+      - name: Preserve inactive state until the encrypted endpoint is configured
+        if: env.AUREUS_GOVERNANCE_WEBHOOK_URL == ''
+        run: echo "::notice::Aureus governance delivery is inactive because the encrypted endpoint is not configured."
+
+      - name: Normalize and deliver the bounded event
+        if: env.AUREUS_GOVERNANCE_WEBHOOK_URL != ''
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "::add-mask::$AUREUS_GOVERNANCE_WEBHOOK_URL"
+
+          repository="$GITHUB_REPOSITORY"
+          event_type=""
+          pr_number=""
+          branch=""
+          base_sha=""
+          head_sha=""
+          work_order_id=""
+          consequence_class="YELLOW"
+          requested_authority="REVIEW"
+          checks_status="PENDING"
+          review_status="PENDING"
+          verification_status="PENDING"
+          approval_status="PENDING"
+          merge_status="PENDING"
+          deploy_status="PENDING"
+          builder="Codex Integrator"
+          reviewer="Claude Pro or Claude Code"
+          verifier="Independent Verifier"
+          evidence_summary=""
+          findings_url=""
+
+          case "$GITHUB_EVENT_NAME" in
+            pull_request_target)
+              pr_number="$(jq -r '.number' "$GITHUB_EVENT_PATH")"
+              branch="$(jq -r '.pull_request.head.ref' "$GITHUB_EVENT_PATH")"
+              base_sha="$(jq -r '.pull_request.base.sha' "$GITHUB_EVENT_PATH")"
+              head_sha="$(jq -r '.pull_request.head.sha' "$GITHUB_EVENT_PATH")"
+              work_order_id="${repository}#${pr_number}"
+              case "$(jq -r '.action' "$GITHUB_EVENT_PATH")" in
+                opened)
+                  event_type="PR_OPENED"
+                  evidence_summary="GitHub recorded pull request creation at the exact candidate SHA."
+                  ;;
+                reopened|synchronize)
+                  event_type="PR_SYNCHRONIZED"
+                  evidence_summary="GitHub recorded a candidate SHA change; prior downstream evidence must be invalidated."
+                  ;;
+                closed)
+                  event_type="MERGE_COMPLETED"
+                  merge_status="COMPLETED"
+                  evidence_summary="GitHub recorded the authorized pull request merge."
+                  ;;
+              esac
+              ;;
+            workflow_run)
+              pr_number="$(jq -r '.workflow_run.pull_requests[0].number // empty' "$GITHUB_EVENT_PATH")"
+              if [ -z "$pr_number" ]; then
+                echo "::notice::The completed workflow is not attached to a pull request; no governance event was sent."
+                exit 0
+              fi
+              event_type="CI_COMPLETED"
+              branch="$(jq -r '.workflow_run.head_branch' "$GITHUB_EVENT_PATH")"
+              base_sha="$(jq -r '.workflow_run.pull_requests[0].base.sha' "$GITHUB_EVENT_PATH")"
+              head_sha="$(jq -r '.workflow_run.head_sha' "$GITHUB_EVENT_PATH")"
+              work_order_id="${repository}#${pr_number}"
+              if [ "$(jq -r '.workflow_run.conclusion' "$GITHUB_EVENT_PATH")" = "success" ]; then
+                checks_status="PASS"
+                evidence_summary="GitHub Actions completed successfully for the exact candidate SHA."
+              else
+                checks_status="HOLD"
+                evidence_summary="GitHub Actions did not complete successfully for the exact candidate SHA."
+              fi
+              ;;
+            workflow_dispatch)
+              event_type="$INPUT_EVENT_TYPE"
+              pr_number="$INPUT_PR_NUMBER"
+              branch="$INPUT_BRANCH"
+              base_sha="$INPUT_BASE_SHA"
+              head_sha="$INPUT_HEAD_SHA"
+              work_order_id="$INPUT_WORK_ORDER_ID"
+              consequence_class="$INPUT_CONSEQUENCE_CLASS"
+              requested_authority="$INPUT_REQUESTED_AUTHORITY"
+              checks_status="$INPUT_CHECKS_STATUS"
+              review_status="$INPUT_REVIEW_STATUS"
+              verification_status="$INPUT_VERIFICATION_STATUS"
+              approval_status="$INPUT_APPROVAL_STATUS"
+              merge_status="$INPUT_MERGE_STATUS"
+              deploy_status="$INPUT_DEPLOY_STATUS"
+              builder="$INPUT_BUILDER"
+              reviewer="$INPUT_REVIEWER"
+              verifier="$INPUT_VERIFIER"
+              evidence_summary="$INPUT_EVIDENCE_SUMMARY"
+              findings_url="$INPUT_FINDINGS_URL"
+              ;;
+            *)
+              echo "::error::Unsupported GitHub event: $GITHUB_EVENT_NAME"
+              exit 1
+              ;;
+          esac
+
+          if [ -z "$event_type" ] || [ -z "$pr_number" ] || [ -z "$head_sha" ] || [ -z "$work_order_id" ]; then
+            echo "::error::The normalized event is missing an event type, PR number, head SHA, or work-order ID."
+            exit 1
+          fi
+
+          pull_request_url="https://github.com/${repository}/pull/${pr_number}"
+          received_at="$(date -u +'%Y-%m-%dT%H:%M:%SZ')"
+          correlation_id="${repository}#${pr_number}"
+          payload_digest="$(printf '%s' "${correlation_id}|${work_order_id}|${event_type}|${base_sha}|${head_sha}" | sha256sum | cut -d' ' -f1)"
+          halt_reason=""
+          next_action="Advance only through the next validated governance gate."
+
+          case "$event_type" in
+            CLAUDE_REVIEW_COMPLETED)
+              [ "$review_status" = "PASS" ] || halt_reason="Independent review returned HOLD."
+              ;;
+            VERIFIER_COMPLETED)
+              [ "$verification_status" = "PASS" ] || halt_reason="Independent verification returned HOLD."
+              ;;
+            FOUNDER_DECISION)
+              [ "$approval_status" = "AUTHORIZED" ] || halt_reason="Founder authorization is not present."
+              ;;
+            CI_COMPLETED)
+              [ "$checks_status" = "PASS" ] || halt_reason="Deterministic checks are not passing."
+              ;;
+          esac
+
+          payload="$RUNNER_TEMP/aureus-governance-event.json"
+          response="$RUNNER_TEMP/aureus-governance-response.txt"
+          jq -n \
+            --arg correlation_id "$correlation_id" \
+            --arg work_order_id "$work_order_id" \
+            --arg repository "$repository" \
+            --arg pr_number "$pr_number" \
+            --arg branch "$branch" \
+            --arg base_sha "$base_sha" \
+            --arg head_sha "$head_sha" \
+            --arg payload_digest "$payload_digest" \
+            --arg event_type "$event_type" \
+            --arg consequence_class "$consequence_class" \
+            --arg requested_authority "$requested_authority" \
+            --arg deterministic_checks_status "$checks_status" \
+            --arg review_status "$review_status" \
+            --arg verification_status "$verification_status" \
+            --arg approval_status "$approval_status" \
+            --arg merge_status "$merge_status" \
+            --arg deploy_status "$deploy_status" \
+            --arg builder "$builder" \
+            --arg reviewer "$reviewer" \
+            --arg verifier "$verifier" \
+            --arg evidence_summary "$evidence_summary" \
+            --arg findings_url "$findings_url" \
+            --arg pull_request_url "$pull_request_url" \
+            --arg halt_reason "$halt_reason" \
+            --arg next_action "$next_action" \
+            --arg received_at "$received_at" \
+            --arg updated_at "$received_at" \
+            '{correlation_id:$correlation_id,work_order_id:$work_order_id,repository:$repository,pr_number:$pr_number,branch:$branch,base_sha:$base_sha,head_sha:$head_sha,payload_digest:$payload_digest,event_type:$event_type,consequence_class:$consequence_class,requested_authority:$requested_authority,bounded:true,deterministic_checks_status:$deterministic_checks_status,review_status:$review_status,verification_status:$verification_status,approval_status:$approval_status,merge_status:$merge_status,deploy_status:$deploy_status,builder:$builder,reviewer:$reviewer,verifier:$verifier,evidence_summary:$evidence_summary,findings_url:$findings_url,pull_request_url:$pull_request_url,halt_reason:$halt_reason,next_action:$next_action,received_at:$received_at,updated_at:$updated_at}' \
+            > "$payload"
+
+          http_code="$(curl --silent --show-error \
+            --retry 3 --retry-all-errors --max-time 30 \
+            --output "$response" --write-out '%{http_code}' \
+            --header 'Content-Type: application/json' \
+            --data-binary "@$payload" \
+            "$AUREUS_GOVERNANCE_WEBHOOK_URL")"
+
+          if [[ ! "$http_code" =~ ^2 ]]; then
+            echo "::error::Make rejected the governed event with HTTP status $http_code."
+            exit 1
+          fi
+
+          echo "Delivered $event_type for $repository PR #$pr_number at $head_sha (digest $payload_digest)."
