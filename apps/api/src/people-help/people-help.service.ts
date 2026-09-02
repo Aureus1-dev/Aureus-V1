@@ -48,17 +48,26 @@ export class PeopleHelpService {
       conversationId,
       caller,
     );
-    if (!session) return null;
+
+    if (session) {
+      const responsibility =
+        await this.responsibilities.findOpenApplicationGuidance(
+          session.opportunityId,
+          caller,
+        );
+
+      // A legacy pre-OR-002 guide can still be resumed safely. GET never
+      // mutates that legacy session into an implicit Responsibility acceptance.
+      return { session, responsibility };
+    }
 
     const responsibility =
-      await this.responsibilities.findOpenApplicationGuidance(
-        session.opportunityId,
+      await this.responsibilities.findLatestApplicationGuidanceForConversation(
+        conversationId,
         caller,
       );
 
-    // A legacy pre-OR-002 guide can still be resumed safely. GET never
-    // mutates that legacy session into an implicit Responsibility acceptance.
-    return { session, responsibility };
+    return responsibility ? { session: null, responsibility } : null;
   }
 
   async pause(
