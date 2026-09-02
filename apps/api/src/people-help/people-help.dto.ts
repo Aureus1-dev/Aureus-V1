@@ -1,6 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { TrackingStatus } from '@prisma/client';
-import { IsEnum, IsUUID } from 'class-validator';
+import { IsIn, IsUUID } from 'class-validator';
 import { GuidedApplicationSessionResponseDto } from '../ai/application-guide/application-guide.dto';
 import { ResponsibilityResponseDto } from '../responsibilities/dto/responsibility-response.dto';
 
@@ -24,7 +24,7 @@ export type PeopleApplicationOutcome =
 
 export class RecordPeopleApplicationOutcomeDto {
   @ApiProperty({ enum: PEOPLE_APPLICATION_OUTCOMES })
-  @IsEnum(TrackingStatus)
+  @IsIn(PEOPLE_APPLICATION_OUTCOMES)
   outcome!: PeopleApplicationOutcome;
 }
 
@@ -42,4 +42,15 @@ export class ActivePeopleApplicationHelpResponseDto {
 
   @ApiPropertyOptional({ type: ResponsibilityResponseDto, nullable: true })
   responsibility!: ResponsibilityResponseDto | null;
+}
+
+export class CompletePeopleApplicationHelpResponseDto {
+  @ApiProperty({ type: ResponsibilityResponseDto })
+  responsibility!: ResponsibilityResponseDto;
+
+  @ApiProperty({ example: true })
+  ended!: true;
+
+  @ApiProperty({ enum: PEOPLE_APPLICATION_OUTCOMES })
+  outcome!: PeopleApplicationOutcome;
 }
