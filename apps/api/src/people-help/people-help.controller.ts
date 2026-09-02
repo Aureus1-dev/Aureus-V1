@@ -20,6 +20,7 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { AuthenticatedUser } from '../auth/strategies/jwt.strategy';
 import {
   ActivePeopleApplicationHelpResponseDto,
+  CompletePeopleApplicationHelpResponseDto,
   PeopleApplicationHelpResponseDto,
   RecordPeopleApplicationOutcomeDto,
   StartPeopleApplicationHelpDto,
@@ -85,12 +86,12 @@ export class PeopleHelpController {
     summary:
       'Record the member-reported application outcome and complete the bounded application-help Responsibility',
   })
-  @ApiResponse({ status: 201, type: PeopleApplicationHelpResponseDto })
+  @ApiResponse({ status: 201, type: CompletePeopleApplicationHelpResponseDto })
   complete(
     @Param('sessionId') sessionId: string,
     @Body() dto: RecordPeopleApplicationOutcomeDto,
     @CurrentUser() caller: AuthenticatedUser,
-  ): Promise<PeopleApplicationHelpResponseDto> {
+  ): Promise<CompletePeopleApplicationHelpResponseDto> {
     return this.peopleHelp.complete(sessionId, dto.outcome, caller);
   }
 }
