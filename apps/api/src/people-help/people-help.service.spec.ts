@@ -39,6 +39,7 @@ const session = {
   userId: caller.id,
   conversationId: '22222222-2222-4222-8222-222222222222',
   opportunityId: '33333333-3333-4333-8333-333333333333',
+  responsibilityId: responsibility.id,
   applicationUrl: 'https://benefits.example.gov/apply',
   status: 'ACTIVE',
   screenCaptureConsentGrantedAt: null,
@@ -54,11 +55,12 @@ describe('PeopleHelpService', () => {
     acceptApplicationGuidance: jest.fn(),
     findOpenApplicationGuidance: jest.fn(),
     findLatestApplicationGuidanceForConversation: jest.fn(),
+    findOne: jest.fn(),
     pauseApplicationGuidance: jest.fn(),
     completeApplicationGuidance: jest.fn(),
   };
   const guidedApplications = {
-    startSession: jest.fn(),
+    startSessionForResponsibility: jest.fn(),
     findActive: jest.fn(),
     getOwnedForCoordination: jest.fn(),
     endSession: jest.fn(),
@@ -82,10 +84,11 @@ describe('PeopleHelpService', () => {
 
   it('accepts the durable Responsibility before starting the tool-level guide', async () => {
     responsibilities.acceptApplicationGuidance.mockResolvedValue(responsibility);
-    guidedApplications.startSession.mockResolvedValue({
+    guidedApplications.startSessionForResponsibility.mockResolvedValue({
       id: session.id,
       conversationId: session.conversationId,
       opportunityId: session.opportunityId,
+      responsibilityId: responsibility.id,
       opportunityTitle: 'Verified benefit',
       provider: 'Provider',
       applicationUrl: session.applicationUrl,
@@ -105,9 +108,44 @@ describe('PeopleHelpService', () => {
 
     expect(
       responsibilities.acceptApplicationGuidance.mock.invocationCallOrder[0],
-    ).toBeLessThan(guidedApplications.startSession.mock.invocationCallOrder[0]);
+    ).toBeLessThan(
+      guidedApplications.startSessionForResponsibility.mock.invocationCallOrder[0],
+    );
+    expect(guidedApplications.startSessionForResponsibility).toHaveBeenCalledWith(
+      {
+        conversationId: session.conversationId,
+        opportunityId: session.opportunityId,
+      },
+      caller,
+      responsibility.id,
+    );
     expect(result.responsibility.id).toBe(responsibility.id);
     expect(result.session.id).toBe(session.id);
+  });
+
+  it('returns the exact Responsibility bound to an active guide session', async () => {
+    guidedApplications.findActive.mockResolvedValue({
+      id: session.id,
+      conversationId: session.conversationId,
+      opportunityId: session.opportunityId,
+      responsibilityId: responsibility.id,
+      opportunityTitle: 'Verified benefit',
+      provider: 'Provider',
+      applicationUrl: session.applicationUrl,
+      status: 'ACTIVE',
+      screenCaptureConsentGrantedAt: null,
+      screenCaptureConsentRevokedAt: null,
+      lastFrameAnalyzedAt: null,
+    });
+    responsibilities.findOne.mockResolvedValue(responsibility);
+
+    const result = await service.findActive(session.conversationId, caller);
+
+    expect(responsibilities.findOne).toHaveBeenCalledWith(
+      responsibility.id,
+      caller,
+    );
+    expect(result?.responsibility?.id).toBe(responsibility.id);
   });
 
   it('returns paused Responsibility progress even when no guide session is active', async () => {
@@ -127,9 +165,7 @@ describe('PeopleHelpService', () => {
 
   it('ends the guide before moving the Responsibility to WAITING_ON_USER', async () => {
     guidedApplications.getOwnedForCoordination.mockResolvedValue(session);
-    responsibilities.findOpenApplicationGuidance.mockResolvedValue(
-      responsibility,
-    );
+    responsibilities.findOne.mockResolvedValue(responsibility);
     responsibilities.pauseApplicationGuidance.mockResolvedValue({
       ...responsibility,
       status: ResponsibilityStatus.WAITING_ON_USER,
@@ -153,9 +189,7 @@ describe('PeopleHelpService', () => {
 
   it('records explicit member outcome, revokes guidance, then completes using the SavedOpportunity reference', async () => {
     guidedApplications.getOwnedForCoordination.mockResolvedValue(session);
-    responsibilities.findOpenApplicationGuidance.mockResolvedValue(
-      responsibility,
-    );
+    responsibilities.findOne.mockResolvedValue(responsibility);
     savedOpportunities.findOne.mockResolvedValue(null);
     savedOpportunities.save.mockResolvedValue({
       id: 'saved-1',
@@ -221,10 +255,7 @@ describe('PeopleHelpService', () => {
       ],
     };
     guidedApplications.getOwnedForCoordination.mockResolvedValue(endedSession);
-    responsibilities.findOpenApplicationGuidance.mockResolvedValue(null);
-    responsibilities.findLatestApplicationGuidanceForConversation.mockResolvedValue(
-      completed,
-    );
+    responsibilities.findOne.mockResolvedValue(completed);
 
     const result = await service.complete(
       session.id,
@@ -240,7 +271,7 @@ describe('PeopleHelpService', () => {
 
   it('does not complete if the application-help Responsibility is missing', async () => {
     guidedApplications.getOwnedForCoordination.mockResolvedValue(session);
-    responsibilities.findOpenApplicationGuidance.mockResolvedValue(null);
+    responsibilities.findOne.mockResolvedValue(null);
 
     await expect(
       service.complete(session.id, TrackingStatus.APPLIED, caller),
