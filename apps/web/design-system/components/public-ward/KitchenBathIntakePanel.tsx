@@ -7,9 +7,9 @@ import {
   getKitchenBathPack,
   type KitchenBathBudgetRange,
   type KitchenBathDecisionStatus,
+  type KitchenBathCustomerReadyProject,
   type KitchenBathPriority,
   type KitchenBathProjectType,
-  type KitchenBathReadyProject,
 } from '../../../lib/api/kitchen-bath';
 import {
   getPublicWard,
@@ -47,7 +47,7 @@ export function KitchenBathIntakePanel({ slug }: { slug: string }) {
   const [state, setState] = useState<'loading' | 'ready' | 'sending' | 'sent' | 'error'>('loading');
   const [message, setMessage] = useState('');
   const [readyProject, setReadyProject] =
-    useState<KitchenBathReadyProject | null>(null);
+    useState<KitchenBathCustomerReadyProject | null>(null);
   const [form, setForm] = useState({
     displayName: '',
     contactMethod: 'EMAIL' as WardLeadContactMethod,
