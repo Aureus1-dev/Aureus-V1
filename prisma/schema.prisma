@@ -87,6 +87,7 @@ enum ResponsibilityContextType {
 
 enum ResponsibilityKind {
   OPPORTUNITY_DECISION
+  OPPORTUNITY_APPLICATION_GUIDANCE
 }
 
 enum ResponsibilityStatus {
