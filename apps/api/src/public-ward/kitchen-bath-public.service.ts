@@ -122,6 +122,7 @@ export class KitchenBathPublicService {
       ...handoff,
       readyProject: buildKitchenBathReadyProject(lead),
     };
+  }
 
   private cleanIntake(intake: KitchenBathIntakeDto) {
     return {
