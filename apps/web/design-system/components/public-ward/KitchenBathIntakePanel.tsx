@@ -142,7 +142,9 @@ export function KitchenBathIntakePanel({ slug }: { slug: string }) {
       );
       setState('sent');
     } catch {
-      setMessage('The remodel handoff was not created. Nothing new was shared. Ask the Ward a question first, then review the form and try again.');
+      setMessage(
+        'Aureus could not confirm that the Ready Project was fully prepared. Your handoff may already be queued, so reload this Ward before retrying rather than submitting different project details.',
+      );
       setState('error');
     }
   };
