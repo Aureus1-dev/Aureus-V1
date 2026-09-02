@@ -820,7 +820,6 @@ model SavedOpportunity {
   @@unique([userId, opportunityId])
   @@index([userId])
   @@index([opportunityId])
-  @@index([responsibilityId])
 }
 
 // ===========================================================================
@@ -2471,6 +2470,7 @@ model GuidedApplicationSession {
   @@index([userId, status])
   @@index([conversationId, status])
   @@index([opportunityId])
+  @@index([responsibilityId])
 }
 
 model AiMessage {
