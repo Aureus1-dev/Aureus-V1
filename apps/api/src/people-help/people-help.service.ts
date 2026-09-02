@@ -3,7 +3,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { GuidedApplicationSessionStatus, ResponsibilityStatus, TrackingStatus } from '@prisma/client';
+import { GuidedApplicationSessionStatus, ResponsibilityKind, ResponsibilityStatus, TrackingStatus } from '@prisma/client';
 import { AuthenticatedUser } from '../auth/strategies/jwt.strategy';
 import { GuidedApplicationService } from '../ai/application-guide/guided-application.service';
 import { SavedOpportunitiesService } from '../opportunities/saved/saved-opportunities.service';
@@ -54,9 +54,10 @@ export class PeopleHelpService {
     );
 
     if (session) {
-      const responsibility = session.responsibilityId
-        ? await this.responsibilities.findOne(session.responsibilityId, caller)
-        : null;
+      const responsibility = await this.getBoundResponsibility(
+        session,
+        caller,
+      );
 
       // A legacy pre-OR-002 guide can still be resumed safely. GET never
       // mutates that legacy session into an implicit Responsibility acceptance.
@@ -82,9 +83,10 @@ export class PeopleHelpService {
         caller,
       );
 
-    const responsibility = session.responsibilityId
-      ? await this.responsibilities.findOne(session.responsibilityId, caller)
-      : null;
+    const responsibility = await this.getBoundResponsibility(
+      session,
+      caller,
+    );
 
     // Privacy first: an active tool session is ended/revoked before changing
     // higher-level progress. A retry against an already-ended owned session is
@@ -129,9 +131,10 @@ export class PeopleHelpService {
         caller,
       );
 
-    const responsibility = session.responsibilityId
-      ? await this.responsibilities.findOne(session.responsibilityId, caller)
-      : null;
+    const responsibility = await this.getBoundResponsibility(
+      session,
+      caller,
+    );
 
     if (!responsibility) {
       throw new NotFoundException(
@@ -206,5 +209,30 @@ export class PeopleHelpService {
       ended: true,
       outcome,
     };
+  private async getBoundResponsibility(
+    session: {
+      responsibilityId: string | null;
+      opportunityId: string;
+    },
+    caller: AuthenticatedUser,
+  ) {
+    if (!session.responsibilityId) return null;
+
+    const responsibility = await this.responsibilities.findOne(
+      session.responsibilityId,
+      caller,
+    );
+
+    if (
+      responsibility.kind !==
+        ResponsibilityKind.OPPORTUNITY_APPLICATION_GUIDANCE ||
+      responsibility.originOpportunityId !== session.opportunityId
+    ) {
+      throw new ConflictException(
+        'Application guidance is not bound to a valid application-help Responsibility',
+      );
+    }
+
+    return responsibility;
   }
 }
