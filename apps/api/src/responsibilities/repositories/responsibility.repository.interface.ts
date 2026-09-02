@@ -40,6 +40,12 @@ export interface IResponsibilityRepository {
     input: CreateAcceptedResponsibilityInput,
   ): Promise<ResponsibilityWithEvents>;
 
+  findLatestPersonalByConversationKind(
+    principalUserId: string,
+    conversationId: string,
+    kind: ResponsibilityKind,
+  ): Promise<ResponsibilityWithEvents | null>;
+
   findPersonalById(
     id: string,
     principalUserId: string,
