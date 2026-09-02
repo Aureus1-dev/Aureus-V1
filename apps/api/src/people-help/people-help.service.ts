@@ -209,6 +209,8 @@ export class PeopleHelpService {
       ended: true,
       outcome,
     };
+  }
+
   private async getBoundResponsibility(
     session: {
       responsibilityId: string | null;
