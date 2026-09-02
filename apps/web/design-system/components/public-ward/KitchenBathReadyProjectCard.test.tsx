@@ -65,7 +65,7 @@ function makeProject(
 }
 
 describe('KitchenBathReadyProjectCard', () => {
-  it('shows customer priorities and expert-required uncertainty without pretending a quote exists', () => {
+  it('shows customer priorities and expert-required next steps without exposing back-office barrier machinery', () => {
     render(<KitchenBathReadyProjectCard project={makeProject()} />);
 
     expect(
@@ -73,12 +73,11 @@ describe('KitchenBathReadyProjectCard', () => {
     ).toBeInTheDocument();
     expect(screen.getByText('Function & layout')).toBeInTheDocument();
     expect(screen.getByText('Durability')).toBeInTheDocument();
-    expect(screen.getByText(/Business confirmation needed/i)).toBeInTheDocument();
-    expect(screen.getByText(/Expert needed/i)).toBeInTheDocument();
-    expect(screen.getByText(/Not assessed yet/i)).toBeInTheDocument();
     expect(
       screen.getByText(/This is not a quote or appointment/i),
     ).toBeInTheDocument();
+    expect(screen.queryByText(/Transaction barriers/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Trust/i)).not.toBeInTheDocument();
   });
 
   it('uses business-facing copy when shown to the contractor', () => {
@@ -94,6 +93,10 @@ describe('KitchenBathReadyProjectCard', () => {
     ).toBeInTheDocument();
     expect(screen.getByText(/Must-haves:/i)).toBeInTheDocument();
     expect(screen.getByText(/Concerns \/ avoid:/i)).toBeInTheDocument();
+    expect(screen.getByText(/Transaction barriers/i)).toBeInTheDocument();
+    expect(screen.getByText(/Business confirmation needed/i)).toBeInTheDocument();
+    expect(screen.getByText(/Expert needed/i)).toBeInTheDocument();
+    expect(screen.getByText(/Not assessed yet/i)).toBeInTheDocument();
   });
 
   it('fails visibly closed when retained source is incomplete', () => {
