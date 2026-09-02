@@ -161,15 +161,15 @@ describe('KitchenBathPublicService', () => {
         priorities: ['FUNCTION_AND_LAYOUT', 'DURABILITY'],
       },
       source: {
-        intakeIntegrity: 'SYSTEM_HASH_PRESENT',
+        basis: 'CONSENTED_WARD_HANDOFF',
         modelInferencesIncluded: false,
       },
     });
-    expect(
-      result.readyProject.transactionBarriers.find(
-        (barrier: { key: string }) => barrier.key === 'PRICE',
-      ),
-    ).toMatchObject({ status: 'BUSINESS_REQUIRED' });
+    expect(result.readyProject).not.toHaveProperty('leadId');
+    expect(result.readyProject).not.toHaveProperty('transactionBarriers');
+    expect(result.readyProject).not.toHaveProperty('source.intakeIntegrity');
+    expect(result.readyProject).not.toHaveProperty('source.conversationTurns');
+    expect(result.readyProject).not.toHaveProperty('source.consentVersion');
   });
 
   it('sanitizes new customer value fields before putting them in the transactional source envelope', async () => {
