@@ -168,6 +168,8 @@ Required event types in this slice:
 
 The schema keeps the broader PA-021 event vocabulary available without requiring the first service to produce every type.
 
+Event `actorUserId` is immutable provenance, not a live foreign key. The event ledger must not rewrite accepted actor history when a User row is later removed; Responsibility lifecycle remains controlled by the Principal relationship.
+
 ## 7. Persistence / retention
 
 OR-001 does **not** invent a new independent TTL for personal Responsibilities.
