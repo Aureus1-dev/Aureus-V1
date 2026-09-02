@@ -140,3 +140,11 @@
     grid-template-columns: 1fr;
   }
 }
+
+
+.sourceNote {
+  margin: 0;
+  font-size: 0.84rem;
+  line-height: 1.45;
+  opacity: 0.76;
+}
