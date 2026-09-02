@@ -64,7 +64,8 @@ export function ResponsibilityProgressCard({
 }: ResponsibilityProgressCardProps) {
   const outcome = reportedOutcome(responsibility);
   const canResume =
-    responsibility.status === 'WAITING_ON_USER' &&
+    (responsibility.status === 'WAITING_ON_USER' ||
+      responsibility.status === 'ACTIVE') &&
     Boolean(responsibility.originOpportunityId) &&
     Boolean(onResume);
 
@@ -89,7 +90,7 @@ export function ResponsibilityProgressCard({
 
       {canResume ? (
         <Button type="button" disabled={busy} onClick={onResume}>
-          Resume with Aureus
+          Continue with Aureus
         </Button>
       ) : null}
     </section>
