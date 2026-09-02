@@ -4,9 +4,6 @@
 -- GUIDANCE_ONLY kind. No Business/shared context or cross-context transfer is
 -- introduced.
 
-ALTER TYPE "ResponsibilityKind"
-  ADD VALUE IF NOT EXISTS 'OPPORTUNITY_APPLICATION_GUIDANCE';
-
 ALTER TABLE "Responsibility"
   ADD CONSTRAINT "Responsibility_application_guidance_origin_check" CHECK (
     "kind" <> 'OPPORTUNITY_APPLICATION_GUIDANCE'
