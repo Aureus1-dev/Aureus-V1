@@ -53,7 +53,7 @@ export interface PeopleApplicationHelpDto {
 }
 
 export interface ActivePeopleApplicationHelpDto {
-  session: GuidedApplicationSessionDto;
+  session: GuidedApplicationSessionDto | null;
   responsibility: PeopleResponsibilityDto | null;
 }
 
