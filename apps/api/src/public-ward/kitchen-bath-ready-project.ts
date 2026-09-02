@@ -108,6 +108,36 @@ export interface KitchenBathReadyProject {
   missingRequiredSource: string[];
 }
 
+export type KitchenBathPublicReadyProject = Omit<
+  KitchenBathReadyProject,
+  'leadId' | 'source' | 'transactionBarriers'
+> & {
+  source: Pick<
+    KitchenBathReadyProject['source'],
+    'basis' | 'modelInferencesIncluded'
+  >;
+};
+
+export function toPublicKitchenBathReadyProject(
+  project: KitchenBathReadyProject | null,
+): KitchenBathPublicReadyProject | null {
+  if (!project) return null;
+  const {
+    leadId: _leadId,
+    transactionBarriers: _transactionBarriers,
+    source,
+    ...shared
+  } = project;
+
+  return {
+    ...shared,
+    source: {
+      basis: source.basis,
+      modelInferencesIncluded: false,
+    },
+  };
+}
+
 interface ReadyProjectLeadSource {
   id: string;
   projectLocation: string | null;
