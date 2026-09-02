@@ -62,14 +62,3 @@ export interface IResponsibilityRepository {
   ): Promise<ResponsibilityWithEvents>;
 }
 
-export {
-  Responsibility,
-  ResponsibilityActorClass,
-  ResponsibilityAuthorityClass,
-  ResponsibilityContextType,
-  ResponsibilityEvent,
-  ResponsibilityEvidenceLevel,
-  ResponsibilityKind,
-  ResponsibilityPrivacyScope,
-  ResponsibilityStatus,
-};
