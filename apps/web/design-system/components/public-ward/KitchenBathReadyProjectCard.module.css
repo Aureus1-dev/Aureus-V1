@@ -1,0 +1,142 @@
+.card {
+  display: grid;
+  gap: 1rem;
+  padding: 1.1rem;
+  border: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.14));
+  border-radius: 1rem;
+  background: var(--surface-raised, rgba(255, 255, 255, 0.04));
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+}
+
+.header h3,
+.section h4,
+.section p,
+.boundary p {
+  margin: 0;
+}
+
+.eyebrow {
+  margin: 0 0 0.2rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  opacity: 0.72;
+}
+
+.state {
+  flex: 0 0 auto;
+  padding: 0.35rem 0.55rem;
+  border-radius: 999px;
+  border: 1px solid currentColor;
+  font-size: 0.75rem;
+}
+
+.summaryGrid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.65rem;
+}
+
+.summaryGrid > div {
+  display: grid;
+  gap: 0.2rem;
+  padding: 0.7rem;
+  border-radius: 0.75rem;
+  background: var(--surface-subtle, rgba(255, 255, 255, 0.035));
+}
+
+.summaryGrid span {
+  font-size: 0.75rem;
+  opacity: 0.68;
+}
+
+.summaryGrid strong {
+  text-transform: capitalize;
+}
+
+.section {
+  display: grid;
+  gap: 0.65rem;
+}
+
+.section ul {
+  margin: 0;
+  padding-left: 1.2rem;
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+
+.chips span {
+  padding: 0.3rem 0.55rem;
+  border-radius: 999px;
+  background: var(--surface-subtle, rgba(255, 255, 255, 0.06));
+  font-size: 0.82rem;
+}
+
+.barriers {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.6rem;
+}
+
+.barrier {
+  display: grid;
+  gap: 0.35rem;
+  padding: 0.7rem;
+  border-radius: 0.75rem;
+  border: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.1));
+}
+
+.barrier > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.barrier span {
+  font-size: 0.75rem;
+  opacity: 0.72;
+  text-align: right;
+}
+
+.barrier p {
+  margin: 0;
+  font-size: 0.84rem;
+  line-height: 1.45;
+  opacity: 0.82;
+}
+
+.boundary {
+  display: grid;
+  gap: 0.35rem;
+  padding: 0.8rem;
+  border-radius: 0.75rem;
+  background: var(--surface-subtle, rgba(255, 255, 255, 0.035));
+}
+
+.warning {
+  margin: 0;
+  font-weight: 600;
+}
+
+@media (max-width: 760px) {
+  .header {
+    display: grid;
+  }
+
+  .summaryGrid,
+  .barriers {
+    grid-template-columns: 1fr;
+  }
+}
