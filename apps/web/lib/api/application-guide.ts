@@ -4,6 +4,7 @@ export interface GuidedApplicationSessionDto {
   id: string;
   conversationId: string;
   opportunityId: string;
+  responsibilityId: string | null;
   opportunityTitle: string;
   provider: string;
   applicationUrl: string;
