@@ -79,6 +79,61 @@ enum SeasonOfLife {
   OTHER
 }
 
+enum ResponsibilityContextType {
+  PERSONAL
+  BUSINESS_TENANT
+  BUSINESS_CUSTOMER_SHARED
+}
+
+enum ResponsibilityKind {
+  OPPORTUNITY_DECISION
+}
+
+enum ResponsibilityStatus {
+  ACTIVE
+  WAITING_ON_AUREUS
+  WAITING_ON_USER
+  WAITING_ON_THIRD_PARTY
+  BLOCKED
+  COMPLETED
+  RESPONSIBLY_EXHAUSTED
+  CANCELLED
+}
+
+enum ResponsibilityAuthorityClass {
+  GUIDANCE_ONLY
+}
+
+enum ResponsibilityPrivacyScope {
+  PERSONAL_PRIVATE
+  BUSINESS_PRIVATE
+  SHARED_TRANSACTION
+}
+
+enum ResponsibilityEventType {
+  ACCEPTED
+  STATE_CHANGED
+  USER_INPUT_REQUIRED
+  EXTERNAL_WAIT_STARTED
+  COMMITMENT_RECORDED
+  ACTION_EVIDENCED
+  COMPLETED
+  RESPONSIBLY_EXHAUSTED
+  CANCELLED
+}
+
+enum ResponsibilityActorClass {
+  MEMBER
+  AUREUS
+  SYSTEM
+  EXTERNAL
+}
+
+enum ResponsibilityEvidenceLevel {
+  REPORTED
+  VERIFIED
+}
+
 // ===========================================================================
 // User
 // ===========================================================================
@@ -170,6 +225,8 @@ model User {
   unresolvedNeeds            UnresolvedNeed[]
   harvestPlans               HarvestPlan[]
   guidedApplicationSessions  GuidedApplicationSession[]
+  responsibilitiesAsPrincipal Responsibility[]      @relation("ResponsibilityPrincipalUser")
+  responsibilityEventsAsActor ResponsibilityEvent[] @relation("ResponsibilityEventActor")
 }
 
 // ===========================================================================
@@ -264,6 +321,79 @@ model ConsentRecord {
 
   @@index([userId])
   @@index([userId, version])
+}
+
+// ===========================================================================
+// Responsibility Core — PA-021 / OR-001
+//
+// The root is intentionally thin: it joins an accepted outcome to explicit
+// principal/context, bounded authority/privacy, durable status, provenance,
+// and append-only evidence/events. Domain records remain authoritative for
+// their own facts; Responsibility must not become a duplicate workflow engine.
+// ===========================================================================
+
+model Responsibility {
+  id        String               @id @default(uuid()) @db.Uuid
+  kind      ResponsibilityKind
+  objective String
+  status    ResponsibilityStatus @default(ACTIVE)
+
+  contextType             ResponsibilityContextType
+  principalUserId         String? @db.Uuid
+  principalOrganizationId String? @db.Uuid
+  principalUser           User?         @relation("ResponsibilityPrincipalUser", fields: [principalUserId], references: [id], onDelete: Cascade)
+  principalOrganization   Organization? @relation("ResponsibilityPrincipalOrganization", fields: [principalOrganizationId], references: [id], onDelete: Cascade)
+
+  // Provenance pointers are deliberately not foreign keys. The accepted work
+  // survives ordinary conversation/domain lifecycle changes while the service
+  // validates ownership/currentness at the moment the Responsibility is made.
+  originConversationId String? @db.Uuid
+  originOpportunityId  String? @db.Uuid
+
+  successCriteria        Json
+  authorityClass         ResponsibilityAuthorityClass
+  authorityPolicyVersion String
+  privacyScope           ResponsibilityPrivacyScope
+  privacyPolicyVersion   String
+
+  dueAt              DateTime?
+  retentionExpiresAt DateTime?
+  completedAt        DateTime?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  events ResponsibilityEvent[]
+
+  @@index([contextType, principalUserId, status, updatedAt])
+  @@index([principalOrganizationId, status, updatedAt])
+  @@index([originConversationId])
+  @@index([originOpportunityId])
+}
+
+model ResponsibilityEvent {
+  id               String                   @id @default(uuid()) @db.Uuid
+  responsibilityId String                   @db.Uuid
+  responsibility   Responsibility           @relation(fields: [responsibilityId], references: [id], onDelete: Cascade)
+  type             ResponsibilityEventType
+  actorClass       ResponsibilityActorClass
+  actorUserId      String?                  @db.Uuid
+  actorUser        User?                    @relation("ResponsibilityEventActor", fields: [actorUserId], references: [id], onDelete: SetNull)
+  fromStatus       ResponsibilityStatus?
+  toStatus         ResponsibilityStatus?
+
+  // Evidence is reference-only. OR-001 never copies source-domain payloads,
+  // raw model reasoning, secrets, or sensitive form values into this ledger.
+  sourceSystem     String?
+  sourceRecordType String?
+  sourceRecordId   String?
+  sourceState      String?
+  evidenceLevel    ResponsibilityEvidenceLevel?
+
+  occurredAt DateTime @default(now())
+
+  @@index([responsibilityId, occurredAt])
+  @@index([actorUserId])
+  @@index([sourceRecordType, sourceRecordId])
 }
 
 // ===========================================================================
@@ -1009,6 +1139,7 @@ model Organization {
   announcements            Announcement[]
   conversations            Conversation[]
   courses                  Course[]
+  responsibilitiesAsPrincipal Responsibility[] @relation("ResponsibilityPrincipalOrganization")
 
   @@index([organizationType])
   @@index([verificationStatus])
