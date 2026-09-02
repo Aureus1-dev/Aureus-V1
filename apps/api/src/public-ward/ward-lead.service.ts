@@ -34,6 +34,7 @@ import { AssignWardLeadDto } from './dto/assign-ward-lead.dto';
 import { CreateWardLeadDto } from './dto/create-ward-lead.dto';
 import { ListWardLeadsQueryDto } from './dto/list-ward-leads-query.dto';
 import { TransitionWardLeadDto } from './dto/transition-ward-lead.dto';
+import { buildKitchenBathReadyProject } from './kitchen-bath-ready-project';
 import {
   WARD_LEAD_CONSENT_DATA_CLASSES,
   WARD_LEAD_CONSENT_PURPOSE,
@@ -298,9 +299,10 @@ export class WardLeadService {
       },
     });
     if (!lead) throw new NotFoundException(`Lead '${leadId}' not found`);
+    const readyProject = buildKitchenBathReadyProject(lead);
     const safeLead: Partial<typeof lead> = { ...lead };
     delete safeLead.submissionFingerprint;
-    return safeLead;
+    return { ...safeLead, readyProject };
   }
 
   async assignBusinessLead(
