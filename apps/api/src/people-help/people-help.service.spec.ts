@@ -60,7 +60,7 @@ describe('PeopleHelpService', () => {
   const guidedApplications = {
     startSession: jest.fn(),
     findActive: jest.fn(),
-    getOwnedActiveForCoordination: jest.fn(),
+    getOwnedForCoordination: jest.fn(),
     endSession: jest.fn(),
   };
   const savedOpportunities = {
@@ -126,7 +126,7 @@ describe('PeopleHelpService', () => {
   });
 
   it('ends the guide before moving the Responsibility to WAITING_ON_USER', async () => {
-    guidedApplications.getOwnedActiveForCoordination.mockResolvedValue(session);
+    guidedApplications.getOwnedForCoordination.mockResolvedValue(session);
     responsibilities.findOpenApplicationGuidance.mockResolvedValue(
       responsibility,
     );
@@ -152,7 +152,7 @@ describe('PeopleHelpService', () => {
   });
 
   it('records explicit member outcome, revokes guidance, then completes using the SavedOpportunity reference', async () => {
-    guidedApplications.getOwnedActiveForCoordination.mockResolvedValue(session);
+    guidedApplications.getOwnedForCoordination.mockResolvedValue(session);
     responsibilities.findOpenApplicationGuidance.mockResolvedValue(
       responsibility,
     );
@@ -198,8 +198,48 @@ describe('PeopleHelpService', () => {
     expect(result.outcome).toBe(TrackingStatus.APPLIED);
   });
 
+  it('treats a repeated identical completion request as idempotent after the guide is already ended', async () => {
+    const endedSession = { ...session, status: 'ENDED' };
+    const completed = {
+      ...responsibility,
+      status: ResponsibilityStatus.COMPLETED,
+      events: [
+        {
+          id: 'event-completed',
+          type: 'COMPLETED',
+          actorClass: 'SYSTEM',
+          actorUserId: null,
+          fromStatus: ResponsibilityStatus.ACTIVE,
+          toStatus: ResponsibilityStatus.COMPLETED,
+          sourceSystem: 'OPPORTUNITY_ENGINE',
+          sourceRecordType: 'SavedOpportunity',
+          sourceRecordId: 'saved-1',
+          sourceState: TrackingStatus.APPLIED,
+          evidenceLevel: 'REPORTED',
+          occurredAt: new Date(),
+        },
+      ],
+    };
+    guidedApplications.getOwnedForCoordination.mockResolvedValue(endedSession);
+    responsibilities.findOpenApplicationGuidance.mockResolvedValue(null);
+    responsibilities.findLatestApplicationGuidanceForConversation.mockResolvedValue(
+      completed,
+    );
+
+    const result = await service.complete(
+      session.id,
+      TrackingStatus.APPLIED,
+      caller,
+    );
+
+    expect(result.responsibility.status).toBe(ResponsibilityStatus.COMPLETED);
+    expect(savedOpportunities.update).not.toHaveBeenCalled();
+    expect(guidedApplications.endSession).not.toHaveBeenCalled();
+    expect(responsibilities.completeApplicationGuidance).not.toHaveBeenCalled();
+  });
+
   it('does not complete if the application-help Responsibility is missing', async () => {
-    guidedApplications.getOwnedActiveForCoordination.mockResolvedValue(session);
+    guidedApplications.getOwnedForCoordination.mockResolvedValue(session);
     responsibilities.findOpenApplicationGuidance.mockResolvedValue(null);
 
     await expect(
@@ -220,7 +260,7 @@ describe('PeopleHelpService', () => {
     ).rejects.toBeInstanceOf(ConflictException);
 
     expect(
-      guidedApplications.getOwnedActiveForCoordination,
+      guidedApplications.getOwnedForCoordination,
     ).not.toHaveBeenCalled();
   });
 });
