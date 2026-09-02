@@ -478,6 +478,18 @@ export class GuidedApplicationService {
     await this.sessions.end(session.id, caller.id, now);
   }
 
+  /**
+   * Internal coordination hook for OR-002. This deliberately exposes only the
+   * already-owned active session entity after the same self-scope check used
+   * by consent/analyze/end. It grants no new screen, data, or action authority.
+   */
+  async getOwnedActiveForCoordination(
+    sessionId: string,
+    caller: AuthenticatedUser,
+  ): Promise<GuidedApplicationSession> {
+    return this.getOwnedActive(sessionId, caller.id);
+  }
+
   private async getOwnedActive(
     sessionId: string,
     userId: string,
