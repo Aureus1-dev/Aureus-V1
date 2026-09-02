@@ -57,12 +57,16 @@ describe('Responsibility Core — Prisma integration', () => {
 
     const first = await repo.createAccepted({
       principalUserId: userId,
+      kind: ResponsibilityKind.OPPORTUNITY_DECISION,
+      successCriteria: { type: 'OPPORTUNITY_DECISION_RECORDED' },
       objective: 'Decide the next step for the integration opportunity',
       originConversationId: conversationId,
       originOpportunityId: opportunityId,
     });
     const second = await repo.createAccepted({
       principalUserId: userId,
+      kind: ResponsibilityKind.OPPORTUNITY_DECISION,
+      successCriteria: { type: 'OPPORTUNITY_DECISION_RECORDED' },
       objective: 'A duplicate caller cannot create a second open commitment',
       originConversationId: conversationId,
       originOpportunityId: opportunityId,
@@ -83,6 +87,8 @@ describe('Responsibility Core — Prisma integration', () => {
   it('records USER_INPUT_REQUIRED once and then completes once with referenced reported evidence', async () => {
     const created = await repo.createAccepted({
       principalUserId: userId,
+      kind: ResponsibilityKind.OPPORTUNITY_DECISION,
+      successCriteria: { type: 'OPPORTUNITY_DECISION_RECORDED' },
       objective: 'Decide the next step for another integration opportunity',
       originConversationId: randomUUID(),
       originOpportunityId: randomUUID(),
@@ -143,6 +149,8 @@ describe('Responsibility Core — Prisma integration', () => {
   it('hides a personal Responsibility from another principal at the repository boundary', async () => {
     const created = await repo.createAccepted({
       principalUserId: userId,
+      kind: ResponsibilityKind.OPPORTUNITY_DECISION,
+      successCriteria: { type: 'OPPORTUNITY_DECISION_RECORDED' },
       objective: 'Private personal responsibility',
       originConversationId: randomUUID(),
       originOpportunityId: randomUUID(),
@@ -180,6 +188,8 @@ describe('Responsibility Core — Prisma integration', () => {
     });
     const created = await repo.createAccepted({
       principalUserId: ephemeral.id,
+      kind: ResponsibilityKind.OPPORTUNITY_DECISION,
+      successCriteria: { type: 'OPPORTUNITY_DECISION_RECORDED' },
       objective: 'Cascade lifecycle proof',
       originConversationId: randomUUID(),
       originOpportunityId: randomUUID(),
