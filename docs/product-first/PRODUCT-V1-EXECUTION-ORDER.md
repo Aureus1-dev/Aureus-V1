@@ -210,7 +210,7 @@ Deferred does not mean rejected. Each item returns only after the answer-to-hand
 
 ## Founder-approved successor program — Outcome & Responsibility Architecture
 
-**Candidate status:** This section is staged on the PA-021 architecture branch and does not supersede active PR scopes or merge/deploy gates until reviewed and merged.
+**Status:** PA-021 / PA-022 architecture and the OR-CCT-001 follow-up are merged. Implementation proceeds in the ordered OR slices below; merge/deploy gates remain separate.
 
 On 2026-08-30 the Founder approved the Aureus outcome/responsibility direction described in `PA-021 — Aureus Outcome & Responsibility Architecture`.
 
@@ -249,7 +249,10 @@ Acceptance:
 
 #### OR-001 — Responsibility Core
 
-Deliver the smallest reusable responsibility contract and completion state needed by both People and Business, reusing existing persistence where possible.
+**Implementation:** active on `feat/or-001-responsibility-core` from V1 main `2c545de9e25b3c740db0fec6183f6ef9efbf541b`.  
+**Work order:** `docs/work-orders/OR-001-Responsibility-Core.md`.
+
+Deliver the smallest reusable responsibility contract and completion state needed by both People and Business, reusing existing persistence where possible. The first proof is intentionally PERSONAL-only and uses an `OPPORTUNITY_DECISION` Responsibility so the cross-domain root is proven without prematurely implementing Business/shared contexts.
 
 Acceptance must prove:
 
