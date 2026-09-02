@@ -1,7 +1,7 @@
 # Aureus Founder Control Center
 
 **Status:** Founder-facing build control plane  
-**Last reconciled:** 2026-08-27  
+**Last reconciled:** 2026-09-02  
 **Scope:** Product construction and release truth only. This dashboard does not amend governance or constitutional authority.
 
 ## 1. What this dashboard is for
@@ -20,8 +20,8 @@ The dashboard is not another customer-facing Aureus feature. It is the control p
 
 | Repository | Current `main` | Role today |
 |---|---|---|
-| Aureus-V1 | `5e4a29a35b243a5bd43e52a90d3eadc473624695` | Product/runtime owner: Hall, Steward, Ward, business console, conversations, tenants, leads, operations, voice, production release path |
-| Aureus-Foundry | `e6c0a4558145c6f00d5e7734be95af08daf8241a` | Intelligence production, planning, routing, review, evidence, cost/audit, outcome/evaluation engine; executable offline baseline |
+| Aureus-V1 | `2c545de9e25b3c740db0fec6183f6ef9efbf541b` | Product/runtime owner. PR #109 is merged; exact-main post-merge CI run `33576038825` is SUCCESS. OR-001 now builds on this exact base. |
+| Aureus-Foundry | `e6c0a4558145c6f00d5e7734be95af08daf8241a` | Main remains the production-neutral baseline. Draft PR #7 is the governed Claude review meeting room; latest closure-review head `6ea7ae4327933d9789c231433fb3251654a39bbc` passed Foundry CI but is not merged. |
 | Aureus-Library | `ea9887c50550e466411742c3f3fc53a3de7f264f` | Governed durable knowledge and release integrity layer |
 
 ### Product construction completed
@@ -42,56 +42,52 @@ The current job is no longer to invent those foundations. It is to complete, har
 
 ## 3. Current active work
 
-### CLOSED PROOF POINT — Verified actionable opportunity handoff (§1)
+### CLOSED — Outcome architecture reconciliation
 
-**Merged PR:** #101  
-**Reviewed head:** `749057a85d2335fd6d9e8f864aa82e6ff9bce58e`  
-**Resulting V1 `main`:** `5e4a29a35b243a5bd43e52a90d3eadc473624695`  
-**Post-merge CI:** run 33102294356 — success on that exact `main` SHA  
-**Source of truth:** GitHub Issue #95 §1
+- V1 PR #107 merged the reviewed PA-021 / PA-022 outcome, Responsibility, Private Steward, Visual Flourishing, final discovery, and execution-sequence architecture.
+- Exact merged PR #107 content head: `317ead09576c67ac4894743780e35f879aae1903`.
+- Resulting merge commit: `47119f4cf824e06098bcaa370a6a6ef8cab9c47b`.
+- Claude post-merge independent verdict: PASS WITH CONDITIONS / FOLLOW-UP PR REQUIRED; no Critical/High finding and no revert recommended.
+- Post-merge CI run `33509252590`: SUCCESS.
 
-The server-owned Opportunity Link Registry now supplies Hall actions only from current VERIFIED + ACTIVE Opportunity records, fails closed on unsafe/stale evidence, preserves the conversation when opening external actions, and keeps model output out of the actionable URL path. Issue #95 §1 is checked complete. This records code/CI acceptance only; deployment and real production walkthrough evidence remain governed separately by Issue #95 §11 and the final completion rule.
+### CLOSED — Completion Case transition gate
 
-### NOW — Member-first Opportunity Center launch rails (§2)
+- V1 PR #109 formalized the Business/shared ↔ Personal/private transition boundary required by the independent review.
+- Exact reviewed head: `8d431754a21413fc92ffdd7a059198ce34ebcd20`.
+- Claude closure verdict: PASS; no P0/P1; READY FOR FOUNDER MERGE DECISION.
+- Resulting current V1 main: `2c545de9e25b3c740db0fec6183f6ef9efbf541b`.
+- Post-merge main CI run `33576038825`: SUCCESS.
+- OR-CCT-001 does not authorize cross-context transfer; it defines the gate a later implementation must pass.
 
-**Working branch:** `fix/temporary-opportunity-provider-rails`  
-**Draft PR:** #102 — launch catalog + provider-neutral commercial destination seam  
-**Source of truth:** GitHub Issue #95 §2
+### NOW — OR-001 Responsibility Core
 
-Goal: make the Opportunity Center immediately useful even when Aureus earns nothing, while preserving an optional, disclosed revenue path that can never influence what the member is shown.
+**Working branch:** `feat/or-001-responsibility-core`  
+**Base:** `2c545de9e25b3c740db0fec6183f6ef9efbf541b`  
+**Work order:** `docs/work-orders/OR-001-Responsibility-Core.md`  
+**Architecture:** PA-021 / PA-022  
+**Cross-context boundary:** OR-CCT-001
 
-Current implementation direction:
+Goal: prove the smallest durable Responsibility primitive without building a generalized workflow engine.
 
-- preserve the existing Opportunity domain and VERIFIED-action registry as the single source of truth;
-- ship a curated Founder Pilot catalog of 22 researched opportunities spanning benefits/cash support, money owed/refunds, utility and housing hardship, child care, employment, paid/free training, communications savings, and higher-value banking incentives;
-- use official HTTPS destinations as the default action — no affiliate approval is required for Aureus to help;
-- default member search to VERIFIED + ACTIVE and suppress opportunities whose deadline has passed;
-- preserve the actual source-research timestamp instead of falsely re-stamping an old seed as freshly verified on every deployment;
-- explicitly retire the closed 2025–26 Pennsylvania LIHEAP launch seed;
-- allow signed-out visitors to search verified opportunities; saving and personalized recommendations remain member-only;
-- show a stated benefit amount/value on cards and detail when an official source establishes one, plus the source recheck date on detail;
-- replace provider-name-specific Scrambly/BigCash/Swagbucks configuration with one optional provider-neutral canonical-URL → commercial-URL mapping;
-- apply any approved commercial destination only after the member-first winning Opportunity has been selected;
-- accept only exact canonical matches and HTTPS commercial destinations; malformed, mismatched, missing, stale, or unsafe configuration fails closed to the official action;
-- attach plain-language compensation disclosure whenever the commercial destination is actually used;
-- keep referral/affiliate economics entirely outside category inference, relevance scoring, freshness, confidence, and ordering;
-- synchronize the reviewed Founder Pilot catalog during Render pre-deploy so the deployed SHA carries the opportunity truth that was reviewed, rather than relying on an undocumented manual seed step.
+First proof:
 
-No commercial/referral destination is required or committed. Scrambly, BigCashWeb, and Swagbucks are not launch dependencies. PR #102 remains constructor work until final exact-head CI and independent adversarial review pass; production deployment and member acceptance remain separate gates.
+`owned conversation + VERIFIED/ACTIVE opportunity → explicit bounded Responsibility → durable commitment → waiting-on-member when needed → referenced domain evidence → deterministic completion`
 
-### NEXT — Founder blocker queue
+The first Responsibility kind is deliberately narrow: `OPPORTUNITY_DECISION`. Completion means the member's concrete Opportunity decision was recorded in the existing `SavedOpportunity.trackingStatus` domain. It does **not** claim external approval, award, benefit receipt, application submission, or other real-world completion.
 
-Order remains governed by Issue #95 unless a newly discovered severity-1 defect preempts it.
+OR-001 is PERSONAL / GUIDANCE_ONLY / PERSONAL_PRIVATE only. It does not implement Business Responsibilities, cross-context memory transfer, browser/computer use, autonomous submission, personal life-memory storage, Economic Stewardship, Outcome Graph, or learning.
 
-1. Guided external application assistance — **See → Guide**.
-2. Guided external application assistance — **Prefill → Act**, only after See/Guide is stable and approval boundaries are proven.
-3. Exact water-utility hardship production flow.
-4. Talk/voice real-device end-to-end verification.
-5. Mobile Hall real-device verification.
-6. Provider/network failure and recovery behavior.
-7. Guest → save/claim → login continuity.
-8. Business founder-path regression.
-9. Exact-deployment release verification and full Founder walkthrough.
+Acceptance still requires:
+
+1. complete implementation and deny-path tests;
+2. exact-head CI + Docker success;
+3. fresh independent Claude review of the frozen exact SHA;
+4. Founder merge decision;
+5. deployment/production acceptance separately where applicable.
+
+### NEXT after OR-001
+
+After OR-001 is independently reviewed and merged, proceed to the next Product V1 Execution Order slice rather than reopening broad architecture research. OR-002 proves People help-to-completion and must obey OR-CCT-001 before any cross-context continuation is implemented.
 
 ## 4. Definition of complete V1
 

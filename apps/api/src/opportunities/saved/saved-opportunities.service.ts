@@ -26,6 +26,19 @@ export class SavedOpportunitiesService {
     return list.map(SavedOpportunityResponseDto.fromEntity);
   }
 
+  /**
+   * Internal domain lookup used by Responsibility reconciliation. Returning
+   * null is intentional: absence means the member has not yet recorded a
+   * concrete decision in the existing Opportunity tracking domain.
+   */
+  async findOne(
+    userId: string,
+    opportunityId: string,
+  ): Promise<SavedOpportunityResponseDto | null> {
+    const saved = await this.repo.findOne(userId, opportunityId);
+    return saved ? SavedOpportunityResponseDto.fromEntity(saved) : null;
+  }
+
   async update(
     userId: string, opportunityId: string, dto: UpdateSavedOpportunityDto,
   ): Promise<SavedOpportunityResponseDto> {
