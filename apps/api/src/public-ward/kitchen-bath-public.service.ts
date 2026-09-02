@@ -1,5 +1,10 @@
 import { createHash } from 'node:crypto';
-import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import {
   BusinessPublicStatus,
   OrganizationStatus,
@@ -61,6 +66,11 @@ export class KitchenBathPublicService {
     }
 
     const cleaned = this.cleanIntake(dto.kitchenBath);
+    if (cleaned.rooms.length === 0 || cleaned.scope.length < 10) {
+      throw new BadRequestException(
+        'Kitchen & Bath rooms and scope must contain meaningful text',
+      );
+    }
     const intakeHash = this.hash(JSON.stringify(cleaned));
     const kitchenBathSignals = [
       ...KitchenBathVerticalService.intakeSignals(cleaned),
