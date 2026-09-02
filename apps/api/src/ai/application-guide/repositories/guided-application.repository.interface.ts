@@ -13,6 +13,7 @@ export interface CreateGuidedApplicationSessionInput {
   userId: string;
   conversationId: string;
   opportunityId: string;
+  responsibilityId?: string | null;
   applicationUrl: string;
 }
 
