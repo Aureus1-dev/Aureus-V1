@@ -23,6 +23,14 @@ function signals(overrides: Record<string, unknown> = {}): Prisma.JsonArray {
     budget_range: 'FROM_50000_TO_100000',
     decision_status: 'OWNER_DECISION_MAKER',
     conversation_turns: '4',
+    project_attachments: [
+      {
+        fileName: 'existing-kitchen.jpg',
+        mimeType: 'image/jpeg',
+        sizeBytes: 12345,
+        storageRef: 'opaque://internal/storage/reference',
+      },
+    ],
     ...overrides,
   };
   return Object.entries(values).flatMap(([key, value]) =>
@@ -56,7 +64,15 @@ describe('buildKitchenBathReadyProject', () => {
 
     expect(project?.source.intakeIntegrity).toBe('SYSTEM_HASH_PRESENT');
     expect(project?.source.conversationTurns).toBe(4);
+    expect(project?.constraints.attachments).toEqual([
+      {
+        fileName: 'existing-kitchen.jpg',
+        mimeType: 'image/jpeg',
+        sizeBytes: 12345,
+      },
+    ]);
     expect(JSON.stringify(project)).not.toContain('storageRef');
+    expect(JSON.stringify(project)).not.toContain('opaque://internal/storage/reference');
   });
 
   it('keeps price, fit, and trust honest instead of inventing certainty', () => {
