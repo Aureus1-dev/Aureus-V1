@@ -140,6 +140,40 @@ describe('KitchenBathPublicService', () => {
     expect(JSON.stringify(result.readyProject)).not.toMatch(/<script>|<b>/i);
   });
 
+  it('regenerates the same Ready Project for an identical K&B retry without a second enrichment write', async () => {
+    const { service, prisma } = fixture(true);
+
+    const first = await service.submit(
+      'shop',
+      'conversation',
+      'x'.repeat(48),
+      baseDto,
+    );
+    const retainedSignals =
+      prisma.db.wardLead.updateMany.mock.calls[0][0].data
+        .qualificationSignals;
+
+    prisma.db.wardLead.findFirst.mockResolvedValue({
+      id: 'lead',
+      projectLocation: 'Philadelphia',
+      desiredTiming: 'ONE_TO_THREE_MONTHS',
+      consentVersion: 'lead-handoff-v1',
+      submittedAt: new Date('2026-09-02T00:00:00.000Z'),
+      retentionExpiresAt: new Date('2026-12-01T00:00:00.000Z'),
+      qualificationSignals: retainedSignals,
+    });
+
+    const retry = await service.submit(
+      'shop',
+      'conversation',
+      'x'.repeat(48),
+      baseDto,
+    );
+
+    expect(retry.readyProject).toEqual(first.readyProject);
+    expect(prisma.db.wardLead.updateMany).toHaveBeenCalledTimes(1);
+  });
+
   it('does not return a Ready Project when the retained handoff disappears before enrichment is confirmed', async () => {
     const { service, prisma } = fixture(true);
     prisma.db.wardLead.updateMany.mockResolvedValue({ count: 0 });
