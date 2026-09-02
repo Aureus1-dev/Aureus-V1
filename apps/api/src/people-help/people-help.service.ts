@@ -35,7 +35,11 @@ export class PeopleHelpService {
     const responsibility =
       await this.responsibilities.acceptApplicationGuidance(dto, caller);
 
-    const session = await this.guidedApplications.startSession(dto, caller);
+    const session = await this.guidedApplications.startSessionForResponsibility(
+      dto,
+      caller,
+      responsibility.id,
+    );
 
     return { responsibility, session };
   }
@@ -50,11 +54,9 @@ export class PeopleHelpService {
     );
 
     if (session) {
-      const responsibility =
-        await this.responsibilities.findOpenApplicationGuidance(
-          session.opportunityId,
-          caller,
-        );
+      const responsibility = session.responsibilityId
+        ? await this.responsibilities.findOne(session.responsibilityId, caller)
+        : null;
 
       // A legacy pre-OR-002 guide can still be resumed safely. GET never
       // mutates that legacy session into an implicit Responsibility acceptance.
@@ -80,21 +82,9 @@ export class PeopleHelpService {
         caller,
       );
 
-    let responsibility =
-      await this.responsibilities.findOpenApplicationGuidance(
-        session.opportunityId,
-        caller,
-      );
-
-    if (!responsibility) {
-      const latest =
-        await this.responsibilities.findLatestApplicationGuidanceForConversation(
-          session.conversationId,
-          caller,
-        );
-      responsibility =
-        latest?.originOpportunityId === session.opportunityId ? latest : null;
-    }
+    const responsibility = session.responsibilityId
+      ? await this.responsibilities.findOne(session.responsibilityId, caller)
+      : null;
 
     // Privacy first: an active tool session is ended/revoked before changing
     // higher-level progress. A retry against an already-ended owned session is
@@ -139,21 +129,9 @@ export class PeopleHelpService {
         caller,
       );
 
-    let responsibility =
-      await this.responsibilities.findOpenApplicationGuidance(
-        session.opportunityId,
-        caller,
-      );
-
-    if (!responsibility) {
-      const latest =
-        await this.responsibilities.findLatestApplicationGuidanceForConversation(
-          session.conversationId,
-          caller,
-        );
-      responsibility =
-        latest?.originOpportunityId === session.opportunityId ? latest : null;
-    }
+    const responsibility = session.responsibilityId
+      ? await this.responsibilities.findOne(session.responsibilityId, caller)
+      : null;
 
     if (!responsibility) {
       throw new NotFoundException(
