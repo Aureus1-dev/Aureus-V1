@@ -1,5 +1,43 @@
 import type { Prisma } from '@prisma/client';
 
+const PROJECT_TYPES = new Set([
+  'KITCHEN',
+  'BATHROOM',
+  'KITCHEN_AND_BATH',
+  'OTHER_REMODELING',
+]);
+
+const PRIORITIES = new Set([
+  'LOOK_AND_FEEL',
+  'FUNCTION_AND_LAYOUT',
+  'DURABILITY',
+  'BUDGET_CONTROL',
+  'TIMING',
+  'ACCESSIBILITY',
+  'LOW_MAINTENANCE',
+  'RESALE_VALUE',
+  'ENERGY_EFFICIENCY',
+  'OTHER',
+]);
+
+const DECISION_STATUSES = new Set([
+  'OWNER_DECISION_MAKER',
+  'OWNER_WITH_OTHER_DECISION_MAKERS',
+  'AUTHORIZED_REPRESENTATIVE',
+  'EXPLORING',
+]);
+
+const BUDGET_RANGES = new Set([
+  'UNDER_25000',
+  'FROM_25000_TO_50000',
+  'FROM_50000_TO_100000',
+  'FROM_100000_TO_200000',
+  'OVER_200000',
+  'UNSURE',
+]);
+
+const SHA256_RE = /^[a-f0-9]{64}$/;
+
 export type KitchenBathReadyProjectStatus =
   | 'READY_FOR_EXPERT_REVIEW'
   | 'INCOMPLETE_SOURCE';
@@ -112,6 +150,23 @@ function stringArraySignal(signals: Signal[], key: string): string[] {
   );
 }
 
+function allowedStringSignal(
+  signals: Signal[],
+  key: string,
+  allowed: Set<string>,
+): string | null {
+  const value = stringSignal(signals, key);
+  return value && allowed.has(value) ? value : null;
+}
+
+function allowedStringArraySignal(
+  signals: Signal[],
+  key: string,
+  allowed: Set<string>,
+): string[] {
+  return stringArraySignal(signals, key).filter((value) => allowed.has(value));
+}
+
 function attachmentsSignal(
   signals: Signal[],
 ): Array<{ fileName: string; mimeType: string; sizeBytes: number }> {
@@ -124,7 +179,12 @@ function attachmentsSignal(
     if (
       typeof record.fileName !== 'string' ||
       typeof record.mimeType !== 'string' ||
-      typeof record.sizeBytes !== 'number'
+      typeof record.sizeBytes !== 'number' ||
+      !Number.isInteger(record.sizeBytes) ||
+      record.sizeBytes < 1 ||
+      record.sizeBytes > 20_000_000 ||
+      !record.fileName.trim() ||
+      !record.mimeType.trim()
     ) {
       return [];
     }
@@ -141,8 +201,9 @@ function attachmentsSignal(
 function conversationTurns(signals: Signal[]): number | null {
   const value = stringSignal(signals, 'conversation_turns');
   if (!value) return null;
-  const parsed = Number.parseInt(value, 10);
-  return Number.isFinite(parsed) && parsed >= 0 ? parsed : null;
+  if (!/^\d+$/.test(value)) return null;
+  const parsed = Number(value);
+  return Number.isSafeInteger(parsed) && parsed >= 0 ? parsed : null;
 }
 
 export function buildKitchenBathReadyProject(
@@ -151,15 +212,33 @@ export function buildKitchenBathReadyProject(
   const signals = asSignalArray(lead.qualificationSignals);
   if (stringSignal(signals, 'vertical') !== 'KITCHEN_BATH') return null;
 
-  const projectType = stringSignal(signals, 'project_type');
+  const projectType = allowedStringSignal(
+    signals,
+    'project_type',
+    PROJECT_TYPES,
+  );
   const rooms = stringArraySignal(signals, 'rooms');
   const scope = stringSignal(signals, 'scope');
-  const intakeHash = stringSignal(signals, 'kitchen_bath_intake_hash');
-  const priorities = stringArraySignal(signals, 'priorities');
+  const intakeHashValue = stringSignal(signals, 'kitchen_bath_intake_hash');
+  const intakeHash =
+    intakeHashValue && SHA256_RE.test(intakeHashValue) ? intakeHashValue : null;
+  const priorities = allowedStringArraySignal(
+    signals,
+    'priorities',
+    PRIORITIES,
+  );
   const mustHaves = stringSignal(signals, 'must_haves');
   const concerns = stringSignal(signals, 'concerns');
-  const decisionStatus = stringSignal(signals, 'decision_status');
-  const budgetRange = stringSignal(signals, 'budget_range');
+  const decisionStatus = allowedStringSignal(
+    signals,
+    'decision_status',
+    DECISION_STATUSES,
+  );
+  const budgetRange = allowedStringSignal(
+    signals,
+    'budget_range',
+    BUDGET_RANGES,
+  );
   const designNeeds = stringSignal(signals, 'design_needs');
 
   const missingRequiredSource = [
