@@ -483,11 +483,15 @@ export class GuidedApplicationService {
    * already-owned active session entity after the same self-scope check used
    * by consent/analyze/end. It grants no new screen, data, or action authority.
    */
-  async getOwnedActiveForCoordination(
+  async getOwnedForCoordination(
     sessionId: string,
     caller: AuthenticatedUser,
   ): Promise<GuidedApplicationSession> {
-    return this.getOwnedActive(sessionId, caller.id);
+    const session = await this.sessions.findOwnedById(sessionId, caller.id);
+    if (!session) {
+      throw new NotFoundException('Application guidance session not found');
+    }
+    return session;
   }
 
   private async getOwnedActive(
