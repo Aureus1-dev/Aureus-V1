@@ -259,7 +259,6 @@ ALTER TABLE "ResponsibilityEvent"
   FOREIGN KEY ("responsibilityId") REFERENCES "Responsibility"("id")
   ON DELETE CASCADE ON UPDATE CASCADE;
 
-ALTER TABLE "ResponsibilityEvent"
-  ADD CONSTRAINT "ResponsibilityEvent_actorUserId_fkey"
-  FOREIGN KEY ("actorUserId") REFERENCES "User"("id")
-  ON DELETE SET NULL ON UPDATE CASCADE;
+-- actorUserId is immutable provenance rather than a live User FK. This avoids
+-- rewriting accepted-event history during User lifecycle deletion; the owning
+-- Responsibility still cascades through principalUserId.
