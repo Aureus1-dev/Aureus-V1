@@ -292,3 +292,14 @@ OR-001 should expose only the minimum structured state needed for a future Outco
 - verified terminal outcome.
 
 The richer PA-022 private Steward experience comes later. The first core must make that experience possible without turning the persistence model into a profile/social timeline.
+
+
+## Cross-context transition gate reference
+
+The privacy/authority test case in this analysis that denies a Personal Responsibility from receiving business-private state is governed in detail by:
+
+`docs/product-first/OR-CCT-001-COMPLETION-CASE-TRANSITION-GATE.md`
+
+OR-001 must prove separation and denial. It must not implement the transfer mechanism itself.
+
+Any later implementation that crosses Business/shared ↔ Personal/private boundaries must satisfy OR-CCT-001's explicit request, destination Principal/context, consent/authority artifact, deny-by-default field policy, Context Firewall, destination Passport, provenance, correction/retention, and independent-review requirements.
