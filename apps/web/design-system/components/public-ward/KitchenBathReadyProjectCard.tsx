@@ -136,20 +136,22 @@ export function KitchenBathReadyProjectCard({
         </div>
       ) : null}
 
-      <div className={styles.section}>
-        <h4>Transaction barriers</h4>
-        <div className={styles.barriers}>
-          {project.transactionBarriers.map((barrier) => (
-            <div key={barrier.key} className={styles.barrier}>
-              <div>
-                <strong>{barrierLabel[barrier.key]}</strong>
-                <span>{statusLabel[barrier.status]}</span>
+      {audience === 'business' ? (
+        <div className={styles.section}>
+          <h4>Transaction barriers</h4>
+          <div className={styles.barriers}>
+            {project.transactionBarriers.map((barrier) => (
+              <div key={barrier.key} className={styles.barrier}>
+                <div>
+                  <strong>{barrierLabel[barrier.key]}</strong>
+                  <span>{statusLabel[barrier.status]}</span>
+                </div>
+                <p>{barrier.basis}</p>
               </div>
-              <p>{barrier.basis}</p>
-            </div>
-          ))}
+            ))}
+          </div>
         </div>
-      </div>
+      ) : null}
 
       <div className={styles.section}>
         <h4>What still needs a human expert</h4>
