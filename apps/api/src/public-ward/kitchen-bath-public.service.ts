@@ -117,12 +117,57 @@ export class KitchenBathPublicService {
     ] as Prisma.InputJsonArray;
 
     const updated = await this.prisma.db.wardLead.updateMany({
-      where: { id: lead.id, organizationId: tenant.id },
+      where: {
+        id: lead.id,
+        organizationId: tenant.id,
+        qualificationSignals: {
+          equals: current as Prisma.InputJsonValue,
+        },
+      },
       data: { qualificationSignals: signals },
     });
+
     if (updated.count !== 1) {
+      const concurrent = await this.prisma.db.wardLead.findFirst({
+        where: { id: lead.id, organizationId: tenant.id },
+        select: {
+          id: true,
+          projectLocation: true,
+          desiredTiming: true,
+          consentVersion: true,
+          submittedAt: true,
+          retentionExpiresAt: true,
+          qualificationSignals: true,
+        },
+      });
+      if (!concurrent) {
+        throw new ConflictException(
+          'The handoff changed before its Ready Project could be confirmed. Reload before retrying.',
+        );
+      }
+
+      const concurrentSignals = Array.isArray(concurrent.qualificationSignals)
+        ? (concurrent.qualificationSignals as Prisma.JsonArray)
+        : [];
+      const concurrentHash = concurrentSignals.find((entry) => {
+        if (!entry || Array.isArray(entry) || typeof entry !== 'object') return false;
+        return (entry as Prisma.JsonObject).key === 'kitchen_bath_intake_hash';
+      });
+
+      if (
+        concurrentHash &&
+        !Array.isArray(concurrentHash) &&
+        typeof concurrentHash === 'object' &&
+        (concurrentHash as Prisma.JsonObject).value === intakeHash
+      ) {
+        return {
+          ...handoff,
+          readyProject: buildKitchenBathReadyProject(concurrent),
+        };
+      }
+
       throw new ConflictException(
-        'The handoff changed before its Ready Project could be confirmed. Reload before retrying.',
+        'This conversation already has different remodel intake details',
       );
     }
 
