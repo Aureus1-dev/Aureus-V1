@@ -37,6 +37,7 @@ const sessions = {
   create: jest.fn(),
   findActiveByConversation: jest.fn(),
   findOwnedActiveById: jest.fn(),
+  findOwnedById: jest.fn(),
   end: jest.fn(),
   setConsent: jest.fn(),
   markAnalyzed: jest.fn(),
