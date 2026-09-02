@@ -140,6 +140,15 @@ describe('KitchenBathPublicService', () => {
     expect(JSON.stringify(result.readyProject)).not.toMatch(/<script>|<b>/i);
   });
 
+  it('does not return a Ready Project when the retained handoff disappears before enrichment is confirmed', async () => {
+    const { service, prisma } = fixture(true);
+    prisma.db.wardLead.updateMany.mockResolvedValue({ count: 0 });
+
+    await expect(
+      service.submit('shop', 'conversation', 'x'.repeat(48), baseDto),
+    ).rejects.toBeInstanceOf(ConflictException);
+  });
+
   it('rejects a second, different structured intake on the same retained handoff', async () => {
     const { service, prisma } = fixture(true);
     prisma.db.wardLead.findFirst.mockResolvedValue({
