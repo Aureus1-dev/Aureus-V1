@@ -149,6 +149,79 @@ describe('KitchenBathPublicService', () => {
     ).rejects.toBeInstanceOf(ConflictException);
   });
 
+  it('uses compare-and-set so an identical concurrent enrichment converges on one retained Ready Project', async () => {
+    const { service, prisma } = fixture(true);
+    const initial = {
+      id: 'lead',
+      projectLocation: 'Philadelphia',
+      desiredTiming: 'ONE_TO_THREE_MONTHS',
+      consentVersion: 'lead-handoff-v1',
+      submittedAt: new Date('2026-09-02T00:00:00.000Z'),
+      retentionExpiresAt: new Date('2026-12-01T00:00:00.000Z'),
+      qualificationSignals: [],
+    };
+    prisma.db.wardLead.findFirst
+      .mockResolvedValueOnce(initial)
+      .mockImplementationOnce(async () => {
+        const attempted =
+          prisma.db.wardLead.updateMany.mock.calls[0][0].data
+            .qualificationSignals;
+        return { ...initial, qualificationSignals: attempted };
+      });
+    prisma.db.wardLead.updateMany.mockResolvedValue({ count: 0 });
+
+    const result = await service.submit(
+      'shop',
+      'conversation',
+      'x'.repeat(48),
+      baseDto,
+    );
+
+    expect(prisma.db.wardLead.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          id: 'lead',
+          organizationId: 'tenant',
+          qualificationSignals: { equals: [] },
+        }),
+      }),
+    );
+    expect(result.readyProject).toMatchObject({
+      readinessStatus: 'READY_FOR_EXPERT_REVIEW',
+      source: { modelInferencesIncluded: false },
+    });
+  });
+
+  it('fails closed when a different concurrent Kitchen & Bath intake wins the compare-and-set race', async () => {
+    const { service, prisma } = fixture(true);
+    const initial = {
+      id: 'lead',
+      projectLocation: 'Philadelphia',
+      desiredTiming: 'ONE_TO_THREE_MONTHS',
+      consentVersion: 'lead-handoff-v1',
+      submittedAt: new Date('2026-09-02T00:00:00.000Z'),
+      retentionExpiresAt: new Date('2026-12-01T00:00:00.000Z'),
+      qualificationSignals: [],
+    };
+    prisma.db.wardLead.findFirst
+      .mockResolvedValueOnce(initial)
+      .mockResolvedValueOnce({
+        ...initial,
+        qualificationSignals: [
+          { key: 'vertical', value: 'KITCHEN_BATH' },
+          { key: 'project_type', value: 'BATHROOM' },
+          { key: 'rooms', value: ['bathroom'] },
+          { key: 'scope', value: 'Different concurrent bathroom project.' },
+          { key: 'kitchen_bath_intake_hash', value: 'f'.repeat(64) },
+        ],
+      });
+    prisma.db.wardLead.updateMany.mockResolvedValue({ count: 0 });
+
+    await expect(
+      service.submit('shop', 'conversation', 'x'.repeat(48), baseDto),
+    ).rejects.toThrow('different remodel intake details');
+  });
+
   it('rejects a second, different structured intake on the same retained handoff', async () => {
     const { service, prisma } = fixture(true);
     prisma.db.wardLead.findFirst.mockResolvedValue({
