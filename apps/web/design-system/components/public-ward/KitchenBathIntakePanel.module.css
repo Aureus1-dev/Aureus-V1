@@ -36,3 +36,44 @@
   .grid { grid-template-columns: 1fr; }
   .full { grid-column: auto; }
 }
+
+
+.priorityFieldset {
+  grid-column: 1 / -1;
+  margin: 0;
+  padding: 0.85rem;
+  border: 1px solid rgba(80, 75, 65, 0.22);
+  border-radius: 12px;
+}
+
+.priorityFieldset legend {
+  padding: 0 0.35rem;
+  font-weight: 600;
+}
+
+.priorityFieldset legend span {
+  font-weight: 400;
+  opacity: 0.7;
+}
+
+.priorityGrid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+}
+
+.priorityOption {
+  display: inline-flex !important;
+  grid-template-columns: none !important;
+  align-items: center;
+  gap: 0.4rem !important;
+  padding: 0.42rem 0.62rem;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.64);
+  font-weight: 500 !important;
+}
+
+.priorityOption input {
+  width: auto !important;
+  margin: 0;
+}
