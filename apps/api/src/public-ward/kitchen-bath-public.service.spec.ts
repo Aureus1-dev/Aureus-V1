@@ -106,6 +106,40 @@ describe('KitchenBathPublicService', () => {
     ).toMatchObject({ status: 'BUSINESS_REQUIRED' });
   });
 
+  it('sanitizes new customer value fields before retaining or projecting them', async () => {
+    const { service, prisma } = fixture(true);
+    const result = await service.submit(
+      'shop',
+      'conversation',
+      'x'.repeat(48),
+      {
+        ...baseDto,
+        kitchenBath: {
+          ...baseDto.kitchenBath,
+          mustHaves: '<script>alert(1)</script>Keep the pantry',
+          concerns: '<b>Do not</b> block the back door',
+        },
+      },
+    );
+
+    const data =
+      prisma.db.wardLead.updateMany.mock.calls[0][0].data
+        .qualificationSignals;
+    expect(data).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          key: 'must_haves',
+          value: 'Keep the pantry',
+        }),
+        expect.objectContaining({
+          key: 'concerns',
+          value: 'Do not block the back door',
+        }),
+      ]),
+    );
+    expect(JSON.stringify(result.readyProject)).not.toMatch(/<script>|<b>/i);
+  });
+
   it('rejects a second, different structured intake on the same retained handoff', async () => {
     const { service, prisma } = fixture(true);
     prisma.db.wardLead.findFirst.mockResolvedValue({
