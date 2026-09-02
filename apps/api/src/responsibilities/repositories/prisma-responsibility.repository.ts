@@ -22,24 +22,19 @@ const EVENT_INCLUDE = {
   events: { orderBy: { occurredAt: 'asc' as const } },
 };
 
-const SUCCESS_CRITERIA: Prisma.InputJsonValue = {
-  type: 'OPPORTUNITY_DECISION_RECORDED',
-  evidenceSource: 'SavedOpportunity.trackingStatus',
-  terminalTrackingStatuses: ['APPLYING', 'APPLIED', 'RECEIVED', 'NOT_INTERESTED'],
-};
-
 @Injectable()
 export class PrismaResponsibilityRepository implements IResponsibilityRepository {
   constructor(private readonly prisma: PrismaService) {}
 
-  findOpenOpportunityDecision(
+  findOpenOpportunityResponsibility(
     principalUserId: string,
     opportunityId: string,
+    kind: ResponsibilityKind,
   ): Promise<ResponsibilityWithEvents | null> {
     return this.prisma.db.responsibility.findFirst({
       where: {
         contextType: ResponsibilityContextType.PERSONAL,
-        kind: ResponsibilityKind.OPPORTUNITY_DECISION,
+        kind,
         principalUserId,
         originOpportunityId: opportunityId,
         status: {
@@ -58,9 +53,10 @@ export class PrismaResponsibilityRepository implements IResponsibilityRepository
   async createAccepted(
     input: CreateAcceptedResponsibilityInput,
   ): Promise<ResponsibilityWithEvents> {
-    const existing = await this.findOpenOpportunityDecision(
+    const existing = await this.findOpenOpportunityResponsibility(
       input.principalUserId,
       input.originOpportunityId,
+      input.kind,
     );
     if (existing) return existing;
 
@@ -68,7 +64,7 @@ export class PrismaResponsibilityRepository implements IResponsibilityRepository
       return await this.prisma.db.$transaction(async (tx) => {
         const responsibility = await tx.responsibility.create({
           data: {
-            kind: ResponsibilityKind.OPPORTUNITY_DECISION,
+            kind: input.kind,
             objective: input.objective,
             status: ResponsibilityStatus.ACTIVE,
             contextType: ResponsibilityContextType.PERSONAL,
@@ -76,7 +72,7 @@ export class PrismaResponsibilityRepository implements IResponsibilityRepository
             principalOrganizationId: null,
             originConversationId: input.originConversationId,
             originOpportunityId: input.originOpportunityId,
-            successCriteria: SUCCESS_CRITERIA,
+            successCriteria: input.successCriteria,
             authorityClass: ResponsibilityAuthorityClass.GUIDANCE_ONLY,
             authorityPolicyVersion: 'responsibility-guidance-v1',
             privacyScope: ResponsibilityPrivacyScope.PERSONAL_PRIVATE,
@@ -119,16 +115,17 @@ export class PrismaResponsibilityRepository implements IResponsibilityRepository
         });
       });
     } catch (error) {
-      // The migration includes a partial unique index for one open personal
-      // Opportunity Decision per member/opportunity. If two requests race,
+      // Each supported kind has a partial unique index for one open personal
+      // Responsibility per member/opportunity. If two requests race,
       // the loser returns the durable commitment created by the winner.
       if (
         error instanceof Prisma.PrismaClientKnownRequestError &&
         error.code === 'P2002'
       ) {
-        const winner = await this.findOpenOpportunityDecision(
+        const winner = await this.findOpenOpportunityResponsibility(
           input.principalUserId,
           input.originOpportunityId,
+          input.kind,
         );
         if (winner) return winner;
       }
@@ -204,6 +201,65 @@ export class PrismaResponsibilityRepository implements IResponsibilityRepository
             actorUserId: null,
             fromStatus: ResponsibilityStatus.ACTIVE,
             toStatus: ResponsibilityStatus.WAITING_ON_USER,
+          },
+        });
+      }
+
+      return tx.responsibility.findFirstOrThrow({
+        where: {
+          id,
+          contextType: ResponsibilityContextType.PERSONAL,
+          principalUserId,
+        },
+        include: EVENT_INCLUDE,
+      });
+    });
+  }
+
+  async resumeFromWaitingOnUser(
+    id: string,
+    principalUserId: string,
+  ): Promise<ResponsibilityWithEvents> {
+    return this.prisma.db.$transaction(async (tx) => {
+      const current = await tx.responsibility.findFirst({
+        where: {
+          id,
+          contextType: ResponsibilityContextType.PERSONAL,
+          principalUserId,
+        },
+        include: EVENT_INCLUDE,
+      });
+      if (!current) throw new NotFoundException('Responsibility not found');
+
+      if (
+        current.status === ResponsibilityStatus.ACTIVE ||
+        current.status === ResponsibilityStatus.COMPLETED
+      ) {
+        return current;
+      }
+      if (current.status !== ResponsibilityStatus.WAITING_ON_USER) {
+        return current;
+      }
+
+      const { count } = await tx.responsibility.updateMany({
+        where: {
+          id,
+          contextType: ResponsibilityContextType.PERSONAL,
+          principalUserId,
+          status: ResponsibilityStatus.WAITING_ON_USER,
+        },
+        data: { status: ResponsibilityStatus.ACTIVE },
+      });
+
+      if (count === 1) {
+        await tx.responsibilityEvent.create({
+          data: {
+            responsibilityId: id,
+            type: ResponsibilityEventType.STATE_CHANGED,
+            actorClass: ResponsibilityActorClass.MEMBER,
+            actorUserId: principalUserId,
+            fromStatus: ResponsibilityStatus.WAITING_ON_USER,
+            toStatus: ResponsibilityStatus.ACTIVE,
           },
         });
       }
