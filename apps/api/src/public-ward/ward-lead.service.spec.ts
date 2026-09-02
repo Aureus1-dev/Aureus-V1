@@ -275,6 +275,21 @@ describe('WardLeadService', () => {
     expect(db.wardLead.findMany).not.toHaveBeenCalled();
   });
 
+  it('conceals a Ready Project from a caller outside the tenant', async () => {
+    db.organization.findFirst.mockResolvedValue({ ...tenant, members: [] });
+    const caller: AuthenticatedUser = {
+      id: CALLER_ID,
+      email: 'outsider@example.com',
+      roles: [UserRole.MEMBER],
+    };
+
+    await expect(
+      service.getBusinessLead(TENANT_ID, LEAD_ID, caller),
+    ).rejects.toThrow(NotFoundException);
+
+    expect(db.wardLead.findFirst).not.toHaveBeenCalled();
+  });
+
   it('returns a distilled Ready Project to an authorized tenant before raw conversation evidence', async () => {
     db.organization.findFirst.mockResolvedValue({
       ...tenant,
