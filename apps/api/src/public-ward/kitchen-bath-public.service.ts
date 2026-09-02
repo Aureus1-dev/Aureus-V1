@@ -13,6 +13,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { CreateWardLeadDto } from './dto/create-ward-lead.dto';
 import { KitchenBathIntakeDto } from './dto/kitchen-bath-intake.dto';
 import { WardLeadService } from './ward-lead.service';
+import { buildKitchenBathReadyProject } from './kitchen-bath-ready-project';
 
 @Injectable()
 export class KitchenBathPublicService {
@@ -65,7 +66,15 @@ export class KitchenBathPublicService {
 
     const lead = await this.prisma.db.wardLead.findFirst({
       where: { id: handoff.handoffId, organizationId: tenant.id },
-      select: { id: true, qualificationSignals: true },
+      select: {
+        id: true,
+        projectLocation: true,
+        desiredTiming: true,
+        consentVersion: true,
+        submittedAt: true,
+        retentionExpiresAt: true,
+        qualificationSignals: true,
+      },
     });
     if (!lead) throw new NotFoundException('Handoff not found');
 
@@ -80,7 +89,10 @@ export class KitchenBathPublicService {
       if ((existingHash as Prisma.JsonObject).value !== intakeHash) {
         throw new ConflictException('This conversation already has different remodel intake details');
       }
-      return handoff;
+      return {
+        ...handoff,
+        readyProject: buildKitchenBathReadyProject(lead),
+      };
     }
 
     const signals = [
@@ -108,7 +120,14 @@ export class KitchenBathPublicService {
       where: { id: lead.id, organizationId: tenant.id },
       data: { qualificationSignals: signals },
     });
-    return handoff;
+
+    return {
+      ...handoff,
+      readyProject: buildKitchenBathReadyProject({
+        ...lead,
+        qualificationSignals: signals,
+      }),
+    };
   }
 
   private cleanIntake(intake: KitchenBathIntakeDto) {
@@ -120,6 +139,15 @@ export class KitchenBathPublicService {
       ...(intake.budgetRange && { budgetRange: intake.budgetRange }),
       ...(intake.designNeeds && {
         designNeeds: sanitizePlainText(intake.designNeeds).slice(0, 1000),
+      }),
+      ...(intake.priorities?.length
+        ? { priorities: [...new Set(intake.priorities)].slice(0, 6) }
+        : {}),
+      ...(intake.mustHaves && {
+        mustHaves: sanitizePlainText(intake.mustHaves).slice(0, 800),
+      }),
+      ...(intake.concerns && {
+        concerns: sanitizePlainText(intake.concerns).slice(0, 800),
       }),
       ...(intake.attachments?.length
         ? {
