@@ -86,6 +86,28 @@ describe('KitchenBathPublicService', () => {
     expect(leads.submitPublicHandoff).not.toHaveBeenCalled();
   });
 
+  it('rejects sanitized-empty required Kitchen & Bath source before creating a handoff', async () => {
+    const { service, leads } = fixture(true);
+
+    await expect(
+      service.submit(
+        'shop',
+        'conversation',
+        'x'.repeat(48),
+        {
+          ...baseDto,
+          kitchenBath: {
+            ...baseDto.kitchenBath,
+            rooms: ['<b></b>'],
+            scope: '<script></script>',
+          },
+        },
+      ),
+    ).rejects.toThrow('must contain meaningful text');
+
+    expect(leads.submitPublicHandoff).not.toHaveBeenCalled();
+  });
+
   it('passes the complete Ready Project source into the atomic handoff transaction', async () => {
     const { service, leads } = fixture(true);
 
