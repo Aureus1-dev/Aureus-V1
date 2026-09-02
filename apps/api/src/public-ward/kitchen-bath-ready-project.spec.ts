@@ -54,8 +54,9 @@ describe('buildKitchenBathReadyProject', () => {
       },
     });
 
-    expect(project?.source.intakeHash).toBe('a'.repeat(64));
+    expect(project?.source.intakeIntegrity).toBe('SYSTEM_HASH_PRESENT');
     expect(project?.source.conversationTurns).toBe(4);
+    expect(JSON.stringify(project)).not.toContain('storageRef');
   });
 
   it('keeps price, fit, and trust honest instead of inventing certainty', () => {
