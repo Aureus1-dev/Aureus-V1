@@ -85,6 +85,11 @@ export class PrismaResponsibilityRepository implements IResponsibilityRepository
           },
         });
 
+        // Give the two initial events distinct timestamps so the append-only
+        // ledger has deterministic chronological order even on databases where
+        // DEFAULT now() would give both rows the same millisecond.
+        const acceptedAt = new Date();
+        const commitmentAt = new Date(acceptedAt.getTime() + 1);
         await tx.responsibilityEvent.createMany({
           data: [
             {
@@ -94,6 +99,7 @@ export class PrismaResponsibilityRepository implements IResponsibilityRepository
               actorUserId: input.principalUserId,
               fromStatus: null,
               toStatus: ResponsibilityStatus.ACTIVE,
+              occurredAt: acceptedAt,
             },
             {
               responsibilityId: responsibility.id,
@@ -102,6 +108,7 @@ export class PrismaResponsibilityRepository implements IResponsibilityRepository
               actorUserId: null,
               fromStatus: null,
               toStatus: null,
+              occurredAt: commitmentAt,
             },
           ],
         });
