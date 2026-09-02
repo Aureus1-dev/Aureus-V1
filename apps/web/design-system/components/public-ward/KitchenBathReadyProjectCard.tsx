@@ -1,6 +1,9 @@
 'use client';
 
-import type { KitchenBathReadyProject } from '../../../lib/api/kitchen-bath';
+import type {
+  KitchenBathCustomerReadyProject,
+  KitchenBathReadyProject,
+} from '../../../lib/api/kitchen-bath';
 import styles from './KitchenBathReadyProjectCard.module.css';
 
 const barrierLabel: Record<
@@ -48,13 +51,19 @@ function readable(value: string | null): string {
   return value ? value.replaceAll('_', ' ').toLowerCase() : 'Not provided';
 }
 
-export function KitchenBathReadyProjectCard({
-  project,
-  audience = 'customer',
-}: {
-  project: KitchenBathReadyProject;
-  audience?: 'customer' | 'business';
-}) {
+type ReadyProjectCardProps =
+  | {
+      project: KitchenBathCustomerReadyProject;
+      audience?: 'customer';
+    }
+  | {
+      project: KitchenBathReadyProject;
+      audience: 'business';
+    };
+
+export function KitchenBathReadyProjectCard(props: ReadyProjectCardProps) {
+  const project = props.project;
+  const audience = props.audience ?? 'customer';
   const complete = project.readinessStatus === 'READY_FOR_EXPERT_REVIEW';
 
   return (
@@ -142,7 +151,7 @@ export function KitchenBathReadyProjectCard({
         </div>
       ) : null}
 
-      {audience === 'business' ? (
+      {audience === 'business' && 'transactionBarriers' in project ? (
         <div className={styles.section}>
           <h4>Transaction barriers</h4>
           <div className={styles.barriers}>
