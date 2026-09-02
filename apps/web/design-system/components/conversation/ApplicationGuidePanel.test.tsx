@@ -2,11 +2,14 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { axe } from 'jest-axe';
 import * as api from '../../../lib/api/application-guide';
+import * as peopleHelp from '../../../lib/api/people-help';
 import { ApplicationGuidePanel } from './ApplicationGuidePanel';
 
 jest.mock('../../../lib/api/application-guide');
+jest.mock('../../../lib/api/people-help');
 
 const mockedApi = api as jest.Mocked<typeof api>;
+const mockedPeopleHelp = peopleHelp as jest.Mocked<typeof peopleHelp>;
 
 const session: api.GuidedApplicationSessionDto = {
   id: 'session-1',
@@ -31,7 +34,9 @@ describe('ApplicationGuidePanel', () => {
       <ApplicationGuidePanel
         accessToken="token"
         session={session}
+        responsibility={null}
         onSessionChange={jest.fn()}
+        onResponsibilityChange={jest.fn()}
         onEnded={jest.fn()}
       />,
     );
@@ -52,7 +57,9 @@ describe('ApplicationGuidePanel', () => {
       <ApplicationGuidePanel
         accessToken="token"
         session={session}
+        responsibility={null}
         onSessionChange={onSessionChange}
+        onResponsibilityChange={jest.fn()}
         onEnded={jest.fn()}
       />,
     );
@@ -81,7 +88,9 @@ describe('ApplicationGuidePanel', () => {
             Date.now() - 31 * 60 * 1000,
           ).toISOString(),
         }}
+        responsibility={null}
         onSessionChange={jest.fn()}
+        onResponsibilityChange={jest.fn()}
         onEnded={jest.fn()}
       />,
     );
@@ -95,7 +104,9 @@ describe('ApplicationGuidePanel', () => {
       <ApplicationGuidePanel
         accessToken="token"
         session={session}
+        responsibility={null}
         onSessionChange={jest.fn()}
+        onResponsibilityChange={jest.fn()}
         onEnded={jest.fn()}
       />,
     );
@@ -104,12 +115,114 @@ describe('ApplicationGuidePanel', () => {
     expect(screen.getByText(/hide any filled password, SSN, bank\/card number/i)).toBeInTheDocument();
   });
 
+  it('pauses a carried Responsibility instead of silently ending the work', async () => {
+    const responsibility: peopleHelp.PeopleResponsibilityDto = {
+      id: 'responsibility-1',
+      kind: 'OPPORTUNITY_APPLICATION_GUIDANCE',
+      objective: 'Help me work through the verified application',
+      status: 'ACTIVE',
+      contextType: 'PERSONAL',
+      authorityClass: 'GUIDANCE_ONLY',
+      authorityPolicyVersion: 'responsibility-guidance-v1',
+      privacyScope: 'PERSONAL_PRIVATE',
+      privacyPolicyVersion: 'personal-private-v1',
+      originConversationId: session.conversationId,
+      originOpportunityId: session.opportunityId,
+      successCriteria: {},
+      dueAt: null,
+      retentionExpiresAt: null,
+      completedAt: null,
+      createdAt: '2026-09-01T20:00:00.000Z',
+      updatedAt: '2026-09-01T20:00:00.000Z',
+      events: [],
+    };
+    const waiting = { ...responsibility, status: 'WAITING_ON_USER' as const };
+    mockedPeopleHelp.pausePeopleApplicationHelp.mockResolvedValue({
+      paused: true,
+      responsibility: waiting,
+    });
+    const onResponsibilityChange = jest.fn();
+    const onEnded = jest.fn();
+
+    render(
+      <ApplicationGuidePanel
+        accessToken="token"
+        session={session}
+        responsibility={responsibility}
+        onSessionChange={jest.fn()}
+        onResponsibilityChange={onResponsibilityChange}
+        onEnded={onEnded}
+      />,
+    );
+
+    await userEvent.click(screen.getByRole('button', { name: /pause for now/i }));
+
+    expect(mockedPeopleHelp.pausePeopleApplicationHelp).toHaveBeenCalledWith(
+      'token',
+      'session-1',
+    );
+    expect(onResponsibilityChange).toHaveBeenCalledWith(waiting);
+    expect(onEnded).toHaveBeenCalled();
+  });
+
+  it('records application completion only through the explicit member outcome action', async () => {
+    const responsibility: peopleHelp.PeopleResponsibilityDto = {
+      id: 'responsibility-1',
+      kind: 'OPPORTUNITY_APPLICATION_GUIDANCE',
+      objective: 'Help me work through the verified application',
+      status: 'ACTIVE',
+      contextType: 'PERSONAL',
+      authorityClass: 'GUIDANCE_ONLY',
+      authorityPolicyVersion: 'responsibility-guidance-v1',
+      privacyScope: 'PERSONAL_PRIVATE',
+      privacyPolicyVersion: 'personal-private-v1',
+      originConversationId: session.conversationId,
+      originOpportunityId: session.opportunityId,
+      successCriteria: {},
+      dueAt: null,
+      retentionExpiresAt: null,
+      completedAt: null,
+      createdAt: '2026-09-01T20:00:00.000Z',
+      updatedAt: '2026-09-01T20:00:00.000Z',
+      events: [],
+    };
+    const completed = { ...responsibility, status: 'COMPLETED' as const };
+    mockedPeopleHelp.completePeopleApplicationHelp.mockResolvedValue({
+      responsibility: completed,
+      ended: true,
+      outcome: 'APPLIED',
+    });
+    const onResponsibilityChange = jest.fn();
+
+    render(
+      <ApplicationGuidePanel
+        accessToken="token"
+        session={session}
+        responsibility={responsibility}
+        onSessionChange={jest.fn()}
+        onResponsibilityChange={onResponsibilityChange}
+        onEnded={jest.fn()}
+      />,
+    );
+
+    await userEvent.click(screen.getByRole('button', { name: /i submitted/i }));
+
+    expect(mockedPeopleHelp.completePeopleApplicationHelp).toHaveBeenCalledWith(
+      'token',
+      'session-1',
+      'APPLIED',
+    );
+    expect(onResponsibilityChange).toHaveBeenCalledWith(completed);
+  });
+
   it('has no accessibility violations before consent', async () => {
     const { container } = render(
       <ApplicationGuidePanel
         accessToken="token"
         session={session}
+        responsibility={null}
         onSessionChange={jest.fn()}
+        onResponsibilityChange={jest.fn()}
         onEnded={jest.fn()}
       />,
     );
