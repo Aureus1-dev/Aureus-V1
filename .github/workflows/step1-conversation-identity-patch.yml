@@ -114,8 +114,8 @@ jobs:
         run: |
           corepack enable
           pnpm install --frozen-lockfile
+          pnpm exec prisma format --schema prisma/schema.prisma
           pnpm exec prettier --write \
-            prisma/schema.prisma \
             apps/api/src/users/profile/dto/update-profile.dto.ts \
             apps/api/src/users/profile/dto/profile-response.dto.ts \
             apps/api/src/users/profile/profile.e2e.spec.ts \
