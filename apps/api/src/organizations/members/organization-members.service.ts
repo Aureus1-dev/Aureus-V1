@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ConflictException,
   ForbiddenException,
   Inject,
@@ -41,13 +42,27 @@ export class OrganizationMembersService {
     private readonly prisma: PrismaService,
   ) {}
 
+  /**
+   * Direct attach, bypassing the invitation lifecycle entirely. Reserved for
+   * platform moderation/compatibility use — an ordinary business OWNER or
+   * ADMIN can no longer reach this (Step 1 repair): normal membership
+   * growth goes through invite() → accept() instead, which is the only
+   * path that requires the invitee's own consent. This endpoint can never
+   * be used to create an OWNER, moderator or not — see transferOwnership().
+   */
   async add(
     organizationId: string,
     dto: AddMemberDto,
     caller: AuthenticatedUser,
   ): Promise<MemberResponseDto> {
     await this.assertOrgExists(organizationId);
-    await this.assertIsOrgAdminOrPrivileged(organizationId, caller);
+    this.assertPlatformPrivileged(caller);
+
+    if (dto.role === OrganizationMemberRole.OWNER) {
+      throw new BadRequestException(
+        'OWNER cannot be granted by direct attach — use the explicit ownership-transfer action',
+      );
+    }
 
     const existing = await this.repo.findByOrgAndUser(organizationId, dto.userId);
     if (existing) {
@@ -93,14 +108,18 @@ export class OrganizationMembersService {
     await this.assertOrgExists(organizationId);
     await this.assertIsOrgAdminOrPrivileged(organizationId, caller);
 
-    // Granting OWNER is not an ordinary role edit: only an existing OWNER
-    // (or a platform moderator) may hand it out, so an ADMIN can never
-    // unilaterally promote themselves or anyone else to OWNER (§16 —
-    // privilege escalation). A deliberate hand-off also uses this same
-    // check via transferOwnership(), which additionally keeps the org from
-    // ending up with an unintended second OWNER.
+    // Granting OWNER is never an ordinary role edit (Step 1 repair): generic
+    // role editing must not double as an alternate ownership-transfer
+    // mechanism. This is unconditional — not even the current OWNER or a
+    // platform moderator may use this endpoint to create a new OWNER — so
+    // an ADMIN can never promote itself or anyone else to OWNER (§16 —
+    // privilege escalation), and an OWNER action can never accidentally
+    // leave the organization with two owners. The only path that creates a
+    // new OWNER is the explicit, atomic transferOwnership() below.
     if (dto.role === OrganizationMemberRole.OWNER) {
-      await this.assertIsOwnerOrPrivileged(organizationId, caller);
+      throw new BadRequestException(
+        'Ownership can only be granted through the explicit ownership-transfer action',
+      );
     }
 
     const target = await this.repo.findByOrgAndUser(organizationId, userId);
@@ -120,7 +139,9 @@ export class OrganizationMembersService {
     // the ADMIN+OWNER union check above. An org with one OWNER and several
     // ADMINs must not be able to demote that OWNER away just because
     // ADMINs remain; ownership must move through an explicit transfer.
-    if (target.role === OrganizationMemberRole.OWNER && dto.role !== OrganizationMemberRole.OWNER) {
+    // (dto.role can never be OWNER here — the guard above already rejected
+    // that — so this fires whenever the target is currently the OWNER.)
+    if (target.role === OrganizationMemberRole.OWNER) {
       const ownerCount = await this.repo.countOwners(organizationId);
       if (ownerCount <= 1) {
         throw new ConflictException(
@@ -184,12 +205,13 @@ export class OrganizationMembersService {
   }
 
   /**
-   * Deliberate ownership hand-off (Step 1 §10/§11): promotes an existing
-   * member to OWNER and, if the caller was themselves the OWNER, demotes
-   * the caller to ADMIN in the same transaction — so a transfer can never
-   * leave the organization with zero owners, and never silently creates an
-   * unintended second one either. Restricted to the current OWNER (or a
-   * platform moderator) — see updateRole()'s OWNER-grant guard.
+   * The only path that creates a new OWNER after organization creation
+   * (Step 1 §10/§11 repair — updateRole() and add() both unconditionally
+   * refuse to grant OWNER). Promotes an existing member to OWNER and, if
+   * the caller was themselves the OWNER, demotes the caller to ADMIN in
+   * the same transaction — so a transfer can never leave the organization
+   * with zero owners, and never silently creates an unintended second one
+   * either. Restricted to the current OWNER (or a platform moderator).
    */
   async transferOwnership(
     organizationId: string,
@@ -273,6 +295,21 @@ export class OrganizationMembersService {
   private async assertOrgExists(organizationId: string): Promise<void> {
     const org = await this.orgRepo.findById(organizationId);
     if (!org) throw new NotFoundException(`Organization '${organizationId}' not found`);
+  }
+
+  /**
+   * add() is a direct attach that bypasses the invitation lifecycle — the
+   * consent an invitee gives by accepting. Restricted to platform
+   * moderators only (Step 1 repair): an ordinary business OWNER/ADMIN,
+   * however senior, may never use it — they add people through
+   * invite()/accept() instead.
+   */
+  private assertPlatformPrivileged(caller: AuthenticatedUser): void {
+    if (!hasRole(caller, MODERATOR_ROLES)) {
+      throw new ForbiddenException(
+        'Only a platform Steward or Administrator may attach a member directly; use an invitation instead',
+      );
+    }
   }
 
   private async assertIsOrgAdminOrPrivileged(

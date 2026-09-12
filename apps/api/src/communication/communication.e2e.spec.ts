@@ -495,9 +495,13 @@ describe('Communication System — E2E', () => {
         .set('Authorization', `Bearer ${adminToken}`)
         .expect(201);
 
+      // Fixture setup only — POST .../members is a platform Steward/Admin-
+      // only direct attach now (Step 1 repair: an ordinary business OWNER
+      // can no longer use it to bypass the invitation lifecycle), so this
+      // uses adminToken rather than the org's own orgRepAToken.
       await request(app.getHttpServer())
         .post(`/organizations/${organizationId}/members`)
-        .set('Authorization', `Bearer ${orgRepAToken}`)
+        .set('Authorization', `Bearer ${adminToken}`)
         .send({ userId: orgRepBId })
         .expect(201);
     });

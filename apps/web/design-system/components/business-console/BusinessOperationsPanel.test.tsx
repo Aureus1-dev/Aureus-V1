@@ -5,14 +5,10 @@ import {
   getBusinessOperationsSummary,
   listBusinessLeads,
 } from '../../../lib/api/business-operations';
-import { listMyBusinessTenants } from '../../../lib/api/business-console';
-import { useSession } from '../../../state';
+import { useBusiness, useSession } from '../../../state';
 import { BusinessOperationsPanel } from './BusinessOperationsPanel';
 
-jest.mock('../../../state', () => ({ useSession: jest.fn() }));
-jest.mock('../../../lib/api/business-console', () => ({
-  listMyBusinessTenants: jest.fn(),
-}));
+jest.mock('../../../state', () => ({ useSession: jest.fn(), useBusiness: jest.fn() }));
 jest.mock('../../../lib/api/business-operations', () => ({
   assignBusinessLead: jest.fn(),
   exportBusinessOperations: jest.fn(),
@@ -23,18 +19,12 @@ jest.mock('../../../lib/api/business-operations', () => ({
 }));
 
 const mockSession = useSession as jest.Mock;
-const mockTenants = listMyBusinessTenants as jest.MockedFunction<
-  typeof listMyBusinessTenants
->;
+const mockBusiness = useBusiness as jest.Mock;
 const mockSummary = getBusinessOperationsSummary as jest.MockedFunction<
   typeof getBusinessOperationsSummary
 >;
-const mockLeads = listBusinessLeads as jest.MockedFunction<
-  typeof listBusinessLeads
->;
-const mockLead = getBusinessLead as jest.MockedFunction<
-  typeof getBusinessLead
->;
+const mockLeads = listBusinessLeads as jest.MockedFunction<typeof listBusinessLeads>;
+const mockLead = getBusinessLead as jest.MockedFunction<typeof getBusinessLead>;
 
 const summary = {
   generatedAt: '2026-09-02T00:00:00.000Z',
@@ -179,8 +169,8 @@ describe('BusinessOperationsPanel Ready Project', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockSession.mockReturnValue({ session: { accessToken: 'token' } });
-    mockTenants.mockResolvedValue([
-      {
+    mockBusiness.mockReturnValue({
+      activeTenant: {
         id: 'tenant-1',
         organizationRef: 'AUR-ORG-000001',
         name: 'Example Kitchens',
@@ -191,7 +181,8 @@ describe('BusinessOperationsPanel Ready Project', () => {
           onboardingStep: 4,
         },
       },
-    ]);
+      state: { isLoading: false },
+    });
     mockSummary.mockResolvedValue(summary);
     mockLeads.mockResolvedValue([leadSummary]);
     mockLead.mockResolvedValue(detail);
@@ -212,16 +203,11 @@ describe('BusinessOperationsPanel Ready Project', () => {
     });
 
     expect(
-      readyHeading.compareDocumentPosition(sourceHeading) &
-        Node.DOCUMENT_POSITION_FOLLOWING,
+      readyHeading.compareDocumentPosition(sourceHeading) & Node.DOCUMENT_POSITION_FOLLOWING,
     ).toBeTruthy();
-    expect(
-      screen.getByText(/Aureus distilled the project for expert review/i),
-    ).toBeInTheDocument();
+    expect(screen.getByText(/Aureus distilled the project for expert review/i)).toBeInTheDocument();
     expect(screen.getByText('I want a better kitchen layout.')).toBeInTheDocument();
 
-    await waitFor(() =>
-      expect(mockLead).toHaveBeenCalledWith('token', 'tenant-1', 'lead-1'),
-    );
+    await waitFor(() => expect(mockLead).toHaveBeenCalledWith('token', 'tenant-1', 'lead-1'));
   });
 });

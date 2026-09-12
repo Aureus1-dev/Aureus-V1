@@ -1,5 +1,10 @@
 import { Test } from '@nestjs/testing';
-import { ConflictException, ForbiddenException, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  ForbiddenException,
+  NotFoundException,
+} from '@nestjs/common';
 import {
   OrganizationMemberRole,
   OrganizationStatus,
@@ -36,6 +41,17 @@ const STEWARD: AuthenticatedUser = {
   id: 'steward-001',
   email: 'steward@example.com',
   roles: [UserRole.STEWARD],
+};
+const PLATFORM_ADMIN: AuthenticatedUser = {
+  id: 'platform-admin-001',
+  email: 'platform-admin@example.com',
+  roles: [UserRole.PLATFORM_ADMINISTRATOR],
+};
+/** The organization's OWNER — the caller identity for ownership-only actions. */
+const OWNER_REP: AuthenticatedUser = {
+  id: 'owner-rep-001',
+  email: 'owner@example.com',
+  roles: [UserRole.ORGANIZATION_REPRESENTATIVE],
 };
 
 const makeOrg = (o: Partial<Organization> = {}): Organization => ({
@@ -83,6 +99,7 @@ const mockRepo: jest.Mocked<IOrganizationMemberRepository> = {
   findByOrganization: jest.fn(),
   findByUser: jest.fn(),
   countAdmins: jest.fn(),
+  countOwners: jest.fn(),
   updateRole: jest.fn(),
   remove: jest.fn(),
 };
@@ -118,45 +135,86 @@ describe('OrganizationMembersService', () => {
     mockPrisma.db.tenantAuditEvent.create.mockResolvedValue({});
   });
 
-  describe('add', () => {
-    it('allows an ADMIN representative to add a member', async () => {
+  describe('add — platform-only direct attach (Step 1 repair: bypass closed)', () => {
+    it('allows a platform Steward to attach a member directly', async () => {
       mockOrgRepo.findById.mockResolvedValue(makeOrg());
-      mockRepo.findByOrgAndUser
-        .mockResolvedValueOnce(makeMembership()) // caller's own membership check
-        .mockResolvedValueOnce(null); // target user not yet a member
+      mockRepo.findByOrgAndUser.mockResolvedValue(null); // target user not yet a member
       mockRepo.add.mockResolvedValue(
         makeMembership({ userId: OTHER_MEMBER.id, role: OrganizationMemberRole.MEMBER }),
       );
 
-      const result = await service.add('org-uuid', { userId: OTHER_MEMBER.id }, ADMIN_REP);
+      const result = await service.add('org-uuid', { userId: OTHER_MEMBER.id }, STEWARD);
+      expect(result.userId).toBe(OTHER_MEMBER.id);
+      // Platform privilege is role-based only — no membership lookup for the caller.
+      expect(mockRepo.findByOrgAndUser).toHaveBeenCalledTimes(1);
+      expect(mockRepo.findByOrgAndUser).toHaveBeenCalledWith('org-uuid', OTHER_MEMBER.id);
+    });
+
+    it('allows a platform Administrator to attach a member directly', async () => {
+      mockOrgRepo.findById.mockResolvedValue(makeOrg());
+      mockRepo.findByOrgAndUser.mockResolvedValue(null);
+      mockRepo.add.mockResolvedValue(
+        makeMembership({ userId: OTHER_MEMBER.id, role: OrganizationMemberRole.MEMBER }),
+      );
+
+      const result = await service.add('org-uuid', { userId: OTHER_MEMBER.id }, PLATFORM_ADMIN);
       expect(result.userId).toBe(OTHER_MEMBER.id);
     });
 
-    it('forbids a non-ADMIN caller', async () => {
+    it("forbids the organization's own OWNER from attaching a member directly — must use an invitation", async () => {
       mockOrgRepo.findById.mockResolvedValue(makeOrg());
-      mockRepo.findByOrgAndUser.mockResolvedValue(
-        makeMembership({ role: OrganizationMemberRole.MEMBER }),
+
+      await expect(service.add('org-uuid', { userId: OTHER_MEMBER.id }, OWNER_REP)).rejects.toThrow(
+        ForbiddenException,
       );
+      // Refused before ever consulting membership — an ordinary business
+      // caller has no path through this endpoint at all, OWNER included.
+      expect(mockRepo.findByOrgAndUser).not.toHaveBeenCalled();
+      expect(mockRepo.add).not.toHaveBeenCalled();
+    });
+
+    it('forbids an ordinary business ADMIN from attaching a member directly — must use an invitation', async () => {
+      mockOrgRepo.findById.mockResolvedValue(makeOrg());
+
+      await expect(service.add('org-uuid', { userId: OTHER_MEMBER.id }, ADMIN_REP)).rejects.toThrow(
+        ForbiddenException,
+      );
+      expect(mockRepo.add).not.toHaveBeenCalled();
+    });
+
+    it('forbids a plain member caller', async () => {
+      mockOrgRepo.findById.mockResolvedValue(makeOrg());
+
+      await expect(service.add('org-uuid', { userId: ADMIN_REP.id }, OTHER_MEMBER)).rejects.toThrow(
+        ForbiddenException,
+      );
+    });
+
+    it('rejects role OWNER even from a platform Steward — ownership only via explicit transfer', async () => {
+      mockOrgRepo.findById.mockResolvedValue(makeOrg());
 
       await expect(
-        service.add('org-uuid', { userId: OTHER_MEMBER.id }, OTHER_MEMBER),
-      ).rejects.toThrow(ForbiddenException);
+        service.add(
+          'org-uuid',
+          { userId: OTHER_MEMBER.id, role: OrganizationMemberRole.OWNER },
+          STEWARD,
+        ),
+      ).rejects.toThrow(BadRequestException);
+      expect(mockRepo.add).not.toHaveBeenCalled();
     });
 
     it('throws ConflictException when the user is already a member', async () => {
       mockOrgRepo.findById.mockResolvedValue(makeOrg());
-      mockRepo.findByOrgAndUser
-        .mockResolvedValueOnce(makeMembership())
-        .mockResolvedValueOnce(makeMembership({ userId: OTHER_MEMBER.id }));
+      mockRepo.findByOrgAndUser.mockResolvedValue(makeMembership({ userId: OTHER_MEMBER.id }));
 
-      await expect(service.add('org-uuid', { userId: OTHER_MEMBER.id }, ADMIN_REP)).rejects.toThrow(
+      await expect(service.add('org-uuid', { userId: OTHER_MEMBER.id }, STEWARD)).rejects.toThrow(
         ConflictException,
       );
     });
 
     it('throws NotFoundException when the organization does not exist', async () => {
       mockOrgRepo.findById.mockResolvedValue(null);
-      await expect(service.add('x', { userId: OTHER_MEMBER.id }, ADMIN_REP)).rejects.toThrow(
+      await expect(service.add('x', { userId: OTHER_MEMBER.id }, STEWARD)).rejects.toThrow(
         NotFoundException,
       );
     });
@@ -191,6 +249,52 @@ describe('OrganizationMembersService', () => {
   });
 
   describe('updateRole', () => {
+    it('rejects granting OWNER — an ADMIN can never promote anyone to OWNER (privilege escalation)', async () => {
+      mockOrgRepo.findById.mockResolvedValue(makeOrg());
+      mockRepo.findByOrgAndUser.mockResolvedValueOnce(makeMembership()); // caller check (ADMIN)
+
+      await expect(
+        service.updateRole(
+          'org-uuid',
+          OTHER_MEMBER.id,
+          { role: OrganizationMemberRole.OWNER },
+          ADMIN_REP,
+        ),
+      ).rejects.toThrow(BadRequestException);
+      expect(mockRepo.updateRole).not.toHaveBeenCalled();
+    });
+
+    it('rejects granting OWNER even when the caller already is the OWNER — must use ownership transfer', async () => {
+      mockOrgRepo.findById.mockResolvedValue(makeOrg());
+      mockRepo.findByOrgAndUser.mockResolvedValueOnce(
+        makeMembership({ role: OrganizationMemberRole.OWNER }),
+      );
+
+      await expect(
+        service.updateRole(
+          'org-uuid',
+          OTHER_MEMBER.id,
+          { role: OrganizationMemberRole.OWNER },
+          OWNER_REP,
+        ),
+      ).rejects.toThrow(BadRequestException);
+      expect(mockRepo.updateRole).not.toHaveBeenCalled();
+    });
+
+    it('rejects granting OWNER even from a platform Steward', async () => {
+      mockOrgRepo.findById.mockResolvedValue(makeOrg());
+
+      await expect(
+        service.updateRole(
+          'org-uuid',
+          OTHER_MEMBER.id,
+          { role: OrganizationMemberRole.OWNER },
+          STEWARD,
+        ),
+      ).rejects.toThrow(BadRequestException);
+      expect(mockRepo.updateRole).not.toHaveBeenCalled();
+    });
+
     it('allows an ADMIN to promote a member', async () => {
       mockOrgRepo.findById.mockResolvedValue(makeOrg());
       mockRepo.findByOrgAndUser

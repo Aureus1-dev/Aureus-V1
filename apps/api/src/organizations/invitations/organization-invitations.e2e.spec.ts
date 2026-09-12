@@ -39,7 +39,10 @@ describe('Organization Invitations — E2E', () => {
   // guaranteed to apply. Mirrors auth.e2e.spec.ts's identical rig.
   const unthrottledStorage: ThrottlerStorage = {
     increment: async (): Promise<ThrottlerStorageRecord> => ({
-      totalHits: 1, timeToExpire: 0, isBlocked: false, timeToBlockExpire: 0,
+      totalHits: 1,
+      timeToExpire: 0,
+      isBlocked: false,
+      timeToBlockExpire: 0,
     }),
   };
 
@@ -49,7 +52,9 @@ describe('Organization Invitations — E2E', () => {
       .useValue(unthrottledStorage)
       .compile();
     app = moduleRef.createNestApplication();
-    app.useGlobalPipes(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true, transform: true }));
+    app.useGlobalPipes(
+      new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true, transform: true }),
+    );
     app.useGlobalFilters(new AllExceptionsFilter());
     await app.init();
 
@@ -71,7 +76,9 @@ describe('Organization Invitations — E2E', () => {
     await app.close();
   });
 
-  async function registerUser(label: string): Promise<{ id: string; email: string; token: string }> {
+  async function registerUser(
+    label: string,
+  ): Promise<{ id: string; email: string; token: string }> {
     const email = `${label}-${marker}@example.test`;
     const res = await request(app.getHttpServer())
       .post('/auth/register')
@@ -86,8 +93,11 @@ describe('Organization Invitations — E2E', () => {
       .post('/organizations')
       .set('Authorization', `Bearer ${ownerToken}`)
       .send({
-        name, shortDescription: 'S', fullDescription: 'A full description of the business workspace.',
-        organizationType: 'BUSINESS', websiteUrl: 'https://example.test',
+        name,
+        shortDescription: 'S',
+        fullDescription: 'A full description of the business workspace.',
+        organizationType: 'BUSINESS',
+        websiteUrl: 'https://example.test',
       })
       .expect(201);
     return res.body.id;
@@ -118,7 +128,11 @@ describe('Organization Invitations — E2E', () => {
         .send({ email: employee.email, role: 'MEMBER' })
         .expect(201);
 
-      expect(res.body).toMatchObject({ invitedEmail: employee.email, role: 'MEMBER', status: 'PENDING' });
+      expect(res.body).toMatchObject({
+        invitedEmail: employee.email,
+        role: 'MEMBER',
+        status: 'PENDING',
+      });
     });
 
     it('rejects a duplicate pending invitation to the same email', async () => {
@@ -146,16 +160,22 @@ describe('Organization Invitations — E2E', () => {
         .expect(200);
 
       expect(res.body).toEqual([
-        expect.objectContaining({ organizationId: orgId, invitedEmail: employee.email, organizationName: expect.stringContaining('ABC Kitchen & Bath') }),
+        expect.objectContaining({
+          organizationId: orgId,
+          invitedEmail: employee.email,
+          organizationName: expect.stringContaining('ABC Kitchen & Bath'),
+        }),
       ]);
     });
 
     it('forbids acceptance by an account whose email does not match the invitation', async () => {
       const outsider = await registerUser('outsider-accept');
-      const invitation = (await request(app.getHttpServer())
-        .get('/invitations/mine')
-        .set('Authorization', `Bearer ${employee.token}`)
-        .expect(200)).body[0];
+      const invitation = (
+        await request(app.getHttpServer())
+          .get('/invitations/mine')
+          .set('Authorization', `Bearer ${employee.token}`)
+          .expect(200)
+      ).body[0];
 
       await request(app.getHttpServer())
         .post(`/invitations/${invitation.id}/accept`)
@@ -164,10 +184,12 @@ describe('Organization Invitations — E2E', () => {
     });
 
     it('accepts the invitation and grants Business membership (Flow C)', async () => {
-      const invitation = (await request(app.getHttpServer())
-        .get('/invitations/mine')
-        .set('Authorization', `Bearer ${employee.token}`)
-        .expect(200)).body[0];
+      const invitation = (
+        await request(app.getHttpServer())
+          .get('/invitations/mine')
+          .set('Authorization', `Bearer ${employee.token}`)
+          .expect(200)
+      ).body[0];
 
       const accepted = await request(app.getHttpServer())
         .post(`/invitations/${invitation.id}/accept`)
@@ -179,16 +201,18 @@ describe('Organization Invitations — E2E', () => {
         .get(`/organizations/${orgId}/members`)
         .set('Authorization', `Bearer ${employee.token}`)
         .expect(200);
-      expect(members.body).toEqual(expect.arrayContaining([
-        expect.objectContaining({ userId: employee.id, role: 'MEMBER' }),
-      ]));
+      expect(members.body).toEqual(
+        expect.arrayContaining([expect.objectContaining({ userId: employee.id, role: 'MEMBER' })]),
+      );
 
       // "Business" now appears under this member's own experience.
       const myTenants = await request(app.getHttpServer())
         .get('/business-console/tenants')
         .set('Authorization', `Bearer ${employee.token}`)
         .expect(200);
-      expect(myTenants.body).toEqual(expect.arrayContaining([expect.objectContaining({ id: orgId })]));
+      expect(myTenants.body).toEqual(
+        expect.arrayContaining([expect.objectContaining({ id: orgId })]),
+      );
     });
 
     it('rejects accepting the same invitation twice (replay protection)', async () => {
@@ -276,9 +300,9 @@ describe('Organization Invitations — E2E', () => {
         .get(`/organizations/${orgId}/members`)
         .set('Authorization', `Bearer ${ownerToken}`)
         .expect(200);
-      expect(members.body).not.toEqual(expect.arrayContaining([
-        expect.objectContaining({ userId: invitee.id }),
-      ]));
+      expect(members.body).not.toEqual(
+        expect.arrayContaining([expect.objectContaining({ userId: invitee.id })]),
+      );
     });
 
     it('supports decline, after which the invitation cannot be accepted', async () => {
@@ -331,7 +355,9 @@ describe('Organization Invitations — E2E', () => {
         .set('Authorization', `Bearer ${invitee.token}`)
         .expect(409);
 
-      const stored = await prisma.db.organizationInvitation.findUnique({ where: { id: invited.body.id } });
+      const stored = await prisma.db.organizationInvitation.findUnique({
+        where: { id: invited.body.id },
+      });
       expect(stored!.status).toBe('EXPIRED');
     });
   });
@@ -356,6 +382,64 @@ describe('Organization Invitations — E2E', () => {
         .set('Authorization', `Bearer ${ownerToken}`)
         .send({ email: ownerEmail })
         .expect(409);
+    });
+  });
+
+  describe('concurrent invitations (Step 1 repair #5 — DB-enforced uniqueness)', () => {
+    it(
+      'allows exactly one of two truly concurrent invitations to the same org+email to succeed, ' +
+        'never both, and persists exactly one PENDING row',
+      async () => {
+        const orgId = await createBusiness(`${orgNamePrefix}Concurrent Invite Co`);
+        const invitee = await registerUser('invitee-concurrent');
+
+        // Fired together, not sequentially: both requests can pass the
+        // service's own pre-check before either commits its insert — the
+        // race this repair specifically closes at the database boundary.
+        const [first, second] = await Promise.all([
+          request(app.getHttpServer())
+            .post(`/organizations/${orgId}/invitations`)
+            .set('Authorization', `Bearer ${ownerToken}`)
+            .send({ email: invitee.email }),
+          request(app.getHttpServer())
+            .post(`/organizations/${orgId}/invitations`)
+            .set('Authorization', `Bearer ${ownerToken}`)
+            .send({ email: invitee.email }),
+        ]);
+
+        const statuses = [first.status, second.status].sort();
+        expect(statuses).toEqual([201, 409]);
+
+        const invitations = await prisma.db.organizationInvitation.findMany({
+          where: { organizationId: orgId, invitedEmail: invitee.email, status: 'PENDING' },
+        });
+        expect(invitations).toHaveLength(1);
+      },
+    );
+
+    it('treats a differently-cased email as the same recipient for concurrency purposes too', async () => {
+      const orgId = await createBusiness(`${orgNamePrefix}Concurrent Case Co`);
+      const invitee = await registerUser('invitee-case');
+      const upperCased = invitee.email.toUpperCase();
+
+      const [first, second] = await Promise.all([
+        request(app.getHttpServer())
+          .post(`/organizations/${orgId}/invitations`)
+          .set('Authorization', `Bearer ${ownerToken}`)
+          .send({ email: invitee.email }),
+        request(app.getHttpServer())
+          .post(`/organizations/${orgId}/invitations`)
+          .set('Authorization', `Bearer ${ownerToken}`)
+          .send({ email: upperCased }),
+      ]);
+
+      const statuses = [first.status, second.status].sort();
+      expect(statuses).toEqual([201, 409]);
+
+      const invitations = await prisma.db.organizationInvitation.findMany({
+        where: { organizationId: orgId, status: 'PENDING' },
+      });
+      expect(invitations).toHaveLength(1);
     });
   });
 });

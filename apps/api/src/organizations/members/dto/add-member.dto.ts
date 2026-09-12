@@ -7,7 +7,13 @@ export class AddMemberDto {
   @IsUUID()
   userId: string;
 
-  @ApiPropertyOptional({ enum: OrganizationMemberRole, default: OrganizationMemberRole.MEMBER })
-  @IsOptional() @IsEnum(OrganizationMemberRole)
+  @ApiPropertyOptional({
+    enum: OrganizationMemberRole,
+    default: OrganizationMemberRole.MEMBER,
+    description:
+      'OWNER is never accepted here — grant ownership only through the explicit ownership-transfer action',
+  })
+  @IsOptional()
+  @IsEnum(OrganizationMemberRole)
   role?: OrganizationMemberRole;
 }

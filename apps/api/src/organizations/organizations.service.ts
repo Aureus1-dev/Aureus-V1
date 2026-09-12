@@ -55,41 +55,55 @@ export class OrganizationsService {
 
   // ── Create ────────────────────────────────────────────────────────────
 
+  /**
+   * Atomic (Step 1 §4 repair): row creation, reference assignment, founding
+   * OWNER membership, and the ORGANIZATION_CREATED audit event all commit
+   * or roll back together in one transaction. Before this repair these
+   * were four separate writes — a failure between any two of them (e.g.
+   * the audit-event insert) could leave a real, findable Organization row
+   * with no OWNER and no audit trail. Bypasses the repository abstraction
+   * deliberately, the same way transferOwnership() and invitation accept()
+   * already do, because true cross-model atomicity needs one transaction
+   * client shared across all four writes.
+   */
   async create(
     dto: CreateOrganizationDto,
     caller: AuthenticatedUser,
   ): Promise<OrganizationResponseDto> {
-    const org = await this.repo.create({
-      ...dto,
-      createdById: caller.id,
-      lastUpdatedById: caller.id,
+    const org = await this.prisma.db.$transaction(async (tx) => {
+      const created = await tx.organization.create({
+        data: { ...dto, createdById: caller.id, lastUpdatedById: caller.id },
+      });
+
+      const organizationRef = `AUR-ORG-${created.sequenceNumber.toString().padStart(6, '0')}`;
+      const updated = await tx.organization.update({
+        where: { id: created.id },
+        data: { organizationRef },
+      });
+
+      // The creator becomes the organization's initial authorized OWNER
+      // (Step 1 — Business Identity & Boundary §2): ownership, not mere
+      // administration, is the founding representative's role.
+      await tx.organizationMember.create({
+        data: { organizationId: created.id, userId: caller.id, role: OrganizationMemberRole.OWNER },
+      });
+
+      await tx.tenantAuditEvent.create({
+        data: {
+          organizationId: created.id,
+          actorId: caller.id,
+          action: TenantAuditAction.ORGANIZATION_CREATED,
+          resourceType: 'Organization',
+          resourceId: created.id,
+          context: { organizationRef, organizationType: dto.organizationType },
+        },
+      });
+
+      return updated;
     });
 
-    const organizationRef = `AUR-ORG-${org.sequenceNumber.toString().padStart(6, '0')}`;
-    const updated = await this.repo.setRef(org.id, organizationRef);
-
-    // The creator becomes the organization's initial authorized OWNER
-    // (Step 1 — Business Identity & Boundary §2): ownership, not mere
-    // administration, is the founding representative's role.
-    await this.memberRepo.add({
-      organizationId: org.id,
-      userId: caller.id,
-      role: OrganizationMemberRole.OWNER,
-    });
-
-    await this.prisma.db.tenantAuditEvent.create({
-      data: {
-        organizationId: org.id,
-        actorId: caller.id,
-        action: TenantAuditAction.ORGANIZATION_CREATED,
-        resourceType: 'Organization',
-        resourceId: org.id,
-        context: { organizationRef, organizationType: dto.organizationType },
-      },
-    });
-
-    this.logger.log(`Organization created: ${organizationRef} by ${caller.id}`);
-    return OrganizationResponseDto.fromEntity(updated);
+    this.logger.log(`Organization created: ${org.organizationRef} by ${caller.id}`);
+    return OrganizationResponseDto.fromEntity(org);
   }
 
   // ── Read ──────────────────────────────────────────────────────────────

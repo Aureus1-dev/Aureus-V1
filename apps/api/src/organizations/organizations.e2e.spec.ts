@@ -226,7 +226,17 @@ describe('Organizations (Business Portal) — E2E', () => {
     });
 
     describe('membership management', () => {
-      it('forbids a non-ADMIN member from adding a representative', async () => {
+      // ── Step 1 repair: close every OWNER privilege bypass ────────────
+
+      it("forbids the organization's own OWNER from attaching a member directly — must use an invitation", async () => {
+        await request(app.getHttpServer())
+          .post(`/organizations/${orgId}/members`)
+          .set('Authorization', `Bearer ${orgRepToken}`)
+          .send({ userId: memberId })
+          .expect(403);
+      });
+
+      it('forbids a plain member from attaching a representative', async () => {
         await request(app.getHttpServer())
           .post(`/organizations/${orgId}/members`)
           .set('Authorization', `Bearer ${otherRepToken}`)
@@ -234,22 +244,85 @@ describe('Organizations (Business Portal) — E2E', () => {
           .expect(403);
       });
 
-      it('allows the ADMIN representative to add a member', async () => {
+      it('rejects role OWNER via direct attach, even from a platform Steward — no accidental second owner', async () => {
+        await request(app.getHttpServer())
+          .post(`/organizations/${orgId}/members`)
+          .set('Authorization', `Bearer ${stewardToken}`)
+          .send({ userId: memberId, role: 'OWNER' })
+          .expect(400);
+      });
+
+      it('rejects role OWNER via direct attach from a platform Administrator too', async () => {
+        await request(app.getHttpServer())
+          .post(`/organizations/${orgId}/members`)
+          .set('Authorization', `Bearer ${adminToken}`)
+          .send({ userId: memberId, role: 'OWNER' })
+          .expect(400);
+      });
+
+      it('still allows a platform Steward to attach a member directly (moderation/compatibility path)', async () => {
+        // OrganizationMember.userId carries a real FK to User, so this
+        // needs an actually-registered account, unlike the synthetic
+        // memberId used for pure role-based checks elsewhere in this file.
+        const platformAdded = await request(app.getHttpServer())
+          .post('/auth/register')
+          .send({
+            email: `platform-added-${emailMarker}@example.test`,
+            password: 'Str0ng!Passw0rd',
+          })
+          .expect(201);
+        const platformAddedId = platformAdded.body.user.id;
+
         const res = await request(app.getHttpServer())
           .post(`/organizations/${orgId}/members`)
-          .set('Authorization', `Bearer ${orgRepToken}`)
-          .send({ userId: otherRepId, role: 'MEMBER' })
+          .set('Authorization', `Bearer ${stewardToken}`)
+          .send({ userId: platformAddedId, role: 'MEMBER' })
           .expect(201);
 
         expect(res.body.role).toBe('MEMBER');
+
+        // Clean up: the rest of this suite drives membership growth through
+        // the invitation lifecycle below and does not expect this account
+        // to remain a member.
+        await request(app.getHttpServer())
+          .delete(`/organizations/${orgId}/members/${platformAddedId}`)
+          .set('Authorization', `Bearer ${adminToken}`)
+          .expect(204);
       });
 
-      it('rejects adding the same user twice', async () => {
+      it("cannot use generic role editing as an alternate ownership-transfer mechanism — updateRole rejects OWNER even from the org's own OWNER", async () => {
         await request(app.getHttpServer())
-          .post(`/organizations/${orgId}/members`)
+          .patch(`/organizations/${orgId}/members/${orgRepId}`)
           .set('Authorization', `Bearer ${orgRepToken}`)
-          .send({ userId: otherRepId })
-          .expect(409);
+          .send({ role: 'OWNER' })
+          .expect(400);
+      });
+
+      // ── Ordinary membership growth now goes through invite → accept ──
+
+      it('invites and accepts a new member (the only ordinary path to grow membership)', async () => {
+        const otherRepEmail = `${otherRepId}@example.test`;
+
+        const invited = await request(app.getHttpServer())
+          .post(`/organizations/${orgId}/invitations`)
+          .set('Authorization', `Bearer ${orgRepToken}`)
+          .send({ email: otherRepEmail, role: 'MEMBER' })
+          .expect(201);
+        expect(invited.body.status).toBe('PENDING');
+
+        const accepted = await request(app.getHttpServer())
+          .post(`/invitations/${invited.body.id}/accept`)
+          .set('Authorization', `Bearer ${otherRepToken}`)
+          .expect(201);
+        expect(accepted.body.status).toBe('ACCEPTED');
+
+        const members = await request(app.getHttpServer())
+          .get(`/organizations/${orgId}/members`)
+          .set('Authorization', `Bearer ${orgRepToken}`)
+          .expect(200);
+        expect(members.body).toEqual(
+          expect.arrayContaining([expect.objectContaining({ userId: otherRepId, role: 'MEMBER' })]),
+        );
       });
 
       it('forbids a non-member from listing members', async () => {

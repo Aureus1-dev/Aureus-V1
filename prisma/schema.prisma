@@ -1226,6 +1226,14 @@ model OrganizationInvitation {
 
   @@index([organizationId, status])
   @@index([invitedEmail, status])
+  // DB-enforced invariant (Step 1 repair #5, migration
+  // 20260912150000_step1_repair_pending_invitation_uniqueness): a partial
+  // unique index on (organizationId, lower(invitedEmail)) WHERE status =
+  // 'PENDING' — not expressible via @@unique, since Prisma has no syntax
+  // for a partial/expression index. Prevents two concurrent PENDING
+  // invitations to the same organization+email; re-inviting after an
+  // earlier invitation resolved (accepted/declined/revoked/expired) is
+  // still allowed, since only PENDING rows are covered.
 }
 
 // One business operating profile per tenant. Structured JSON is deliberately

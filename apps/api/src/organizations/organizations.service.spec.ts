@@ -98,8 +98,17 @@ const mockMemberRepo: jest.Mocked<IOrganizationMemberRepository> = {
   remove: jest.fn(),
 };
 
+const mockTx = {
+  organization: { create: jest.fn(), update: jest.fn() },
+  organizationMember: { create: jest.fn() },
+  tenantAuditEvent: { create: jest.fn() },
+};
+
 const mockPrisma = {
-  db: { tenantAuditEvent: { create: jest.fn() } },
+  db: {
+    tenantAuditEvent: { create: jest.fn() },
+    $transaction: jest.fn(),
+  },
 };
 
 describe('OrganizationsService', () => {
@@ -117,14 +126,22 @@ describe('OrganizationsService', () => {
     service = m.get(OrganizationsService);
     jest.clearAllMocks();
     mockPrisma.db.tenantAuditEvent.create.mockResolvedValue({});
+    // Runs the transaction callback against the same mocked tx client every
+    // test opts into (Step 1 §4 repair — create() is now one transaction).
+    mockPrisma.db.$transaction.mockImplementation((fn: (tx: typeof mockTx) => unknown) =>
+      fn(mockTx),
+    );
   });
 
-  describe('create', () => {
-    it('creates an organization, sets ref, and adds the caller as its initial OWNER member', async () => {
+  describe('create — atomic (Step 1 §4 repair)', () => {
+    it('creates the organization, reference, OWNER membership, and audit event inside one transaction', async () => {
       const raw = makeOrg({ organizationRef: null, sequenceNumber: 1 });
-      mockRepo.create.mockResolvedValue(raw);
-      mockRepo.setRef.mockResolvedValue({ ...raw, organizationRef: 'AUR-ORG-000001' });
-      mockMemberRepo.add.mockResolvedValue(makeMembership({ role: OrganizationMemberRole.OWNER }));
+      mockTx.organization.create.mockResolvedValue(raw);
+      mockTx.organization.update.mockResolvedValue({ ...raw, organizationRef: 'AUR-ORG-000001' });
+      mockTx.organizationMember.create.mockResolvedValue(
+        makeMembership({ role: OrganizationMemberRole.OWNER }),
+      );
+      mockTx.tenantAuditEvent.create.mockResolvedValue({});
 
       const result = await service.create(
         {
@@ -140,13 +157,49 @@ describe('OrganizationsService', () => {
 
       expect(result).toBeInstanceOf(OrganizationResponseDto);
       expect(result.organizationRef).toBe('AUR-ORG-000001');
-      expect(mockMemberRepo.add).toHaveBeenCalledWith(
+      expect(mockPrisma.db.$transaction).toHaveBeenCalledTimes(1);
+      expect(mockTx.organizationMember.create).toHaveBeenCalledWith(
         expect.objectContaining({
-          organizationId: raw.id,
-          userId: ADMIN_REP.id,
-          role: OrganizationMemberRole.OWNER,
+          data: expect.objectContaining({
+            organizationId: raw.id,
+            userId: ADMIN_REP.id,
+            role: OrganizationMemberRole.OWNER,
+          }),
         }),
       );
+      expect(mockTx.tenantAuditEvent.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ organizationId: raw.id, action: 'ORGANIZATION_CREATED' }),
+        }),
+      );
+      // The pre-repair, non-atomic call sites must never be used again.
+      expect(mockRepo.create).not.toHaveBeenCalled();
+      expect(mockRepo.setRef).not.toHaveBeenCalled();
+      expect(mockMemberRepo.add).not.toHaveBeenCalled();
+    });
+
+    it('propagates a failure from any write inside the transaction without returning a partial result', async () => {
+      const raw = makeOrg({ organizationRef: null, sequenceNumber: 1 });
+      mockTx.organization.create.mockResolvedValue(raw);
+      mockTx.organization.update.mockResolvedValue({ ...raw, organizationRef: 'AUR-ORG-000001' });
+      mockTx.organizationMember.create.mockResolvedValue(
+        makeMembership({ role: OrganizationMemberRole.OWNER }),
+      );
+      mockTx.tenantAuditEvent.create.mockRejectedValue(new Error('simulated audit-event failure'));
+
+      await expect(
+        service.create(
+          {
+            name: 'Community Legal Aid Society',
+            shortDescription: 'S',
+            fullDescription: 'F',
+            organizationType: OrganizationType.NONPROFIT,
+            tenantVersion: 1,
+            websiteUrl: 'https://legalaid.example.org',
+          },
+          ADMIN_REP,
+        ),
+      ).rejects.toThrow('simulated audit-event failure');
     });
   });
 

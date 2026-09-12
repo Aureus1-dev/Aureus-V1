@@ -11,7 +11,10 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiParam, ApiResponse, ApiTags } from '@nestjs/swagger';
+import { UserRole } from '@prisma/client';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
+import { RolesGuard } from '../../auth/guards/roles.guard';
+import { Roles } from '../../auth/decorators/roles.decorator';
 import { CurrentUser } from '../../auth/decorators/current-user.decorator';
 import { AuthenticatedUser } from '../../auth/strategies/jwt.strategy';
 import { OrganizationMembersService } from './organization-members.service';
@@ -28,16 +31,21 @@ export class OrganizationMembersController {
   constructor(private readonly service: OrganizationMembersService) {}
 
   @Post()
+  @UseGuards(RolesGuard)
+  @Roles(UserRole.STEWARD, UserRole.PLATFORM_ADMINISTRATOR, UserRole.SYSTEM_ADMINISTRATOR)
   @ApiOperation({
-    summary: 'Add a representative to the organization (org ADMIN, Steward, or Admin)',
+    summary:
+      'Directly attach a representative, bypassing invitation (platform Steward/Admin only — ' +
+      'an ordinary business OWNER/ADMIN uses POST .../invitations instead). Never grants OWNER.',
   })
   @ApiParam({ name: 'organizationId', description: 'Organization UUID' })
   @ApiResponse({ status: 201, type: MemberResponseDto })
-  @ApiResponse({ status: 401, description: 'Missing or invalid access token' })
   @ApiResponse({
-    status: 403,
-    description: 'Caller does not have management authority over this organization',
+    status: 400,
+    description: 'role OWNER was requested — use ownership transfer instead',
   })
+  @ApiResponse({ status: 401, description: 'Missing or invalid access token' })
+  @ApiResponse({ status: 403, description: 'Caller is not a platform Steward or Administrator' })
   @ApiResponse({ status: 404, description: 'Organization not found' })
   @ApiResponse({ status: 409, description: 'User is already a member' })
   add(

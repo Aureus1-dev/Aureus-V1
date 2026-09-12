@@ -13,8 +13,8 @@ import {
   type BusinessKnowledgeRecord,
   type BusinessKnowledgeType,
 } from '../../../lib/api/business-knowledge';
-import { getBusinessConsole, listMyBusinessTenants } from '../../../lib/api/business-console';
-import { useSession } from '../../../state';
+import { getBusinessConsole } from '../../../lib/api/business-console';
+import { useBusiness, useSession } from '../../../state';
 import { knowledgePermissions } from './knowledge-permissions';
 import styles from './BusinessKnowledgeWorkspace.module.css';
 
@@ -61,38 +61,45 @@ const EMPTY_FORM: FormState = {
 
 export function BusinessKnowledgeWorkspace() {
   const { session } = useSession();
-  const [tenantId, setTenantId] = useState('');
-  const [tenantName, setTenantName] = useState('');
+  const { activeTenant, state: businessState } = useBusiness();
+  const tenantId = activeTenant?.id ?? '';
+  const tenantName = activeTenant?.name ?? '';
   const [membershipRole, setMembershipRole] = useState<string | null>(null);
   const [records, setRecords] = useState<BusinessKnowledgeRecord[]>([]);
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
   const [reasons, setReasons] = useState<Record<string, string>>({});
-  const [state, setState] = useState<'loading' | 'ready' | 'empty' | 'working' | 'error'>('loading');
+  const [state, setState] = useState<'loading' | 'ready' | 'empty' | 'working' | 'error'>(
+    'loading',
+  );
   const [message, setMessage] = useState('');
 
   const permissions = knowledgePermissions(membershipRole, session.roles);
 
   useEffect(() => {
     if (!session.accessToken) return;
+    if (businessState.isLoading) return;
+    if (!activeTenant) {
+      setState('empty');
+      setRecords([]);
+      setMembershipRole(null);
+      return;
+    }
+
+    // Reset immediately, before the fetch resolves, so no stale record from
+    // a previously active company remains visible or actionable while the
+    // newly selected one loads (Step 1 repair: a context switch must
+    // invalidate the prior company's UI state right away).
     let active = true;
+    setState('loading');
+    setRecords([]);
+    setMembershipRole(null);
 
-    void listMyBusinessTenants(session.accessToken)
-      .then(async (tenants) => {
+    void Promise.all([
+      getBusinessConsole(session.accessToken, activeTenant.id),
+      listBusinessKnowledge(session.accessToken, activeTenant.id),
+    ])
+      .then(([consoleData, knowledge]) => {
         if (!active) return;
-        if (tenants.length === 0) {
-          setState('empty');
-          return;
-        }
-
-        const tenant = tenants[0];
-        const [consoleData, knowledge] = await Promise.all([
-          getBusinessConsole(session.accessToken!, tenant.id),
-          listBusinessKnowledge(session.accessToken!, tenant.id),
-        ]);
-        if (!active) return;
-
-        setTenantId(tenant.id);
-        setTenantName(tenant.name);
         setMembershipRole(consoleData.membershipRole);
         setRecords(knowledge);
         setState('ready');
@@ -107,7 +114,7 @@ export function BusinessKnowledgeWorkspace() {
     return () => {
       active = false;
     };
-  }, [session.accessToken]);
+  }, [session.accessToken, businessState.isLoading, activeTenant]);
 
   const saveDraft = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -126,14 +133,15 @@ export function BusinessKnowledgeWorkspace() {
     };
 
     try {
-      const created = form.mode === 'import'
-        ? await importBusinessKnowledge(session.accessToken, tenantId, {
-            ...base,
-            fileName: form.fileName,
-            mimeType: form.mimeType,
-            acknowledgeUnverifiedSource: true,
-          })
-        : await createBusinessKnowledge(session.accessToken, tenantId, base);
+      const created =
+        form.mode === 'import'
+          ? await importBusinessKnowledge(session.accessToken, tenantId, {
+              ...base,
+              fileName: form.fileName,
+              mimeType: form.mimeType,
+              acknowledgeUnverifiedSource: true,
+            })
+          : await createBusinessKnowledge(session.accessToken, tenantId, base);
 
       setRecords((current) => [created, ...current]);
       setForm(EMPTY_FORM);
@@ -146,11 +154,13 @@ export function BusinessKnowledgeWorkspace() {
   };
 
   const replaceRecord = (next: BusinessKnowledgeRecord) => {
-    setRecords((current) => current.map((record) => record.id === next.id ? next : record));
+    setRecords((current) => current.map((record) => (record.id === next.id ? next : record)));
   };
 
   const act = async (
-    work: () => Promise<BusinessKnowledgeRecord | { id: string; payloadSha256: string; status: 'PENDING' }>,
+    work: () => Promise<
+      BusinessKnowledgeRecord | { id: string; payloadSha256: string; status: 'PENDING' }
+    >,
     success: string,
   ) => {
     setState('working');
@@ -161,13 +171,19 @@ export function BusinessKnowledgeWorkspace() {
       setMessage(success);
       setState('ready');
     } catch {
-      setMessage('The action was not applied. Refresh the record and check your role and its current state.');
+      setMessage(
+        'The action was not applied. Refresh the record and check your role and its current state.',
+      );
       setState('error');
     }
   };
 
   if (state === 'loading') {
-    return <section className={styles.surface} aria-busy="true"><p>Opening business knowledge…</p></section>;
+    return (
+      <section className={styles.surface} aria-busy="true">
+        <p>Opening business knowledge…</p>
+      </section>
+    );
   }
 
   if (state === 'empty') {
@@ -181,17 +197,27 @@ export function BusinessKnowledgeWorkspace() {
   }
 
   if (!tenantId) {
-    return <section className={styles.surface} role="alert"><h1>Knowledge unavailable</h1><p>{message}</p></section>;
+    return (
+      <section className={styles.surface} role="alert">
+        <h1>Knowledge unavailable</h1>
+        <p>{message}</p>
+      </section>
+    );
   }
 
   return (
     <section className={styles.surface}>
       <header className={styles.header}>
         <div>
-          <Link href="/business" className={styles.back}>← Business console</Link>
+          <Link href="/business" className={styles.back}>
+            ← Business console
+          </Link>
           <p className={styles.eyebrow}>Tenant knowledge</p>
           <h1>{tenantName}</h1>
-          <p>Teach the Ward what this business has actually approved—and when it must be checked again.</p>
+          <p>
+            Teach the Ward what this business has actually approved—and when it must be checked
+            again.
+          </p>
         </div>
         <div className={styles.count}>
           <strong>{records.length}</strong>
@@ -228,12 +254,18 @@ export function BusinessKnowledgeWorkspace() {
               Knowledge type
               <select
                 value={form.knowledgeType}
-                onChange={(event) => setForm((value) => ({
-                  ...value,
-                  knowledgeType: event.target.value as BusinessKnowledgeType,
-                }))}
+                onChange={(event) =>
+                  setForm((value) => ({
+                    ...value,
+                    knowledgeType: event.target.value as BusinessKnowledgeType,
+                  }))
+                }
               >
-                {TYPES.map((type) => <option key={type.value} value={type.value}>{type.label}</option>)}
+                {TYPES.map((type) => (
+                  <option key={type.value} value={type.value}>
+                    {type.label}
+                  </option>
+                ))}
               </select>
             </label>
 
@@ -241,7 +273,9 @@ export function BusinessKnowledgeWorkspace() {
               Review every
               <select
                 value={form.freshnessIntervalDays}
-                onChange={(event) => setForm((value) => ({ ...value, freshnessIntervalDays: event.target.value }))}
+                onChange={(event) =>
+                  setForm((value) => ({ ...value, freshnessIntervalDays: event.target.value }))
+                }
               >
                 <option value="30">30 days</option>
                 <option value="90">90 days</option>
@@ -293,7 +327,9 @@ export function BusinessKnowledgeWorkspace() {
                 maxLength={500}
                 placeholder="Owner-confirmed service list, August 2026"
                 value={form.sourceReference}
-                onChange={(event) => setForm((value) => ({ ...value, sourceReference: event.target.value }))}
+                onChange={(event) =>
+                  setForm((value) => ({ ...value, sourceReference: event.target.value }))
+                }
               />
             </label>
             <label>
@@ -301,7 +337,9 @@ export function BusinessKnowledgeWorkspace() {
               <input
                 type="url"
                 value={form.sourceUrl}
-                onChange={(event) => setForm((value) => ({ ...value, sourceUrl: event.target.value }))}
+                onChange={(event) =>
+                  setForm((value) => ({ ...value, sourceUrl: event.target.value }))
+                }
               />
             </label>
           </div>
@@ -315,17 +353,21 @@ export function BusinessKnowledgeWorkspace() {
                     required
                     maxLength={200}
                     value={form.fileName}
-                    onChange={(event) => setForm((value) => ({ ...value, fileName: event.target.value }))}
+                    onChange={(event) =>
+                      setForm((value) => ({ ...value, fileName: event.target.value }))
+                    }
                   />
                 </label>
                 <label>
                   Text format
                   <select
                     value={form.mimeType}
-                    onChange={(event) => setForm((value) => ({
-                      ...value,
-                      mimeType: event.target.value as FormState['mimeType'],
-                    }))}
+                    onChange={(event) =>
+                      setForm((value) => ({
+                        ...value,
+                        mimeType: event.target.value as FormState['mimeType'],
+                      }))
+                    }
                   >
                     <option value="text/plain">Plain text</option>
                     <option value="text/markdown">Markdown</option>
@@ -337,9 +379,12 @@ export function BusinessKnowledgeWorkspace() {
                   type="checkbox"
                   required
                   checked={form.acknowledged}
-                  onChange={(event) => setForm((value) => ({ ...value, acknowledged: event.target.checked }))}
+                  onChange={(event) =>
+                    setForm((value) => ({ ...value, acknowledged: event.target.checked }))
+                  }
                 />
-                I understand this import is unverified source material—not legal advice, objective truth, or Library knowledge.
+                I understand this import is unverified source material—not legal advice, objective
+                truth, or Library knowledge.
               </label>
             </div>
           ) : null}
@@ -351,7 +396,10 @@ export function BusinessKnowledgeWorkspace() {
       ) : null}
 
       {message ? (
-        <p className={state === 'error' ? styles.error : styles.message} role={state === 'error' ? 'alert' : 'status'}>
+        <p
+          className={state === 'error' ? styles.error : styles.message}
+          role={state === 'error' ? 'alert' : 'status'}
+        >
           {message}
         </p>
       ) : null}
@@ -366,24 +414,40 @@ export function BusinessKnowledgeWorkspace() {
                 <span className={styles.type}>{record.knowledgeType.replaceAll('_', ' ')}</span>
                 <h3>{record.title}</h3>
               </div>
-              <span className={styles.status} data-status={record.status}>{record.status.replaceAll('_', ' ')}</span>
+              <span className={styles.status} data-status={record.status}>
+                {record.status.replaceAll('_', ' ')}
+              </span>
             </div>
             <p>{record.summary}</p>
             <dl>
-              <div><dt>Source</dt><dd>{record.sourceReference}</dd></div>
-              <div><dt>Next review</dt><dd>{new Date(record.nextReviewAt).toLocaleDateString()}</dd></div>
-              <div><dt>Accountable reviewer</dt><dd>{record.accountableReviewerId}</dd></div>
+              <div>
+                <dt>Source</dt>
+                <dd>{record.sourceReference}</dd>
+              </div>
+              <div>
+                <dt>Next review</dt>
+                <dd>{new Date(record.nextReviewAt).toLocaleDateString()}</dd>
+              </div>
+              <div>
+                <dt>Accountable reviewer</dt>
+                <dd>{record.accountableReviewerId}</dd>
+              </div>
             </dl>
-            {record.rejectionReason ? <p className={styles.rejection}>Rejected: {record.rejectionReason}</p> : null}
+            {record.rejectionReason ? (
+              <p className={styles.rejection}>Rejected: {record.rejectionReason}</p>
+            ) : null}
 
             <div className={styles.actions}>
-              {permissions.canEdit && (record.status === 'DRAFT' || record.status === 'REJECTED') ? (
+              {permissions.canEdit &&
+              (record.status === 'DRAFT' || record.status === 'REJECTED') ? (
                 <button
                   type="button"
-                  onClick={() => void act(
-                    () => submitBusinessKnowledge(session.accessToken!, tenantId, record.id),
-                    'Submitted for accountable review.',
-                  )}
+                  onClick={() =>
+                    void act(
+                      () => submitBusinessKnowledge(session.accessToken!, tenantId, record.id),
+                      'Submitted for accountable review.',
+                    )
+                  }
                 >
                   Submit for review
                 </button>
@@ -393,10 +457,12 @@ export function BusinessKnowledgeWorkspace() {
                 <>
                   <button
                     type="button"
-                    onClick={() => void act(
-                      () => approveBusinessKnowledge(session.accessToken!, tenantId, record.id),
-                      'Approved for this tenant. Its review clock has started.',
-                    )}
+                    onClick={() =>
+                      void act(
+                        () => approveBusinessKnowledge(session.accessToken!, tenantId, record.id),
+                        'Approved for this tenant. Its review clock has started.',
+                      )
+                    }
                   >
                     Approve
                   </button>
@@ -404,20 +470,25 @@ export function BusinessKnowledgeWorkspace() {
                     aria-label={`Rejection reason for ${record.title}`}
                     placeholder="Reason required"
                     value={reasons[record.id] ?? ''}
-                    onChange={(event) => setReasons((value) => ({ ...value, [record.id]: event.target.value }))}
+                    onChange={(event) =>
+                      setReasons((value) => ({ ...value, [record.id]: event.target.value }))
+                    }
                   />
                   <button
                     type="button"
                     disabled={(reasons[record.id]?.trim().length ?? 0) < 3}
-                    onClick={() => void act(
-                      () => rejectBusinessKnowledge(
-                        session.accessToken!,
-                        tenantId,
-                        record.id,
-                        reasons[record.id],
-                      ),
-                      'Rejected with an accountable reason.',
-                    )}
+                    onClick={() =>
+                      void act(
+                        () =>
+                          rejectBusinessKnowledge(
+                            session.accessToken!,
+                            tenantId,
+                            record.id,
+                            reasons[record.id],
+                          ),
+                        'Rejected with an accountable reason.',
+                      )
+                    }
                   >
                     Reject
                   </button>
@@ -427,10 +498,12 @@ export function BusinessKnowledgeWorkspace() {
               {permissions.canReview && record.status === 'APPROVED' ? (
                 <button
                   type="button"
-                  onClick={() => void act(
-                    () => createLibraryCandidate(session.accessToken!, tenantId, record.id),
-                    'A hashed candidate snapshot was created for later Library review. Nothing was admitted automatically.',
-                  )}
+                  onClick={() =>
+                    void act(
+                      () => createLibraryCandidate(session.accessToken!, tenantId, record.id),
+                      'A hashed candidate snapshot was created for later Library review. Nothing was admitted automatically.',
+                    )
+                  }
                 >
                   Create Library candidate
                 </button>
