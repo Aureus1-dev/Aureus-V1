@@ -36,6 +36,8 @@ export interface BusinessError {
 }
 
 interface State {
+  /** Authenticated member this loaded state belongs to. Null means no safe loaded identity. */
+  memberId: string | null;
   tenants: BusinessTenantSummary[];
   activeTenantId: string | null;
   invitations: OrganizationInvitation[];
@@ -48,6 +50,7 @@ type Action =
   | { type: 'load/start' }
   | {
       type: 'load/success';
+      memberId: string | null;
       tenants: BusinessTenantSummary[];
       invitations: OrganizationInvitation[];
       activeTenantId: string | null;
@@ -60,6 +63,7 @@ type Action =
   | { type: 'identity/reset' };
 
 const initialState: State = {
+  memberId: null,
   tenants: [],
   activeTenantId: null,
   invitations: [],
@@ -75,6 +79,7 @@ function reducer(state: State, action: Action): State {
     case 'load/success':
       return {
         ...state,
+        memberId: action.memberId,
         isLoading: false,
         tenants: action.tenants,
         invitations: action.invitations,
@@ -134,11 +139,12 @@ const BusinessContext = createContext<BusinessContextValue | null>(null);
  * Step 1 — Business Identity & Boundary.
  *
  * This provider is both the source of truth for active company selection and
- * the workspace isolation boundary. Its child subtree is keyed by
- * authenticated member + active tenant. A person switch or Company A → B
- * switch therefore remounts every business surface in one place, discarding
- * tenant-local React state and preventing a slow completion from an old
- * workspace from repopulating the newly visible workspace.
+ * the workspace isolation boundary. Loaded state is tagged with the member it
+ * belongs to; if SessionContext switches identities, stale state is hidden in
+ * the same render rather than waiting for an effect. Its child subtree is also
+ * keyed by authenticated member + active tenant, so Company A → B remounts
+ * every business surface and discards tenant-local React state and old async
+ * completions in one place.
  */
 export function BusinessProvider({ children }: { children: React.ReactNode }) {
   const { session } = useSession();
@@ -169,7 +175,7 @@ export function BusinessProvider({ children }: { children: React.ReactNode }) {
         ? storedId
         : (tenants[0]?.id ?? null);
 
-      dispatch({ type: 'load/success', tenants, invitations, activeTenantId });
+      dispatch({ type: 'load/success', memberId, tenants, invitations, activeTenantId });
     } catch (error) {
       if (accessTokenRef.current !== accessToken) return;
       dispatch({ type: 'error', error: classifyError(error) });
@@ -231,14 +237,19 @@ export function BusinessProvider({ children }: { children: React.ReactNode }) {
 
   const clearError = useCallback(() => dispatch({ type: 'error/clear' }), []);
 
+  // Never expose loaded state belonging to a different authenticated member,
+  // even for the single render before the identity-reset effect runs.
+  const visibleState = state.memberId === session.memberId ? state : initialState;
+
   const activeTenant = useMemo(
-    () => state.tenants.find((tenant) => tenant.id === state.activeTenantId) ?? null,
-    [state.tenants, state.activeTenantId],
+    () =>
+      visibleState.tenants.find((tenant) => tenant.id === visibleState.activeTenantId) ?? null,
+    [visibleState],
   );
 
   const value = useMemo(
     () => ({
-      state,
+      state: visibleState,
       activeTenant,
       refresh,
       selectTenant,
@@ -247,7 +258,7 @@ export function BusinessProvider({ children }: { children: React.ReactNode }) {
       clearError,
     }),
     [
-      state,
+      visibleState,
       activeTenant,
       refresh,
       selectTenant,
@@ -257,9 +268,7 @@ export function BusinessProvider({ children }: { children: React.ReactNode }) {
     ],
   );
 
-  // This is the hard UI boundary for tenant-local component state. It is
-  // deliberately based on identity + selected company, not access token.
-  const workspaceEpoch = `${session.memberId ?? 'anonymous'}:${state.activeTenantId ?? 'none'}`;
+  const workspaceEpoch = `${session.memberId ?? 'anonymous'}:${visibleState.activeTenantId ?? 'none'}`;
 
   return (
     <BusinessContext.Provider value={value}>
