@@ -22,6 +22,14 @@ const EVENT_INCLUDE = {
   events: { orderBy: { occurredAt: 'asc' as const } },
 };
 
+const NON_TERMINAL_STATUSES: ResponsibilityStatus[] = [
+  ResponsibilityStatus.ACTIVE,
+  ResponsibilityStatus.WAITING_ON_AUREUS,
+  ResponsibilityStatus.WAITING_ON_USER,
+  ResponsibilityStatus.WAITING_ON_THIRD_PARTY,
+  ResponsibilityStatus.BLOCKED,
+];
+
 @Injectable()
 export class PrismaResponsibilityRepository implements IResponsibilityRepository {
   constructor(private readonly prisma: PrismaService) {}
@@ -37,13 +45,25 @@ export class PrismaResponsibilityRepository implements IResponsibilityRepository
         kind,
         principalUserId,
         originOpportunityId: opportunityId,
-        status: {
-          notIn: [
-            ResponsibilityStatus.COMPLETED,
-            ResponsibilityStatus.RESPONSIBLY_EXHAUSTED,
-            ResponsibilityStatus.CANCELLED,
-          ],
-        },
+        status: { in: NON_TERMINAL_STATUSES },
+      },
+      include: EVENT_INCLUDE,
+      orderBy: { createdAt: 'desc' },
+    });
+  }
+
+  findOpenConversationResponsibility(
+    principalUserId: string,
+    conversationId: string,
+    kind: ResponsibilityKind,
+  ): Promise<ResponsibilityWithEvents | null> {
+    return this.prisma.db.responsibility.findFirst({
+      where: {
+        contextType: ResponsibilityContextType.PERSONAL,
+        kind,
+        principalUserId,
+        originConversationId: conversationId,
+        status: { in: NON_TERMINAL_STATUSES },
       },
       include: EVENT_INCLUDE,
       orderBy: { createdAt: 'desc' },
@@ -53,11 +73,17 @@ export class PrismaResponsibilityRepository implements IResponsibilityRepository
   async createAccepted(
     input: CreateAcceptedResponsibilityInput,
   ): Promise<ResponsibilityWithEvents> {
-    const existing = await this.findOpenOpportunityResponsibility(
-      input.principalUserId,
-      input.originOpportunityId,
-      input.kind,
-    );
+    const existing = input.originOpportunityId
+      ? await this.findOpenOpportunityResponsibility(
+          input.principalUserId,
+          input.originOpportunityId,
+          input.kind,
+        )
+      : await this.findOpenConversationResponsibility(
+          input.principalUserId,
+          input.originConversationId,
+          input.kind,
+        );
     if (existing) return existing;
 
     try {
@@ -71,12 +97,13 @@ export class PrismaResponsibilityRepository implements IResponsibilityRepository
             principalUserId: input.principalUserId,
             principalOrganizationId: null,
             originConversationId: input.originConversationId,
-            originOpportunityId: input.originOpportunityId,
+            originOpportunityId: input.originOpportunityId ?? null,
             successCriteria: input.successCriteria,
             authorityClass: ResponsibilityAuthorityClass.GUIDANCE_ONLY,
             authorityPolicyVersion: 'responsibility-guidance-v1',
             privacyScope: ResponsibilityPrivacyScope.PERSONAL_PRIVATE,
             privacyPolicyVersion: 'personal-private-v1',
+            dueAt: input.dueAt ?? null,
             retentionExpiresAt: null,
           },
         });
@@ -115,18 +142,24 @@ export class PrismaResponsibilityRepository implements IResponsibilityRepository
         });
       });
     } catch (error) {
-      // Each supported kind has a partial unique index for one open personal
-      // Responsibility per member/opportunity. If two requests race,
-      // the loser returns the durable commitment created by the winner.
+      // Supported kinds use partial unique indexes for one open Responsibility
+      // per member/source. If two requests race, return the durable commitment
+      // created by the winner instead of surfacing a duplicate-key failure.
       if (
         error instanceof Prisma.PrismaClientKnownRequestError &&
         error.code === 'P2002'
       ) {
-        const winner = await this.findOpenOpportunityResponsibility(
-          input.principalUserId,
-          input.originOpportunityId,
-          input.kind,
-        );
+        const winner = input.originOpportunityId
+          ? await this.findOpenOpportunityResponsibility(
+              input.principalUserId,
+              input.originOpportunityId,
+              input.kind,
+            )
+          : await this.findOpenConversationResponsibility(
+              input.principalUserId,
+              input.originConversationId,
+              input.kind,
+            );
         if (winner) return winner;
       }
       throw error;
@@ -194,7 +227,9 @@ export class PrismaResponsibilityRepository implements IResponsibilityRepository
 
       if (
         current.status === ResponsibilityStatus.WAITING_ON_USER ||
-        current.status === ResponsibilityStatus.COMPLETED
+        current.status === ResponsibilityStatus.COMPLETED ||
+        current.status === ResponsibilityStatus.RESPONSIBLY_EXHAUSTED ||
+        current.status === ResponsibilityStatus.CANCELLED
       ) {
         return current;
       }
@@ -204,7 +239,14 @@ export class PrismaResponsibilityRepository implements IResponsibilityRepository
           id,
           contextType: ResponsibilityContextType.PERSONAL,
           principalUserId,
-          status: ResponsibilityStatus.ACTIVE,
+          status: {
+            in: [
+              ResponsibilityStatus.ACTIVE,
+              ResponsibilityStatus.WAITING_ON_AUREUS,
+              ResponsibilityStatus.WAITING_ON_THIRD_PARTY,
+              ResponsibilityStatus.BLOCKED,
+            ],
+          },
         },
         data: { status: ResponsibilityStatus.WAITING_ON_USER },
       });
@@ -216,8 +258,73 @@ export class PrismaResponsibilityRepository implements IResponsibilityRepository
             type: ResponsibilityEventType.USER_INPUT_REQUIRED,
             actorClass: ResponsibilityActorClass.AUREUS,
             actorUserId: null,
-            fromStatus: ResponsibilityStatus.ACTIVE,
+            fromStatus: current.status,
             toStatus: ResponsibilityStatus.WAITING_ON_USER,
+          },
+        });
+      }
+
+      return tx.responsibility.findFirstOrThrow({
+        where: {
+          id,
+          contextType: ResponsibilityContextType.PERSONAL,
+          principalUserId,
+        },
+        include: EVENT_INCLUDE,
+      });
+    });
+  }
+
+  async markWaitingOnThirdParty(
+    id: string,
+    principalUserId: string,
+  ): Promise<ResponsibilityWithEvents> {
+    return this.prisma.db.$transaction(async (tx) => {
+      const current = await tx.responsibility.findFirst({
+        where: {
+          id,
+          contextType: ResponsibilityContextType.PERSONAL,
+          principalUserId,
+        },
+        include: EVENT_INCLUDE,
+      });
+      if (!current) throw new NotFoundException('Responsibility not found');
+
+      if (
+        current.status === ResponsibilityStatus.WAITING_ON_THIRD_PARTY ||
+        current.status === ResponsibilityStatus.COMPLETED ||
+        current.status === ResponsibilityStatus.RESPONSIBLY_EXHAUSTED ||
+        current.status === ResponsibilityStatus.CANCELLED
+      ) {
+        return current;
+      }
+
+      const { count } = await tx.responsibility.updateMany({
+        where: {
+          id,
+          contextType: ResponsibilityContextType.PERSONAL,
+          principalUserId,
+          status: {
+            in: [
+              ResponsibilityStatus.ACTIVE,
+              ResponsibilityStatus.WAITING_ON_AUREUS,
+              ResponsibilityStatus.WAITING_ON_USER,
+              ResponsibilityStatus.BLOCKED,
+            ],
+          },
+        },
+        data: { status: ResponsibilityStatus.WAITING_ON_THIRD_PARTY },
+      });
+
+      if (count === 1) {
+        await tx.responsibilityEvent.create({
+          data: {
+            responsibilityId: id,
+            type: ResponsibilityEventType.EXTERNAL_WAIT_STARTED,
+            actorClass: ResponsibilityActorClass.AUREUS,
+            actorUserId: null,
+            fromStatus: current.status,
+            toStatus: ResponsibilityStatus.WAITING_ON_THIRD_PARTY,
           },
         });
       }
@@ -319,7 +426,10 @@ export class PrismaResponsibilityRepository implements IResponsibilityRepository
           status: {
             in: [
               ResponsibilityStatus.ACTIVE,
+              ResponsibilityStatus.WAITING_ON_AUREUS,
               ResponsibilityStatus.WAITING_ON_USER,
+              ResponsibilityStatus.WAITING_ON_THIRD_PARTY,
+              ResponsibilityStatus.BLOCKED,
             ],
           },
         },
@@ -350,6 +460,79 @@ export class PrismaResponsibilityRepository implements IResponsibilityRepository
               fromStatus: current.status,
               toStatus: ResponsibilityStatus.COMPLETED,
               occurredAt: completedAt,
+              ...evidence,
+            },
+          ],
+        });
+      }
+
+      return tx.responsibility.findFirstOrThrow({
+        where: {
+          id,
+          contextType: ResponsibilityContextType.PERSONAL,
+          principalUserId,
+        },
+        include: EVENT_INCLUDE,
+      });
+    });
+  }
+
+  async responsiblyExhaustWithEvidence(
+    id: string,
+    principalUserId: string,
+    evidence: ResponsibilityEvidenceInput,
+  ): Promise<ResponsibilityWithEvents> {
+    return this.prisma.db.$transaction(async (tx) => {
+      const current = await tx.responsibility.findFirst({
+        where: {
+          id,
+          contextType: ResponsibilityContextType.PERSONAL,
+          principalUserId,
+        },
+        include: EVENT_INCLUDE,
+      });
+      if (!current) throw new NotFoundException('Responsibility not found');
+      if (
+        current.status === ResponsibilityStatus.RESPONSIBLY_EXHAUSTED ||
+        current.status === ResponsibilityStatus.COMPLETED ||
+        current.status === ResponsibilityStatus.CANCELLED
+      ) {
+        return current;
+      }
+
+      const evidencedAt = new Date();
+      const exhaustedAt = new Date(evidencedAt.getTime() + 1);
+      const { count } = await tx.responsibility.updateMany({
+        where: {
+          id,
+          contextType: ResponsibilityContextType.PERSONAL,
+          principalUserId,
+          status: { in: NON_TERMINAL_STATUSES },
+        },
+        data: { status: ResponsibilityStatus.RESPONSIBLY_EXHAUSTED },
+      });
+
+      if (count === 1) {
+        await tx.responsibilityEvent.createMany({
+          data: [
+            {
+              responsibilityId: id,
+              type: ResponsibilityEventType.ACTION_EVIDENCED,
+              actorClass: ResponsibilityActorClass.SYSTEM,
+              actorUserId: null,
+              fromStatus: null,
+              toStatus: null,
+              occurredAt: evidencedAt,
+              ...evidence,
+            },
+            {
+              responsibilityId: id,
+              type: ResponsibilityEventType.RESPONSIBLY_EXHAUSTED,
+              actorClass: ResponsibilityActorClass.SYSTEM,
+              actorUserId: null,
+              fromStatus: current.status,
+              toStatus: ResponsibilityStatus.RESPONSIBLY_EXHAUSTED,
+              occurredAt: exhaustedAt,
               ...evidence,
             },
           ],
