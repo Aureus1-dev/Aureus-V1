@@ -52,6 +52,7 @@ const readyProject = {
   expertValidationRequired: ['Confirm physical measurements and site conditions.'],
   boundaries: ['This is not a quote or appointment.'],
   missingRequiredSource: [],
+  sourceNotices: [],
 };
 
 const ward = {
