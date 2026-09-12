@@ -38,6 +38,13 @@ const BUDGET_RANGES = new Set([
 
 const SHA256_RE = /^[a-f0-9]{64}$/;
 
+const PUBLIC_MISSING_SOURCE_LABELS: Record<string, string> = {
+  projectType: 'project type',
+  rooms: 'rooms',
+  scope: 'project description',
+  intakeHash: 'project handoff verification',
+};
+
 export type KitchenBathReadyProjectStatus =
   | 'READY_FOR_EXPERT_REVIEW'
   | 'INCOMPLETE_SOURCE';
@@ -98,43 +105,77 @@ export interface KitchenBathReadyProject {
     consentVersion: string;
     intakeIntegrity: 'SYSTEM_HASH_PRESENT' | 'MISSING';
     conversationTurns: number | null;
-    submittedAt: Date | string;
-    retentionExpiresAt: Date | string;
+    submittedAt: string;
+    retentionExpiresAt: string;
     modelInferencesIncluded: false;
   };
   transactionBarriers: KitchenBathReadyProjectBarrier[];
   expertValidationRequired: string[];
   boundaries: string[];
   missingRequiredSource: string[];
+  sourceNotices: string[];
 }
 
-export type KitchenBathPublicReadyProject = Omit<
-  KitchenBathReadyProject,
-  'leadId' | 'source' | 'transactionBarriers'
-> & {
-  source: Pick<
-    KitchenBathReadyProject['source'],
-    'basis' | 'modelInferencesIncluded'
-  >;
-};
+export interface KitchenBathPublicReadyProject {
+  contractVersion: 'or003-ready-project-v1';
+  vertical: 'KITCHEN_BATH';
+  readinessStatus: KitchenBathReadyProjectStatus;
+  customerIntent: KitchenBathReadyProject['customerIntent'];
+  constraints: KitchenBathReadyProject['constraints'];
+  source: {
+    basis: 'CONSENTED_WARD_HANDOFF';
+    modelInferencesIncluded: false;
+  };
+  expertValidationRequired: string[];
+  boundaries: string[];
+  missingRequiredSource: string[];
+  sourceNotices: string[];
+}
 
 export function toPublicKitchenBathReadyProject(
   project: KitchenBathReadyProject | null,
 ): KitchenBathPublicReadyProject | null {
   if (!project) return null;
-  const {
-    leadId: _leadId,
-    transactionBarriers: _transactionBarriers,
-    source,
-    ...shared
-  } = project;
 
   return {
-    ...shared,
+    contractVersion: project.contractVersion,
+    vertical: project.vertical,
+    readinessStatus: project.readinessStatus,
+    customerIntent: {
+      projectType: project.customerIntent.projectType,
+      rooms: [...project.customerIntent.rooms],
+      scope: project.customerIntent.scope,
+      priorities: [...project.customerIntent.priorities],
+      mustHaves: project.customerIntent.mustHaves,
+      concerns: project.customerIntent.concerns,
+    },
+    constraints: {
+      projectLocation: project.constraints.projectLocation,
+      desiredTiming: project.constraints.desiredTiming,
+      decisionStatus: project.constraints.decisionStatus,
+      budgetRange: project.constraints.budgetRange,
+      designNeeds: project.constraints.designNeeds,
+      attachments: project.constraints.attachments.map((attachment) => ({
+        fileName: attachment.fileName,
+        mimeType: attachment.mimeType,
+        sizeBytes: attachment.sizeBytes,
+      })),
+    },
     source: {
-      basis: source.basis,
+      basis: project.source.basis,
       modelInferencesIncluded: false,
     },
+    expertValidationRequired: [...project.expertValidationRequired],
+    boundaries: [...project.boundaries],
+    missingRequiredSource: [
+      ...new Set(
+        project.missingRequiredSource.map(
+          (key) =>
+            PUBLIC_MISSING_SOURCE_LABELS[key] ?? 'required project information',
+        ),
+      ),
+    ],
+    sourceNotices: [...project.sourceNotices],
   };
 }
 
@@ -151,6 +192,15 @@ interface ReadyProjectLeadSource {
 interface Signal {
   key: string;
   value: unknown;
+}
+
+interface AttachmentProjection {
+  attachments: Array<{
+    fileName: string;
+    mimeType: string;
+    sizeBytes: number;
+  }>;
+  invalidCount: number;
 }
 
 function asSignalArray(value: Prisma.JsonValue | null): Signal[] {
@@ -197,14 +247,18 @@ function allowedStringArraySignal(
   return stringArraySignal(signals, key).filter((value) => allowed.has(value));
 }
 
-function attachmentsSignal(
-  signals: Signal[],
-): Array<{ fileName: string; mimeType: string; sizeBytes: number }> {
+function attachmentsSignal(signals: Signal[]): AttachmentProjection {
   const value = signal(signals, 'project_attachments');
-  if (!Array.isArray(value)) return [];
+  if (!Array.isArray(value)) return { attachments: [], invalidCount: 0 };
 
-  return value.flatMap((item) => {
-    if (!item || Array.isArray(item) || typeof item !== 'object') return [];
+  const attachments: AttachmentProjection['attachments'] = [];
+  let invalidCount = 0;
+
+  for (const item of value) {
+    if (!item || Array.isArray(item) || typeof item !== 'object') {
+      invalidCount += 1;
+      continue;
+    }
     const record = item as Record<string, unknown>;
     if (
       typeof record.fileName !== 'string' ||
@@ -216,16 +270,19 @@ function attachmentsSignal(
       !record.fileName.trim() ||
       !record.mimeType.trim()
     ) {
-      return [];
+      invalidCount += 1;
+      continue;
     }
     // storageRef deliberately stays in the retained tenant/source envelope.
     // The Ready Project needs useful file context, not an internal storage pointer.
-    return [{
+    attachments.push({
       fileName: record.fileName,
       mimeType: record.mimeType,
       sizeBytes: record.sizeBytes,
-    }];
-  });
+    });
+  }
+
+  return { attachments, invalidCount };
 }
 
 function conversationTurns(signals: Signal[]): number | null {
@@ -234,6 +291,10 @@ function conversationTurns(signals: Signal[]): number | null {
   if (!/^\d+$/.test(value)) return null;
   const parsed = Number(value);
   return Number.isSafeInteger(parsed) && parsed >= 0 ? parsed : null;
+}
+
+function isoTimestamp(value: Date | string): string {
+  return value instanceof Date ? value.toISOString() : new Date(value).toISOString();
 }
 
 export function buildKitchenBathReadyProject(
@@ -270,6 +331,7 @@ export function buildKitchenBathReadyProject(
     BUDGET_RANGES,
   );
   const designNeeds = stringSignal(signals, 'design_needs');
+  const attachmentProjection = attachmentsSignal(signals);
 
   const missingRequiredSource = [
     ...(!projectType ? ['projectType'] : []),
@@ -359,6 +421,14 @@ export function buildKitchenBathReadyProject(
     },
   ];
 
+  const sourceNotices = attachmentProjection.invalidCount
+    ? [
+        `${attachmentProjection.invalidCount} attached ${
+          attachmentProjection.invalidCount === 1 ? 'file was' : 'files were'
+        } omitted from this Ready Project because the retained file metadata was invalid.`,
+      ]
+    : [];
+
   return {
     contractVersion: 'or003-ready-project-v1',
     leadId: lead.id,
@@ -378,15 +448,15 @@ export function buildKitchenBathReadyProject(
       decisionStatus,
       budgetRange,
       designNeeds,
-      attachments: attachmentsSignal(signals),
+      attachments: attachmentProjection.attachments,
     },
     source: {
       basis: 'CONSENTED_WARD_HANDOFF',
       consentVersion: lead.consentVersion,
       intakeIntegrity: intakeHash ? 'SYSTEM_HASH_PRESENT' : 'MISSING',
       conversationTurns: conversationTurns(signals),
-      submittedAt: lead.submittedAt,
-      retentionExpiresAt: lead.retentionExpiresAt,
+      submittedAt: isoTimestamp(lead.submittedAt),
+      retentionExpiresAt: isoTimestamp(lead.retentionExpiresAt),
       modelInferencesIncluded: false,
     },
     transactionBarriers,
@@ -405,5 +475,6 @@ export function buildKitchenBathReadyProject(
       'The raw Ward conversation remains attributable evidence; this packet is the distilled customer-supplied project state.',
     ],
     missingRequiredSource,
+    sourceNotices,
   };
 }
