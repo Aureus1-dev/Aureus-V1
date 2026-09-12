@@ -1,10 +1,10 @@
+import { NotFoundException } from '@nestjs/common';
 import {
   NeedEscalationStatus,
   ResourceOfferResponse,
   ResponsibilityEvidenceLevel,
   ResponsibilityStatus,
 } from '@prisma/client';
-import { NotFoundException } from '@nestjs/common';
 import { AuthenticatedUser } from '../auth/strategies/jwt.strategy';
 import { MatchedResourceDto } from '../needs/dto/matched-resource.dto';
 import { NeedEscalationsService } from '../needs/need-escalations.service';
@@ -82,6 +82,7 @@ describe('PeopleResolutionsService', () => {
       findOwnedPersonalNeedResolution: jest.fn(),
       markPersonalNeedWaitingOnUser: jest.fn(),
       markPersonalNeedWaitingOnThirdParty: jest.fn(),
+      resumePersonalNeedForAureus: jest.fn(),
       completePersonalNeedWithEvidence: jest.fn(),
       exhaustPersonalNeedWithEvidence: jest.fn(),
     } as unknown as jest.Mocked<ResponsibilitiesService>;
@@ -213,7 +214,7 @@ describe('PeopleResolutionsService', () => {
     expect(escalations.escalate).not.toHaveBeenCalled();
   });
 
-  it('requires real UnresolvedNeed evidence before exhausting an absent-route need', async () => {
+  it('records current safe failure but does not terminally exhaust a transient dead end', async () => {
     responsibilities.findOwnedPersonalNeedResolution.mockResolvedValue(
       responsibility(ResponsibilityStatus.ACTIVE),
     );
@@ -226,8 +227,8 @@ describe('PeopleResolutionsService', () => {
       nextStep: 'Aureus will preserve the need.',
       recordedAt: new Date(),
     });
-    responsibilities.exhaustPersonalNeedWithEvidence.mockResolvedValue(
-      responsibility(ResponsibilityStatus.RESPONSIBLY_EXHAUSTED),
+    responsibilities.resumePersonalNeedForAureus.mockResolvedValue(
+      responsibility(ResponsibilityStatus.ACTIVE),
     );
 
     const result = await service.continue(
@@ -235,19 +236,19 @@ describe('PeopleResolutionsService', () => {
       caller,
     );
 
-    expect(responsibilities.exhaustPersonalNeedWithEvidence).toHaveBeenCalledWith(
+    expect(needs.checkSafeFailure).toHaveBeenCalledWith(need.id, caller.id);
+    expect(responsibilities.exhaustPersonalNeedWithEvidence).not.toHaveBeenCalled();
+    expect(responsibilities.resumePersonalNeedForAureus).toHaveBeenCalledWith(
       expect.any(String),
       caller,
-      expect.objectContaining({
-        sourceRecordType: 'UnresolvedNeed',
-        sourceRecordId: '88888888-8888-4888-8888-888888888888',
-        evidenceLevel: ResponsibilityEvidenceLevel.VERIFIED,
-      }),
     );
-    expect(result.responsibility.status).toBe(ResponsibilityStatus.RESPONSIBLY_EXHAUSTED);
+    expect(result.responsibility.status).toBe(ResponsibilityStatus.ACTIVE);
+    expect(result.routeKind).toBe(PersonalResolutionRouteKind.NONE);
+    expect(result.memberActionRequired).toBe(false);
+    expect(result.nextStep).toContain('keeping this Responsibility open');
   });
 
-  it('distinguishes all-declined routes from no-resource safe failure', async () => {
+  it('keeps ownership after all current verified routes are declined and no human is reachable', async () => {
     const current = resource('55555555-5555-4555-8555-555555555555', 'AUR-CS-000002');
     responsibilities.findOwnedPersonalNeedResolution.mockResolvedValue(
       responsibility(ResponsibilityStatus.WAITING_ON_USER),
@@ -264,29 +265,31 @@ describe('PeopleResolutionsService', () => {
       },
     ]);
     needs.isHumanStewardReachable.mockResolvedValue(false);
-    responsibilities.exhaustPersonalNeedWithEvidence.mockResolvedValue(
-      responsibility(ResponsibilityStatus.RESPONSIBLY_EXHAUSTED),
+    responsibilities.resumePersonalNeedForAureus.mockResolvedValue(
+      responsibility(ResponsibilityStatus.ACTIVE),
     );
 
-    await service.continue('44444444-4444-4444-8444-444444444444', caller);
+    const result = await service.continue(
+      '44444444-4444-4444-8444-444444444444',
+      caller,
+    );
 
     expect(needs.checkSafeFailure).not.toHaveBeenCalled();
-    expect(responsibilities.exhaustPersonalNeedWithEvidence).toHaveBeenCalledWith(
+    expect(responsibilities.exhaustPersonalNeedWithEvidence).not.toHaveBeenCalled();
+    expect(responsibilities.resumePersonalNeedForAureus).toHaveBeenCalledWith(
       expect.any(String),
       caller,
-      expect.objectContaining({
-        sourceRecordType: 'ResourceOffer',
-        sourceRecordId: '77777777-7777-4777-8777-777777777777',
-        sourceState: 'ALL_CURRENT_VERIFIED_ROUTES_DECLINED_NO_STEWARD_REACHABLE',
-        evidenceLevel: ResponsibilityEvidenceLevel.REPORTED,
-      }),
     );
+    expect(result.responsibility.status).toBe(ResponsibilityStatus.ACTIVE);
+    expect(result.memberActionRequired).toBe(false);
+    expect(result.nextStep).toContain('keeping the Responsibility open');
   });
 
-  it('pages a human only after the member explicitly asks', async () => {
+  it('pages a human only after the member explicitly asks and a human is reachable', async () => {
     responsibilities.findOwnedPersonalNeedResolution.mockResolvedValue(
       responsibility(ResponsibilityStatus.WAITING_ON_USER),
     );
+    needs.isHumanStewardReachable.mockResolvedValue(true);
     responsibilities.markPersonalNeedWaitingOnThirdParty.mockResolvedValue(
       responsibility(ResponsibilityStatus.WAITING_ON_THIRD_PARTY),
     );
@@ -297,6 +300,7 @@ describe('PeopleResolutionsService', () => {
       caller,
     );
 
+    expect(needs.isHumanStewardReachable).toHaveBeenCalled();
     expect(escalations.escalate).toHaveBeenCalledWith(
       need.id,
       'I need someone to call with me',
@@ -304,6 +308,65 @@ describe('PeopleResolutionsService', () => {
     );
     expect(result.routeKind).toBe(PersonalResolutionRouteKind.HUMAN_STEWARD);
     expect(result.responsibility.status).toBe(ResponsibilityStatus.WAITING_ON_THIRD_PARTY);
+  });
+
+  it('does not create a phantom human handoff when the member asks and nobody is reachable', async () => {
+    responsibilities.findOwnedPersonalNeedResolution.mockResolvedValue(
+      responsibility(ResponsibilityStatus.WAITING_ON_USER),
+    );
+    needs.isHumanStewardReachable.mockResolvedValue(false);
+    responsibilities.resumePersonalNeedForAureus.mockResolvedValue(
+      responsibility(ResponsibilityStatus.ACTIVE),
+    );
+
+    const result = await service.requestHumanSteward(
+      '44444444-4444-4444-8444-444444444444',
+      { reason: 'I need someone to call with me' },
+      caller,
+    );
+
+    expect(escalations.escalate).not.toHaveBeenCalled();
+    expect(responsibilities.markPersonalNeedWaitingOnThirdParty).not.toHaveBeenCalled();
+    expect(responsibilities.exhaustPersonalNeedWithEvidence).not.toHaveBeenCalled();
+    expect(responsibilities.resumePersonalNeedForAureus).toHaveBeenCalledWith(
+      expect.any(String),
+      caller,
+    );
+    expect(result.responsibility.status).toBe(ResponsibilityStatus.ACTIVE);
+    expect(result.routeKind).toBe(PersonalResolutionRouteKind.NONE);
+    expect(result.memberActionRequired).toBe(false);
+    expect(result.nextStep).toContain('did not create a phantom handoff');
+  });
+
+  it('reuses an already-open human escalation without creating another one', async () => {
+    responsibilities.findOwnedPersonalNeedResolution.mockResolvedValue(
+      responsibility(ResponsibilityStatus.WAITING_ON_THIRD_PARTY),
+    );
+    escalations.findEscalations.mockResolvedValue([
+      {
+        id: '99999999-9999-4999-8999-999999999999',
+        statedNeedId: need.id,
+        reason: 'Existing request',
+        status: NeedEscalationStatus.PENDING,
+        acknowledgedAt: null,
+        resolutionNotes: null,
+        resolvedAt: null,
+        createdAt: new Date(),
+      },
+    ]);
+    responsibilities.markPersonalNeedWaitingOnThirdParty.mockResolvedValue(
+      responsibility(ResponsibilityStatus.WAITING_ON_THIRD_PARTY),
+    );
+
+    const result = await service.requestHumanSteward(
+      '44444444-4444-4444-8444-444444444444',
+      { reason: 'Please help' },
+      caller,
+    );
+
+    expect(needs.isHumanStewardReachable).not.toHaveBeenCalled();
+    expect(escalations.escalate).not.toHaveBeenCalled();
+    expect(result.routeKind).toBe(PersonalResolutionRouteKind.HUMAN_STEWARD);
   });
 
   it('completes only as REPORTED when the source NeedEscalation is resolved', async () => {
