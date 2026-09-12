@@ -1,0 +1,123 @@
+name: Step 1 Conversation Identity Cleanup
+
+on:
+  push:
+    branches:
+      - chatgpt/aureus-business-step1-final-repair
+
+permissions:
+  contents: write
+
+jobs:
+  cleanup:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: chatgpt/aureus-business-step1-final-repair
+          fetch-depth: 0
+
+      - name: Restore original formatting and reapply semantic addition only
+        shell: python
+        run: |
+          import subprocess
+          from pathlib import Path
+
+          BASE = "678e751b75a8ce804c11a773a7badfadb8d53b00"
+          files = [
+              "prisma/schema.prisma",
+              "apps/api/src/users/profile/dto/update-profile.dto.ts",
+              "apps/api/src/users/profile/dto/profile-response.dto.ts",
+              "apps/api/src/users/profile/profile.e2e.spec.ts",
+              "apps/web/lib/api/profile.ts",
+              "apps/web/design-system/components/profile/ProfilePage.tsx",
+          ]
+          subprocess.run(["git", "checkout", BASE, "--", *files], check=True)
+
+          def replace_once(path, old, new):
+              p = Path(path)
+              text = p.read_text()
+              if text.count(old) != 1:
+                  raise SystemExit(f"Expected exactly one match in {path}; found {text.count(old)}")
+              p.write_text(text.replace(old, new, 1))
+
+          replace_once(
+              "prisma/schema.prisma",
+              "  displayName String?\n  bio         String?",
+              "  displayName       String?\n  namePronunciation String? // member-owned cue for how Aureus should say their name; never employer-derived\n  bio               String?",
+          )
+          replace_once(
+              "apps/api/src/users/profile/dto/update-profile.dto.ts",
+              "  displayName?: string;\n\n  @ApiPropertyOptional({ example: 'Software engineer passionate about learning', maxLength: 500 })",
+              "  displayName?: string;\n\n  @ApiPropertyOptional({\n    example: 'kuh-TEESE',\n    description: 'Optional member-owned cue for how Aureus should pronounce the name',\n    maxLength: 200,\n  })\n  @IsOptional() @IsString() @MaxLength(200)\n  namePronunciation?: string;\n\n  @ApiPropertyOptional({ example: 'Software engineer passionate about learning', maxLength: 500 })",
+          )
+          replace_once(
+              "apps/api/src/users/profile/dto/profile-response.dto.ts",
+              "  @ApiPropertyOptional({ nullable: true }) displayName: string | null;\n  @ApiPropertyOptional({ nullable: true }) bio: string | null;",
+              "  @ApiPropertyOptional({ nullable: true }) displayName: string | null;\n  @ApiPropertyOptional({ nullable: true }) namePronunciation: string | null;\n  @ApiPropertyOptional({ nullable: true }) bio: string | null;",
+          )
+          replace_once(
+              "apps/api/src/users/profile/dto/profile-response.dto.ts",
+              "    dto.displayName = p.displayName ?? null;\n    dto.bio = p.bio ?? null;",
+              "    dto.displayName = p.displayName ?? null;\n    dto.namePronunciation = p.namePronunciation ?? null;\n    dto.bio = p.bio ?? null;",
+          )
+          replace_once(
+              "apps/web/lib/api/profile.ts",
+              "  displayName: string | null;\n  bio: string | null;",
+              "  displayName: string | null;\n  namePronunciation: string | null;\n  bio: string | null;",
+          )
+          replace_once(
+              "apps/web/lib/api/profile.ts",
+              "  displayName?: string;\n  bio?: string;",
+              "  displayName?: string;\n  namePronunciation?: string;\n  bio?: string;",
+          )
+          replace_once(
+              "apps/web/design-system/components/profile/ProfilePage.tsx",
+              "    displayName: '', bio: '', avatarUrl: '', city: '', region: '', stateProvince: '', country: '',",
+              "    displayName: '', namePronunciation: '', bio: '', avatarUrl: '', city: '', region: '', stateProvince: '', country: '',",
+          )
+          replace_once(
+              "apps/web/design-system/components/profile/ProfilePage.tsx",
+              "      displayName: state.profile?.displayName ?? '',\n      bio: state.profile?.bio ?? '',",
+              "      displayName: state.profile?.displayName ?? '',\n      namePronunciation: state.profile?.namePronunciation ?? '',\n      bio: state.profile?.bio ?? '',",
+          )
+          replace_once(
+              "apps/web/design-system/components/profile/ProfilePage.tsx",
+              "            <ProfileDetail label=\"Display name\" value={state.profile.displayName} />\n            <ProfileDetail label=\"Bio\" value={state.profile.bio} />",
+              "            <ProfileDetail label=\"What Aureus calls you\" value={state.profile.displayName} />\n            <ProfileDetail label=\"Name pronunciation\" value={state.profile.namePronunciation} />\n            <ProfileDetail label=\"Bio\" value={state.profile.bio} />",
+          )
+          replace_once(
+              "apps/web/design-system/components/profile/ProfilePage.tsx",
+              "            <FormField\n              id=\"profile-display-name\"\n              label=\"Display name\"\n              value={form.displayName ?? ''}\n              onChange={(value) => setForm((f) => ({ ...f, displayName: value }))}\n              maxLength={100}\n            />\n\n            <label className={styles.textareaField} htmlFor=\"profile-bio\">",
+              "            <FormField\n              id=\"profile-display-name\"\n              label=\"What should Aureus call you?\"\n              helpText=\"Use the name you want Aureus to use in conversation.\"\n              value={form.displayName ?? ''}\n              onChange={(value) => setForm((f) => ({ ...f, displayName: value }))}\n              maxLength={100}\n            />\n\n            <FormField\n              id=\"profile-name-pronunciation\"\n              label=\"How do you pronounce your name?\"\n              helpText=\"Optional. Write it the way you want Aureus to say it.\"\n              value={form.namePronunciation ?? ''}\n              onChange={(value) => setForm((f) => ({ ...f, namePronunciation: value }))}\n              maxLength={200}\n            />\n\n            <label className={styles.textareaField} htmlFor=\"profile-bio\">",
+          )
+          replace_once(
+              "apps/api/src/users/profile/profile.e2e.spec.ts",
+              ".send({ displayName: 'Alice Johnson' })\n      .expect(201);\n    expect(res.body.userId).toBe(ownerId);",
+              ".send({ displayName: 'Alice Johnson', namePronunciation: 'AL-iss JON-sun' })\n      .expect(201);\n    expect(res.body.userId).toBe(ownerId);\n    expect(res.body.displayName).toBe('Alice Johnson');\n    expect(res.body.namePronunciation).toBe('AL-iss JON-sun');",
+          )
+          replace_once(
+              "apps/api/src/users/profile/profile.e2e.spec.ts",
+              "    expect(res.body.displayName).toBe('Alice Johnson');\n  });\n\n  it('allows an administrator to read any profile'",
+              "    expect(res.body.displayName).toBe('Alice Johnson');\n    expect(res.body.namePronunciation).toBe('AL-iss JON-sun');\n  });\n\n  it('allows an administrator to read any profile'",
+          )
+          replace_once(
+              "apps/api/src/users/profile/profile.e2e.spec.ts",
+              ".send({ bio: 'Hijacked bio' })\n      .expect(403);",
+              ".send({ namePronunciation: 'Wrong on purpose' })\n      .expect(403);",
+          )
+          replace_once(
+              "apps/api/src/users/profile/profile.e2e.spec.ts",
+              ".send({ bio: 'Software engineer' })\n      .expect(200);\n    expect(res.body.bio).toBe('Software engineer');",
+              ".send({ bio: 'Software engineer', namePronunciation: 'uh-LEES JON-sun' })\n      .expect(200);\n    expect(res.body.bio).toBe('Software engineer');\n    expect(res.body.namePronunciation).toBe('uh-LEES JON-sun');",
+          )
+
+      - name: Commit clean semantic diff
+        run: |
+          git config user.name "Aureus Step 1 Builder"
+          git config user.email "actions@users.noreply.github.com"
+          git rm .github/workflows/step1-conversation-identity-cleanup.yml
+          git add prisma/schema.prisma apps/api/src/users/profile/dto/update-profile.dto.ts apps/api/src/users/profile/dto/profile-response.dto.ts apps/api/src/users/profile/profile.e2e.spec.ts apps/web/lib/api/profile.ts apps/web/design-system/components/profile/ProfilePage.tsx
+          git commit -m "Step 1: keep conversation identity diff reviewable"
+          git push origin HEAD:chatgpt/aureus-business-step1-final-repair
