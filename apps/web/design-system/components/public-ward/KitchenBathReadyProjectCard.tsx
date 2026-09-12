@@ -198,10 +198,19 @@ export function KitchenBathReadyProjectCard(props: ReadyProjectCardProps) {
         </p>
       </div>
 
+      {project.sourceNotices.map((notice) => (
+        <p key={notice} className={styles.warning} role="status">
+          {notice}
+        </p>
+      ))}
+
       {project.missingRequiredSource.length ? (
         <p className={styles.warning} role="alert">
-          Missing retained source: {project.missingRequiredSource.join(', ')}.
-          Aureus did not guess the missing facts.
+          {audience === 'customer'
+            ? 'Missing project information'
+            : 'Missing retained source'}
+          : {project.missingRequiredSource.join(', ')}. Aureus did not guess the
+          missing facts.
         </p>
       ) : null}
     </section>
