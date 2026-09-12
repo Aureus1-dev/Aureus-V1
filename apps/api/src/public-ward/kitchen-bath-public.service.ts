@@ -74,7 +74,9 @@ export class KitchenBathPublicService {
         'Kitchen & Bath rooms and scope must contain meaningful text',
       );
     }
-    const intakeHash = this.hash(JSON.stringify(cleaned));
+    const intakeHash = this.hash(
+      JSON.stringify(this.canonicalIntakeForHash(cleaned)),
+    );
     const kitchenBathSignals = [
       ...KitchenBathVerticalService.intakeSignals(cleaned),
       {
@@ -140,13 +142,13 @@ export class KitchenBathPublicService {
           .map((room) => sanitizePlainText(room).slice(0, 80))
           .filter(Boolean),
       ),
-    ].sort((left, right) => left.localeCompare(right));
+    ];
     const scope = sanitizePlainText(intake.scope).slice(0, 1500);
     const designNeeds = intake.designNeeds
       ? sanitizePlainText(intake.designNeeds).slice(0, 1000)
       : '';
     const priorities = intake.priorities?.length
-      ? [...new Set(intake.priorities)].sort().slice(0, 6)
+      ? [...new Set(intake.priorities)].slice(0, 6)
       : [];
     const mustHaves = intake.mustHaves
       ? sanitizePlainText(intake.mustHaves).slice(0, 800)
@@ -173,6 +175,25 @@ export class KitchenBathPublicService {
               sizeBytes: file.sizeBytes,
               storageRef: sanitizePlainText(file.storageRef).slice(0, 1000),
             })),
+          }
+        : {}),
+    };
+  }
+
+  private canonicalIntakeForHash(
+    intake: ReturnType<KitchenBathPublicService['cleanIntake']>,
+  ) {
+    return {
+      ...intake,
+      rooms: [...intake.rooms].sort((left, right) => left.localeCompare(right)),
+      ...(intake.priorities
+        ? { priorities: [...intake.priorities].sort() }
+        : {}),
+      ...(intake.attachments
+        ? {
+            attachments: [...intake.attachments].sort((left, right) =>
+              JSON.stringify(left).localeCompare(JSON.stringify(right)),
+            ),
           }
         : {}),
     };
