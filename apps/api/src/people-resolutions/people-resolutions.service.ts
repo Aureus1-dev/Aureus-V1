@@ -205,17 +205,83 @@ export class PeopleResolutionsService {
       );
     }
 
-    const safeFailure = await this.needs.checkSafeFailure(need.id, caller.id);
-    if (safeFailure.triggered && safeFailure.recordId) {
+    // No currently verified resource exists at all. Reuse Gate C's durable
+    // safe-failure record, which independently checks human reachability.
+    if (matchingResources.length === 0) {
+      const safeFailure = await this.needs.checkSafeFailure(need.id, caller.id);
+      if (safeFailure.triggered && safeFailure.recordId) {
+        responsibility = await this.responsibilities.exhaustPersonalNeedWithEvidence(
+          responsibility.id,
+          caller,
+          {
+            sourceSystem: 'NEEDS',
+            sourceRecordType: 'UnresolvedNeed',
+            sourceRecordId: safeFailure.recordId,
+            sourceState: safeFailure.reason ?? 'NO_CURRENT_SAFE_ROUTE',
+            evidenceLevel: ResponsibilityEvidenceLevel.VERIFIED,
+          },
+        );
+        return this.projectWithKnownSources(
+          responsibility,
+          need,
+          matchingResources,
+          null,
+          PersonalResolutionRouteKind.NONE,
+          safeFailure.nextStep,
+          false,
+        );
+      }
+
+      responsibility = await this.responsibilities.markPersonalNeedWaitingOnUser(
+        responsibility.id,
+        caller,
+      );
+      return this.projectWithKnownSources(
+        responsibility,
+        need,
+        matchingResources,
+        null,
+        PersonalResolutionRouteKind.HUMAN_STEWARD,
+        'No verified resource route is available right now. You can ask Aureus to bring in a Human Steward.',
+        true,
+      );
+    }
+
+    // Verified resources still exist, but every current one was already
+    // offered and neither accepted nor pending; therefore the member declined
+    // the current verified set. This is different from "no resource exists."
+    const humanReachable = await this.needs.isHumanStewardReachable();
+    if (humanReachable) {
+      responsibility = await this.responsibilities.markPersonalNeedWaitingOnUser(
+        responsibility.id,
+        caller,
+      );
+      return this.projectWithKnownSources(
+        responsibility,
+        need,
+        matchingResources,
+        null,
+        PersonalResolutionRouteKind.HUMAN_STEWARD,
+        'You declined the current verified resource routes. A Human Steward is reachable if you want Aureus to bring one in.',
+        true,
+      );
+    }
+
+    const declinedCurrentOffer = offers.find(
+      (offer) =>
+        offer.response === ResourceOfferResponse.DECLINED &&
+        currentlySafeIds.has(offer.citySheetEntryId),
+    );
+    if (declinedCurrentOffer) {
       responsibility = await this.responsibilities.exhaustPersonalNeedWithEvidence(
         responsibility.id,
         caller,
         {
           sourceSystem: 'NEEDS',
-          sourceRecordType: 'UnresolvedNeed',
-          sourceRecordId: safeFailure.recordId,
-          sourceState: safeFailure.reason ?? 'NO_CURRENT_SAFE_ROUTE',
-          evidenceLevel: ResponsibilityEvidenceLevel.VERIFIED,
+          sourceRecordType: 'ResourceOffer',
+          sourceRecordId: declinedCurrentOffer.id,
+          sourceState: 'ALL_CURRENT_VERIFIED_ROUTES_DECLINED_NO_STEWARD_REACHABLE',
+          evidenceLevel: ResponsibilityEvidenceLevel.REPORTED,
         },
       );
       return this.projectWithKnownSources(
@@ -224,15 +290,12 @@ export class PeopleResolutionsService {
         matchingResources,
         null,
         PersonalResolutionRouteKind.NONE,
-        safeFailure.nextStep,
+        'The current verified routes were declined and no Human Steward is reachable right now. Aureus has preserved the need and the evidence instead of pretending it was resolved.',
         false,
       );
     }
 
-    // A recognized need with no verified resource and no recorded safe failure
-    // means the existing Needs domain found a human Steward/Admin reachable.
-    // OR-004 preserves C6's stricter rule: the human is never paged until the
-    // member explicitly asks.
+    // Defensive fail-closed path for an inconsistent source projection.
     responsibility = await this.responsibilities.markPersonalNeedWaitingOnUser(
       responsibility.id,
       caller,
@@ -242,8 +305,8 @@ export class PeopleResolutionsService {
       need,
       matchingResources,
       null,
-      PersonalResolutionRouteKind.HUMAN_STEWARD,
-      'No verified resource route is available right now. You can ask Aureus to bring in a Human Steward.',
+      PersonalResolutionRouteKind.CLARIFICATION,
+      'Aureus cannot safely determine the next route from the current records. Review the need before continuing.',
       true,
     );
   }
