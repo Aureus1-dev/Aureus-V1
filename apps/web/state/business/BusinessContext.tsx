@@ -182,9 +182,6 @@ export function BusinessProvider({ children }: { children: React.ReactNode }) {
     }
   }, [session.accessToken, session.memberId]);
 
-  // Identity reset is keyed to the person, not token rotation. A refresh-token
-  // exchange for the same member can refresh business data without blanking
-  // the workspace; logout or account-switch still clears it immediately.
   useEffect(() => {
     dispatch({ type: 'identity/reset' });
   }, [session.memberId]);
@@ -238,8 +235,13 @@ export function BusinessProvider({ children }: { children: React.ReactNode }) {
   const clearError = useCallback(() => dispatch({ type: 'error/clear' }), []);
 
   // Never expose loaded state belonging to a different authenticated member,
-  // even for the single render before the identity-reset effect runs.
-  const visibleState = state.memberId === session.memberId ? state : initialState;
+  // even for the single render before the identity-reset effect runs. While
+  // the new member's data is unresolved we expose a clean loading state, not
+  // the prior member's companies.
+  const visibleState =
+    state.memberId === session.memberId
+      ? state
+      : { ...initialState, isLoading: Boolean(session.accessToken) };
 
   const activeTenant = useMemo(
     () =>
