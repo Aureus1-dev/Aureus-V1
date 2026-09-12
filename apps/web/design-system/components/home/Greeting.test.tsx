@@ -53,7 +53,7 @@ describe('Greeting', () => {
 
   it('greets with a display name once the profile resolves', async () => {
     mockedProfile.getMyProfile.mockResolvedValue({
-      id: 'p-1', userId: 'member-1', displayName: 'Alice', bio: null, avatarUrl: null, city: null, region: null,
+      id: 'p-1', userId: 'member-1', displayName: 'Alice', namePronunciation: null, bio: null, avatarUrl: null, city: null, region: null,
       stateProvince: null, country: null, localAreaDescription: null, profession: null, seasonOfLife: null,
       availabilityNotes: null, preferredLanguage: null, faithPreference: null, createdAt: 'x', updatedAt: 'x', deletedAt: null,
     });
@@ -83,7 +83,7 @@ describe('Greeting', () => {
 
   it('still greets a guest by name once they have a display name', async () => {
     mockedProfile.getMyProfile.mockResolvedValue({
-      id: 'p-1', userId: 'member-1', displayName: 'Alex', bio: null, avatarUrl: null, city: null, region: null,
+      id: 'p-1', userId: 'member-1', displayName: 'Alex', namePronunciation: null, bio: null, avatarUrl: null, city: null, region: null,
       stateProvince: null, country: null, localAreaDescription: null, profession: null, seasonOfLife: null,
       availabilityNotes: null, preferredLanguage: null, faithPreference: null, createdAt: 'x', updatedAt: 'x', deletedAt: null,
     });

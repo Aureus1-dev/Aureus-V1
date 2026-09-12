@@ -13,7 +13,7 @@ const mockedApi = profileApi as jest.Mocked<typeof profileApi>;
 
 function makeProfile(o: Partial<ProfileDto> = {}): ProfileDto {
   return {
-    id: 'profile-1', userId: 'member-1', displayName: 'Alice', bio: 'A short bio', avatarUrl: null, city: 'Austin',
+    id: 'profile-1', userId: 'member-1', displayName: 'Alice', namePronunciation: null, bio: 'A short bio', avatarUrl: null, city: 'Austin',
     region: null, stateProvince: 'Texas', country: 'United States', localAreaDescription: null, profession: 'Nurse',
     seasonOfLife: null, availabilityNotes: null, preferredLanguage: null, faithPreference: null,
     createdAt: '2026-01-01T00:00:00Z', updatedAt: '2026-01-01T00:00:00Z', deletedAt: null, ...o,
@@ -67,11 +67,15 @@ describe('ProfilePage', () => {
     renderPage();
 
     await userEvent.click(await screen.findByRole('button', { name: 'Create profile' }));
-    await userEvent.type(screen.getByLabelText('Display name'), 'New Member');
+    await userEvent.type(screen.getByLabelText('What should Aureus call you?'), 'New Member');
+    await userEvent.type(screen.getByLabelText('How do you pronounce your name?'), 'NEW MEM-ber');
     await userEvent.click(screen.getByRole('button', { name: 'Save profile' }));
 
     await waitFor(() =>
-      expect(mockedApi.createMyProfile).toHaveBeenCalledWith('token-123', 'member-1', { displayName: 'New Member' }),
+      expect(mockedApi.createMyProfile).toHaveBeenCalledWith('token-123', 'member-1', {
+        displayName: 'New Member',
+        namePronunciation: 'NEW MEM-ber',
+      }),
     );
     expect(await screen.findByText('New Member')).toBeInTheDocument();
   });
@@ -83,7 +87,7 @@ describe('ProfilePage', () => {
     await screen.findByText('Alice');
 
     await userEvent.click(screen.getByRole('button', { name: 'Edit profile' }));
-    const nameField = screen.getByLabelText('Display name');
+    const nameField = screen.getByLabelText('What should Aureus call you?');
     await userEvent.clear(nameField);
     await userEvent.type(nameField, 'Alice Updated');
     await userEvent.click(screen.getByRole('button', { name: 'Save profile' }));

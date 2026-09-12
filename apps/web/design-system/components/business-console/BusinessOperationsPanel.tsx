@@ -14,8 +14,7 @@ import {
   type BusinessOperationsSummary,
   type WardLeadStatus,
 } from '../../../lib/api/business-operations';
-import { listMyBusinessTenants } from '../../../lib/api/business-console';
-import { useSession } from '../../../state';
+import { useBusiness, useSession } from '../../../state';
 import { KitchenBathReadyProjectCard } from '../public-ward/KitchenBathReadyProjectCard';
 import styles from './BusinessOperationsPanel.module.css';
 
@@ -27,11 +26,14 @@ const NEXT_STATUS: Partial<Record<WardLeadStatus, WardLeadStatus[]>> = {
 
 export function BusinessOperationsPanel() {
   const { session } = useSession();
-  const [tenantId, setTenantId] = useState('');
+  const { activeTenant, state: businessState } = useBusiness();
+  const tenantId = activeTenant?.id ?? '';
   const [summary, setSummary] = useState<BusinessOperationsSummary | null>(null);
   const [leads, setLeads] = useState<BusinessLeadSummary[]>([]);
   const [selected, setSelected] = useState<BusinessLeadDetail | null>(null);
-  const [state, setState] = useState<'loading' | 'ready' | 'working' | 'empty' | 'error'>('loading');
+  const [state, setState] = useState<'loading' | 'ready' | 'working' | 'empty' | 'error'>(
+    'loading',
+  );
   const [message, setMessage] = useState('');
   const [outcomeReason, setOutcomeReason] = useState('');
 
@@ -49,17 +51,26 @@ export function BusinessOperationsPanel() {
 
   useEffect(() => {
     if (!session.accessToken) return;
+    if (businessState.isLoading) return;
+    if (!activeTenant) {
+      setState('empty');
+      setSummary(null);
+      setLeads([]);
+      setSelected(null);
+      return;
+    }
+
+    // Reset immediately, before the fetch resolves, so no stale handoff or
+    // summary from a previously active company remains visible or
+    // actionable while the newly selected one loads (Step 1 repair).
     let active = true;
-    void listMyBusinessTenants(session.accessToken)
-      .then(async (tenants) => {
-        if (!active) return;
-        if (tenants.length === 0) {
-          setState('empty');
-          return;
-        }
-        const id = tenants[0].id;
-        setTenantId(id);
-        await refresh(session.accessToken!, id);
+    setState('loading');
+    setSummary(null);
+    setLeads([]);
+    setSelected(null);
+
+    void refresh(session.accessToken, activeTenant.id)
+      .then(() => {
         if (active) setState('ready');
       })
       .catch(() => {
@@ -68,8 +79,10 @@ export function BusinessOperationsPanel() {
           setState('error');
         }
       });
-    return () => { active = false; };
-  }, [session.accessToken]);
+    return () => {
+      active = false;
+    };
+  }, [session.accessToken, businessState.isLoading, activeTenant]);
 
   const selectedOwner = useMemo(
     () => summary?.owners.find((owner) => owner.userId === selected?.assignedToId) ?? null,
@@ -99,7 +112,9 @@ export function BusinessOperationsPanel() {
       setMessage('Owner updated with tenant-scoped accountability.');
       setState('ready');
     } catch {
-      setMessage('The owner was not changed. Only eligible members of this tenant can receive the handoff.');
+      setMessage(
+        'The owner was not changed. Only eligible members of this tenant can receive the handoff.',
+      );
       setState('error');
     }
   };
@@ -126,7 +141,9 @@ export function BusinessOperationsPanel() {
       setOutcomeReason('');
       setState('ready');
     } catch {
-      setMessage('The handoff state changed or that transition is not allowed. Refresh before trying again.');
+      setMessage(
+        'The handoff state changed or that transition is not allowed. Refresh before trying again.',
+      );
       setState('error');
     }
   };
@@ -151,33 +168,70 @@ export function BusinessOperationsPanel() {
     }
   };
 
-  if (state === 'loading') return <section className={styles.surface} aria-busy="true"><p>Opening business operations…</p></section>;
+  if (state === 'loading')
+    return (
+      <section className={styles.surface} aria-busy="true">
+        <p>Opening business operations…</p>
+      </section>
+    );
   if (state === 'empty') return null;
-  if (!summary) return <section className={styles.surface} role="alert"><p>{message || 'Business operations unavailable.'}</p></section>;
+  if (!summary)
+    return (
+      <section className={styles.surface} role="alert">
+        <p>{message || 'Business operations unavailable.'}</p>
+      </section>
+    );
 
   return (
     <section className={styles.surface} aria-labelledby="business-operations-title">
       <header className={styles.header}>
         <div>
           <p className={styles.eyebrow}>Observed operations</p>
-          <h2 id="business-operations-title">Handoffs, knowledge, routing, and provider evidence</h2>
-          <p className={styles.subtle}>This view is scoped to the business you represent. It reports recorded evidence, not inferred performance.</p>
+          <h2 id="business-operations-title">
+            Handoffs, knowledge, routing, and provider evidence
+          </h2>
+          <p className={styles.subtle}>
+            This view is scoped to the business you represent. It reports recorded evidence, not
+            inferred performance.
+          </p>
         </div>
         <div className={styles.toolbar}>
-          <button type="button" onClick={() => void exportSnapshot()} disabled={state === 'working'}>Export snapshot</button>
+          <button
+            type="button"
+            onClick={() => void exportSnapshot()}
+            disabled={state === 'working'}
+          >
+            Export snapshot
+          </button>
           <Link href="/business/knowledge">Review knowledge</Link>
         </div>
       </header>
 
-      {message ? <p className={state === 'error' ? styles.error : styles.subtle} role={state === 'error' ? 'alert' : 'status'}>{message}</p> : null}
+      {message ? (
+        <p
+          className={state === 'error' ? styles.error : styles.subtle}
+          role={state === 'error' ? 'alert' : 'status'}
+        >
+          {message}
+        </p>
+      ) : null}
 
       <div className={styles.grid}>
         <article className={styles.card}>
           <h3>Handoff pipeline</h3>
           <div className={styles.metricGrid}>
-            <div className={styles.metric}><strong>{summary.pipeline.total}</strong><span>retained handoffs</span></div>
-            <div className={styles.metric}><strong>{summary.pipeline.counts.SUBMITTED ?? 0}</strong><span>submitted</span></div>
-            <div className={styles.metric}><strong>{summary.pipeline.awaitingNotification}</strong><span>notification not confirmed</span></div>
+            <div className={styles.metric}>
+              <strong>{summary.pipeline.total}</strong>
+              <span>retained handoffs</span>
+            </div>
+            <div className={styles.metric}>
+              <strong>{summary.pipeline.counts.SUBMITTED ?? 0}</strong>
+              <span>submitted</span>
+            </div>
+            <div className={styles.metric}>
+              <strong>{summary.pipeline.awaitingNotification}</strong>
+              <span>notification not confirmed</span>
+            </div>
           </div>
           <div className={styles.inbox} aria-label="Handoff inbox">
             {leads.length === 0 ? <p>No current handoffs.</p> : null}
@@ -189,9 +243,17 @@ export function BusinessOperationsPanel() {
                 aria-pressed={selected?.id === lead.id}
                 onClick={() => void chooseLead(lead.id)}
               >
-                <strong>{lead.displayName}</strong> · <span className={styles.status}>{lead.status}</span><br />
-                <span>{lead.projectSummary}</span><br />
-                <small>{lead.assignee?.user.profile?.displayName || lead.assignee?.user.email || 'Owner unavailable'} · {new Date(lead.submittedAt).toLocaleString()}</small>
+                <strong>{lead.displayName}</strong> ·{' '}
+                <span className={styles.status}>{lead.status}</span>
+                <br />
+                <span>{lead.projectSummary}</span>
+                <br />
+                <small>
+                  {lead.assignee?.user.profile?.displayName ||
+                    lead.assignee?.user.email ||
+                    'Owner unavailable'}{' '}
+                  · {new Date(lead.submittedAt).toLocaleString()}
+                </small>
               </button>
             ))}
           </div>
@@ -200,32 +262,63 @@ export function BusinessOperationsPanel() {
         <article className={styles.card}>
           <h3>Provider health & spend</h3>
           <div className={styles.metricGrid}>
-            <div className={styles.metric}><strong>{summary.provider.status.replaceAll('_', ' ')}</strong><span>observed status</span></div>
-            <div className={styles.metric}><strong>{summary.provider.requests}</strong><span>requests / 24h</span></div>
-            <div className={styles.metric}><strong>${summary.provider.spendUsd.toFixed(4)}</strong><span>recorded spend / 24h</span></div>
+            <div className={styles.metric}>
+              <strong>{summary.provider.status.replaceAll('_', ' ')}</strong>
+              <span>observed status</span>
+            </div>
+            <div className={styles.metric}>
+              <strong>{summary.provider.requests}</strong>
+              <span>requests / 24h</span>
+            </div>
+            <div className={styles.metric}>
+              <strong>${summary.provider.spendUsd.toFixed(4)}</strong>
+              <span>recorded spend / 24h</span>
+            </div>
           </div>
           <p className={styles.basis}>{summary.provider.basis}</p>
-          <p className={styles.subtle}>Success {summary.provider.successes} · Failed {summary.provider.failures} · Moderation {summary.provider.moderationBlocks} · Avg latency {summary.provider.averageLatencyMs ?? '—'} ms</p>
+          <p className={styles.subtle}>
+            Success {summary.provider.successes} · Failed {summary.provider.failures} · Moderation{' '}
+            {summary.provider.moderationBlocks} · Avg latency{' '}
+            {summary.provider.averageLatencyMs ?? '—'} ms
+          </p>
         </article>
 
         <article className={styles.card}>
           <h3>Business routing & fallback</h3>
-          <p><span className={styles.status}>{summary.routing.publicStatus}</span></p>
-          <p><strong>Hours:</strong> {JSON.stringify(summary.routing.businessHours)}</p>
-          <p><strong>Human routes:</strong> {JSON.stringify(summary.routing.contactRoutes)}</p>
+          <p>
+            <span className={styles.status}>{summary.routing.publicStatus}</span>
+          </p>
+          <p>
+            <strong>Hours:</strong> {JSON.stringify(summary.routing.businessHours)}
+          </p>
+          <p>
+            <strong>Human routes:</strong> {JSON.stringify(summary.routing.contactRoutes)}
+          </p>
           <p className={styles.subtle}>{summary.routing.fallbackRule}</p>
         </article>
 
         <article className={styles.card}>
           <h3>Knowledge freshness</h3>
           <div className={styles.metricGrid}>
-            <div className={styles.metric}><strong>{summary.knowledge.currentApproved}</strong><span>current approved</span></div>
-            <div className={styles.metric}><strong>{summary.knowledge.dueOrReviewing}</strong><span>due / reviewing</span></div>
-            <div className={styles.metric}><strong>{summary.knowledge.total}</strong><span>total records</span></div>
+            <div className={styles.metric}>
+              <strong>{summary.knowledge.currentApproved}</strong>
+              <span>current approved</span>
+            </div>
+            <div className={styles.metric}>
+              <strong>{summary.knowledge.dueOrReviewing}</strong>
+              <span>due / reviewing</span>
+            </div>
+            <div className={styles.metric}>
+              <strong>{summary.knowledge.total}</strong>
+              <span>total records</span>
+            </div>
           </div>
           <ul className={styles.queue}>
             {summary.knowledge.queue.slice(0, 8).map((record) => (
-              <li key={record.id}>{record.title} — {record.status.replaceAll('_', ' ')} — review {new Date(record.nextReviewAt).toLocaleDateString()}</li>
+              <li key={record.id}>
+                {record.title} — {record.status.replaceAll('_', ' ')} — review{' '}
+                {new Date(record.nextReviewAt).toLocaleDateString()}
+              </li>
             ))}
           </ul>
         </article>
@@ -236,8 +329,12 @@ export function BusinessOperationsPanel() {
           <div className={styles.header}>
             <div>
               <p className={styles.eyebrow}>Accountable handoff</p>
-              <h3 id="handoff-detail-title">{selected.displayName}: {selected.projectSummary}</h3>
-              <p>{selected.contactMethod}: {selected.contactValue}</p>
+              <h3 id="handoff-detail-title">
+                {selected.displayName}: {selected.projectSummary}
+              </h3>
+              <p>
+                {selected.contactMethod}: {selected.contactValue}
+              </p>
             </div>
             <span className={styles.status}>{selected.status}</span>
           </div>
@@ -245,27 +342,46 @@ export function BusinessOperationsPanel() {
           <div className={styles.actions}>
             <label>
               Owner{' '}
-              <select value={selected.assignedToId} onChange={(event) => void assign(event.target.value)} disabled={state === 'working'}>
+              <select
+                value={selected.assignedToId}
+                onChange={(event) => void assign(event.target.value)}
+                disabled={state === 'working'}
+              >
                 {summary.owners.map((owner) => (
-                  <option value={owner.userId} key={owner.userId}>{owner.displayName || owner.email} — {owner.role}</option>
+                  <option value={owner.userId} key={owner.userId}>
+                    {owner.displayName || owner.email} — {owner.role}
+                  </option>
                 ))}
               </select>
             </label>
-            <span>Current: {selectedOwner?.displayName || selectedOwner?.email || selected.assignedToId}</span>
+            <span>
+              Current: {selectedOwner?.displayName || selectedOwner?.email || selected.assignedToId}
+            </span>
           </div>
 
-          {(NEXT_STATUS[selected.status]?.some((status) => status === 'CLOSED' || status === 'LOST')) ? (
+          {NEXT_STATUS[selected.status]?.some(
+            (status) => status === 'CLOSED' || status === 'LOST',
+          ) ? (
             <div className={styles.actions}>
               <label>
                 Factual outcome reason{' '}
-                <input value={outcomeReason} onChange={(event) => setOutcomeReason(event.target.value)} maxLength={500} />
+                <input
+                  value={outcomeReason}
+                  onChange={(event) => setOutcomeReason(event.target.value)}
+                  maxLength={500}
+                />
               </label>
             </div>
           ) : null}
 
           <div className={styles.actions} aria-label="Next handoff actions">
             {(NEXT_STATUS[selected.status] ?? []).map((status) => (
-              <button key={status} type="button" onClick={() => void transition(status)} disabled={state === 'working'}>
+              <button
+                key={status}
+                type="button"
+                onClick={() => void transition(status)}
+                disabled={state === 'working'}
+              >
                 Mark {status.toLowerCase()}
               </button>
             ))}
@@ -274,10 +390,7 @@ export function BusinessOperationsPanel() {
           {selected.readyProject ? (
             <>
               <h4>Ready Project</h4>
-              <KitchenBathReadyProjectCard
-                project={selected.readyProject}
-                audience="business"
-              />
+              <KitchenBathReadyProjectCard project={selected.readyProject} audience="business" />
             </>
           ) : null}
 
@@ -288,7 +401,9 @@ export function BusinessOperationsPanel() {
               <p>{item.content}</p>
               {item.sources.map((source) => (
                 <div className={styles.source} key={`${item.id}-${source.knowledgeRecordId}`}>
-                  Source: {source.sourceTitle} · reviewed {new Date(source.sourceReviewedAt).toLocaleDateString()} · SHA-256 {source.sourceContentSha256.slice(0, 12)}…
+                  Source: {source.sourceTitle} · reviewed{' '}
+                  {new Date(source.sourceReviewedAt).toLocaleDateString()} · SHA-256{' '}
+                  {source.sourceContentSha256.slice(0, 12)}…
                 </div>
               ))}
             </div>

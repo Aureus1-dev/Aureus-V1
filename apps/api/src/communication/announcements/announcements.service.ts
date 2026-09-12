@@ -23,6 +23,12 @@ import {
 import { IUserRepository, USER_REPOSITORY } from '../../users/repositories/user.repository.interface';
 import { NotificationsService } from '../notifications/notifications.service';
 
+// An organization's OWNER carries at least the same authority as an ADMIN
+// representative (Step 1 — Business Identity & Boundary): the founding
+// member is now assigned OWNER on creation, so admin-equivalent checks must
+// recognize both roles, not ADMIN alone.
+const ORG_ADMIN_ROLES: OrganizationMemberRole[] = [OrganizationMemberRole.OWNER, OrganizationMemberRole.ADMIN];
+
 @Injectable()
 export class AnnouncementsService {
   private readonly logger = new Logger(AnnouncementsService.name);
@@ -196,8 +202,8 @@ export class AnnouncementsService {
           throw new ForbiddenException('Only a verified organization may publish announcements');
         }
         const membership = await this.orgMemberRepo.findByOrgAndUser(fields.organizationId, caller.id);
-        if (!membership || membership.role !== OrganizationMemberRole.ADMIN) {
-          throw new ForbiddenException('You must be an ADMIN representative of this organization');
+        if (!membership || !ORG_ADMIN_ROLES.includes(membership.role)) {
+          throw new ForbiddenException('You must be an OWNER or ADMIN representative of this organization');
         }
         return;
       }

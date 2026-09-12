@@ -79,9 +79,11 @@ describe('Profile — E2E', () => {
     const res = await request(app.getHttpServer())
       .post(`/users/${ownerId}/profile`)
       .set('Authorization', `Bearer ${ownerToken}`)
-      .send({ displayName: 'Alice Johnson' })
+      .send({ displayName: 'Alice Johnson', namePronunciation: 'AL-iss JON-sun' })
       .expect(201);
     expect(res.body.userId).toBe(ownerId);
+    expect(res.body.displayName).toBe('Alice Johnson');
+    expect(res.body.namePronunciation).toBe('AL-iss JON-sun');
   });
 
   it('forbids a non-owner member from reading the profile', async () => {
@@ -97,6 +99,7 @@ describe('Profile — E2E', () => {
       .set('Authorization', `Bearer ${ownerToken}`)
       .expect(200);
     expect(res.body.displayName).toBe('Alice Johnson');
+    expect(res.body.namePronunciation).toBe('AL-iss JON-sun');
   });
 
   it('allows an administrator to read any profile', async () => {
@@ -110,7 +113,7 @@ describe('Profile — E2E', () => {
     await request(app.getHttpServer())
       .patch(`/users/${ownerId}/profile`)
       .set('Authorization', `Bearer ${otherMemberToken}`)
-      .send({ bio: 'Hijacked bio' })
+      .send({ namePronunciation: 'Wrong on purpose' })
       .expect(403);
   });
 
@@ -118,9 +121,10 @@ describe('Profile — E2E', () => {
     const res = await request(app.getHttpServer())
       .patch(`/users/${ownerId}/profile`)
       .set('Authorization', `Bearer ${ownerToken}`)
-      .send({ bio: 'Software engineer' })
+      .send({ bio: 'Software engineer', namePronunciation: 'uh-LEES JON-sun' })
       .expect(200);
     expect(res.body.bio).toBe('Software engineer');
+    expect(res.body.namePronunciation).toBe('uh-LEES JON-sun');
   });
 
   it('forbids a non-owner member from deleting the profile', async () => {

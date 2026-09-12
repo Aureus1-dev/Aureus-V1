@@ -1,0 +1,128 @@
+.surface {
+  width: min(860px, calc(100% - 2rem));
+  margin: 1rem auto;
+  padding: clamp(1.25rem, 4vw, 2.5rem);
+  border: 1px solid rgba(108, 76, 49, 0.25);
+  border-radius: 1.5rem;
+  background: rgba(252, 248, 239, 0.94);
+  color: #2d241d;
+  box-shadow: 0 1rem 3rem rgba(39, 27, 18, 0.16);
+}
+
+.surface h2 {
+  margin: 0 0 0.25rem;
+}
+
+.eyebrow {
+  color: #a43f17;
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.list {
+  list-style: none;
+  margin: 1rem 0;
+  padding: 0;
+  display: grid;
+  gap: 0.6rem;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.6rem 0.9rem;
+  border: 1px solid rgba(108, 76, 49, 0.18);
+  border-radius: 0.9rem;
+  background: rgba(255, 255, 255, 0.6);
+}
+
+.rowIdentity {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  min-width: 0;
+}
+
+.rowIdentity code {
+  font-size: 0.75rem;
+  color: #5b4a3a;
+  overflow-wrap: anywhere;
+}
+
+.roleBadge {
+  align-self: flex-start;
+  padding: 0.15rem 0.5rem;
+  border-radius: 999px;
+  background: rgba(164, 63, 23, 0.12);
+  color: #a43f17;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+.rowActions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-shrink: 0;
+}
+
+.form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  align-items: flex-end;
+  margin: 1rem 0;
+}
+
+.form label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  font-size: 0.8rem;
+  color: #5b4a3a;
+}
+
+.form input,
+.form select {
+  padding: 0.5rem 0.6rem;
+  border: 1px solid rgba(108, 76, 49, 0.3);
+  border-radius: 0.6rem;
+  background: #fff;
+}
+
+.button {
+  cursor: pointer;
+  padding: 0.45rem 0.9rem;
+  border-radius: 0.6rem;
+  border: 1px solid rgba(108, 76, 49, 0.3);
+  background: #fff;
+  color: #2d241d;
+  font-size: 0.82rem;
+}
+
+.buttonPrimary {
+  background: #a43f17;
+  border-color: #a43f17;
+  color: #fdf6ee;
+  font-weight: 700;
+}
+
+.button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.error {
+  color: #9c2b1f;
+  font-size: 0.85rem;
+}
+
+.hint {
+  font-size: 0.8rem;
+  color: #5b4a3a;
+}

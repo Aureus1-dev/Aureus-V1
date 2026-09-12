@@ -21,12 +21,21 @@ import { BusinessKnowledgeController } from './knowledge/business-knowledge.cont
 import { BusinessKnowledgeService } from './knowledge/business-knowledge.service';
 import { KitchenBathVerticalController } from './kitchen-bath-vertical.controller';
 import { KitchenBathVerticalService } from './kitchen-bath-vertical.service';
+import {
+  OrganizationInvitationsController,
+  MyInvitationsController,
+} from './invitations/organization-invitations.controller';
+import { OrganizationInvitationsService } from './invitations/organization-invitations.service';
+import { PrismaOrganizationInvitationRepository } from './invitations/repositories/prisma-organization-invitation.repository';
+import { ORGANIZATION_INVITATION_REPOSITORY } from './invitations/repositories/organization-invitation.repository.interface';
 
 @Module({
   imports: [AuthGuardsModule],
   controllers: [
     OrganizationsController,
     OrganizationMembersController,
+    OrganizationInvitationsController,
+    MyInvitationsController,
     BusinessTenantController,
     BusinessTenantDirectoryController,
     BusinessOperationsController,
@@ -44,10 +53,16 @@ import { KitchenBathVerticalService } from './kitchen-bath-vertical.service';
     { provide: ORGANIZATION_REPOSITORY, useClass: PrismaOrganizationRepository },
     OrganizationMembersService,
     { provide: ORGANIZATION_MEMBER_REPOSITORY, useClass: PrismaOrganizationMemberRepository },
+    OrganizationInvitationsService,
+    {
+      provide: ORGANIZATION_INVITATION_REPOSITORY,
+      useClass: PrismaOrganizationInvitationRepository,
+    },
   ],
   exports: [
     OrganizationsService,
     OrganizationMembersService,
+    OrganizationInvitationsService,
     BusinessTenantService,
     BusinessOperationsService,
     BusinessTenantMembershipGuard,
@@ -56,6 +71,7 @@ import { KitchenBathVerticalService } from './kitchen-bath-vertical.service';
     KitchenBathVerticalService,
     ORGANIZATION_REPOSITORY,
     ORGANIZATION_MEMBER_REPOSITORY,
+    ORGANIZATION_INVITATION_REPOSITORY,
   ],
 })
 export class OrganizationsModule {}

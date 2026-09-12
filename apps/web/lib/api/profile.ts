@@ -9,6 +9,7 @@ export interface ProfileDto {
   id: string;
   userId: string;
   displayName: string | null;
+  namePronunciation: string | null;
   bio: string | null;
   avatarUrl: string | null;
   city: string | null;
@@ -29,6 +30,7 @@ export interface ProfileDto {
 /** Mirrors `apps/api/src/users/profile/dto/update-profile.dto.ts` — every field optional and member-owned (WO-030 Founder Decisions #7-#9). */
 export interface UpdateProfileInput {
   displayName?: string;
+  namePronunciation?: string;
   bio?: string;
   avatarUrl?: string;
   city?: string;

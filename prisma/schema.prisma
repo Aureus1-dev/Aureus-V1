@@ -278,8 +278,9 @@ model EmailVerificationToken {
 
 model Profile {
   id          String    @id @default(uuid()) @db.Uuid
-  displayName String?
-  bio         String?
+  displayName       String?
+  namePronunciation String? // member-owned cue for how Aureus should say their name; never employer-derived
+  bio               String?
   avatarUrl   String?
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
@@ -998,13 +999,33 @@ enum BusinessPublicStatus {
   PAUSED
 }
 
+// Step 1 — Business Identity & Boundary: the full invitation lifecycle
+// (§8). An invitation is address-bound (invitedEmail), not identity-bound —
+// it exists before the invitee necessarily has, or is known to have, an
+// Aureus account — and never itself grants access; only an ACCEPTED
+// invitation may result in an OrganizationMember row, created atomically
+// with the acceptance.
+enum OrganizationInvitationStatus {
+  PENDING
+  ACCEPTED
+  DECLINED
+  EXPIRED
+  REVOKED
+}
+
 enum TenantAuditAction {
+  ORGANIZATION_CREATED
   PROFILE_CREATED
   PROFILE_UPDATED
   ONBOARDING_COMPLETED
   MEMBER_ADDED
   MEMBER_ROLE_CHANGED
   MEMBER_REMOVED
+  MEMBER_INVITED
+  INVITATION_ACCEPTED
+  INVITATION_DECLINED
+  INVITATION_REVOKED
+  OWNERSHIP_TRANSFERRED
   KNOWLEDGE_CREATED
   KNOWLEDGE_UPDATED
   KNOWLEDGE_SUBMITTED
@@ -1133,6 +1154,7 @@ model Organization {
   tenantVersion Int @default(1)
 
   members                  OrganizationMember[]
+  invitations              OrganizationInvitation[]
   businessProfile          BusinessProfile?
   tenantAuditEvents        TenantAuditEvent[]
   businessKnowledgeRecords BusinessKnowledgeRecord[]
@@ -1173,6 +1195,46 @@ model OrganizationMember {
   @@index([organizationId])
   @@index([userId])
   @@index([organizationId, role])
+}
+
+// ===========================================================================
+// OrganizationInvitation — Step 1 Business Identity & Boundary §8. Address-
+// bound (invitedEmail), not identity-bound: an invitation may target a
+// person before they have — or are known by the inviter to have — an
+// Aureus account. Accepting requires the authenticated caller's own email
+// to match invitedEmail, which is what prevents a third party from
+// intercepting or replaying someone else's invitation. Membership is
+// created only at acceptance, atomically with the PENDING → ACCEPTED
+// transition; the invitation row itself never grants access.
+// ===========================================================================
+model OrganizationInvitation {
+  id               String                        @id @default(uuid()) @db.Uuid
+  organizationId   String                        @db.Uuid
+  invitedEmail     String
+  role             OrganizationMemberRole         @default(MEMBER)
+  status           OrganizationInvitationStatus   @default(PENDING)
+  invitedById      String                        @db.Uuid
+  expiresAt        DateTime
+  acceptedAt       DateTime?
+  acceptedByUserId String?                        @db.Uuid
+  declinedAt       DateTime?
+  revokedAt        DateTime?
+  revokedById      String?                        @db.Uuid
+  createdAt        DateTime                       @default(now())
+  updatedAt        DateTime                       @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, status])
+  @@index([invitedEmail, status])
+  // DB-enforced invariant (Step 1 repair #5, migration
+  // 20260912150000_step1_repair_pending_invitation_uniqueness): a partial
+  // unique index on (organizationId, lower(invitedEmail)) WHERE status =
+  // 'PENDING' — not expressible via @@unique, since Prisma has no syntax
+  // for a partial/expression index. Prevents two concurrent PENDING
+  // invitations to the same organization+email; re-inviting after an
+  // earlier invitation resolved (accepted/declined/revoked/expired) is
+  // still allowed, since only PENDING rows are covered.
 }
 
 // One business operating profile per tenant. Structured JSON is deliberately

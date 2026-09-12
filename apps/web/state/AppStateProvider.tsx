@@ -24,6 +24,7 @@ import { ReviewQueueProvider } from './review-queue/ReviewQueueContext';
 import { CitySheetProvider } from './city-sheet/CitySheetContext';
 import { StewardshipOversightProvider } from './stewardship-oversight/StewardshipOversightContext';
 import { AnnouncementsProvider } from './announcements/AnnouncementsContext';
+import { BusinessProvider } from './business/BusinessContext';
 
 /**
  * Composes the full state foundation (FPB-010 §3). Every domain provider
@@ -64,7 +65,9 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
                                             <ReviewQueueProvider>
                                               <CitySheetProvider>
                                                 <StewardshipOversightProvider>
-                                                  <AnnouncementsProvider>{children}</AnnouncementsProvider>
+                                                  <AnnouncementsProvider>
+                                                    <BusinessProvider>{children}</BusinessProvider>
+                                                  </AnnouncementsProvider>
                                                 </StewardshipOversightProvider>
                                               </CitySheetProvider>
                                             </ReviewQueueProvider>

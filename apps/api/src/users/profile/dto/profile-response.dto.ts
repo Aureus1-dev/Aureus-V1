@@ -6,6 +6,7 @@ export class ProfileResponseDto {
   @ApiProperty() id: string;
   @ApiProperty() userId: string;
   @ApiPropertyOptional({ nullable: true }) displayName: string | null;
+  @ApiPropertyOptional({ nullable: true }) namePronunciation: string | null;
   @ApiPropertyOptional({ nullable: true }) bio: string | null;
   @ApiPropertyOptional({ nullable: true }) avatarUrl: string | null;
   @ApiPropertyOptional({ nullable: true }) city: string | null;
@@ -26,6 +27,7 @@ export class ProfileResponseDto {
     const dto = new ProfileResponseDto();
     dto.id = p.id; dto.userId = p.userId;
     dto.displayName = p.displayName ?? null;
+    dto.namePronunciation = p.namePronunciation ?? null;
     dto.bio = p.bio ?? null;
     dto.avatarUrl = p.avatarUrl ?? null;
     dto.city = p.city ?? null;

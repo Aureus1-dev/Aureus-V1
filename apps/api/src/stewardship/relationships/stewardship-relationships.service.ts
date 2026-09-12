@@ -56,6 +56,12 @@ const REASSIGNMENT_REASONS: StewardshipEndReason[] = [
   StewardshipEndReason.ADMIN_REASSIGNMENT,
 ];
 
+// An organization's OWNER carries at least the same authority as an ADMIN
+// representative (Step 1 — Business Identity & Boundary): the founding
+// member is now assigned OWNER on creation, so admin-equivalent checks must
+// recognize both roles, not ADMIN alone.
+const ORG_ADMIN_ROLES: OrganizationMemberRole[] = [OrganizationMemberRole.OWNER, OrganizationMemberRole.ADMIN];
+
 @Injectable()
 export class StewardshipRelationshipsService {
   constructor(
@@ -321,8 +327,8 @@ export class StewardshipRelationshipsService {
       throw new ForbiddenException('Only a verified organization may assign stewards');
     }
     const membership = await this.orgMemberRepo.findByOrgAndUser(organizationId, caller.id);
-    if (!membership || membership.role !== OrganizationMemberRole.ADMIN) {
-      throw new ForbiddenException('You must be an ADMIN representative of this organization');
+    if (!membership || !ORG_ADMIN_ROLES.includes(membership.role)) {
+      throw new ForbiddenException('You must be an OWNER or ADMIN representative of this organization');
     }
   }
 
@@ -382,7 +388,7 @@ export class StewardshipRelationshipsService {
     if (caller.id === relationship.memberId || caller.id === relationship.stewardId) return relationship;
     if (relationship.assignedByOrganizationId) {
       const membership = await this.orgMemberRepo.findByOrgAndUser(relationship.assignedByOrganizationId, caller.id);
-      if (membership?.role === OrganizationMemberRole.ADMIN) return relationship;
+      if (membership && ORG_ADMIN_ROLES.includes(membership.role)) return relationship;
     }
 
     throw new ForbiddenException('You do not have permission to view this relationship');

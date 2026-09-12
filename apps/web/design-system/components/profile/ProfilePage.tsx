@@ -26,7 +26,7 @@ const SEASONS_OF_LIFE = [
 
 function emptyForm(): UpdateProfileInput {
   return {
-    displayName: '', bio: '', avatarUrl: '', city: '', region: '', stateProvince: '', country: '',
+    displayName: '', namePronunciation: '', bio: '', avatarUrl: '', city: '', region: '', stateProvince: '', country: '',
     localAreaDescription: '', profession: '', seasonOfLife: '', availabilityNotes: '', preferredLanguage: '',
     faithPreference: '',
   };
@@ -57,6 +57,7 @@ export function ProfilePage() {
   const startEditing = () => {
     setForm({
       displayName: state.profile?.displayName ?? '',
+      namePronunciation: state.profile?.namePronunciation ?? '',
       bio: state.profile?.bio ?? '',
       avatarUrl: state.profile?.avatarUrl ?? '',
       city: state.profile?.city ?? '',
@@ -111,7 +112,8 @@ export function ProfilePage() {
       {!isEditing && state.profile ? (
         <Card className={styles.card}>
           <dl className={styles.details}>
-            <ProfileDetail label="Display name" value={state.profile.displayName} />
+            <ProfileDetail label="What Aureus calls you" value={state.profile.displayName} />
+            <ProfileDetail label="Name pronunciation" value={state.profile.namePronunciation} />
             <ProfileDetail label="Bio" value={state.profile.bio} />
             <ProfileDetail label="Profession" value={state.profile.profession} />
             <ProfileDetail
@@ -139,10 +141,20 @@ export function ProfilePage() {
 
             <FormField
               id="profile-display-name"
-              label="Display name"
+              label="What should Aureus call you?"
+              helpText="Use the name you want Aureus to use in conversation."
               value={form.displayName ?? ''}
               onChange={(value) => setForm((f) => ({ ...f, displayName: value }))}
               maxLength={100}
+            />
+
+            <FormField
+              id="profile-name-pronunciation"
+              label="How do you pronounce your name?"
+              helpText="Optional. Write it the way you want Aureus to say it."
+              value={form.namePronunciation ?? ''}
+              onChange={(value) => setForm((f) => ({ ...f, namePronunciation: value }))}
+              maxLength={200}
             />
 
             <label className={styles.textareaField} htmlFor="profile-bio">

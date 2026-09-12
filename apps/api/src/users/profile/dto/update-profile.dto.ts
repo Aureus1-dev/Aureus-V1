@@ -7,6 +7,14 @@ export class UpdateProfileDto {
   @IsOptional() @IsString() @MaxLength(100)
   displayName?: string;
 
+  @ApiPropertyOptional({
+    example: 'kuh-TEESE',
+    description: 'Optional member-owned cue for how Aureus should pronounce the name',
+    maxLength: 200,
+  })
+  @IsOptional() @IsString() @MaxLength(200)
+  namePronunciation?: string;
+
   @ApiPropertyOptional({ example: 'Software engineer passionate about learning', maxLength: 500 })
   @IsOptional() @IsString() @MaxLength(500)
   bio?: string;

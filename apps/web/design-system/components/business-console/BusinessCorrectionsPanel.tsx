@@ -6,13 +6,13 @@ import {
   listBusinessKnowledge,
   type BusinessKnowledgeRecord,
 } from '../../../lib/api/business-knowledge';
-import { listMyBusinessTenants } from '../../../lib/api/business-console';
-import { useSession } from '../../../state';
+import { useBusiness, useSession } from '../../../state';
 import styles from './BusinessCorrectionsPanel.module.css';
 
 export function BusinessCorrectionsPanel() {
   const { session } = useSession();
-  const [tenantId, setTenantId] = useState('');
+  const { activeTenant, state: businessState } = useBusiness();
+  const tenantId = activeTenant?.id ?? '';
   const [approved, setApproved] = useState<BusinessKnowledgeRecord[]>([]);
   const [selected, setSelected] = useState<BusinessKnowledgeRecord | null>(null);
   const [correctionReason, setCorrectionReason] = useState('');
@@ -20,23 +20,32 @@ export function BusinessCorrectionsPanel() {
   const [summary, setSummary] = useState('');
   const [content, setContent] = useState('');
   const [sourceReference, setSourceReference] = useState('');
-  const [state, setState] = useState<'loading' | 'ready' | 'working' | 'empty' | 'error'>('loading');
+  const [state, setState] = useState<'loading' | 'ready' | 'working' | 'empty' | 'error'>(
+    'loading',
+  );
   const [message, setMessage] = useState('');
 
   useEffect(() => {
     if (!session.accessToken) return;
+    if (businessState.isLoading) return;
+    if (!activeTenant) {
+      setState('empty');
+      setApproved([]);
+      setSelected(null);
+      return;
+    }
+
+    // Reset immediately, before the fetch resolves, so no stale approved
+    // record from a previously active company remains visible or
+    // actionable while the newly selected one loads (Step 1 repair).
     let active = true;
-    void listMyBusinessTenants(session.accessToken)
-      .then(async (tenants) => {
+    setState('loading');
+    setApproved([]);
+    setSelected(null);
+
+    void listBusinessKnowledge(session.accessToken, activeTenant.id)
+      .then((records) => {
         if (!active) return;
-        if (tenants.length === 0) {
-          setState('empty');
-          return;
-        }
-        const id = tenants[0].id;
-        const records = await listBusinessKnowledge(session.accessToken!, id);
-        if (!active) return;
-        setTenantId(id);
         setApproved(records.filter((record) => record.status === 'APPROVED'));
         setState('ready');
       })
@@ -46,8 +55,10 @@ export function BusinessCorrectionsPanel() {
           setState('error');
         }
       });
-    return () => { active = false; };
-  }, [session.accessToken]);
+    return () => {
+      active = false;
+    };
+  }, [session.accessToken, businessState.isLoading, activeTenant]);
 
   const begin = (record: BusinessKnowledgeRecord) => {
     setSelected(record);
@@ -75,16 +86,25 @@ export function BusinessCorrectionsPanel() {
         freshnessIntervalDays: selected.freshnessIntervalDays,
         correctionReason,
       });
-      setMessage('Correction saved as a private draft. The currently approved source remains live until this replacement is separately submitted, reviewed, and approved.');
+      setMessage(
+        'Correction saved as a private draft. The currently approved source remains live until this replacement is separately submitted, reviewed, and approved.',
+      );
       setSelected(null);
       setState('ready');
     } catch {
-      setMessage('The correction was not created. A tenant reviewer is required, and only one draft/review correction may exist for an approved source.');
+      setMessage(
+        'The correction was not created. A tenant reviewer is required, and only one draft/review correction may exist for an approved source.',
+      );
       setState('error');
     }
   };
 
-  if (state === 'loading') return <section className={styles.surface} aria-busy="true"><p>Opening reviewed corrections…</p></section>;
+  if (state === 'loading')
+    return (
+      <section className={styles.surface} aria-busy="true">
+        <p>Opening reviewed corrections…</p>
+      </section>
+    );
   if (state === 'empty') return null;
 
   return (
@@ -95,17 +115,35 @@ export function BusinessCorrectionsPanel() {
       </header>
 
       <p className={styles.notice}>
-        <strong>Approval continuity:</strong> proposing or reviewing a correction does not replace the approved source. The replacement becomes live only after its own approval; that approval archives the prior source in the same database transaction.
+        <strong>Approval continuity:</strong> proposing or reviewing a correction does not replace
+        the approved source. The replacement becomes live only after its own approval; that approval
+        archives the prior source in the same database transaction.
       </p>
 
-      {message ? <p className={state === 'error' ? styles.error : styles.message} role={state === 'error' ? 'alert' : 'status'}>{message}</p> : null}
+      {message ? (
+        <p
+          className={state === 'error' ? styles.error : styles.message}
+          role={state === 'error' ? 'alert' : 'status'}
+        >
+          {message}
+        </p>
+      ) : null}
 
       <div className={styles.records}>
         {approved.length === 0 ? <p>No approved records are available for correction.</p> : null}
         {approved.map((record) => (
           <div className={styles.record} key={record.id}>
-            <div><strong>{record.title}</strong><br /><small>Reviewed {record.reviewedAt ? new Date(record.reviewedAt).toLocaleDateString() : '—'}</small></div>
-            <button type="button" onClick={() => begin(record)}>Propose correction</button>
+            <div>
+              <strong>{record.title}</strong>
+              <br />
+              <small>
+                Reviewed{' '}
+                {record.reviewedAt ? new Date(record.reviewedAt).toLocaleDateString() : '—'}
+              </small>
+            </div>
+            <button type="button" onClick={() => begin(record)}>
+              Propose correction
+            </button>
           </div>
         ))}
       </div>
@@ -115,13 +153,58 @@ export function BusinessCorrectionsPanel() {
           <h3>Correction for “{selected.title}”</h3>
           <label>
             Why this needs correction
-            <textarea required minLength={3} maxLength={500} rows={2} value={correctionReason} onChange={(event) => setCorrectionReason(event.target.value)} />
+            <textarea
+              required
+              minLength={3}
+              maxLength={500}
+              rows={2}
+              value={correctionReason}
+              onChange={(event) => setCorrectionReason(event.target.value)}
+            />
           </label>
-          <label>Title<input required minLength={3} maxLength={200} value={title} onChange={(event) => setTitle(event.target.value)} /></label>
-          <label>Short answer<textarea required maxLength={500} rows={2} value={summary} onChange={(event) => setSummary(event.target.value)} /></label>
-          <label>Replacement source content<textarea required minLength={10} maxLength={100000} rows={7} value={content} onChange={(event) => setContent(event.target.value)} /></label>
-          <label>Updated provenance / source reference<input required maxLength={500} value={sourceReference} onChange={(event) => setSourceReference(event.target.value)} /></label>
-          <button type="submit" disabled={state === 'working'}>{state === 'working' ? 'Saving correction…' : 'Save correction draft'}</button>
+          <label>
+            Title
+            <input
+              required
+              minLength={3}
+              maxLength={200}
+              value={title}
+              onChange={(event) => setTitle(event.target.value)}
+            />
+          </label>
+          <label>
+            Short answer
+            <textarea
+              required
+              maxLength={500}
+              rows={2}
+              value={summary}
+              onChange={(event) => setSummary(event.target.value)}
+            />
+          </label>
+          <label>
+            Replacement source content
+            <textarea
+              required
+              minLength={10}
+              maxLength={100000}
+              rows={7}
+              value={content}
+              onChange={(event) => setContent(event.target.value)}
+            />
+          </label>
+          <label>
+            Updated provenance / source reference
+            <input
+              required
+              maxLength={500}
+              value={sourceReference}
+              onChange={(event) => setSourceReference(event.target.value)}
+            />
+          </label>
+          <button type="submit" disabled={state === 'working'}>
+            {state === 'working' ? 'Saving correction…' : 'Save correction draft'}
+          </button>
         </form>
       ) : null}
     </section>

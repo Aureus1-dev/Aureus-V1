@@ -6,10 +6,17 @@ import {
   Logger,
   NotFoundException,
 } from '@nestjs/common';
-import { OrganizationMemberRole, OrganizationStatus, UserRole, VerificationStatus } from '@prisma/client';
+import {
+  OrganizationMemberRole,
+  OrganizationStatus,
+  TenantAuditAction,
+  UserRole,
+  VerificationStatus,
+} from '@prisma/client';
 import type { Organization } from '@prisma/client';
 import { AuthenticatedUser } from '../auth/strategies/jwt.strategy';
 import { hasRole } from '../auth/utils/has-role.util';
+import { PrismaService } from '../prisma/prisma.service';
 import { CreateOrganizationDto } from './dto/create-organization.dto';
 import { UpdateOrganizationDto } from './dto/update-organization.dto';
 import { ListOrganizationsQueryDto } from './dto/list-organizations-query.dto';
@@ -25,7 +32,15 @@ import {
   ORGANIZATION_MEMBER_REPOSITORY,
 } from './members/repositories/organization-member.repository.interface';
 
-const MODERATOR_ROLES: UserRole[] = [UserRole.STEWARD, UserRole.PLATFORM_ADMINISTRATOR, UserRole.SYSTEM_ADMINISTRATOR];
+const MODERATOR_ROLES: UserRole[] = [
+  UserRole.STEWARD,
+  UserRole.PLATFORM_ADMINISTRATOR,
+  UserRole.SYSTEM_ADMINISTRATOR,
+];
+const MANAGEABLE_MEMBER_ROLES: OrganizationMemberRole[] = [
+  OrganizationMemberRole.OWNER,
+  OrganizationMemberRole.ADMIN,
+];
 
 @Injectable()
 export class OrganizationsService {
@@ -33,26 +48,62 @@ export class OrganizationsService {
 
   constructor(
     @Inject(ORGANIZATION_REPOSITORY) private readonly repo: IOrganizationRepository,
-    @Inject(ORGANIZATION_MEMBER_REPOSITORY) private readonly memberRepo: IOrganizationMemberRepository,
+    @Inject(ORGANIZATION_MEMBER_REPOSITORY)
+    private readonly memberRepo: IOrganizationMemberRepository,
+    private readonly prisma: PrismaService,
   ) {}
 
   // ── Create ────────────────────────────────────────────────────────────
 
-  async create(dto: CreateOrganizationDto, caller: AuthenticatedUser): Promise<OrganizationResponseDto> {
-    const org = await this.repo.create({
-      ...dto,
-      createdById: caller.id,
-      lastUpdatedById: caller.id,
+  /**
+   * Atomic (Step 1 §4 repair): row creation, reference assignment, founding
+   * OWNER membership, and the ORGANIZATION_CREATED audit event all commit
+   * or roll back together in one transaction. Before this repair these
+   * were four separate writes — a failure between any two of them (e.g.
+   * the audit-event insert) could leave a real, findable Organization row
+   * with no OWNER and no audit trail. Bypasses the repository abstraction
+   * deliberately, the same way transferOwnership() and invitation accept()
+   * already do, because true cross-model atomicity needs one transaction
+   * client shared across all four writes.
+   */
+  async create(
+    dto: CreateOrganizationDto,
+    caller: AuthenticatedUser,
+  ): Promise<OrganizationResponseDto> {
+    const org = await this.prisma.db.$transaction(async (tx) => {
+      const created = await tx.organization.create({
+        data: { ...dto, createdById: caller.id, lastUpdatedById: caller.id },
+      });
+
+      const organizationRef = `AUR-ORG-${created.sequenceNumber.toString().padStart(6, '0')}`;
+      const updated = await tx.organization.update({
+        where: { id: created.id },
+        data: { organizationRef },
+      });
+
+      // The creator becomes the organization's initial authorized OWNER
+      // (Step 1 — Business Identity & Boundary §2): ownership, not mere
+      // administration, is the founding representative's role.
+      await tx.organizationMember.create({
+        data: { organizationId: created.id, userId: caller.id, role: OrganizationMemberRole.OWNER },
+      });
+
+      await tx.tenantAuditEvent.create({
+        data: {
+          organizationId: created.id,
+          actorId: caller.id,
+          action: TenantAuditAction.ORGANIZATION_CREATED,
+          resourceType: 'Organization',
+          resourceId: created.id,
+          context: { organizationRef, organizationType: dto.organizationType },
+        },
+      });
+
+      return updated;
     });
 
-    const organizationRef = `AUR-ORG-${org.sequenceNumber.toString().padStart(6, '0')}`;
-    const updated = await this.repo.setRef(org.id, organizationRef);
-
-    // The creator becomes the organization's first ADMIN representative.
-    await this.memberRepo.add({ organizationId: org.id, userId: caller.id, role: OrganizationMemberRole.ADMIN });
-
-    this.logger.log(`Organization created: ${organizationRef} by ${caller.id}`);
-    return OrganizationResponseDto.fromEntity(updated);
+    this.logger.log(`Organization created: ${org.organizationRef} by ${caller.id}`);
+    return OrganizationResponseDto.fromEntity(org);
   }
 
   // ── Read ──────────────────────────────────────────────────────────────
@@ -64,7 +115,9 @@ export class OrganizationsService {
     const verificationStatus = query.verificationStatus ?? VerificationStatus.VERIFIED;
 
     const result = await this.repo.findAll({
-      page, limit, verificationStatus,
+      page,
+      limit,
+      verificationStatus,
       q: query.q,
       organizationType: query.organizationType,
       country: query.country,
@@ -77,7 +130,9 @@ export class OrganizationsService {
 
     return {
       data: result.data.map(OrganizationResponseDto.fromEntity),
-      total: result.total, page: result.page, limit: result.limit,
+      total: result.total,
+      page: result.page,
+      limit: result.limit,
       totalPages: Math.ceil(result.total / result.limit),
     };
   }
@@ -97,7 +152,9 @@ export class OrganizationsService {
   // ── Update ────────────────────────────────────────────────────────────
 
   async update(
-    id: string, dto: UpdateOrganizationDto, caller: AuthenticatedUser,
+    id: string,
+    dto: UpdateOrganizationDto,
+    caller: AuthenticatedUser,
   ): Promise<OrganizationResponseDto> {
     await this.getManageableOrThrow(id, caller);
     const updated = await this.repo.update(id, { ...dto, lastUpdatedById: caller.id });
@@ -131,7 +188,9 @@ export class OrganizationsService {
       lastUpdatedById: caller.id,
     });
 
-    this.logger.log(`Organization submitted for review: ${org.organizationRef ?? id} by ${caller.id}`);
+    this.logger.log(
+      `Organization submitted for review: ${org.organizationRef ?? id} by ${caller.id}`,
+    );
     return OrganizationResponseDto.fromEntity(updated);
   }
 
@@ -161,7 +220,11 @@ export class OrganizationsService {
   }
 
   /** Move PENDING_REVIEW → REJECTED. Steward/Admin only (enforced by controller guard). */
-  async reject(id: string, dto: RejectOrganizationDto, caller: AuthenticatedUser): Promise<OrganizationResponseDto> {
+  async reject(
+    id: string,
+    dto: RejectOrganizationDto,
+    caller: AuthenticatedUser,
+  ): Promise<OrganizationResponseDto> {
     const org = await this.repo.findById(id);
     if (!org) throw new NotFoundException(`Organization '${id}' not found`);
 
@@ -211,7 +274,7 @@ export class OrganizationsService {
     if (hasRole(caller, MODERATOR_ROLES)) return org;
 
     const membership = await this.memberRepo.findByOrgAndUser(id, caller.id);
-    if (!membership || membership.role !== OrganizationMemberRole.ADMIN) {
+    if (!membership || !MANAGEABLE_MEMBER_ROLES.includes(membership.role)) {
       throw new ForbiddenException('You do not have permission to manage this organization');
     }
 

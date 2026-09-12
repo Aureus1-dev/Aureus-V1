@@ -1,7 +1,15 @@
 export { AppStateProvider } from './AppStateProvider';
 export { SessionProvider, useSession, type SessionState } from './session/SessionContext';
-export { InterfaceProvider, useInterfaceState, type InterfaceState } from './interface/InterfaceContext';
-export { PreferencesProvider, usePreferences, type PreferencesState } from './preferences/PreferencesContext';
+export {
+  InterfaceProvider,
+  useInterfaceState,
+  type InterfaceState,
+} from './interface/InterfaceContext';
+export {
+  PreferencesProvider,
+  usePreferences,
+  type PreferencesState,
+} from './preferences/PreferencesContext';
 export {
   ConversationProvider,
   useConversation,
@@ -27,12 +35,7 @@ export {
   type RecommendationError,
   type RecommendationErrorKind,
 } from './recommendations/RecommendationsContext';
-export {
-  PlanProvider,
-  usePlan,
-  type PlanError,
-  type PlanErrorKind,
-} from './plan/PlanContext';
+export { PlanProvider, usePlan, type PlanError, type PlanErrorKind } from './plan/PlanContext';
 export {
   MemoryProvider,
   useMemory,
@@ -88,12 +91,7 @@ export {
   type TasksError,
   type TasksErrorKind,
 } from './tasks/TasksContext';
-export {
-  PodsProvider,
-  usePods,
-  type PodsError,
-  type PodsErrorKind,
-} from './pods/PodsContext';
+export { PodsProvider, usePods, type PodsError, type PodsErrorKind } from './pods/PodsContext';
 export {
   ResourcesProvider,
   useResources,
@@ -136,3 +134,9 @@ export {
   type AnnouncementsError,
   type AnnouncementsErrorKind,
 } from './announcements/AnnouncementsContext';
+export {
+  BusinessProvider,
+  useBusiness,
+  type BusinessError,
+  type BusinessErrorKind,
+} from './business/BusinessContext';
