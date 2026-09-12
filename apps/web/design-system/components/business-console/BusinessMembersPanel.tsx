@@ -25,15 +25,6 @@ const INVITABLE_ROLES: OrganizationMemberRole[] = [
   'MEMBER',
 ];
 
-/**
- * Step 1 — Business Identity & Boundary §11 (basic company management) and
- * §8 (the invitation lifecycle). Lets an OWNER/ADMIN see current members
- * and pending invitations, invite someone by email, revoke a pending
- * invitation, change a role, remove a member, and — OWNER only — transfer
- * ownership. Every action still goes through the same server-side checks
- * this panel merely reflects (§16 — the UI hiding a control is not
- * authorization); a rejected request surfaces the server's own message.
- */
 export function BusinessMembersPanel() {
   const { session } = useSession();
   const { activeTenant } = useBusiness();
@@ -137,7 +128,7 @@ export function BusinessMembersPanel() {
                     <span className={styles.roleBadge}>{member.role}</span>
                   </div>
                   <div className={styles.rowActions}>
-                    {canManage ? (
+                    {canManage && member.role !== 'OWNER' ? (
                       <select
                         aria-label={`Change role for ${member.userId}`}
                         value={member.role}
@@ -154,7 +145,7 @@ export function BusinessMembersPanel() {
                           );
                         }}
                       >
-                        {['OWNER', ...INVITABLE_ROLES].map((role) => (
+                        {INVITABLE_ROLES.map((role) => (
                           <option key={role} value={role}>
                             {role}
                           </option>
@@ -259,8 +250,8 @@ export function BusinessMembersPanel() {
             <>
               <h3>Transfer ownership</h3>
               <p className={styles.hint}>
-                Hands OWNER to another current member. You will become an ADMIN so the company is
-                never left without an owner.
+                Ownership is separate from ordinary roles. Transfer OWNER to another current member;
+                prior ownership is removed atomically so the company finishes with one owner.
               </p>
               <form className={styles.form} onSubmit={(event) => void submitTransfer(event)}>
                 <label>
