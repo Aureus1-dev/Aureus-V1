@@ -1,6 +1,7 @@
 'use client';
 
 import {
+  Fragment,
   createContext,
   useCallback,
   useContext,
@@ -21,11 +22,6 @@ import { useSession } from '../session/SessionContext';
 
 const ACTIVE_TENANT_STORAGE_KEY = 'aureus-active-business-tenant';
 
-/**
- * Scoped to the authenticated member (Step 1 repair #3) — a shared browser
- * profile, or one member's session replacing another's, must never read or
- * write a different identity's remembered active company.
- */
 function storageKeyFor(memberId: string | null): string {
   return `${ACTIVE_TENANT_STORAGE_KEY}:${memberId ?? 'anonymous'}`;
 }
@@ -99,10 +95,6 @@ function reducer(state: State, action: Action): State {
     case 'error/clear':
       return { ...state, error: null };
     case 'identity/reset':
-      // A logout, or a switch to a different authenticated member, must
-      // never let the previous identity's tenants, invitations, or active
-      // selection remain visible/actionable during the next identity's
-      // load (Step 1 repair #3) — this is a clean slate, not a soft clear.
       return initialState;
     default:
       return state;
@@ -128,10 +120,8 @@ function classifyError(error: unknown): BusinessError {
 
 interface BusinessContextValue {
   state: State;
-  /** The full record for state.activeTenantId, or null while nothing is selected/loaded. */
   activeTenant: BusinessTenantSummary | null;
   refresh: () => Promise<void>;
-  /** Switches the current Business context (Step 1 §6) and remembers the choice for this browser. */
   selectTenant: (tenantId: string) => void;
   acceptInvitation: (invitationId: string) => Promise<void>;
   declineInvitation: (invitationId: string) => Promise<void>;
@@ -141,26 +131,19 @@ interface BusinessContextValue {
 const BusinessContext = createContext<BusinessContextValue | null>(null);
 
 /**
- * Step 1 — Business Identity & Boundary. The smallest coherent record of
- * "which companies do I belong to, and which one am I currently working
- * inside" (§6 — context switching; §2 — a person may belong to multiple
- * organizations). A single source of truth for the active-tenant
- * selection so every business surface (console, knowledge, operations,
- * members) agrees on the same company instead of each independently
- * defaulting to whichever tenant its own fetch happens to return first.
- * Also carries the caller's own pending invitations (§8/§17 Flow C) so a
- * newly invited person can discover and act on them without first
- * knowing which company invited them.
+ * Step 1 — Business Identity & Boundary.
+ *
+ * This provider is both the source of truth for active company selection and
+ * the workspace isolation boundary. Its child subtree is keyed by
+ * authenticated member + active tenant. A person switch or Company A → B
+ * switch therefore remounts every business surface in one place, discarding
+ * tenant-local React state and preventing a slow completion from an old
+ * workspace from repopulating the newly visible workspace.
  */
 export function BusinessProvider({ children }: { children: React.ReactNode }) {
   const { session } = useSession();
   const [state, dispatch] = useReducer(reducer, initialState);
 
-  // Mirrors session.accessToken on every render (synchronously, before any
-  // effect runs) so an in-flight fetch issued for an older identity can
-  // detect — after its await resolves — that a newer identity has since
-  // superseded it, and discard its result instead of writing someone
-  // else's data into the current identity's state (Step 1 repair #3).
   const accessTokenRef = useRef(session.accessToken);
   accessTokenRef.current = session.accessToken;
 
@@ -180,7 +163,7 @@ export function BusinessProvider({ children }: { children: React.ReactNode }) {
       try {
         storedId = window.localStorage.getItem(storageKeyFor(memberId));
       } catch {
-        // A per-viewer convenience only — safe to fall back silently.
+        // Browser persistence is only a convenience.
       }
       const activeTenantId = tenants.some((tenant) => tenant.id === storedId)
         ? storedId
@@ -193,12 +176,15 @@ export function BusinessProvider({ children }: { children: React.ReactNode }) {
     }
   }, [session.accessToken, session.memberId]);
 
+  // Identity reset is keyed to the person, not token rotation. A refresh-token
+  // exchange for the same member can refresh business data without blanking
+  // the workspace; logout or account-switch still clears it immediately.
   useEffect(() => {
-    // Always clear the previous identity's Business state first — whether
-    // this is a straight logout (accessToken goes to null) or a switch to
-    // a different authenticated member, the next identity's load must
-    // start from a clean slate (Step 1 repair #3).
     dispatch({ type: 'identity/reset' });
+  }, [session.memberId]);
+
+  useEffect(() => {
+    if (!session.accessToken) return;
     void refresh();
   }, [session.accessToken, refresh]);
 
@@ -208,7 +194,7 @@ export function BusinessProvider({ children }: { children: React.ReactNode }) {
       try {
         window.localStorage.setItem(storageKeyFor(session.memberId), tenantId);
       } catch {
-        // A per-viewer convenience only — safe to no-op.
+        // Browser persistence is only a convenience.
       }
     },
     [session.memberId],
@@ -271,7 +257,15 @@ export function BusinessProvider({ children }: { children: React.ReactNode }) {
     ],
   );
 
-  return <BusinessContext.Provider value={value}>{children}</BusinessContext.Provider>;
+  // This is the hard UI boundary for tenant-local component state. It is
+  // deliberately based on identity + selected company, not access token.
+  const workspaceEpoch = `${session.memberId ?? 'anonymous'}:${state.activeTenantId ?? 'none'}`;
+
+  return (
+    <BusinessContext.Provider value={value}>
+      <Fragment key={workspaceEpoch}>{children}</Fragment>
+    </BusinessContext.Provider>
+  );
 }
 
 export function useBusiness(): BusinessContextValue {
