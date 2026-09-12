@@ -77,7 +77,7 @@ export class OrganizationMembersController {
 
   @Patch('ownership/transfer')
   @ApiOperation({
-    summary: 'Transfer OWNER to another existing member (current OWNER, Steward, or Admin only)',
+    summary: 'Transfer OWNER to another existing member (current organization OWNER only)',
   })
   @ApiParam({ name: 'organizationId', description: 'Organization UUID' })
   @ApiResponse({ status: 200, type: MemberResponseDto })
@@ -108,7 +108,7 @@ export class OrganizationMembersController {
   @ApiResponse({ status: 404, description: 'Organization or member not found' })
   @ApiResponse({
     status: 409,
-    description: "Cannot demote the organization's last remaining ADMIN",
+    description: "Cannot demote the organization's last remaining ADMIN or edit OWNER generically",
   })
   updateRole(
     @Param('organizationId') organizationId: string,
