@@ -24,6 +24,21 @@ describe('Organization ownership transfer — Step 1 boundary', () => {
   const tokenFor = (id: string, email: string, roles: UserRole[]): string =>
     jwt.sign({ sub: id, email, roles });
 
+  async function createBusiness(name: string): Promise<string> {
+    const org = await request(app.getHttpServer())
+      .post('/organizations')
+      .set('Authorization', `Bearer ${ownerToken}`)
+      .send({
+        name,
+        shortDescription: 'Ownership boundary test',
+        fullDescription: 'A full description for the Step 1 ownership-transfer boundary test.',
+        organizationType: 'BUSINESS',
+        websiteUrl: 'https://example.test',
+      })
+      .expect(201);
+    return org.body.id;
+  }
+
   beforeAll(async () => {
     const moduleRef = await Test.createTestingModule({ imports: [AppModule] }).compile();
     app = moduleRef.createNestApplication();
@@ -49,18 +64,7 @@ describe('Organization ownership transfer — Step 1 boundary', () => {
       .expect(201);
     targetId = target.body.user.id;
 
-    const org = await request(app.getHttpServer())
-      .post('/organizations')
-      .set('Authorization', `Bearer ${ownerToken}`)
-      .send({
-        name: `E2E-OWNER-TRANSFER-${marker}`,
-        shortDescription: 'Ownership boundary test',
-        fullDescription: 'A full description for the Step 1 ownership-transfer boundary test.',
-        organizationType: 'BUSINESS',
-        websiteUrl: 'https://example.test',
-      })
-      .expect(201);
-    orgId = org.body.id;
+    orgId = await createBusiness(`E2E-OWNER-TRANSFER-${marker}`);
 
     await prisma.db.organizationMember.create({
       data: { organizationId: orgId, userId: targetId, role: OrganizationMemberRole.MEMBER },
@@ -68,8 +72,8 @@ describe('Organization ownership transfer — Step 1 boundary', () => {
   });
 
   afterAll(async () => {
-    await prisma.db.organization.deleteMany({ where: { id: orgId } });
-    await prisma.db.user.deleteMany({ where: { id: { in: [ownerId, targetId] } } });
+    await prisma.db.organization.deleteMany({ where: { name: { contains: marker } } });
+    await prisma.db.user.deleteMany({ where: { email: { contains: marker } } });
     await app.close();
   });
 
@@ -112,6 +116,44 @@ describe('Organization ownership transfer — Step 1 boundary', () => {
     expect(members.find((member) => member.userId === targetId)?.role).toBe(
       OrganizationMemberRole.OWNER,
     );
+    expect(members.find((member) => member.userId === ownerId)?.role).toBe(
+      OrganizationMemberRole.ADMIN,
+    );
+  });
+
+  it('serializes two simultaneous transfers so stale OWNER authority cannot succeed twice', async () => {
+    const secondTargetEmail = `target2-transfer-${marker}@example.test`;
+    const secondTarget = await request(app.getHttpServer())
+      .post('/auth/register')
+      .send({ email: secondTargetEmail, password: 'Str0ng!Passw0rd' })
+      .expect(201);
+    const secondTargetId = secondTarget.body.user.id;
+
+    const raceOrgId = await createBusiness(`E2E-OWNER-TRANSFER-RACE-${marker}`);
+    await prisma.db.organizationMember.createMany({
+      data: [
+        { organizationId: raceOrgId, userId: targetId, role: OrganizationMemberRole.MEMBER },
+        { organizationId: raceOrgId, userId: secondTargetId, role: OrganizationMemberRole.MEMBER },
+      ],
+    });
+
+    const [first, second] = await Promise.all([
+      request(app.getHttpServer())
+        .patch(`/organizations/${raceOrgId}/members/ownership/transfer`)
+        .set('Authorization', `Bearer ${ownerToken}`)
+        .send({ newOwnerUserId: targetId }),
+      request(app.getHttpServer())
+        .patch(`/organizations/${raceOrgId}/members/ownership/transfer`)
+        .set('Authorization', `Bearer ${ownerToken}`)
+        .send({ newOwnerUserId: secondTargetId }),
+    ]);
+
+    expect([first.status, second.status].sort()).toEqual([200, 403]);
+
+    const members = await prisma.db.organizationMember.findMany({
+      where: { organizationId: raceOrgId },
+    });
+    expect(members.filter((member) => member.role === OrganizationMemberRole.OWNER)).toHaveLength(1);
     expect(members.find((member) => member.userId === ownerId)?.role).toBe(
       OrganizationMemberRole.ADMIN,
     );
