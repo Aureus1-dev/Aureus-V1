@@ -108,14 +108,6 @@ export class OrganizationMembersService {
     await this.assertOrgExists(organizationId);
     await this.assertIsOrgAdminOrPrivileged(organizationId, caller);
 
-    // Granting OWNER is never an ordinary role edit (Step 1 repair): generic
-    // role editing must not double as an alternate ownership-transfer
-    // mechanism. This is unconditional — not even the current OWNER or a
-    // platform moderator may use this endpoint to create a new OWNER — so
-    // an ADMIN can never promote itself or anyone else to OWNER (§16 —
-    // privilege escalation), and an OWNER action can never accidentally
-    // leave the organization with two owners. The only path that creates a
-    // new OWNER is the explicit, atomic transferOwnership() below.
     if (dto.role === OrganizationMemberRole.OWNER) {
       throw new BadRequestException(
         'Ownership can only be granted through the explicit ownership-transfer action',
@@ -126,26 +118,21 @@ export class OrganizationMembersService {
     if (!target)
       throw new NotFoundException(`User '${userId}' is not a member of this organization`);
 
+    // OWNER is not an ordinary role in either direction. Once someone owns
+    // the company, changing that fact is a distinct ownership-transfer act,
+    // not a generic role edit. This also normalizes any legacy/malformed
+    // multi-owner state instead of letting generic role changes quietly edit it.
+    if (target.role === OrganizationMemberRole.OWNER) {
+      throw new ConflictException(
+        "Cannot change an OWNER through generic role editing — transfer ownership first",
+      );
+    }
+
     if (MANAGING_MEMBER_ROLES.includes(target.role) && !MANAGING_MEMBER_ROLES.includes(dto.role)) {
       const adminCount = await this.repo.countAdmins(organizationId);
       if (adminCount <= 1) {
         throw new ConflictException(
           "Cannot demote the organization's last remaining ADMIN representative",
-        );
-      }
-    }
-
-    // Ownership safety (Step 1 §10): distinct from — and stricter than —
-    // the ADMIN+OWNER union check above. An org with one OWNER and several
-    // ADMINs must not be able to demote that OWNER away just because
-    // ADMINs remain; ownership must move through an explicit transfer.
-    // (dto.role can never be OWNER here — the guard above already rejected
-    // that — so this fires whenever the target is currently the OWNER.)
-    if (target.role === OrganizationMemberRole.OWNER) {
-      const ownerCount = await this.repo.countOwners(organizationId);
-      if (ownerCount <= 1) {
-        throw new ConflictException(
-          "Cannot demote the organization's sole owner — transfer ownership to another member first",
         );
       }
     }
@@ -182,10 +169,6 @@ export class OrganizationMembersService {
       }
     }
 
-    // Ownership safety (Step 1 §10): applies even to self-removal — "leave
-    // only where ownership rules permit". A sole owner leaving (or being
-    // removed) would orphan the company; they must transfer ownership or
-    // use an explicitly supported dissolution process first.
     if (target.role === OrganizationMemberRole.OWNER) {
       const ownerCount = await this.repo.countOwners(organizationId);
       if (ownerCount <= 1) {
@@ -205,13 +188,17 @@ export class OrganizationMembersService {
   }
 
   /**
-   * The only path that creates a new OWNER after organization creation
-   * (Step 1 §10/§11 repair — updateRole() and add() both unconditionally
-   * refuse to grant OWNER). Promotes an existing member to OWNER and, if
-   * the caller was themselves the OWNER, demotes the caller to ADMIN in
-   * the same transaction — so a transfer can never leave the organization
-   * with zero owners, and never silently creates an unintended second one
-   * either. Restricted to the current OWNER (or a platform moderator).
+   * The only ordinary path that creates a new OWNER after organization
+   * creation. It is deliberately restricted to the organization's current
+   * OWNER: platform moderation roles do not implicitly become company
+   * ownership authority. Any future emergency ownership-recovery mechanism
+   * must be a separate governed capability, not a shortcut through this
+   * endpoint.
+   *
+   * The transaction demotes every prior OWNER before promoting the target,
+   * so even a legacy malformed multi-owner state is normalized to exactly
+   * one OWNER after a successful transfer. If promotion fails, the whole
+   * transaction rolls back and the prior owner state remains intact.
    */
   async transferOwnership(
     organizationId: string,
@@ -219,7 +206,7 @@ export class OrganizationMembersService {
     caller: AuthenticatedUser,
   ): Promise<MemberResponseDto> {
     await this.assertOrgExists(organizationId);
-    const callerMembership = await this.assertIsOwnerOrPrivileged(organizationId, caller);
+    await this.assertIsOwner(organizationId, caller);
 
     const target = await this.repo.findByOrgAndUser(organizationId, dto.newOwnerUserId);
     if (!target) {
@@ -233,24 +220,25 @@ export class OrganizationMembersService {
       );
     }
 
-    const demoteCaller = Boolean(
-      callerMembership &&
-      callerMembership.role === OrganizationMemberRole.OWNER &&
-      callerMembership.userId !== dto.newOwnerUserId,
-    );
-
     const newOwner = await this.prisma.db.$transaction(async (tx) => {
+      const priorOwners = await tx.organizationMember.findMany({
+        where: { organizationId, role: OrganizationMemberRole.OWNER },
+        select: { userId: true },
+      });
+
+      await tx.organizationMember.updateMany({
+        where: {
+          organizationId,
+          role: OrganizationMemberRole.OWNER,
+          userId: { not: dto.newOwnerUserId },
+        },
+        data: { role: OrganizationMemberRole.ADMIN },
+      });
+
       const updated = await tx.organizationMember.update({
         where: { organizationId_userId: { organizationId, userId: dto.newOwnerUserId } },
         data: { role: OrganizationMemberRole.OWNER },
       });
-
-      if (demoteCaller) {
-        await tx.organizationMember.update({
-          where: { organizationId_userId: { organizationId, userId: caller.id } },
-          data: { role: OrganizationMemberRole.ADMIN },
-        });
-      }
 
       await tx.tenantAuditEvent.create({
         data: {
@@ -262,7 +250,9 @@ export class OrganizationMembersService {
           context: {
             fromUserId: caller.id,
             toUserId: dto.newOwnerUserId,
-            callerDemotedToAdmin: demoteCaller,
+            demotedOwnerUserIds: priorOwners
+              .map((owner) => owner.userId)
+              .filter((userId) => userId !== dto.newOwnerUserId),
           },
         },
       });
@@ -297,13 +287,6 @@ export class OrganizationMembersService {
     if (!org) throw new NotFoundException(`Organization '${organizationId}' not found`);
   }
 
-  /**
-   * add() is a direct attach that bypasses the invitation lifecycle — the
-   * consent an invitee gives by accepting. Restricted to platform
-   * moderators only (Step 1 repair): an ordinary business OWNER/ADMIN,
-   * however senior, may never use it — they add people through
-   * invite()/accept() instead.
-   */
   private assertPlatformPrivileged(caller: AuthenticatedUser): void {
     if (!hasRole(caller, MODERATOR_ROLES)) {
       throw new ForbiddenException(
@@ -326,15 +309,11 @@ export class OrganizationMembersService {
     }
   }
 
-  /** Returns the caller's own membership (or null for a privileged, non-member moderator). */
-  private async assertIsOwnerOrPrivileged(
+  /** Ordinary ownership transfer always requires the actual current OWNER. */
+  private async assertIsOwner(
     organizationId: string,
     caller: AuthenticatedUser,
-  ): Promise<OrganizationMember | null> {
-    if (hasRole(caller, MODERATOR_ROLES)) {
-      return this.repo.findByOrgAndUser(organizationId, caller.id);
-    }
-
+  ): Promise<OrganizationMember> {
     const membership = await this.repo.findByOrgAndUser(organizationId, caller.id);
     if (!membership || membership.role !== OrganizationMemberRole.OWNER) {
       throw new ForbiddenException("Only the organization's current OWNER may perform this action");
