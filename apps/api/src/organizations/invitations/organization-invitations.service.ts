@@ -82,55 +82,82 @@ export class OrganizationInvitationsService {
 
     const email = dto.email.trim();
     const conflictMessage = `An invitation to '${email}' is already pending for this organization`;
+    const now = new Date();
+    const expiresAt = new Date(now.getTime() + INVITATION_TTL_DAYS * 24 * 60 * 60 * 1000);
 
-    // Fast, friendly path for the common (non-racing) case — but this
-    // check-then-create is inherently raceable on its own, so it is
-    // backed by a real database invariant below, not trusted alone
-    // (Step 1 repair #5).
-    const duplicate = await this.repo.findPendingByOrgAndEmail(organizationId, email);
-    if (duplicate) {
-      throw new ConflictException(conflictMessage);
-    }
-
-    const existingMember = await this.prisma.db.organizationMember.findFirst({
-      where: { organizationId, user: { email: { equals: email, mode: 'insensitive' } } },
-    });
-    if (existingMember) {
-      throw new ConflictException(`'${email}' is already a member of this organization`);
-    }
-
-    const expiresAt = new Date(Date.now() + INVITATION_TTL_DAYS * 24 * 60 * 60 * 1000);
     let invitation: OrganizationInvitation;
     try {
-      invitation = await this.repo.create({
-        organizationId,
-        invitedEmail: email,
-        role: dto.role ?? OrganizationMemberRole.MEMBER,
-        invitedById: caller.id,
-        expiresAt,
+      invitation = await this.prisma.db.$transaction(async (tx) => {
+        // Expiration is a property of time, not of whether the recipient has
+        // happened to open Aureus. Retire any stale PENDING invitation for
+        // this org+address inside the same transaction that creates the new
+        // one, so an untouched expired row cannot permanently block resend.
+        await tx.organizationInvitation.updateMany({
+          where: {
+            organizationId,
+            status: OrganizationInvitationStatus.PENDING,
+            expiresAt: { lt: now },
+            invitedEmail: { equals: email, mode: 'insensitive' },
+          },
+          data: { status: OrganizationInvitationStatus.EXPIRED },
+        });
+
+        // Friendly conflict before insert for the common path. The partial
+        // unique index remains the final concurrency boundary if two callers
+        // race between this read and create.
+        const duplicate = await tx.organizationInvitation.findFirst({
+          where: {
+            organizationId,
+            status: OrganizationInvitationStatus.PENDING,
+            invitedEmail: { equals: email, mode: 'insensitive' },
+          },
+          select: { id: true },
+        });
+        if (duplicate) {
+          throw new ConflictException(conflictMessage);
+        }
+
+        const existingMember = await tx.organizationMember.findFirst({
+          where: { organizationId, user: { email: { equals: email, mode: 'insensitive' } } },
+          select: { id: true },
+        });
+        if (existingMember) {
+          throw new ConflictException(`'${email}' is already a member of this organization`);
+        }
+
+        const created = await tx.organizationInvitation.create({
+          data: {
+            organizationId,
+            invitedEmail: email,
+            role: dto.role ?? OrganizationMemberRole.MEMBER,
+            invitedById: caller.id,
+            expiresAt,
+          },
+        });
+
+        await tx.tenantAuditEvent.create({
+          data: {
+            organizationId,
+            actorId: caller.id,
+            action: TenantAuditAction.MEMBER_INVITED,
+            resourceType: 'OrganizationInvitation',
+            resourceId: created.id,
+            context: { invitedEmail: email, role: created.role },
+          },
+        });
+
+        return created;
       });
     } catch (error) {
-      // The database boundary's own enforcement (a partial unique index on
-      // (organizationId, lower(invitedEmail)) WHERE status = 'PENDING') —
-      // this is what actually closes the race the pre-check above cannot,
-      // converted into the same conflict response a caller who lost the
-      // pre-check would have seen.
+      // PostgreSQL's partial unique index on
+      // (organizationId, lower(invitedEmail)) WHERE status='PENDING' is the
+      // race-proof boundary. Convert a losing concurrent insert into the
+      // same business conflict the pre-check returns.
       if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
         throw new ConflictException(conflictMessage);
       }
       throw error;
     }
-
-    await this.prisma.db.tenantAuditEvent.create({
-      data: {
-        organizationId,
-        actorId: caller.id,
-        action: TenantAuditAction.MEMBER_INVITED,
-        resourceType: 'OrganizationInvitation',
-        resourceId: invitation.id,
-        context: { invitedEmail: email, role: invitation.role },
-      },
-    });
 
     return InvitationResponseDto.fromEntity(invitation);
   }
@@ -198,10 +225,6 @@ export class OrganizationInvitationsService {
         throw new ConflictException('This invitation is no longer pending');
       }
 
-      // A person may already have been added directly while an invitation
-      // to the same address was also outstanding (§13 — simultaneous
-      // invitation/acceptance edge cases). Accepting then resolves the
-      // invitation without creating a duplicate, conflicting membership row.
       const existingMembership = await tx.organizationMember.findUnique({
         where: {
           organizationId_userId: { organizationId: invitation.organizationId, userId: caller.id },
@@ -273,9 +296,6 @@ export class OrganizationInvitationsService {
     await this.assertIsOrgAdminOrPrivileged(organizationId, caller);
 
     const invitation = await this.repo.findById(invitationId);
-    // Deliberately indistinguishable from an absent invitation when it
-    // belongs to a different organization — the same cross-tenant
-    // identifier-probing defense used by BusinessTenantMembershipGuard.
     if (!invitation || invitation.organizationId !== organizationId) {
       throw new NotFoundException(`Invitation '${invitationId}' not found`);
     }
@@ -299,8 +319,6 @@ export class OrganizationInvitationsService {
     });
   }
 
-  // ── Internal helpers ──────────────────────────────────────────────────
-
   private assertAddressedToCaller(
     invitation: OrganizationInvitation,
     caller: AuthenticatedUser,
@@ -310,12 +328,6 @@ export class OrganizationInvitationsService {
     }
   }
 
-  /**
-   * Atomically claims the PENDING → `next` transition via a conditional
-   * `updateMany` (never a plain `update`, which would overwrite regardless
-   * of the row's current status) so a concurrent or replayed request loses
-   * the race deterministically instead of double-applying a side effect.
-   */
   private async claimTransition(
     id: string,
     next: OrganizationInvitationStatus,
