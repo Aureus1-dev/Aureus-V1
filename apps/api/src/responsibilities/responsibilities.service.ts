@@ -219,6 +219,21 @@ export class ResponsibilitiesService {
     return ResponsibilityResponseDto.fromEntity(current);
   }
 
+  /**
+   * OR-004 continuation boundary. A member action can satisfy the reason we
+   * were waiting on the member even when no external route is presently
+   * available. In that case Aureus retains ownership instead of leaving the
+   * Responsibility falsely WAITING_ON_USER or terminally exhausting it.
+   */
+  async resumePersonalNeedForAureus(
+    id: string,
+    caller: AuthenticatedUser,
+  ): Promise<ResponsibilityResponseDto> {
+    await this.getOwnedPersonalNeedOrThrow(id, caller.id);
+    const current = await this.repo.resumeFromWaitingOnUser(id, caller.id);
+    return ResponsibilityResponseDto.fromEntity(current);
+  }
+
   async completePersonalNeedWithEvidence(
     id: string,
     caller: AuthenticatedUser,
