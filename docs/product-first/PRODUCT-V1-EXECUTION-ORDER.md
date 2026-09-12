@@ -267,7 +267,7 @@ Acceptance must prove:
 
 #### OR-002 — People help-to-completion
 
-**Implementation:** active on `feat/or-002-people-help-completion` from V1 main `29e402941cece696040dbbf6ae675b308a8291db`.  
+**Implementation:** merged through PR #111. Exact reviewed content head `2af8ec409c34a4992d2a000992937fcd029afac3`; resulting main `80a0e1f5083c751bc91e9830122fc01d6516dfd1`. Post-merge CI `33588099069` SUCCESS including Docker.  
 **Work order:** `docs/work-orders/OR-002-People-Help-to-Completion.md`.
 
 Cross-context continuity is governed by `OR-CCT-001 — Completion Case Transition Gate`. OR-001 does not implement this boundary. Any Business/shared → Personal/private transfer introduced in OR-002 or later must satisfy that gate before merge.
@@ -281,6 +281,9 @@ The member should begin to feel one private Steward rather than a collection of 
 Do not force an Aureus-account conversion inside a business-client experience merely for growth.
 
 #### OR-003 — Kitchen & Bath Ready Project
+
+**Implementation:** active on `feat/or-003-kitchen-bath-ready-project` from V1 main `80a0e1f5083c751bc91e9830122fc01d6516dfd1`.  
+**Work order:** `docs/work-orders/OR-003-Kitchen-Bath-Ready-Project.md`.
 
 Kitchen & Bath remains the first Business vertical.
 

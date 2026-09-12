@@ -29,6 +29,19 @@ export enum KitchenBathDecisionStatus {
   EXPLORING = 'EXPLORING',
 }
 
+export enum KitchenBathPriority {
+  LOOK_AND_FEEL = 'LOOK_AND_FEEL',
+  FUNCTION_AND_LAYOUT = 'FUNCTION_AND_LAYOUT',
+  DURABILITY = 'DURABILITY',
+  BUDGET_CONTROL = 'BUDGET_CONTROL',
+  TIMING = 'TIMING',
+  ACCESSIBILITY = 'ACCESSIBILITY',
+  LOW_MAINTENANCE = 'LOW_MAINTENANCE',
+  RESALE_VALUE = 'RESALE_VALUE',
+  ENERGY_EFFICIENCY = 'ENERGY_EFFICIENCY',
+  OTHER = 'OTHER',
+}
+
 export enum KitchenBathBudgetRange {
   UNDER_25000 = 'UNDER_25000',
   FROM_25000_TO_50000 = 'FROM_25000_TO_50000',
@@ -106,6 +119,32 @@ export class KitchenBathIntakeDto {
   @IsString()
   @MaxLength(1000)
   designNeeds?: string;
+
+  @ApiPropertyOptional({
+    type: [String],
+    enum: KitchenBathPriority,
+    maxItems: 6,
+    description:
+      'Optional customer-selected value criteria. These are transparent project priorities, never a hidden lead score.',
+  })
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(6)
+  @IsEnum(KitchenBathPriority, { each: true })
+  priorities?: KitchenBathPriority[];
+
+  @ApiPropertyOptional({ maxLength: 800 })
+  @IsOptional()
+  @IsString()
+  @MaxLength(800)
+  mustHaves?: string;
+
+  @ApiPropertyOptional({ maxLength: 800 })
+  @IsOptional()
+  @IsString()
+  @MaxLength(800)
+  concerns?: string;
+
 
   @ApiPropertyOptional({ type: [KitchenBathAttachmentReferenceDto], maxItems: 6 })
   @IsOptional()

@@ -1,5 +1,10 @@
 import { createHash } from 'node:crypto';
-import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import {
   BusinessPublicStatus,
   OrganizationStatus,
@@ -13,6 +18,10 @@ import { PrismaService } from '../prisma/prisma.service';
 import { CreateWardLeadDto } from './dto/create-ward-lead.dto';
 import { KitchenBathIntakeDto } from './dto/kitchen-bath-intake.dto';
 import { WardLeadService } from './ward-lead.service';
+import {
+  buildKitchenBathReadyProject,
+  toPublicKitchenBathReadyProject,
+} from './kitchen-bath-ready-project';
 
 @Injectable()
 export class KitchenBathPublicService {
@@ -60,31 +69,15 @@ export class KitchenBathPublicService {
     }
 
     const cleaned = this.cleanIntake(dto.kitchenBath);
-    const intakeHash = this.hash(JSON.stringify(cleaned));
-    const handoff = await this.leads.submitPublicHandoff(slug, conversationId, token, dto);
-
-    const lead = await this.prisma.db.wardLead.findFirst({
-      where: { id: handoff.handoffId, organizationId: tenant.id },
-      select: { id: true, qualificationSignals: true },
-    });
-    if (!lead) throw new NotFoundException('Handoff not found');
-
-    const current = Array.isArray(lead.qualificationSignals)
-      ? (lead.qualificationSignals as Prisma.JsonArray)
-      : [];
-    const existingHash = current.find((entry) => {
-      if (!entry || Array.isArray(entry) || typeof entry !== 'object') return false;
-      return (entry as Prisma.JsonObject).key === 'kitchen_bath_intake_hash';
-    });
-    if (existingHash && !Array.isArray(existingHash) && typeof existingHash === 'object') {
-      if ((existingHash as Prisma.JsonObject).value !== intakeHash) {
-        throw new ConflictException('This conversation already has different remodel intake details');
-      }
-      return handoff;
+    if (cleaned.rooms.length === 0 || cleaned.scope.length < 10) {
+      throw new BadRequestException(
+        'Kitchen & Bath rooms and scope must contain meaningful text',
+      );
     }
-
-    const signals = [
-      ...current,
+    const intakeHash = this.hash(
+      JSON.stringify(this.canonicalIntakeForHash(cleaned)),
+    );
+    const kitchenBathSignals = [
       ...KitchenBathVerticalService.intakeSignals(cleaned),
       {
         key: 'kitchen_bath_intake_hash',
@@ -98,29 +91,82 @@ export class KitchenBathPublicService {
               key: 'project_attachments',
               label: 'Optional project files',
               value: cleaned.attachments,
-              basis: 'Visitor supplied under handoff consent; retained with this handoff',
+              basis:
+                'Visitor supplied under handoff consent; retained with this handoff',
             },
           ]
         : []),
-    ] as Prisma.InputJsonArray;
+    ] as Prisma.InputJsonObject[];
 
-    await this.prisma.db.wardLead.updateMany({
-      where: { id: lead.id, organizationId: tenant.id },
-      data: { qualificationSignals: signals },
+    const handoffDto: CreateWardLeadDto = {
+      ...dto,
+      projectSummary: cleaned.scope,
+    };
+    const handoff = await this.leads.submitPublicHandoff(
+      slug,
+      conversationId,
+      token,
+      handoffDto,
+      {
+        qualificationSignals: kitchenBathSignals,
+        fingerprintContext: `KITCHEN_BATH:${intakeHash}`,
+      },
+    );
+
+    const lead = await this.prisma.db.wardLead.findFirst({
+      where: { id: handoff.handoffId, organizationId: tenant.id },
+      select: {
+        id: true,
+        projectLocation: true,
+        desiredTiming: true,
+        consentVersion: true,
+        submittedAt: true,
+        retentionExpiresAt: true,
+        qualificationSignals: true,
+      },
     });
-    return handoff;
+    if (!lead) throw new NotFoundException('Handoff not found');
+
+    return {
+      ...handoff,
+      readyProject: toPublicKitchenBathReadyProject(
+        buildKitchenBathReadyProject(lead),
+      ),
+    };
   }
 
   private cleanIntake(intake: KitchenBathIntakeDto) {
+    const rooms = [
+      ...new Set(
+        intake.rooms
+          .map((room) => sanitizePlainText(room).slice(0, 80))
+          .filter(Boolean),
+      ),
+    ];
+    const scope = sanitizePlainText(intake.scope).slice(0, 1500);
+    const designNeeds = intake.designNeeds
+      ? sanitizePlainText(intake.designNeeds).slice(0, 1000)
+      : '';
+    const priorities = intake.priorities?.length
+      ? [...new Set(intake.priorities)].slice(0, 6)
+      : [];
+    const mustHaves = intake.mustHaves
+      ? sanitizePlainText(intake.mustHaves).slice(0, 800)
+      : '';
+    const concerns = intake.concerns
+      ? sanitizePlainText(intake.concerns).slice(0, 800)
+      : '';
+
     return {
       projectType: intake.projectType,
-      rooms: intake.rooms.map((room) => sanitizePlainText(room).slice(0, 80)).filter(Boolean),
-      scope: sanitizePlainText(intake.scope).slice(0, 1500),
+      rooms,
+      scope,
       ...(intake.decisionStatus && { decisionStatus: intake.decisionStatus }),
       ...(intake.budgetRange && { budgetRange: intake.budgetRange }),
-      ...(intake.designNeeds && {
-        designNeeds: sanitizePlainText(intake.designNeeds).slice(0, 1000),
-      }),
+      ...(designNeeds && { designNeeds }),
+      ...(priorities.length ? { priorities } : {}),
+      ...(mustHaves && { mustHaves }),
+      ...(concerns && { concerns }),
       ...(intake.attachments?.length
         ? {
             attachments: intake.attachments.map((file) => ({
@@ -129,6 +175,25 @@ export class KitchenBathPublicService {
               sizeBytes: file.sizeBytes,
               storageRef: sanitizePlainText(file.storageRef).slice(0, 1000),
             })),
+          }
+        : {}),
+    };
+  }
+
+  private canonicalIntakeForHash(
+    intake: ReturnType<KitchenBathPublicService['cleanIntake']>,
+  ) {
+    return {
+      ...intake,
+      rooms: [...intake.rooms].sort((left, right) => left.localeCompare(right)),
+      ...(intake.priorities
+        ? { priorities: [...intake.priorities].sort() }
+        : {}),
+      ...(intake.attachments
+        ? {
+            attachments: [...intake.attachments].sort((left, right) =>
+              JSON.stringify(left).localeCompare(JSON.stringify(right)),
+            ),
           }
         : {}),
     };

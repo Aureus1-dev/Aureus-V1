@@ -185,6 +185,100 @@ describe('WardLeadService', () => {
     expect(result.confirmation).toContain('shared with Example Kitchens');
   });
 
+  it('persists server-owned vertical signals atomically and binds them into the duplicate fingerprint', async () => {
+    const serverContext = {
+      qualificationSignals: [
+        {
+          key: 'vertical',
+          label: 'Vertical',
+          value: 'KITCHEN_BATH',
+          basis: 'Approved tenant pack',
+        },
+        {
+          key: 'kitchen_bath_intake_hash',
+          label: 'Remodel intake integrity',
+          value: 'f'.repeat(64),
+          basis: 'System SHA-256',
+        },
+      ],
+      fingerprintContext: `KITCHEN_BATH:${'f'.repeat(64)}`,
+    };
+
+    await service.submitPublicHandoff(
+      'example-kitchens',
+      CONVERSATION_ID,
+      TOKEN,
+      dto,
+      serverContext,
+    );
+
+    const created = await db.wardLead.create.mock.results[0].value;
+    expect(created.qualificationSignals).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ key: 'contact_method', value: 'EMAIL' }),
+        expect.objectContaining({ key: 'vertical', value: 'KITCHEN_BATH' }),
+        expect.objectContaining({
+          key: 'kitchen_bath_intake_hash',
+          value: 'f'.repeat(64),
+        }),
+      ]),
+    );
+
+    db.wardLead.findUnique.mockResolvedValue(created);
+
+    await expect(
+      service.submitPublicHandoff(
+        'example-kitchens',
+        CONVERSATION_ID,
+        TOKEN,
+        dto,
+        {
+          ...serverContext,
+          fingerprintContext: `KITCHEN_BATH:${'e'.repeat(64)}`,
+        },
+      ),
+    ).rejects.toThrow(ConflictException);
+
+    expect(db.wardLead.create).toHaveBeenCalledTimes(1);
+    expect(notifications.notify).toHaveBeenCalledTimes(1);
+  });
+
+  it('returns the same atomically enriched handoff for an identical server-context retry', async () => {
+    const serverContext = {
+      qualificationSignals: [
+        {
+          key: 'vertical',
+          label: 'Vertical',
+          value: 'KITCHEN_BATH',
+          basis: 'Approved tenant pack',
+        },
+      ],
+      fingerprintContext: `KITCHEN_BATH:${'f'.repeat(64)}`,
+    };
+
+    const first = await service.submitPublicHandoff(
+      'example-kitchens',
+      CONVERSATION_ID,
+      TOKEN,
+      dto,
+      serverContext,
+    );
+    const created = await db.wardLead.create.mock.results[0].value;
+    db.wardLead.findUnique.mockResolvedValue(created);
+
+    const retry = await service.submitPublicHandoff(
+      'example-kitchens',
+      CONVERSATION_ID,
+      TOKEN,
+      dto,
+      serverContext,
+    );
+
+    expect(retry.handoffId).toBe(first.handoffId);
+    expect(db.wardLead.create).toHaveBeenCalledTimes(1);
+    expect(notifications.notify).toHaveBeenCalledTimes(1);
+  });
+
   it('rejects missing consent in the service boundary before reading tenant data', async () => {
     await expect(
       service.submitPublicHandoff('example-kitchens', CONVERSATION_ID, TOKEN, {
@@ -273,6 +367,95 @@ describe('WardLeadService', () => {
       NotFoundException,
     );
     expect(db.wardLead.findMany).not.toHaveBeenCalled();
+  });
+
+  it('conceals a Ready Project from a caller outside the tenant', async () => {
+    db.organization.findFirst.mockResolvedValue({ ...tenant, members: [] });
+    const caller: AuthenticatedUser = {
+      id: CALLER_ID,
+      email: 'outsider@example.com',
+      roles: [UserRole.MEMBER],
+    };
+
+    await expect(
+      service.getBusinessLead(TENANT_ID, LEAD_ID, caller),
+    ).rejects.toThrow(NotFoundException);
+
+    expect(db.wardLead.findFirst).not.toHaveBeenCalled();
+  });
+
+  it('returns a distilled Ready Project to an authorized tenant before raw conversation evidence', async () => {
+    db.organization.findFirst.mockResolvedValue({
+      ...tenant,
+      members: [{ role: OrganizationMemberRole.MANAGER, userId: CALLER_ID }],
+    });
+    db.wardLead.findFirst.mockResolvedValue({
+      ...lead,
+      qualificationSignals: [
+        { key: 'vertical', value: 'KITCHEN_BATH', basis: 'Approved tenant pack' },
+        { key: 'project_type', value: 'KITCHEN', basis: 'Visitor supplied' },
+        { key: 'rooms', value: ['kitchen'], basis: 'Visitor supplied' },
+        {
+          key: 'scope',
+          value: 'Plan a complete kitchen remodel.',
+          basis: 'Visitor supplied',
+        },
+        {
+          key: 'priorities',
+          value: ['FUNCTION_AND_LAYOUT'],
+          basis: 'Visitor supplied; optional; no scoring',
+        },
+        {
+          key: 'kitchen_bath_intake_hash',
+          value: 'd'.repeat(64),
+          basis: 'System SHA-256',
+        },
+        { key: 'conversation_turns', value: '2', basis: 'System count' },
+      ],
+      assignee: {
+        role: OrganizationMemberRole.OWNER,
+        user: {
+          id: ASSIGNEE_ID,
+          email: 'owner@example.com',
+          profile: { displayName: 'Owner' },
+        },
+      },
+      events: [],
+      conversation: {
+        id: CONVERSATION_ID,
+        status: WardConversationStatus.ESCALATED,
+        turnCount: 2,
+        createdAt: NOW,
+        messages: [
+          {
+            id: '77777777-7777-4777-8777-777777777777',
+            role: 'VISITOR',
+            content: 'I want a better kitchen layout.',
+            responseKind: null,
+            createdAt: NOW,
+            sources: [],
+          },
+        ],
+      },
+    });
+    const caller: AuthenticatedUser = {
+      id: CALLER_ID,
+      email: 'manager@example.com',
+      roles: [UserRole.MEMBER],
+    };
+
+    const result = await service.getBusinessLead(TENANT_ID, LEAD_ID, caller);
+
+    expect(result.readyProject).toMatchObject({
+      readinessStatus: 'READY_FOR_EXPERT_REVIEW',
+      customerIntent: {
+        projectType: 'KITCHEN',
+        priorities: ['FUNCTION_AND_LAYOUT'],
+      },
+      source: { modelInferencesIncluded: false },
+    });
+    expect(result).not.toHaveProperty('submissionFingerprint');
+    expect(result.conversation?.messages).toHaveLength(1);
   });
 
   it('requires a factual reason for a terminal human outcome', async () => {
