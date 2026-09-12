@@ -60,6 +60,7 @@ function makeProject(
       'Ready for expert review does not mean quote-ready.',
     ],
     missingRequiredSource: [],
+    sourceNotices: [],
     ...overrides,
   };
 }
@@ -99,7 +100,7 @@ describe('KitchenBathReadyProjectCard', () => {
     expect(screen.getByText(/Not assessed yet/i)).toBeInTheDocument();
   });
 
-  it('fails visibly closed when retained source is incomplete', () => {
+  it('fails visibly closed with customer-safe labels when retained source is incomplete', () => {
     render(
       <KitchenBathReadyProjectCard
         project={makeProject({
@@ -112,7 +113,7 @@ describe('KitchenBathReadyProjectCard', () => {
             mustHaves: null,
             concerns: null,
           },
-          missingRequiredSource: ['rooms', 'scope'],
+          missingRequiredSource: ['rooms', 'project handoff verification'],
         })}
       />,
     );
@@ -120,8 +121,26 @@ describe('KitchenBathReadyProjectCard', () => {
     expect(
       screen.getByText(/Aureus found incomplete project source data/i),
     ).toBeInTheDocument();
+    expect(screen.getByText(/Missing project information/i)).toBeInTheDocument();
+    expect(screen.queryByText(/intakeHash/i)).not.toBeInTheDocument();
     expect(
       screen.getByText(/Aureus did not guess the missing facts/i),
+    ).toBeInTheDocument();
+  });
+
+  it('surfaces safe source notices instead of silently dropping file metadata', () => {
+    render(
+      <KitchenBathReadyProjectCard
+        project={makeProject({
+          sourceNotices: [
+            '1 attached file was omitted from this Ready Project because the retained file metadata was invalid.',
+          ],
+        })}
+      />,
+    );
+
+    expect(
+      screen.getByText(/1 attached file was omitted from this Ready Project/i),
     ).toBeInTheDocument();
   });
 });
