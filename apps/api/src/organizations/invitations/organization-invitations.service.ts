@@ -44,17 +44,6 @@ const MANAGING_MEMBER_ROLES: OrganizationMemberRole[] = [
   OrganizationMemberRole.ADMIN,
 ];
 
-/**
- * Step 1 — Business Identity & Boundary §8: the full invitation lifecycle.
- *
- * An invitation is address-bound, not identity-bound, and never itself
- * grants access — only an explicit, email-matched acceptance creates an
- * OrganizationMember row. Every state transition (accept/decline/revoke) is
- * claimed with a conditional `updateMany` guarded on the invitation's
- * current status, so a replay (double-accept, accept-after-revoke,
- * concurrent accept) is rejected by the database itself rather than by an
- * earlier, racy read-then-write check in application code.
- */
 @Injectable()
 export class OrganizationInvitationsService {
   constructor(
@@ -85,79 +74,114 @@ export class OrganizationInvitationsService {
     const now = new Date();
     const expiresAt = new Date(now.getTime() + INVITATION_TTL_DAYS * 24 * 60 * 60 * 1000);
 
-    let invitation: OrganizationInvitation;
-    try {
-      invitation = await this.prisma.db.$transaction(async (tx) => {
-        // Expiration is a property of time, not of whether the recipient has
-        // happened to open Aureus. Retire any stale PENDING invitation for
-        // this org+address inside the same transaction that creates the new
-        // one, so an untouched expired row cannot permanently block resend.
-        await tx.organizationInvitation.updateMany({
-          where: {
-            organizationId,
-            status: OrganizationInvitationStatus.PENDING,
-            expiresAt: { lt: now },
-            invitedEmail: { equals: email, mode: 'insensitive' },
-          },
-          data: { status: OrganizationInvitationStatus.EXPIRED },
-        });
+    const duplicate = await this.repo.findPendingByOrgAndEmail(organizationId, email);
+    if (duplicate && duplicate.expiresAt.getTime() >= now.getTime()) {
+      throw new ConflictException(conflictMessage);
+    }
 
-        // Friendly conflict before insert for the common path. The partial
-        // unique index remains the final concurrency boundary if two callers
-        // race between this read and create.
-        const duplicate = await tx.organizationInvitation.findFirst({
-          where: {
-            organizationId,
-            status: OrganizationInvitationStatus.PENDING,
-            invitedEmail: { equals: email, mode: 'insensitive' },
-          },
-          select: { id: true },
+    // An untouched invitation can still be status=PENDING after its TTL has
+    // elapsed. Re-inviting must not depend on the recipient first opening
+    // Aureus. Retire that stale row and create the replacement atomically.
+    if (duplicate) {
+      let invitation: OrganizationInvitation;
+      try {
+        invitation = await this.prisma.db.$transaction(async (tx) => {
+          await tx.organizationInvitation.updateMany({
+            where: {
+              id: duplicate.id,
+              organizationId,
+              status: OrganizationInvitationStatus.PENDING,
+              expiresAt: { lt: now },
+            },
+            data: { status: OrganizationInvitationStatus.EXPIRED },
+          });
+
+          // If another resend transaction won while this one waited on the
+          // stale row, observe its fresh PENDING invitation and lose cleanly.
+          const active = await tx.organizationInvitation.findFirst({
+            where: {
+              organizationId,
+              status: OrganizationInvitationStatus.PENDING,
+              invitedEmail: { equals: email, mode: 'insensitive' },
+            },
+            select: { id: true },
+          });
+          if (active) throw new ConflictException(conflictMessage);
+
+          const existingMember = await tx.organizationMember.findFirst({
+            where: { organizationId, user: { email: { equals: email, mode: 'insensitive' } } },
+            select: { id: true },
+          });
+          if (existingMember) {
+            throw new ConflictException(`'${email}' is already a member of this organization`);
+          }
+
+          const created = await tx.organizationInvitation.create({
+            data: {
+              organizationId,
+              invitedEmail: email,
+              role: dto.role ?? OrganizationMemberRole.MEMBER,
+              invitedById: caller.id,
+              expiresAt,
+            },
+          });
+
+          await tx.tenantAuditEvent.create({
+            data: {
+              organizationId,
+              actorId: caller.id,
+              action: TenantAuditAction.MEMBER_INVITED,
+              resourceType: 'OrganizationInvitation',
+              resourceId: created.id,
+              context: { invitedEmail: email, role: created.role },
+            },
+          });
+          return created;
         });
-        if (duplicate) {
+      } catch (error) {
+        if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
           throw new ConflictException(conflictMessage);
         }
+        throw error;
+      }
+      return InvitationResponseDto.fromEntity(invitation);
+    }
 
-        const existingMember = await tx.organizationMember.findFirst({
-          where: { organizationId, user: { email: { equals: email, mode: 'insensitive' } } },
-          select: { id: true },
-        });
-        if (existingMember) {
-          throw new ConflictException(`'${email}' is already a member of this organization`);
-        }
+    // Normal invite path stays on the established repository abstraction.
+    // The PostgreSQL partial unique index remains the final race boundary.
+    const existingMember = await this.prisma.db.organizationMember.findFirst({
+      where: { organizationId, user: { email: { equals: email, mode: 'insensitive' } } },
+    });
+    if (existingMember) {
+      throw new ConflictException(`'${email}' is already a member of this organization`);
+    }
 
-        const created = await tx.organizationInvitation.create({
-          data: {
-            organizationId,
-            invitedEmail: email,
-            role: dto.role ?? OrganizationMemberRole.MEMBER,
-            invitedById: caller.id,
-            expiresAt,
-          },
-        });
-
-        await tx.tenantAuditEvent.create({
-          data: {
-            organizationId,
-            actorId: caller.id,
-            action: TenantAuditAction.MEMBER_INVITED,
-            resourceType: 'OrganizationInvitation',
-            resourceId: created.id,
-            context: { invitedEmail: email, role: created.role },
-          },
-        });
-
-        return created;
+    let invitation: OrganizationInvitation;
+    try {
+      invitation = await this.repo.create({
+        organizationId,
+        invitedEmail: email,
+        role: dto.role ?? OrganizationMemberRole.MEMBER,
+        invitedById: caller.id,
+        expiresAt,
       });
     } catch (error) {
-      // PostgreSQL's partial unique index on
-      // (organizationId, lower(invitedEmail)) WHERE status='PENDING' is the
-      // race-proof boundary. Convert a losing concurrent insert into the
-      // same business conflict the pre-check returns.
       if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
         throw new ConflictException(conflictMessage);
       }
       throw error;
     }
+
+    await this.prisma.db.tenantAuditEvent.create({
+      data: {
+        organizationId,
+        actorId: caller.id,
+        action: TenantAuditAction.MEMBER_INVITED,
+        resourceType: 'OrganizationInvitation',
+        resourceId: invitation.id,
+        context: { invitedEmail: email, role: invitation.role },
+      },
+    });
 
     return InvitationResponseDto.fromEntity(invitation);
   }
@@ -173,7 +197,6 @@ export class OrganizationInvitationsService {
     return invitations.map((i) => InvitationResponseDto.fromEntity(i));
   }
 
-  /** Every invitation currently addressed to the caller's own account email. */
   async listMine(caller: AuthenticatedUser): Promise<InvitationResponseDto[]> {
     const pending = await this.repo.findPendingByEmail(caller.email);
     const active: OrganizationInvitation[] = [];
