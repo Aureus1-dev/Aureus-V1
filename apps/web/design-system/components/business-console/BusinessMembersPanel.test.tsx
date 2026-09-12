@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { getBusinessConsole } from '../../../lib/api/business-console';
 import {
@@ -84,6 +84,17 @@ describe('BusinessMembersPanel', () => {
     expect(await screen.findByText('owner-1')).toBeInTheDocument();
     expect(screen.getAllByText('employee-1').length).toBeGreaterThan(0);
     expect(screen.getAllByText('OWNER')).not.toHaveLength(0);
+  });
+
+  it('keeps ownership out of generic role editing', async () => {
+    setup();
+    render(<BusinessMembersPanel />);
+    await screen.findByText('owner-1');
+
+    expect(screen.queryByLabelText('Change role for owner-1')).not.toBeInTheDocument();
+    const employeeRole = screen.getByLabelText('Change role for employee-1');
+    expect(within(employeeRole).queryByRole('option', { name: 'OWNER' })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Transfer ownership/ })).toBeInTheDocument();
   });
 
   it('lets a manager invite a member by email', async () => {
