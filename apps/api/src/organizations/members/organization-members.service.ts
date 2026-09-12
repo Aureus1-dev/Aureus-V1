@@ -7,7 +7,6 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { OrganizationMemberRole, Prisma, TenantAuditAction, UserRole } from '@prisma/client';
-import type { OrganizationMember } from '@prisma/client';
 import { AuthenticatedUser } from '../../auth/strategies/jwt.strategy';
 import { hasRole } from '../../auth/utils/has-role.util';
 import { PrismaService } from '../../prisma/prisma.service';
@@ -42,14 +41,6 @@ export class OrganizationMembersService {
     private readonly prisma: PrismaService,
   ) {}
 
-  /**
-   * Direct attach, bypassing the invitation lifecycle entirely. Reserved for
-   * platform moderation/compatibility use — an ordinary business OWNER or
-   * ADMIN can no longer reach this (Step 1 repair): normal membership
-   * growth goes through invite() → accept() instead, which is the only
-   * path that requires the invitee's own consent. This endpoint can never
-   * be used to create an OWNER, moderator or not — see transferOwnership().
-   */
   async add(
     organizationId: string,
     dto: AddMemberDto,
@@ -118,10 +109,6 @@ export class OrganizationMembersService {
     if (!target)
       throw new NotFoundException(`User '${userId}' is not a member of this organization`);
 
-    // OWNER is not an ordinary role in either direction. Once someone owns
-    // the company, changing that fact is a distinct ownership-transfer act,
-    // not a generic role edit. This also normalizes any legacy/malformed
-    // multi-owner state instead of letting generic role changes quietly edit it.
     if (target.role === OrganizationMemberRole.OWNER) {
       throw new ConflictException(
         "Cannot change an OWNER through generic role editing — transfer ownership first",
@@ -189,16 +176,10 @@ export class OrganizationMembersService {
 
   /**
    * The only ordinary path that creates a new OWNER after organization
-   * creation. It is deliberately restricted to the organization's current
-   * OWNER: platform moderation roles do not implicitly become company
-   * ownership authority. Any future emergency ownership-recovery mechanism
-   * must be a separate governed capability, not a shortcut through this
-   * endpoint.
-   *
-   * The transaction demotes every prior OWNER before promoting the target,
-   * so even a legacy malformed multi-owner state is normalized to exactly
-   * one OWNER after a successful transfer. If promotion fails, the whole
-   * transaction rolls back and the prior owner state remains intact.
+   * creation. Platform moderation roles do not implicitly become company
+   * ownership authority. The organization row is locked first so concurrent
+   * transfer attempts serialize; OWNER authority is then re-read inside the
+   * same transaction, after the lock, before any ownership mutation occurs.
    */
   async transferOwnership(
     organizationId: string,
@@ -206,21 +187,38 @@ export class OrganizationMembersService {
     caller: AuthenticatedUser,
   ): Promise<MemberResponseDto> {
     await this.assertOrgExists(organizationId);
-    await this.assertIsOwner(organizationId, caller);
-
-    const target = await this.repo.findByOrgAndUser(organizationId, dto.newOwnerUserId);
-    if (!target) {
-      throw new NotFoundException(
-        `User '${dto.newOwnerUserId}' is not a member of this organization`,
-      );
-    }
-    if (target.role === OrganizationMemberRole.OWNER) {
-      throw new ConflictException(
-        `User '${dto.newOwnerUserId}' is already an OWNER of this organization`,
-      );
-    }
 
     const newOwner = await this.prisma.db.$transaction(async (tx) => {
+      // Serialize every ownership transfer for this company. A second request
+      // waits here; after the first commits it re-checks the caller's current
+      // membership and therefore cannot act using stale OWNER authority.
+      await tx.$queryRaw(
+        Prisma.sql`SELECT "id" FROM "Organization" WHERE "id" = CAST(${organizationId} AS uuid) FOR UPDATE`,
+      );
+
+      const callerMembership = await tx.organizationMember.findUnique({
+        where: { organizationId_userId: { organizationId, userId: caller.id } },
+      });
+      if (!callerMembership || callerMembership.role !== OrganizationMemberRole.OWNER) {
+        throw new ForbiddenException("Only the organization's current OWNER may perform this action");
+      }
+
+      const target = await tx.organizationMember.findUnique({
+        where: {
+          organizationId_userId: { organizationId, userId: dto.newOwnerUserId },
+        },
+      });
+      if (!target) {
+        throw new NotFoundException(
+          `User '${dto.newOwnerUserId}' is not a member of this organization`,
+        );
+      }
+      if (target.role === OrganizationMemberRole.OWNER) {
+        throw new ConflictException(
+          `User '${dto.newOwnerUserId}' is already an OWNER of this organization`,
+        );
+      }
+
       const priorOwners = await tx.organizationMember.findMany({
         where: { organizationId, role: OrganizationMemberRole.OWNER },
         select: { userId: true },
@@ -307,17 +305,5 @@ export class OrganizationMembersService {
         "You do not have permission to manage this organization's members",
       );
     }
-  }
-
-  /** Ordinary ownership transfer always requires the actual current OWNER. */
-  private async assertIsOwner(
-    organizationId: string,
-    caller: AuthenticatedUser,
-  ): Promise<OrganizationMember> {
-    const membership = await this.repo.findByOrgAndUser(organizationId, caller.id);
-    if (!membership || membership.role !== OrganizationMemberRole.OWNER) {
-      throw new ForbiddenException("Only the organization's current OWNER may perform this action");
-    }
-    return membership;
   }
 }
