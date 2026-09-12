@@ -63,10 +63,13 @@ describe('buildKitchenBathReadyProject', () => {
         basis: 'CONSENTED_WARD_HANDOFF',
         modelInferencesIncluded: false,
       },
+      sourceNotices: [],
     });
 
     expect(project?.source.intakeIntegrity).toBe('SYSTEM_HASH_PRESENT');
     expect(project?.source.conversationTurns).toBe(4);
+    expect(project?.source.submittedAt).toBe('2026-09-02T00:00:00.000Z');
+    expect(project?.source.retentionExpiresAt).toBe('2026-12-01T00:00:00.000Z');
     expect(project?.constraints.attachments).toEqual([
       {
         fileName: 'existing-kitchen.jpg',
@@ -76,6 +79,18 @@ describe('buildKitchenBathReadyProject', () => {
     ]);
     expect(JSON.stringify(project)).not.toContain('storageRef');
     expect(JSON.stringify(project)).not.toContain('opaque://internal/storage/reference');
+  });
+
+  it('normalizes wire timestamps to ISO strings even when retained source is already serialized', () => {
+    const project = buildKitchenBathReadyProject({
+      ...BASE,
+      submittedAt: '2026-09-02T00:00:00Z',
+      retentionExpiresAt: '2026-12-01T00:00:00Z',
+      qualificationSignals: signals(),
+    })!;
+
+    expect(project.source.submittedAt).toBe('2026-09-02T00:00:00.000Z');
+    expect(project.source.retentionExpiresAt).toBe('2026-12-01T00:00:00.000Z');
   });
 
   it('keeps price, fit, and trust honest instead of inventing certainty', () => {
@@ -160,7 +175,7 @@ describe('buildKitchenBathReadyProject', () => {
     ).toBe('OPEN');
   });
 
-  it('drops malformed attachment metadata rather than exposing it', () => {
+  it('drops malformed attachment metadata safely and reports the omission', () => {
     const project = buildKitchenBathReadyProject({
       ...BASE,
       qualificationSignals: signals({
@@ -188,6 +203,9 @@ describe('buildKitchenBathReadyProject', () => {
         sizeBytes: 100,
       },
     ]);
+    expect(project.sourceNotices).toEqual([
+      '1 attached file was omitted from this Ready Project because the retained file metadata was invalid.',
+    ]);
     expect(JSON.stringify(project)).not.toContain('opaque://');
   });
 
@@ -202,13 +220,30 @@ describe('buildKitchenBathReadyProject', () => {
     ).toBeNull();
   });
 
-  it('removes back-office barrier and provenance machinery from the public projection', () => {
+  it('uses an explicit public allow-list and translates internal missing-source keys', () => {
     const full = buildKitchenBathReadyProject({
       ...BASE,
-      qualificationSignals: signals(),
+      qualificationSignals: signals({
+        rooms: [],
+        kitchen_bath_intake_hash: undefined,
+      }),
     })!;
     const publicProject = toPublicKitchenBathReadyProject(full)!;
 
+    expect(Object.keys(publicProject).sort()).toEqual(
+      [
+        'boundaries',
+        'constraints',
+        'contractVersion',
+        'customerIntent',
+        'expertValidationRequired',
+        'missingRequiredSource',
+        'readinessStatus',
+        'source',
+        'sourceNotices',
+        'vertical',
+      ].sort(),
+    );
     expect(publicProject).not.toHaveProperty('leadId');
     expect(publicProject).not.toHaveProperty('transactionBarriers');
     expect(publicProject.source).toEqual({
@@ -218,6 +253,10 @@ describe('buildKitchenBathReadyProject', () => {
     expect(publicProject).not.toHaveProperty('source.consentVersion');
     expect(publicProject).not.toHaveProperty('source.intakeIntegrity');
     expect(publicProject).not.toHaveProperty('source.conversationTurns');
+    expect(publicProject.missingRequiredSource).toEqual(
+      expect.arrayContaining(['rooms', 'project handoff verification']),
+    );
+    expect(publicProject.missingRequiredSource).not.toContain('intakeHash');
     expect(JSON.stringify(publicProject)).not.toContain('storageRef');
   });
 
