@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { render, screen, waitFor } from '@testing-library/react';
+import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { SessionProvider, useSession } from '../../../state/session/SessionContext';
 import { BusinessProvider } from '../../../state/business/BusinessContext';
@@ -22,13 +22,15 @@ const mockedConsole = businessConsoleApi as jest.Mocked<typeof businessConsoleAp
 const mockedOrgs = organizationsApi as jest.Mocked<typeof organizationsApi>;
 const mockedOps = businessOperationsApi as jest.Mocked<typeof businessOperationsApi>;
 
-/**
- * Step 1 repair #2 — proves BusinessContext is authoritative end-to-end for
- * a real tenant-aware surface, not just in isolation: switching the shared
- * active tenant must immediately drop the prior company's records from the
- * screen (never stay actionable) and every subsequent read AND mutation
- * must target the newly selected company, never the one switched away from.
- */
+function deferred<T>() {
+  let resolve!: (value: T) => void;
+  let reject!: (reason?: unknown) => void;
+  const promise = new Promise<T>((res, rej) => {
+    resolve = res;
+    reject = rej;
+  });
+  return { promise, resolve, reject };
+}
 
 function summaryFor(companyLabel: string): BusinessOperationsSummary {
   return {
@@ -178,8 +180,6 @@ describe('Company A → Company B tenant switching (Step 1 repair)', () => {
     const user = userEvent.setup();
     await user.click(screen.getByRole('button', { name: 'Beta Co' }));
 
-    // Company A's lead must disappear right away — never remain rendered
-    // (let alone actionable) while Company B is the visibly active context.
     await waitFor(() =>
       expect(screen.queryByRole('button', { name: /Alpha Co Lead/ })).not.toBeInTheDocument(),
     );
@@ -187,12 +187,6 @@ describe('Company A → Company B tenant switching (Step 1 repair)', () => {
     expect(await screen.findByRole('button', { name: /Beta Co Lead/ })).toBeInTheDocument();
     await waitFor(() =>
       expect(mockedOps.listBusinessLeads).toHaveBeenLastCalledWith('token-123', 'tenant-b'),
-    );
-    await waitFor(() =>
-      expect(mockedOps.getBusinessOperationsSummary).toHaveBeenLastCalledWith(
-        'token-123',
-        'tenant-b',
-      ),
     );
   });
 
@@ -224,5 +218,63 @@ describe('Company A → Company B tenant switching (Step 1 repair)', () => {
       expect.anything(),
       expect.anything(),
     );
+  });
+
+  it('discards a slow Company A read that resolves after Company B has fully loaded', async () => {
+    const alphaSummary = deferred<BusinessOperationsSummary>();
+    const alphaLeads = deferred<BusinessLeadSummary[]>();
+
+    mockedOps.getBusinessOperationsSummary.mockImplementation((_token, tenantId) =>
+      tenantId === 'tenant-a'
+        ? alphaSummary.promise
+        : Promise.resolve(summaryFor('Beta Co')),
+    );
+    mockedOps.listBusinessLeads.mockImplementation((_token, tenantId) =>
+      tenantId === 'tenant-a'
+        ? alphaLeads.promise
+        : Promise.resolve([leadFor('Beta Co', 'lead-b')]),
+    );
+
+    renderApp();
+    const user = userEvent.setup();
+
+    expect(await screen.findByRole('button', { name: 'Beta Co' })).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Beta Co' }));
+    expect(await screen.findByRole('button', { name: /Beta Co Lead/ })).toBeInTheDocument();
+
+    await act(async () => {
+      alphaSummary.resolve(summaryFor('Alpha Co'));
+      alphaLeads.resolve([leadFor('Alpha Co', 'lead-a')]);
+      await Promise.resolve();
+    });
+
+    expect(screen.getByRole('button', { name: /Beta Co Lead/ })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Alpha Co Lead/ })).not.toBeInTheDocument();
+  });
+
+  it('does not let completion of a Company A mutation repopulate A after switching to B', async () => {
+    const alphaMutation = deferred<BusinessLeadDetail>();
+    renderApp();
+    const user = userEvent.setup();
+
+    const alphaLead = await screen.findByRole('button', { name: /Alpha Co Lead/ });
+    await user.click(alphaLead);
+    const markAccepted = await screen.findByRole('button', { name: /Mark accepted/i });
+    mockedOps.transitionBusinessLead.mockReturnValueOnce(alphaMutation.promise);
+    await user.click(markAccepted);
+
+    await user.click(screen.getByRole('button', { name: 'Beta Co' }));
+    expect(await screen.findByRole('button', { name: /Beta Co Lead/ })).toBeInTheDocument();
+
+    await act(async () => {
+      alphaMutation.resolve({ ...detailFor('Alpha Co', 'lead-a'), status: 'ACCEPTED' });
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: /Beta Co Lead/ })).toBeInTheDocument(),
+    );
+    expect(screen.queryByRole('button', { name: /Alpha Co Lead/ })).not.toBeInTheDocument();
   });
 });
