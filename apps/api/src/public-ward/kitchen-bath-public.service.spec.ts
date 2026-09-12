@@ -172,6 +172,49 @@ describe('KitchenBathPublicService', () => {
     expect(result.readyProject).not.toHaveProperty('source.consentVersion');
   });
 
+  it('uses the same fingerprint for semantically identical reordered rooms and priorities', async () => {
+    const { service, leads } = fixture(true);
+    const first = {
+      ...baseDto,
+      kitchenBath: {
+        ...baseDto.kitchenBath,
+        rooms: ['kitchen', 'primary bathroom'],
+        priorities: ['FUNCTION_AND_LAYOUT', 'DURABILITY'],
+      },
+    };
+    const second = {
+      ...baseDto,
+      kitchenBath: {
+        ...baseDto.kitchenBath,
+        rooms: ['primary bathroom', 'kitchen'],
+        priorities: ['DURABILITY', 'FUNCTION_AND_LAYOUT'],
+      },
+    };
+
+    await service.submit('shop', 'conversation', 'x'.repeat(48), first);
+    await service.submit('shop', 'conversation', 'x'.repeat(48), second);
+
+    const firstContext = leads.submitPublicHandoff.mock.calls[0][4];
+    const secondContext = leads.submitPublicHandoff.mock.calls[1][4];
+    expect(firstContext.fingerprintContext).toBe(secondContext.fingerprintContext);
+    expect(firstContext.qualificationSignals).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          key: 'rooms',
+          value: ['kitchen', 'primary bathroom'],
+        }),
+      ]),
+    );
+    expect(secondContext.qualificationSignals).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          key: 'rooms',
+          value: ['primary bathroom', 'kitchen'],
+        }),
+      ]),
+    );
+  });
+
   it('uses the sanitized Kitchen & Bath scope as the canonical generic handoff summary', async () => {
     const { service, leads } = fixture(true);
 
@@ -232,6 +275,34 @@ describe('KitchenBathPublicService', () => {
       ]),
     );
     expect(JSON.stringify(result.readyProject)).not.toMatch(/<script>|<b>/i);
+  });
+
+  it('omits optional fields that sanitize to empty from the fingerprinted intake', async () => {
+    const { service, leads } = fixture(true);
+
+    await service.submit(
+      'shop',
+      'conversation',
+      'x'.repeat(48),
+      {
+        ...baseDto,
+        kitchenBath: {
+          ...baseDto.kitchenBath,
+          designNeeds: '<script></script>',
+          mustHaves: '<b></b>',
+          concerns: '<i></i>',
+        },
+      },
+    );
+
+    const signals = leads.submitPublicHandoff.mock.calls[0][4].qualificationSignals;
+    expect(signals).not.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ key: 'design_needs', value: '' }),
+        expect.objectContaining({ key: 'must_haves', value: '' }),
+        expect.objectContaining({ key: 'concerns', value: '' }),
+      ]),
+    );
   });
 
   it('keeps optional attachment storage pointers in the retained source while the Ready Project redacts them', async () => {
