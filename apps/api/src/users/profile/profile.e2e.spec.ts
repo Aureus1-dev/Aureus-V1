@@ -22,12 +22,7 @@ describe('Profile — E2E', () => {
 
   const emailMarker = `e2e-wo022-profile-${randomUUID()}`;
   const adminId = randomUUID();
-  const adminToken = () =>
-    jwt.sign({
-      sub: adminId,
-      email: `${adminId}@example.test`,
-      roles: [UserRole.PLATFORM_ADMINISTRATOR],
-    });
+  const adminToken = () => jwt.sign({ sub: adminId, email: `${adminId}@example.test`, roles: [UserRole.PLATFORM_ADMINISTRATOR] });
 
   let ownerId: string;
   let ownerToken: string;
@@ -39,9 +34,7 @@ describe('Profile — E2E', () => {
     }).compile();
 
     app = moduleRef.createNestApplication();
-    app.useGlobalPipes(
-      new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true, transform: true }),
-    );
+    app.useGlobalPipes(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true, transform: true }));
     app.useGlobalFilters(new AllExceptionsFilter());
     await app.init();
 
@@ -74,7 +67,7 @@ describe('Profile — E2E', () => {
       .expect(401);
   });
 
-  it("forbids a member from creating another user's profile", async () => {
+  it('forbids a member from creating another user\'s profile', async () => {
     await request(app.getHttpServer())
       .post(`/users/${ownerId}/profile`)
       .set('Authorization', `Bearer ${otherMemberToken}`)

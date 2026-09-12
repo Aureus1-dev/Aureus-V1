@@ -50,10 +50,7 @@ export interface UpdateProfileInput {
  * record yet (backend 404) — a missing profile is an expected, common
  * state (Profile creation is a separate opt-in step), not an error.
  */
-export async function getMyProfile(
-  accessToken: string,
-  userId: string,
-): Promise<ProfileDto | null> {
+export async function getMyProfile(accessToken: string, userId: string): Promise<ProfileDto | null> {
   try {
     return await apiRequest<ProfileDto>(`/users/${userId}/profile`, { accessToken });
   } catch (error) {
@@ -64,26 +61,10 @@ export async function getMyProfile(
   }
 }
 
-export function createMyProfile(
-  accessToken: string,
-  userId: string,
-  input: UpdateProfileInput,
-): Promise<ProfileDto> {
-  return apiRequest<ProfileDto>(`/users/${userId}/profile`, {
-    method: 'POST',
-    accessToken,
-    body: input,
-  });
+export function createMyProfile(accessToken: string, userId: string, input: UpdateProfileInput): Promise<ProfileDto> {
+  return apiRequest<ProfileDto>(`/users/${userId}/profile`, { method: 'POST', accessToken, body: input });
 }
 
-export function updateMyProfile(
-  accessToken: string,
-  userId: string,
-  input: UpdateProfileInput,
-): Promise<ProfileDto> {
-  return apiRequest<ProfileDto>(`/users/${userId}/profile`, {
-    method: 'PATCH',
-    accessToken,
-    body: input,
-  });
+export function updateMyProfile(accessToken: string, userId: string, input: UpdateProfileInput): Promise<ProfileDto> {
+  return apiRequest<ProfileDto>(`/users/${userId}/profile`, { method: 'PATCH', accessToken, body: input });
 }
