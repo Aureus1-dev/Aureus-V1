@@ -6,6 +6,7 @@ export class ProfileResponseDto {
   @ApiProperty() id: string;
   @ApiProperty() userId: string;
   @ApiPropertyOptional({ nullable: true }) displayName: string | null;
+  @ApiPropertyOptional({ nullable: true }) namePronunciation: string | null;
   @ApiPropertyOptional({ nullable: true }) bio: string | null;
   @ApiPropertyOptional({ nullable: true }) avatarUrl: string | null;
   @ApiPropertyOptional({ nullable: true }) city: string | null;
@@ -24,8 +25,10 @@ export class ProfileResponseDto {
 
   static fromEntity(p: Profile): ProfileResponseDto {
     const dto = new ProfileResponseDto();
-    dto.id = p.id; dto.userId = p.userId;
+    dto.id = p.id;
+    dto.userId = p.userId;
     dto.displayName = p.displayName ?? null;
+    dto.namePronunciation = p.namePronunciation ?? null;
     dto.bio = p.bio ?? null;
     dto.avatarUrl = p.avatarUrl ?? null;
     dto.city = p.city ?? null;
@@ -38,7 +41,9 @@ export class ProfileResponseDto {
     dto.availabilityNotes = p.availabilityNotes ?? null;
     dto.preferredLanguage = p.preferredLanguage ?? null;
     dto.faithPreference = p.faithPreference ?? null;
-    dto.createdAt = p.createdAt; dto.updatedAt = p.updatedAt; dto.deletedAt = p.deletedAt;
+    dto.createdAt = p.createdAt;
+    dto.updatedAt = p.updatedAt;
+    dto.deletedAt = p.deletedAt;
     return dto;
   }
 }

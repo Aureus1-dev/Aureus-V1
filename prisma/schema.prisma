@@ -189,44 +189,44 @@ model User {
   failedLoginAttempts Int       @default(0)
   lockedUntil         DateTime?
 
-  profile                    Profile?
-  goals                      Goal[]
-  refreshTokens              RefreshToken[]
-  passwordResetTokens        PasswordResetToken[]
-  emailVerificationTokens    EmailVerificationToken[]
-  organizationMemberships    OrganizationMember[]
-  stewardCapacity            StewardCapacity?
-  stewardshipAsMember        StewardshipRelationship[] @relation("StewardshipRelationshipMember")
-  stewardshipAsSteward       StewardshipRelationship[] @relation("StewardshipRelationshipSteward")
-  notifications              Notification[]
-  notificationPreferences    NotificationPreference[]
-  announcementsAsSteward     Announcement[]            @relation("AnnouncementSteward")
-  conversationMemberships    ConversationParticipant[]
-  sentMessages               Message[]
-  enrollments                Enrollment[]
-  certifications             Certification[]
-  aiConversations            AiConversation[]
-  aiRequests                 AiRequest[]
-  aiRecommendations          AiRecommendation[]
-  aiVoiceSessions            AiVoiceSession[]
-  wardLeadEvents             WardLeadEvent[]           @relation("WardLeadEventActor")
-  podMemberships             PodMembership[]
-  podEventRsvps              PodEventRsvp[]
-  podRequests                PodRequest[]
-  podInvitationsReceived     PodInvitation[]           @relation("PodInvitationInvitee")
-  connectedAccounts          ConnectedAccount[]
-  documents                  Document[]
-  stewardActivityLogs        StewardActivityLog[]
-  aiOperationalConfigUpdates AiOperationalConfig[]
-  aiOrchestrationRuns        AiOrchestrationRun[]
-  consentRecords             ConsentRecord[]
-  statedNeeds                StatedNeed[]
-  resourceOffers             ResourceOffer[]
-  needEscalations            NeedEscalation[]
-  unresolvedNeeds            UnresolvedNeed[]
-  harvestPlans               HarvestPlan[]
-  guidedApplicationSessions  GuidedApplicationSession[]
-  responsibilitiesAsPrincipal Responsibility[]      @relation("ResponsibilityPrincipalUser")
+  profile                     Profile?
+  goals                       Goal[]
+  refreshTokens               RefreshToken[]
+  passwordResetTokens         PasswordResetToken[]
+  emailVerificationTokens     EmailVerificationToken[]
+  organizationMemberships     OrganizationMember[]
+  stewardCapacity             StewardCapacity?
+  stewardshipAsMember         StewardshipRelationship[]  @relation("StewardshipRelationshipMember")
+  stewardshipAsSteward        StewardshipRelationship[]  @relation("StewardshipRelationshipSteward")
+  notifications               Notification[]
+  notificationPreferences     NotificationPreference[]
+  announcementsAsSteward      Announcement[]             @relation("AnnouncementSteward")
+  conversationMemberships     ConversationParticipant[]
+  sentMessages                Message[]
+  enrollments                 Enrollment[]
+  certifications              Certification[]
+  aiConversations             AiConversation[]
+  aiRequests                  AiRequest[]
+  aiRecommendations           AiRecommendation[]
+  aiVoiceSessions             AiVoiceSession[]
+  wardLeadEvents              WardLeadEvent[]            @relation("WardLeadEventActor")
+  podMemberships              PodMembership[]
+  podEventRsvps               PodEventRsvp[]
+  podRequests                 PodRequest[]
+  podInvitationsReceived      PodInvitation[]            @relation("PodInvitationInvitee")
+  connectedAccounts           ConnectedAccount[]
+  documents                   Document[]
+  stewardActivityLogs         StewardActivityLog[]
+  aiOperationalConfigUpdates  AiOperationalConfig[]
+  aiOrchestrationRuns         AiOrchestrationRun[]
+  consentRecords              ConsentRecord[]
+  statedNeeds                 StatedNeed[]
+  resourceOffers              ResourceOffer[]
+  needEscalations             NeedEscalation[]
+  unresolvedNeeds             UnresolvedNeed[]
+  harvestPlans                HarvestPlan[]
+  guidedApplicationSessions   GuidedApplicationSession[]
+  responsibilitiesAsPrincipal Responsibility[]           @relation("ResponsibilityPrincipalUser")
 }
 
 // ===========================================================================
@@ -277,13 +277,14 @@ model EmailVerificationToken {
 // ===========================================================================
 
 model Profile {
-  id          String    @id @default(uuid()) @db.Uuid
-  displayName String?
-  bio         String?
-  avatarUrl   String?
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
-  deletedAt   DateTime?
+  id                String    @id @default(uuid()) @db.Uuid
+  displayName       String?
+  namePronunciation String? // member-owned cue for how Aureus should say their name; never employer-derived
+  bio               String?
+  avatarUrl         String?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  deletedAt         DateTime?
 
   // Pods matching signals (WO-030, Founder Decisions #7-#9). Every field
   // below is optional, member-owned, editable, and purpose-bound — the
@@ -339,10 +340,10 @@ model Responsibility {
   status    ResponsibilityStatus @default(ACTIVE)
 
   contextType             ResponsibilityContextType
-  principalUserId         String? @db.Uuid
-  principalOrganizationId String? @db.Uuid
-  principalUser           User?         @relation("ResponsibilityPrincipalUser", fields: [principalUserId], references: [id], onDelete: Cascade)
-  principalOrganization   Organization? @relation("ResponsibilityPrincipalOrganization", fields: [principalOrganizationId], references: [id], onDelete: Cascade)
+  principalUserId         String?                   @db.Uuid
+  principalOrganizationId String?                   @db.Uuid
+  principalUser           User?                     @relation("ResponsibilityPrincipalUser", fields: [principalUserId], references: [id], onDelete: Cascade)
+  principalOrganization   Organization?             @relation("ResponsibilityPrincipalOrganization", fields: [principalOrganizationId], references: [id], onDelete: Cascade)
 
   // Provenance pointers are deliberately not foreign keys. The accepted work
   // survives ordinary conversation/domain lifecycle changes while the service
@@ -359,8 +360,8 @@ model Responsibility {
   dueAt              DateTime?
   retentionExpiresAt DateTime?
   completedAt        DateTime?
-  createdAt          DateTime @default(now())
-  updatedAt          DateTime @updatedAt
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
 
   events                    ResponsibilityEvent[]
   guidedApplicationSessions GuidedApplicationSession[]
@@ -576,7 +577,6 @@ enum HarvestEventType {
   PLAN_COMPLETED
 }
 
-
 // ===========================================================================
 // Task  —  Milestone has many Tasks
 // ===========================================================================
@@ -664,38 +664,38 @@ model Opportunity {
 // ===========================================================================
 
 model HarvestOfferProfile {
-  id                    String             @id @default(uuid()) @db.Uuid
-  opportunityId         String             @unique @db.Uuid
-  opportunity           Opportunity        @relation(fields: [opportunityId], references: [id], onDelete: Cascade)
-  kind                  HarvestOfferKind
-  jurisdictionCountry   String             @default("US")
-  jurisdictionState     String
-  minAge                Int                @default(21)
-  legalStatus           HarvestLegalStatus @default(REVIEW_REQUIRED)
-  licenseAuthority      String
-  licenseSourceUrl      String
-  termsSourceUrl        String
-  termsVerifiedAt       DateTime
-  expiresAt             DateTime?
-  newCustomerOnly       Boolean            @default(true)
+  id                             String             @id @default(uuid()) @db.Uuid
+  opportunityId                  String             @unique @db.Uuid
+  opportunity                    Opportunity        @relation(fields: [opportunityId], references: [id], onDelete: Cascade)
+  kind                           HarvestOfferKind
+  jurisdictionCountry            String             @default("US")
+  jurisdictionState              String
+  minAge                         Int                @default(21)
+  legalStatus                    HarvestLegalStatus @default(REVIEW_REQUIRED)
+  licenseAuthority               String
+  licenseSourceUrl               String
+  termsSourceUrl                 String
+  termsVerifiedAt                DateTime
+  expiresAt                      DateTime?
+  newCustomerOnly                Boolean            @default(true)
   advertisedValueCents           Int
-  bankrollRequiredCents          Int @default(0)
+  bankrollRequiredCents          Int                @default(0)
   projectedCashInCents           Int
   projectedCashOutCents          Int
-  projectedTaxableWinningsCents  Int @default(0)
-  projectedDeductibleLossesCents Int @default(0)
-  playthroughRequiredCents       Int @default(0)
+  projectedTaxableWinningsCents  Int                @default(0)
+  projectedDeductibleLossesCents Int                @default(0)
+  playthroughRequiredCents       Int                @default(0)
   defaultUnitWagerCents          Int?
   estimatedActionsPerMinute      Float?
   estimatedMinutes               Int
-  executionInstructions String[] @default([])
-  riskNotes             String[] @default([])
-  createdById           String   @db.Uuid
-  lastUpdatedById       String   @db.Uuid
-  profileVersion        Int      @default(1)
-  createdAt             DateTime @default(now())
-  updatedAt             DateTime @updatedAt
-  planItems HarvestPlanItem[]
+  executionInstructions          String[]           @default([])
+  riskNotes                      String[]           @default([])
+  createdById                    String             @db.Uuid
+  lastUpdatedById                String             @db.Uuid
+  profileVersion                 Int                @default(1)
+  createdAt                      DateTime           @default(now())
+  updatedAt                      DateTime           @updatedAt
+  planItems                      HarvestPlanItem[]
 
   @@index([legalStatus, jurisdictionState])
   @@index([termsVerifiedAt])
@@ -723,26 +723,26 @@ model HarvestPlan {
   timeLimitMinutes                      Int
   targetNetCents                        Int?
   stopRuleAcceptedAt                    DateTime
-  retentionExpiresAt                   DateTime
-  status                               HarvestPlanStatus @default(REVIEW_REQUIRED)
-  blockReasons                         String[]          @default([])
-  projectedCashInCents                 Int               @default(0)
-  projectedCashOutCents                Int               @default(0)
-  projectedFederalTaxCents             Int               @default(0)
-  projectedStateTaxCents               Int               @default(0)
-  recommendedTaxReserveCents           Int               @default(0)
-  projectedNetValueCents               Int               @default(0)
-  projectedGamblingWinningsCents       Int               @default(0)
-  projectedDeductibleLossesCents       Int               @default(0)
-  maxBankrollRequiredCents             Int               @default(0)
-  projectedMinutes                     Int               @default(0)
-  withdrawnValueCents                  Int               @default(0)
-  stoppedAt                            DateTime?
-  stopReason                           String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  items  HarvestPlanItem[]
-  events HarvestEvent[]
+  retentionExpiresAt                    DateTime
+  status                                HarvestPlanStatus          @default(REVIEW_REQUIRED)
+  blockReasons                          String[]                   @default([])
+  projectedCashInCents                  Int                        @default(0)
+  projectedCashOutCents                 Int                        @default(0)
+  projectedFederalTaxCents              Int                        @default(0)
+  projectedStateTaxCents                Int                        @default(0)
+  recommendedTaxReserveCents            Int                        @default(0)
+  projectedNetValueCents                Int                        @default(0)
+  projectedGamblingWinningsCents        Int                        @default(0)
+  projectedDeductibleLossesCents        Int                        @default(0)
+  maxBankrollRequiredCents              Int                        @default(0)
+  projectedMinutes                      Int                        @default(0)
+  withdrawnValueCents                   Int                        @default(0)
+  stoppedAt                             DateTime?
+  stopReason                            String?
+  createdAt                             DateTime                   @default(now())
+  updatedAt                             DateTime                   @updatedAt
+  items                                 HarvestPlanItem[]
+  events                                HarvestEvent[]
 
   @@index([userId, taxYear, createdAt])
   @@index([userId, status])
@@ -750,38 +750,38 @@ model HarvestPlan {
 }
 
 model HarvestPlanItem {
-  id                                String              @id @default(uuid()) @db.Uuid
-  planId                            String              @db.Uuid
-  plan                              HarvestPlan         @relation(fields: [planId], references: [id], onDelete: Cascade)
-  offerProfileId                    String              @db.Uuid
-  offerProfile                      HarvestOfferProfile @relation(fields: [offerProfileId], references: [id], onDelete: Restrict)
-  position                          Int
-  status                            HarvestItemStatus   @default(QUEUED)
-  projectedCashInCents              Int
-  projectedCashOutCents             Int
-  projectedTaxableWinningsCents     Int
-  projectedDeductibleLossesCents    Int
-  projectedFederalTaxCents          Int
-  projectedStateTaxCents            Int
-  recommendedTaxReserveCents        Int
-  projectedNetAfterTaxCents         Int
-  bankrollRequiredCents             Int
-  projectedMinutes                  Int
-  playthroughRequiredCents          Int
-  sourceSnapshot                    Json
-  operatorReportedRemainingCents    Int?
-  progressEvidenceReference         String?
-  progressUpdatedAt                 DateTime?
-  withdrawalRequestedCents          Int?
-  withdrawalConfirmedCents          Int?
-  startedAt                         DateTime?
-  requirementConfirmedAt            DateTime?
-  withdrawalRequestedAt             DateTime?
-  withdrawnAt                       DateTime?
-  skippedAt                         DateTime?
-  skipReason                        String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id                             String              @id @default(uuid()) @db.Uuid
+  planId                         String              @db.Uuid
+  plan                           HarvestPlan         @relation(fields: [planId], references: [id], onDelete: Cascade)
+  offerProfileId                 String              @db.Uuid
+  offerProfile                   HarvestOfferProfile @relation(fields: [offerProfileId], references: [id], onDelete: Restrict)
+  position                       Int
+  status                         HarvestItemStatus   @default(QUEUED)
+  projectedCashInCents           Int
+  projectedCashOutCents          Int
+  projectedTaxableWinningsCents  Int
+  projectedDeductibleLossesCents Int
+  projectedFederalTaxCents       Int
+  projectedStateTaxCents         Int
+  recommendedTaxReserveCents     Int
+  projectedNetAfterTaxCents      Int
+  bankrollRequiredCents          Int
+  projectedMinutes               Int
+  playthroughRequiredCents       Int
+  sourceSnapshot                 Json
+  operatorReportedRemainingCents Int?
+  progressEvidenceReference      String?
+  progressUpdatedAt              DateTime?
+  withdrawalRequestedCents       Int?
+  withdrawalConfirmedCents       Int?
+  startedAt                      DateTime?
+  requirementConfirmedAt         DateTime?
+  withdrawalRequestedAt          DateTime?
+  withdrawnAt                    DateTime?
+  skippedAt                      DateTime?
+  skipReason                     String?
+  createdAt                      DateTime            @default(now())
+  updatedAt                      DateTime            @updatedAt
 
   @@unique([planId, offerProfileId])
   @@unique([planId, position])
@@ -1152,18 +1152,18 @@ model Organization {
   // every business-console request and audit event.
   tenantVersion Int @default(1)
 
-  members                  OrganizationMember[]
-  invitations              OrganizationInvitation[]
-  businessProfile          BusinessProfile?
-  tenantAuditEvents        TenantAuditEvent[]
-  businessKnowledgeRecords BusinessKnowledgeRecord[]
-  libraryCandidateExports  LibraryCandidateExport[]
-  wardConversations        WardConversation[]
-  wardLeads                WardLead[]
-  announcements            Announcement[]
-  conversations            Conversation[]
-  courses                  Course[]
-  responsibilitiesAsPrincipal Responsibility[] @relation("ResponsibilityPrincipalOrganization")
+  members                     OrganizationMember[]
+  invitations                 OrganizationInvitation[]
+  businessProfile             BusinessProfile?
+  tenantAuditEvents           TenantAuditEvent[]
+  businessKnowledgeRecords    BusinessKnowledgeRecord[]
+  libraryCandidateExports     LibraryCandidateExport[]
+  wardConversations           WardConversation[]
+  wardLeads                   WardLead[]
+  announcements               Announcement[]
+  conversations               Conversation[]
+  courses                     Course[]
+  responsibilitiesAsPrincipal Responsibility[]          @relation("ResponsibilityPrincipalOrganization")
 
   @@index([organizationType])
   @@index([verificationStatus])
@@ -1207,25 +1207,22 @@ model OrganizationMember {
 // transition; the invitation row itself never grants access.
 // ===========================================================================
 model OrganizationInvitation {
-  id               String                        @id @default(uuid()) @db.Uuid
-  organizationId   String                        @db.Uuid
+  id               String                       @id @default(uuid()) @db.Uuid
+  organizationId   String                       @db.Uuid
   invitedEmail     String
-  role             OrganizationMemberRole         @default(MEMBER)
-  status           OrganizationInvitationStatus   @default(PENDING)
-  invitedById      String                        @db.Uuid
+  role             OrganizationMemberRole       @default(MEMBER)
+  status           OrganizationInvitationStatus @default(PENDING)
+  invitedById      String                       @db.Uuid
   expiresAt        DateTime
   acceptedAt       DateTime?
-  acceptedByUserId String?                        @db.Uuid
+  acceptedByUserId String?                      @db.Uuid
   declinedAt       DateTime?
   revokedAt        DateTime?
-  revokedById      String?                        @db.Uuid
-  createdAt        DateTime                       @default(now())
-  updatedAt        DateTime                       @updatedAt
+  revokedById      String?                      @db.Uuid
+  createdAt        DateTime                     @default(now())
+  updatedAt        DateTime                     @updatedAt
 
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-
-  @@index([organizationId, status])
-  @@index([invitedEmail, status])
   // DB-enforced invariant (Step 1 repair #5, migration
   // 20260912150000_step1_repair_pending_invitation_uniqueness): a partial
   // unique index on (organizationId, lower(invitedEmail)) WHERE status =
@@ -1234,6 +1231,9 @@ model OrganizationInvitation {
   // invitations to the same organization+email; re-inviting after an
   // earlier invitation resolved (accepted/declined/revoked/expired) is
   // still allowed, since only PENDING rows are covered.
+
+  @@index([organizationId, status])
+  @@index([invitedEmail, status])
 }
 
 // One business operating profile per tenant. Structured JSON is deliberately
@@ -2481,15 +2481,14 @@ model AiConversation {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  messages      AiMessage[]
-  requests      AiRequest[]
-  voiceSessions AiVoiceSession[]
+  messages                  AiMessage[]
+  requests                  AiRequest[]
+  voiceSessions             AiVoiceSession[]
   guidedApplicationSessions GuidedApplicationSession[]
-  statedNeeds   StatedNeed[]
+  statedNeeds               StatedNeed[]
 
   @@index([userId])
 }
-
 
 // ===========================================================================
 // Guided external application assistance — See → Guide (Issue #95 §3)
@@ -2501,13 +2500,13 @@ enum GuidedApplicationSessionStatus {
 }
 
 model GuidedApplicationSession {
-  id             String                         @id @default(uuid()) @db.Uuid
-  userId         String                         @db.Uuid
-  user           User                           @relation(fields: [userId], references: [id], onDelete: Cascade)
-  conversationId String                         @db.Uuid
-  conversation   AiConversation                 @relation(fields: [conversationId], references: [id], onDelete: Cascade)
-  opportunityId  String                         @db.Uuid
-  opportunity    Opportunity                    @relation(fields: [opportunityId], references: [id], onDelete: Cascade)
+  id             String         @id @default(uuid()) @db.Uuid
+  userId         String         @db.Uuid
+  user           User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  conversationId String         @db.Uuid
+  conversation   AiConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  opportunityId  String         @db.Uuid
+  opportunity    Opportunity    @relation(fields: [opportunityId], references: [id], onDelete: Cascade)
 
   // OR-002 binds a People-help guide to the exact Responsibility it serves.
   // Null preserves pre-OR-002 / direct See→Guide sessions as legacy guidance.

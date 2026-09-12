@@ -26,8 +26,19 @@ const SEASONS_OF_LIFE = [
 
 function emptyForm(): UpdateProfileInput {
   return {
-    displayName: '', bio: '', avatarUrl: '', city: '', region: '', stateProvince: '', country: '',
-    localAreaDescription: '', profession: '', seasonOfLife: '', availabilityNotes: '', preferredLanguage: '',
+    displayName: '',
+    namePronunciation: '',
+    bio: '',
+    avatarUrl: '',
+    city: '',
+    region: '',
+    stateProvince: '',
+    country: '',
+    localAreaDescription: '',
+    profession: '',
+    seasonOfLife: '',
+    availabilityNotes: '',
+    preferredLanguage: '',
     faithPreference: '',
   };
 }
@@ -51,12 +62,18 @@ export function ProfilePage() {
   }, [load]);
 
   if (!session.isAuthenticated) {
-    return <EmptyState title="Sign in to view your profile" description="Sign in to view and edit your profile." />;
+    return (
+      <EmptyState
+        title="Sign in to view your profile"
+        description="Sign in to view and edit your profile."
+      />
+    );
   }
 
   const startEditing = () => {
     setForm({
       displayName: state.profile?.displayName ?? '',
+      namePronunciation: state.profile?.namePronunciation ?? '',
       bio: state.profile?.bio ?? '',
       avatarUrl: state.profile?.avatarUrl ?? '',
       city: state.profile?.city ?? '',
@@ -98,7 +115,9 @@ export function ProfilePage() {
 
       {state.isLoading && !state.profile ? <LoadingState label="Loading profile" /> : null}
 
-      {errorCopy && !isEditing ? <ErrorState title={errorCopy.title} description={errorCopy.description} /> : null}
+      {errorCopy && !isEditing ? (
+        <ErrorState title={errorCopy.title} description={errorCopy.description} />
+      ) : null}
 
       {!isEditing && !state.isLoading && !state.profile && !state.error ? (
         <EmptyState
@@ -111,18 +130,28 @@ export function ProfilePage() {
       {!isEditing && state.profile ? (
         <Card className={styles.card}>
           <dl className={styles.details}>
-            <ProfileDetail label="Display name" value={state.profile.displayName} />
+            <ProfileDetail label="What Aureus calls you" value={state.profile.displayName} />
+            <ProfileDetail label="Name pronunciation" value={state.profile.namePronunciation} />
             <ProfileDetail label="Bio" value={state.profile.bio} />
             <ProfileDetail label="Profession" value={state.profile.profession} />
             <ProfileDetail
               label="Season of life"
-              value={SEASONS_OF_LIFE.find((s) => s.value === state.profile?.seasonOfLife)?.label ?? null}
+              value={
+                SEASONS_OF_LIFE.find((s) => s.value === state.profile?.seasonOfLife)?.label ?? null
+              }
             />
             <ProfileDetail
               label="Location"
-              value={[state.profile.city, state.profile.region, state.profile.stateProvince, state.profile.country]
-                .filter(Boolean)
-                .join(', ') || null}
+              value={
+                [
+                  state.profile.city,
+                  state.profile.region,
+                  state.profile.stateProvince,
+                  state.profile.country,
+                ]
+                  .filter(Boolean)
+                  .join(', ') || null
+              }
             />
             <ProfileDetail label="Local area" value={state.profile.localAreaDescription} />
             <ProfileDetail label="Availability" value={state.profile.availabilityNotes} />
@@ -135,14 +164,26 @@ export function ProfilePage() {
       {isEditing ? (
         <Card className={styles.card}>
           <form className={styles.form} onSubmit={(event) => void submit(event)}>
-            {errorCopy ? <ErrorState title={errorCopy.title} description={errorCopy.description} /> : null}
+            {errorCopy ? (
+              <ErrorState title={errorCopy.title} description={errorCopy.description} />
+            ) : null}
 
             <FormField
               id="profile-display-name"
-              label="Display name"
+              label="What should Aureus call you?"
+              helpText="Use the name you want Aureus to use in conversation."
               value={form.displayName ?? ''}
               onChange={(value) => setForm((f) => ({ ...f, displayName: value }))}
               maxLength={100}
+            />
+
+            <FormField
+              id="profile-name-pronunciation"
+              label="How do you pronounce your name?"
+              helpText="Optional. Write it the way you want Aureus to say it."
+              value={form.namePronunciation ?? ''}
+              onChange={(value) => setForm((f) => ({ ...f, namePronunciation: value }))}
+              maxLength={200}
             />
 
             <label className={styles.textareaField} htmlFor="profile-bio">
@@ -221,7 +262,9 @@ export function ProfilePage() {
                 id="profile-local-area"
                 className={styles.textarea}
                 value={form.localAreaDescription ?? ''}
-                onChange={(event) => setForm((f) => ({ ...f, localAreaDescription: event.target.value }))}
+                onChange={(event) =>
+                  setForm((f) => ({ ...f, localAreaDescription: event.target.value }))
+                }
                 maxLength={500}
                 rows={2}
               />
@@ -233,7 +276,9 @@ export function ProfilePage() {
                 id="profile-availability"
                 className={styles.textarea}
                 value={form.availabilityNotes ?? ''}
-                onChange={(event) => setForm((f) => ({ ...f, availabilityNotes: event.target.value }))}
+                onChange={(event) =>
+                  setForm((f) => ({ ...f, availabilityNotes: event.target.value }))
+                }
                 maxLength={500}
                 rows={2}
               />
@@ -260,7 +305,12 @@ export function ProfilePage() {
               <Button type="submit" disabled={state.isSaving}>
                 {state.isSaving ? 'Saving…' : 'Save profile'}
               </Button>
-              <Button type="button" variant="secondary" onClick={() => setIsEditing(false)} disabled={state.isSaving}>
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={() => setIsEditing(false)}
+                disabled={state.isSaving}
+              >
                 Cancel
               </Button>
             </div>
