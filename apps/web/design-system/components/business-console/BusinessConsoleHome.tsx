@@ -4,12 +4,11 @@ import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import {
   getBusinessConsole,
-  listMyBusinessTenants,
   updateBusinessProfile,
   type BusinessConsole,
   type BusinessPublicStatus,
 } from '../../../lib/api/business-console';
-import { useSession } from '../../../state';
+import { useBusiness, useSession } from '../../../state';
 import { businessOnboardingStep } from './onboarding-progress';
 import styles from './BusinessConsoleHome.module.css';
 
@@ -33,9 +32,12 @@ const EMPTY_FORM: FormState = {
 
 export function BusinessConsoleHome() {
   const { session } = useSession();
+  const { state: businessState, activeTenant } = useBusiness();
   const [consoleData, setConsoleData] = useState<BusinessConsole | null>(null);
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
-  const [state, setState] = useState<'loading' | 'ready' | 'empty' | 'saving' | 'saved' | 'error'>('loading');
+  const [state, setState] = useState<'loading' | 'ready' | 'empty' | 'saving' | 'saved' | 'error'>(
+    'loading',
+  );
   const [error, setError] = useState('');
   const [publicOrigin, setPublicOrigin] = useState('');
 
@@ -45,16 +47,15 @@ export function BusinessConsoleHome() {
 
   useEffect(() => {
     if (!session.accessToken) return;
+    if (businessState.isLoading) return;
+    if (!activeTenant) {
+      setState('empty');
+      return;
+    }
     let active = true;
 
-    void listMyBusinessTenants(session.accessToken)
-      .then(async (tenants) => {
-        if (!active) return;
-        if (tenants.length === 0) {
-          setState('empty');
-          return;
-        }
-        const data = await getBusinessConsole(session.accessToken!, tenants[0].id);
+    void getBusinessConsole(session.accessToken, activeTenant.id)
+      .then((data) => {
         if (!active) return;
         setConsoleData(data);
         const profile = data.profile;
@@ -78,7 +79,7 @@ export function BusinessConsoleHome() {
     return () => {
       active = false;
     };
-  }, [session.accessToken]);
+  }, [session.accessToken, businessState.isLoading, activeTenant]);
 
   const save = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -92,7 +93,10 @@ export function BusinessConsoleHome() {
         publicSlug: form.slug || undefined,
         publicStatus: consoleData.profile?.publicStatus ?? 'PRIVATE',
         serviceArea: {
-          cities: form.cities.split(',').map((city) => city.trim()).filter(Boolean),
+          cities: form.cities
+            .split(',')
+            .map((city) => city.trim())
+            .filter(Boolean),
         },
         businessHours: { summary: form.hours },
         contactRoutes: form.contactValue
@@ -101,7 +105,7 @@ export function BusinessConsoleHome() {
         escalationTarget: form.escalationEmail ? { email: form.escalationEmail } : undefined,
         onboardingStep: step,
       });
-      setConsoleData((current) => current ? { ...current, profile } : current);
+      setConsoleData((current) => (current ? { ...current, profile } : current));
       setState('saved');
     } catch {
       setError('Nothing was published. Check each field and try saving again.');
@@ -120,7 +124,10 @@ export function BusinessConsoleHome() {
         publicSlug: form.slug || undefined,
         publicStatus,
         serviceArea: {
-          cities: form.cities.split(',').map((city) => city.trim()).filter(Boolean),
+          cities: form.cities
+            .split(',')
+            .map((city) => city.trim())
+            .filter(Boolean),
         },
         businessHours: { summary: form.hours },
         contactRoutes: form.contactValue
@@ -129,7 +136,7 @@ export function BusinessConsoleHome() {
         escalationTarget: form.escalationEmail ? { email: form.escalationEmail } : undefined,
         onboardingStep: step,
       });
-      setConsoleData((current) => current ? { ...current, profile } : current);
+      setConsoleData((current) => (current ? { ...current, profile } : current));
       setState('saved');
     } catch {
       setError(
@@ -142,7 +149,11 @@ export function BusinessConsoleHome() {
   };
 
   if (state === 'loading') {
-    return <section className={styles.surface} aria-busy="true"><p>Opening your business workspace…</p></section>;
+    return (
+      <section className={styles.surface} aria-busy="true">
+        <p>Opening your business workspace…</p>
+      </section>
+    );
   }
 
   if (state === 'empty') {
@@ -150,7 +161,10 @@ export function BusinessConsoleHome() {
       <section className={styles.surface}>
         <p className={styles.eyebrow}>Business console</p>
         <h1>No business workspace yet</h1>
-        <p>An Aureus steward can connect your verified business organization. No public profile is created automatically.</p>
+        <p>
+          An Aureus steward can connect your verified business organization. No public profile is
+          created automatically.
+        </p>
       </section>
     );
   }
@@ -183,7 +197,9 @@ export function BusinessConsoleHome() {
       <Link href="/business/knowledge" className={styles.knowledgeLink}>
         <span>
           <strong>Business knowledge</strong>
-          <small>Services, FAQs, policies, pricing boundaries, geography, qualification, and escalation.</small>
+          <small>
+            Services, FAQs, policies, pricing boundaries, geography, qualification, and escalation.
+          </small>
         </span>
         <span aria-hidden="true">→</span>
       </Link>
@@ -227,10 +243,12 @@ export function BusinessConsoleHome() {
               Contact route
               <select
                 value={form.contactType}
-                onChange={(event) => setForm((value) => ({
-                  ...value,
-                  contactType: event.target.value as FormState['contactType'],
-                }))}
+                onChange={(event) =>
+                  setForm((value) => ({
+                    ...value,
+                    contactType: event.target.value as FormState['contactType'],
+                  }))
+                }
               >
                 <option value="PHONE">Phone</option>
                 <option value="SMS">Text message</option>
@@ -242,7 +260,9 @@ export function BusinessConsoleHome() {
               Route value
               <input
                 value={form.contactValue}
-                onChange={(event) => setForm((value) => ({ ...value, contactValue: event.target.value }))}
+                onChange={(event) =>
+                  setForm((value) => ({ ...value, contactValue: event.target.value }))
+                }
                 placeholder="+1 937 555 0144"
               />
             </label>
@@ -250,18 +270,30 @@ export function BusinessConsoleHome() {
 
           <label>
             Human escalation email
-            <span className={styles.hint}>Where Aureus should hand off an unresolved or sensitive request</span>
+            <span className={styles.hint}>
+              Where Aureus should hand off an unresolved or sensitive request
+            </span>
             <input
               type="email"
               value={form.escalationEmail}
-              onChange={(event) => setForm((value) => ({ ...value, escalationEmail: event.target.value }))}
+              onChange={(event) =>
+                setForm((value) => ({ ...value, escalationEmail: event.target.value }))
+              }
               placeholder="help@business.example"
             />
           </label>
         </fieldset>
 
-        {error ? <p className={styles.error} role="alert">{error}</p> : null}
-        {state === 'saved' ? <p className={styles.saved} role="status">Saved. Nothing is published without an explicit publish step.</p> : null}
+        {error ? (
+          <p className={styles.error} role="alert">
+            {error}
+          </p>
+        ) : null}
+        {state === 'saved' ? (
+          <p className={styles.saved} role="status">
+            Saved. Nothing is published without an explicit publish step.
+          </p>
+        ) : null}
 
         <button type="submit" disabled={!consoleData.canManage || state === 'saving'}>
           {state === 'saving' ? 'Saving…' : 'Save business setup'}
@@ -280,8 +312,12 @@ export function BusinessConsoleHome() {
         <div className={styles.publicationActions}>
           {consoleData.profile?.publicStatus === 'PUBLISHED' && form.slug ? (
             <>
-              <a href={`/ward/${form.slug}`} target="_blank" rel="noreferrer">Open public Ward</a>
-              <a href={`/embed/ward/${form.slug}`} target="_blank" rel="noreferrer">Open embed</a>
+              <a href={`/ward/${form.slug}`} target="_blank" rel="noreferrer">
+                Open public Ward
+              </a>
+              <a href={`/embed/ward/${form.slug}`} target="_blank" rel="noreferrer">
+                Open embed
+              </a>
               <button
                 type="button"
                 onClick={() => void setPublication('PAUSED')}

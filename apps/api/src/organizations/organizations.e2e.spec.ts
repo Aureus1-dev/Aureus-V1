@@ -50,7 +50,9 @@ describe('Organizations (Business Portal) — E2E', () => {
     }).compile();
 
     app = moduleRef.createNestApplication();
-    app.useGlobalPipes(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true, transform: true }));
+    app.useGlobalPipes(
+      new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true, transform: true }),
+    );
     app.useGlobalFilters(new AllExceptionsFilter());
     await app.init();
 
@@ -121,7 +123,7 @@ describe('Organizations (Business Portal) — E2E', () => {
     let orgId: string;
     let orgRef: string;
 
-    it('creates a DRAFT organization; the creator becomes its first ADMIN representative', async () => {
+    it('creates a DRAFT organization; the creator becomes its initial OWNER representative', async () => {
       const res = await request(app.getHttpServer())
         .post('/organizations')
         .set('Authorization', `Bearer ${orgRepToken}`)
@@ -139,9 +141,7 @@ describe('Organizations (Business Portal) — E2E', () => {
         .get(`/organizations/${orgId}/members`)
         .set('Authorization', `Bearer ${orgRepToken}`)
         .expect(200);
-      expect(members.body).toEqual([
-        expect.objectContaining({ userId: orgRepId, role: 'ADMIN' }),
-      ]);
+      expect(members.body).toEqual([expect.objectContaining({ userId: orgRepId, role: 'OWNER' })]);
     });
 
     it('excludes DRAFT organizations from the default public listing', async () => {
@@ -272,7 +272,7 @@ describe('Organizations (Business Portal) — E2E', () => {
           .expect(403);
       });
 
-      it("prevents demoting the organization's last remaining ADMIN", async () => {
+      it("prevents demoting the organization's sole owner", async () => {
         await request(app.getHttpServer())
           .patch(`/organizations/${orgId}/members/${orgRepId}`)
           .set('Authorization', `Bearer ${orgRepToken}`)
@@ -280,19 +280,64 @@ describe('Organizations (Business Portal) — E2E', () => {
           .expect(409);
       });
 
-      it('allows the ADMIN to promote another member, then step down safely', async () => {
+      it('prevents a non-OWNER from granting OWNER to anyone', async () => {
         await request(app.getHttpServer())
           .patch(`/organizations/${orgId}/members/${otherRepId}`)
-          .set('Authorization', `Bearer ${orgRepToken}`)
-          .send({ role: 'ADMIN' })
-          .expect(200);
-
-        await request(app.getHttpServer())
-          .patch(`/organizations/${orgId}/members/${orgRepId}`)
-          .set('Authorization', `Bearer ${orgRepToken}`)
-          .send({ role: 'MEMBER' })
-          .expect(200);
+          .set('Authorization', `Bearer ${otherRepToken}`)
+          .send({ role: 'OWNER' })
+          .expect(403);
       });
+
+      it(
+        'promotes another member to ADMIN, blocks stepping down while sole owner, ' +
+          'then transfers ownership so the prior owner can safely step down',
+        async () => {
+          await request(app.getHttpServer())
+            .patch(`/organizations/${orgId}/members/${otherRepId}`)
+            .set('Authorization', `Bearer ${orgRepToken}`)
+            .send({ role: 'ADMIN' })
+            .expect(200);
+
+          // Still the organization's only OWNER: stepping down directly must
+          // stay blocked even though another ADMIN now exists.
+          await request(app.getHttpServer())
+            .patch(`/organizations/${orgId}/members/${orgRepId}`)
+            .set('Authorization', `Bearer ${orgRepToken}`)
+            .send({ role: 'MEMBER' })
+            .expect(409);
+
+          // Only the current OWNER (not merely an ADMIN) may transfer ownership.
+          await request(app.getHttpServer())
+            .patch(`/organizations/${orgId}/members/ownership/transfer`)
+            .set('Authorization', `Bearer ${otherRepToken}`)
+            .send({ newOwnerUserId: otherRepId })
+            .expect(403);
+
+          const transfer = await request(app.getHttpServer())
+            .patch(`/organizations/${orgId}/members/ownership/transfer`)
+            .set('Authorization', `Bearer ${orgRepToken}`)
+            .send({ newOwnerUserId: otherRepId })
+            .expect(200);
+          expect(transfer.body).toMatchObject({ userId: otherRepId, role: 'OWNER' });
+
+          // The prior owner was atomically demoted to ADMIN by the transfer,
+          // not left as a second OWNER, and can now safely step all the way
+          // down since the organization is no longer solely dependent on them.
+          const priorOwner = await request(app.getHttpServer())
+            .get(`/organizations/${orgId}/members`)
+            .set('Authorization', `Bearer ${orgRepToken}`)
+            .expect(200);
+          expect(priorOwner.body).toEqual(
+            expect.arrayContaining([expect.objectContaining({ userId: orgRepId, role: 'ADMIN' })]),
+          );
+
+          await request(app.getHttpServer())
+            .patch(`/organizations/${orgId}/members/${orgRepId}`)
+            .set('Authorization', `Bearer ${orgRepToken}`)
+            .send({ role: 'MEMBER' })
+            .expect(200);
+        },
+      );
 
       it('allows a member to remove themselves', async () => {
         await request(app.getHttpServer())
@@ -301,7 +346,7 @@ describe('Organizations (Business Portal) — E2E', () => {
           .expect(204);
       });
 
-      it("prevents removing the organization's last remaining ADMIN", async () => {
+      it("prevents removing the organization's sole owner", async () => {
         await request(app.getHttpServer())
           .delete(`/organizations/${orgId}/members/${otherRepId}`)
           .set('Authorization', `Bearer ${otherRepToken}`)

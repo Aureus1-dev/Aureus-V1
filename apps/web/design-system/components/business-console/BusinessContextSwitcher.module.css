@@ -1,0 +1,58 @@
+.switcher {
+  width: min(860px, calc(100% - 2rem));
+  margin: 1.5rem auto 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.45rem 0.9rem;
+  border: 1px solid rgba(108, 76, 49, 0.3);
+  border-radius: 999px;
+  background: rgba(252, 248, 239, 0.85);
+  color: #2d241d;
+  font-size: 0.85rem;
+  text-decoration: none;
+  line-height: 1.2;
+}
+
+.pill:hover {
+  background: rgba(252, 248, 239, 1);
+}
+
+button.pill {
+  cursor: pointer;
+}
+
+.pillActive {
+  background: #a43f17;
+  border-color: #a43f17;
+  color: #fdf6ee;
+  font-weight: 700;
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.1rem;
+  height: 1.1rem;
+  padding: 0 0.3rem;
+  border-radius: 999px;
+  background: #a43f17;
+  color: #fdf6ee;
+  font-size: 0.7rem;
+  font-weight: 800;
+}
+
+.currentLabel {
+  width: 100%;
+  margin: 0.35rem 0 0;
+  font-size: 0.8rem;
+  color: #5b4a3a;
+}

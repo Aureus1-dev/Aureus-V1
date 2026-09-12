@@ -40,7 +40,7 @@ export class OrganizationsController {
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(...CREATOR_ROLES)
   @ApiBearerAuth()
-  @ApiOperation({ summary: 'Create an organization profile (Steward / Org / Business / Admin); creator becomes its first ADMIN representative' })
+  @ApiOperation({ summary: 'Create an organization profile (Steward / Org / Business / Admin); creator becomes its initial OWNER representative' })
   @ApiResponse({ status: 201, type: OrganizationResponseDto })
   @ApiResponse({ status: 401, description: 'Missing or invalid access token' })
   @ApiResponse({ status: 403, description: 'Caller does not hold a required role' })

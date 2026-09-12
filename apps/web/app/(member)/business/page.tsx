@@ -1,16 +1,20 @@
 import Link from 'next/link';
 import {
   BusinessConsoleHome,
+  BusinessContextSwitcher,
+  BusinessMembersPanel,
   BusinessOperationsPanel,
 } from '../../../design-system/components/business-console';
 
 export default function BusinessPage() {
   return (
     <>
+      <BusinessContextSwitcher />
       <BusinessConsoleHome />
       <div style={{ padding: '0 1rem 1rem' }}>
         <Link href="/business/setup">Create a business workspace</Link>
       </div>
+      <BusinessMembersPanel />
       <BusinessOperationsPanel />
     </>
   );

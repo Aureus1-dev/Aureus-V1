@@ -1,7 +1,10 @@
 import { Injectable } from '@nestjs/common';
 import { OrganizationMember, OrganizationMemberRole } from '@prisma/client';
 import { PrismaService } from '../../../prisma/prisma.service';
-import { AddMemberInput, IOrganizationMemberRepository } from './organization-member.repository.interface';
+import {
+  AddMemberInput,
+  IOrganizationMemberRepository,
+} from './organization-member.repository.interface';
 
 @Injectable()
 export class PrismaOrganizationMemberRepository implements IOrganizationMemberRepository {
@@ -11,7 +14,10 @@ export class PrismaOrganizationMemberRepository implements IOrganizationMemberRe
     return this.prisma.db.organizationMember.create({ data });
   }
 
-  async findByOrgAndUser(organizationId: string, userId: string): Promise<OrganizationMember | null> {
+  async findByOrgAndUser(
+    organizationId: string,
+    userId: string,
+  ): Promise<OrganizationMember | null> {
     return this.prisma.db.organizationMember.findUnique({
       where: { organizationId_userId: { organizationId, userId } },
     });
@@ -37,8 +43,16 @@ export class PrismaOrganizationMemberRepository implements IOrganizationMemberRe
     });
   }
 
+  async countOwners(organizationId: string): Promise<number> {
+    return this.prisma.db.organizationMember.count({
+      where: { organizationId, role: OrganizationMemberRole.OWNER },
+    });
+  }
+
   async updateRole(
-    organizationId: string, userId: string, role: OrganizationMemberRole,
+    organizationId: string,
+    userId: string,
+    role: OrganizationMemberRole,
   ): Promise<OrganizationMember> {
     return this.prisma.db.organizationMember.update({
       where: { organizationId_userId: { organizationId, userId } },

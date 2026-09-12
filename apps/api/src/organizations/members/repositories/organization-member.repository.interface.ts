@@ -15,6 +15,12 @@ export interface IOrganizationMemberRepository {
   /** All organizations a user represents — used by Communication System audience/isolation checks (ADR-012). */
   findByUser(userId: string): Promise<OrganizationMember[]>;
   countAdmins(organizationId: string): Promise<number>;
-  updateRole(organizationId: string, userId: string, role: OrganizationMemberRole): Promise<OrganizationMember>;
+  /** Strictly OWNER, not the OWNER+ADMIN union `countAdmins` counts — the basis for sole-owner protection. */
+  countOwners(organizationId: string): Promise<number>;
+  updateRole(
+    organizationId: string,
+    userId: string,
+    role: OrganizationMemberRole,
+  ): Promise<OrganizationMember>;
   remove(organizationId: string, userId: string): Promise<void>;
 }
