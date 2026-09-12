@@ -134,24 +134,37 @@ export class KitchenBathPublicService {
   }
 
   private cleanIntake(intake: KitchenBathIntakeDto) {
+    const rooms = [
+      ...new Set(
+        intake.rooms
+          .map((room) => sanitizePlainText(room).slice(0, 80))
+          .filter(Boolean),
+      ),
+    ].sort((left, right) => left.localeCompare(right));
+    const scope = sanitizePlainText(intake.scope).slice(0, 1500);
+    const designNeeds = intake.designNeeds
+      ? sanitizePlainText(intake.designNeeds).slice(0, 1000)
+      : '';
+    const priorities = intake.priorities?.length
+      ? [...new Set(intake.priorities)].sort().slice(0, 6)
+      : [];
+    const mustHaves = intake.mustHaves
+      ? sanitizePlainText(intake.mustHaves).slice(0, 800)
+      : '';
+    const concerns = intake.concerns
+      ? sanitizePlainText(intake.concerns).slice(0, 800)
+      : '';
+
     return {
       projectType: intake.projectType,
-      rooms: intake.rooms.map((room) => sanitizePlainText(room).slice(0, 80)).filter(Boolean),
-      scope: sanitizePlainText(intake.scope).slice(0, 1500),
+      rooms,
+      scope,
       ...(intake.decisionStatus && { decisionStatus: intake.decisionStatus }),
       ...(intake.budgetRange && { budgetRange: intake.budgetRange }),
-      ...(intake.designNeeds && {
-        designNeeds: sanitizePlainText(intake.designNeeds).slice(0, 1000),
-      }),
-      ...(intake.priorities?.length
-        ? { priorities: [...new Set(intake.priorities)].slice(0, 6) }
-        : {}),
-      ...(intake.mustHaves && {
-        mustHaves: sanitizePlainText(intake.mustHaves).slice(0, 800),
-      }),
-      ...(intake.concerns && {
-        concerns: sanitizePlainText(intake.concerns).slice(0, 800),
-      }),
+      ...(designNeeds && { designNeeds }),
+      ...(priorities.length ? { priorities } : {}),
+      ...(mustHaves && { mustHaves }),
+      ...(concerns && { concerns }),
       ...(intake.attachments?.length
         ? {
             attachments: intake.attachments.map((file) => ({
