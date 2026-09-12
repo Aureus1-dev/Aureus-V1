@@ -12,7 +12,7 @@ const mockedApi = profileApi as jest.Mocked<typeof profileApi>;
 
 function makeProfile(o: Partial<ProfileDto> = {}): ProfileDto {
   return {
-    id: 'profile-1', userId: 'member-1', displayName: 'Alice', bio: null, avatarUrl: null, city: null,
+    id: 'profile-1', userId: 'member-1', displayName: 'Alice', namePronunciation: null, bio: null, avatarUrl: null, city: null,
     region: null, stateProvince: null, country: null, localAreaDescription: null, profession: null,
     seasonOfLife: null, availabilityNotes: null, preferredLanguage: null, faithPreference: null,
     createdAt: '2026-01-01T00:00:00Z', updatedAt: '2026-01-01T00:00:00Z', deletedAt: null, ...o,
