@@ -92,6 +92,7 @@ export interface KitchenBathCustomerReadyProject {
   expertValidationRequired: string[];
   boundaries: string[];
   missingRequiredSource: string[];
+  sourceNotices: string[];
 }
 
 export interface KitchenBathReadyProject
