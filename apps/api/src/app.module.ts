@@ -35,6 +35,7 @@ import { ConsentModule } from './consent/consent.module';
 import { PublicWardModule } from './public-ward/public-ward.module';
 import { ResponsibilitiesModule } from './responsibilities/responsibilities.module';
 import { PeopleHelpModule } from './people-help/people-help.module';
+import { PeopleResolutionsModule } from './people-resolutions/people-resolutions.module';
 
 @Module({
   imports: [
@@ -120,6 +121,7 @@ import { PeopleHelpModule } from './people-help/people-help.module';
     PublicWardModule,
     ResponsibilitiesModule,
     PeopleHelpModule,
+    PeopleResolutionsModule,
   ],
 
   providers: [
