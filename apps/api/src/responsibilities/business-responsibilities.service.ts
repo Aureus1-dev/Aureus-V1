@@ -279,7 +279,10 @@ export class BusinessResponsibilitiesService {
 
       if (current.status === ResponsibilityStatus.COMPLETED) return current;
       this.assertNotTerminal(current.status);
-      if (![ResponsibilityStatus.ACTIVE, ResponsibilityStatus.WAITING_ON_USER].includes(current.status)) {
+      if (
+        current.status !== ResponsibilityStatus.ACTIVE &&
+        current.status !== ResponsibilityStatus.WAITING_ON_USER
+      ) {
         throw new ConflictException(`Cannot complete responsibility from ${current.status}`);
       }
 
