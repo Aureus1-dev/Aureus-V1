@@ -138,6 +138,7 @@ describe('Authority, Consent & Trust — E2E', () => {
       subjectUserId: employeeId,
       capability: AuthorityCapability.READ,
       resourceClass: AuthorityResourceClass.FILES,
+      purpose: 'Read files I choose for this work',
     };
     expect(
       (await request(app.getHttpServer()).post('/authority/evaluate').set(auth(employeeToken)).send(evaluation).expect(201)).body.result,
@@ -156,6 +157,13 @@ describe('Authority, Consent & Trust — E2E', () => {
     expect(
       (await request(app.getHttpServer()).post('/authority/evaluate').set(auth(employeeToken)).send(evaluation).expect(201)).body.result,
     ).toBe('PERMIT');
+
+    const wrongPurpose = await request(app.getHttpServer())
+      .post('/authority/evaluate')
+      .set(auth(employeeToken))
+      .send({ ...evaluation, purpose: 'Use the same files for an unrelated purpose' })
+      .expect(201);
+    expect(wrongPurpose.body.result).toBe('NEEDS_APPROVAL');
 
     await request(app.getHttpServer())
       .post(`/authority/grants/${grant.body.id}/revoke`)
@@ -203,6 +211,7 @@ describe('Authority, Consent & Trust — E2E', () => {
         organizationId: orgId,
         capability: AuthorityCapability.READ,
         resourceClass: AuthorityResourceClass.BUSINESS_DATA,
+        purpose: 'Read approved company operating data',
       })
       .expect(201);
     expect(evalResult.body.result).toBe('PERMIT');
@@ -231,6 +240,7 @@ describe('Authority, Consent & Trust — E2E', () => {
         subjectUserId: employeeId,
         capability: AuthorityCapability.ACT,
         resourceClass: AuthorityResourceClass.BUSINESS_DATA,
+        purpose: 'Act on company operating data in my work context',
       })
       .expect(201);
     expect(gateway.body.result).toBe('DENY');
@@ -302,6 +312,7 @@ describe('Authority, Consent & Trust — E2E', () => {
       subjectUserId: employeeId,
       capability: AuthorityCapability.LISTEN,
       resourceClass: AuthorityResourceClass.MICROPHONE,
+      purpose: 'Listen only while I explicitly work with Aureus',
     };
     expect(
       (await request(app.getHttpServer()).post('/authority/evaluate').set(auth(employeeToken)).send(evaluation).expect(201)).body.result,
@@ -385,6 +396,7 @@ describe('Authority, Consent & Trust — E2E', () => {
         organizationId: orgId,
         capability: AuthorityCapability.LISTEN,
         resourceClass: AuthorityResourceClass.MICROPHONE,
+        purpose: 'Listen without a named person',
       })
       .expect(201);
     expect(noPerson.body.result).toBe('DENY');
@@ -398,6 +410,7 @@ describe('Authority, Consent & Trust — E2E', () => {
         subjectUserId: employeeId,
         capability: AuthorityCapability.READ,
         resourceClass: AuthorityResourceClass.CONNECTED_ACCOUNT,
+        purpose: 'Read a connected account without an exact reference',
       })
       .expect(201);
     expect(noAccountRef.body.result).toBe('DENY');
@@ -437,6 +450,7 @@ describe('Authority, Consent & Trust — E2E', () => {
         subjectUserId: employeeId,
         capability: AuthorityCapability.SEE,
         resourceClass: AuthorityResourceClass.FILES,
+        purpose: 'See files I choose',
       })
       .expect(201);
     expect(result.body.result).toBe('DENY');
@@ -496,6 +510,7 @@ describe('Authority, Consent & Trust — E2E', () => {
         subjectUserId: employeeId,
         capability: AuthorityCapability.SEE,
         resourceClass: AuthorityResourceClass.OTHER,
+        purpose: 'Temporary visibility',
       })
       .expect(201);
     expect(result.body.result).not.toBe('PERMIT');
@@ -520,7 +535,7 @@ describe('Authority, Consent & Trust — E2E', () => {
     const result = await request(app.getHttpServer())
       .post('/authority/evaluate')
       .set(auth(employeeToken))
-      .send({ ...scope, resourceClass: AuthorityResourceClass.FILES })
+      .send({ ...scope, resourceClass: AuthorityResourceClass.FILES, purpose: 'Write selected files' })
       .expect(201);
     expect(result.body.result).toBe('NEEDS_APPROVAL');
   });
