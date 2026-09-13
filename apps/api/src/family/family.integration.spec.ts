@@ -73,7 +73,7 @@ describe('Parent + Child PC-001 — Prisma integration', () => {
     ]);
   });
 
-  it('enforces principal existence at the database boundary without schema-only foreign-key drift', async () => {
+  it('enforces principal existence and assent at the database boundary', async () => {
     await expect(
       prisma.db.guardianChildRelationship.create({
         data: {
@@ -82,6 +82,28 @@ describe('Parent + Child PC-001 — Prisma integration', () => {
         },
       }),
     ).rejects.toThrow();
+
+    const dbGuardian = await prisma.db.user.create({
+      data: { email: `db-guardian-${marker}@example.test` },
+    });
+    const dbChild = await prisma.db.user.create({
+      data: { email: `db-child-${marker}@example.test` },
+    });
+    try {
+      await expect(
+        prisma.db.guardianChildRelationship.create({
+          data: {
+            guardianUserId: dbGuardian.id,
+            childUserId: dbChild.id,
+            status: ParentChildRelationshipStatus.ACTIVE,
+          },
+        }),
+      ).rejects.toThrow();
+    } finally {
+      await prisma.db.user.deleteMany({
+        where: { id: { in: [dbGuardian.id, dbChild.id] } },
+      });
+    }
   });
 
   it('hides relationship mutation from an unrelated member and rejects self-relationships', async () => {
