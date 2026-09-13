@@ -43,7 +43,9 @@ jobs:
           run_install: false
       - run: pnpm install
       - name: Generate implementation
-        run: python3 scripts/step2-authority-build.py
+        run: |
+          python3 scripts/step2-authority-build.py
+          python3 scripts/step2-authority-fix.py
       - name: Format and generate Prisma client
         run: |
           npx prisma format
@@ -60,7 +62,7 @@ jobs:
         run: |
           git config user.name github-actions[bot]
           git config user.email 41898282+github-actions[bot]@users.noreply.github.com
-          rm -f scripts/step2-authority-build.py .github/workflows/step2-authority-builder.yml
+          rm -f scripts/step2-authority-build.py scripts/step2-authority-fix.py .github/workflows/step2-authority-builder.yml
           git add -A
           git commit -m "Step 2: implement Authority, Consent & Trust"
           git push origin HEAD:chatgpt/aureus-business-step2-authority-consent-trust
