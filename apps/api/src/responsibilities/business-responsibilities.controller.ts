@@ -4,6 +4,7 @@ import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { AuthenticatedUser } from '../auth/strategies/jwt.strategy';
 import { BusinessResponsibilitiesService } from './business-responsibilities.service';
+import { BusinessResponsibilityEvidenceDto } from './dto/business-responsibility-evidence.dto';
 import {
   ConfirmBusinessResponsibilityCompletionDto,
   CreateBusinessResponsibilityDto,
@@ -44,6 +45,17 @@ export class BusinessResponsibilitiesController {
     @CurrentUser() caller: AuthenticatedUser,
   ) {
     return ResponsibilityResponseDto.fromEntity(
+      await this.service.get(organizationId, id, caller),
+    );
+  }
+
+  @Get(':id/evidence')
+  async evidence(
+    @Param('organizationId') organizationId: string,
+    @Param('id') id: string,
+    @CurrentUser() caller: AuthenticatedUser,
+  ) {
+    return BusinessResponsibilityEvidenceDto.fromEntity(
       await this.service.get(organizationId, id, caller),
     );
   }
