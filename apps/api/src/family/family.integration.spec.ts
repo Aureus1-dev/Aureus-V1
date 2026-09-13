@@ -5,15 +5,19 @@ import {
   GovernedWorkStakeType,
   ParentChildRelationshipStatus,
   ResponsibilityKind,
+  UserRole,
 } from '@prisma/client';
 import { AuthenticatedUser } from '../auth/strategies/jwt.strategy';
 import { PrismaService } from '../prisma/prisma.service';
 import { PrismaResponsibilityRepository } from '../responsibilities/repositories/prisma-responsibility.repository';
 import { FamilyService } from './family.service';
-import { WorkContractService } from './work-contract.service';
+import {
+  GovernedWorkContractInput,
+  WorkContractService,
+} from './work-contract.service';
 
 function caller(id: string): AuthenticatedUser {
-  return { id, email: `${id}@example.test`, roles: ['MEMBER'] };
+  return { id, email: `${id}@example.test`, roles: [UserRole.MEMBER] };
 }
 
 describe('Parent + Child PC-001 — Prisma integration', () => {
@@ -97,7 +101,7 @@ describe('Parent + Child PC-001 — Prisma integration', () => {
       successCriteria: { type: 'PC001_FOUNDATION_TEST' },
     });
 
-    const base = {
+    const base: GovernedWorkContractInput = {
       workForm: GovernedWorkForm.PRACTICE,
       sourceType: GovernedWorkSourceType.PARENT_ASSIGNED,
       sourceUserId: guardianId,
@@ -112,7 +116,7 @@ describe('Parent + Child PC-001 — Prisma integration', () => {
       verificationPolicyVersion: 'fraction-decimal-basic-v1',
       workTemplateKey: 'fraction-decimal-basic-v1',
       difficultyKey: 'basic-v1',
-    } as const;
+    };
 
     const v1 = await contracts.createInitial(responsibility.id, guardianId, childId, base);
     expect(v1.version).toBe(1);
