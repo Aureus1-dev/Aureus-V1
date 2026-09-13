@@ -16,6 +16,7 @@ import {
   AuthorityRequestStatus,
   AuthorityResourceClass,
   OrganizationMemberRole,
+  Prisma,
 } from '@prisma/client';
 import { AuthenticatedUser } from '../auth/strategies/jwt.strategy';
 import { PrismaService } from '../prisma/prisma.service';
@@ -85,6 +86,34 @@ export class AuthorityService {
     }
 
     return this.prisma.db.$transaction(async (tx) => {
+      // Authority must still belong to this approver at the exact moment the
+      // grant is created. Organization-owned approvals serialize on the same
+      // Organization row Step 1 ownership transfer locks, then re-read the
+      // current OWNER so stale authority can never cross an ownership change.
+      if (request.contextType === AuthorityContextType.PERSONAL) {
+        if (request.subjectUserId !== caller.id) throw new NotFoundException('Permission request not found');
+      } else if (ALWAYS_PERSON_CONTROLLED.has(request.resourceClass)) {
+        if (!request.subjectUserId || request.subjectUserId !== caller.id) {
+          throw new NotFoundException('Permission request not found');
+        }
+        const membership = await tx.organizationMember.findUnique({
+          where: { organizationId_userId: { organizationId: request.organizationId!, userId: caller.id } },
+          select: { id: true },
+        });
+        if (!membership) throw new NotFoundException('Permission request not found');
+      } else {
+        await tx.$queryRaw(
+          Prisma.sql`SELECT "id" FROM "Organization" WHERE "id" = CAST(${request.organizationId} AS uuid) FOR UPDATE`,
+        );
+        const membership = await tx.organizationMember.findUnique({
+          where: { organizationId_userId: { organizationId: request.organizationId!, userId: caller.id } },
+          select: { role: true },
+        });
+        if (membership?.role !== OrganizationMemberRole.OWNER) {
+          throw new NotFoundException('Permission request not found');
+        }
+      }
+
       const claimed = await tx.authorityRequest.updateMany({
         where: { id: request.id, status: AuthorityRequestStatus.PENDING },
         data: {
@@ -138,29 +167,48 @@ export class AuthorityService {
 
   async revoke(grantId: string, dto: AuthorityReasonDto, caller: AuthenticatedUser) {
     this.assertNoSecrets(dto.reason);
-    const grant = await this.prisma.db.authorityGrant.findUnique({ where: { id: grantId } });
-    if (!grant || !(await this.canControl(grant, caller.id))) throw new NotFoundException('Permission not found');
-    if (grant.status === AuthorityGrantStatus.REVOKED) return grant;
+    const selected = await this.prisma.db.authorityGrant.findUnique({ where: { id: grantId } });
+    if (!selected || !(await this.canControl(selected, caller.id))) throw new NotFoundException('Permission not found');
 
-    const revoked = await this.prisma.db.authorityGrant.update({
-      where: { id: grant.id },
-      data: { status: AuthorityGrantStatus.REVOKED, revokedAt: new Date(), revokedByUserId: caller.id },
+    return this.prisma.db.$transaction(async (tx) => {
+      const exact = {
+        contextType: selected.contextType,
+        subjectUserId: selected.subjectUserId,
+        organizationId: selected.organizationId,
+        capability: selected.capability,
+        resourceClass: selected.resourceClass,
+        resourceRef: selected.resourceRef,
+      };
+      // A member is revoking the permission, not one database row. If the
+      // same exact authority was granted twice, every active duplicate must
+      // fall together or the UI would falsely claim the permission was gone.
+      const active = await tx.authorityGrant.findMany({
+        where: { ...exact, status: AuthorityGrantStatus.ACTIVE },
+        select: { id: true },
+      });
+      if (active.length > 0) {
+        const now = new Date();
+        await tx.authorityGrant.updateMany({
+          where: { id: { in: active.map((grant) => grant.id) } },
+          data: { status: AuthorityGrantStatus.REVOKED, revokedAt: now, revokedByUserId: caller.id },
+        });
+        await tx.authorityEvent.createMany({
+          data: active.map((grant) => ({
+            eventType: AuthorityEventType.GRANT_REVOKED,
+            actorUserId: caller.id,
+            grantId: grant.id,
+            contextType: selected.contextType,
+            subjectUserId: selected.subjectUserId,
+            organizationId: selected.organizationId,
+            capability: selected.capability,
+            resourceClass: selected.resourceClass,
+            resourceRef: selected.resourceRef,
+            reason: dto.reason ?? 'Permission revoked',
+          })),
+        });
+      }
+      return tx.authorityGrant.findUniqueOrThrow({ where: { id: selected.id } });
     });
-    await this.prisma.db.authorityEvent.create({
-      data: {
-        eventType: AuthorityEventType.GRANT_REVOKED,
-        actorUserId: caller.id,
-        grantId: grant.id,
-        contextType: grant.contextType,
-        subjectUserId: grant.subjectUserId,
-        organizationId: grant.organizationId,
-        capability: grant.capability,
-        resourceClass: grant.resourceClass,
-        resourceRef: grant.resourceRef,
-        reason: dto.reason ?? 'Permission revoked',
-      },
-    });
-    return revoked;
   }
 
   async suspend(dto: AuthorityCapabilityControlDto, caller: AuthenticatedUser) {
@@ -248,8 +296,33 @@ export class AuthorityService {
     const shapeError = await this.scopeError(dto.contextType, dto.subjectUserId, dto.organizationId);
     if (shapeError) return this.recordDecision(dto, AuthorityDecisionResult.DENY, shapeError, null, actorUserId);
 
-    if (dto.resourceClass === AuthorityResourceClass.CONVERSATION && !dto.resourceRef) {
-      return this.recordDecision(dto, AuthorityDecisionResult.DENY, 'Conversation authority requires an exact conversation reference', null, actorUserId);
+    if (dto.contextType === AuthorityContextType.BUSINESS_TENANT) {
+      if (ALWAYS_PERSON_CONTROLLED.has(dto.resourceClass) && !dto.subjectUserId) {
+        return this.recordDecision(dto, AuthorityDecisionResult.DENY, 'Human/private business authority requires the affected person', null, actorUserId);
+      }
+      if (!ALWAYS_PERSON_CONTROLLED.has(dto.resourceClass) && dto.subjectUserId) {
+        return this.recordDecision(dto, AuthorityDecisionResult.DENY, 'Organization-owned authority may not be reclassified as employee-owned', null, actorUserId);
+      }
+    }
+
+    if ((dto.resourceClass === AuthorityResourceClass.CONVERSATION || dto.resourceClass === AuthorityResourceClass.CONNECTED_ACCOUNT) && !dto.resourceRef) {
+      return this.recordDecision(dto, AuthorityDecisionResult.DENY, `${dto.resourceClass} authority requires an exact resource reference`, null, actorUserId);
+    }
+    if (dto.resourceClass === AuthorityResourceClass.CONVERSATION) {
+      const conversation = await this.prisma.db.aiConversation.findFirst({
+        where: { id: dto.resourceRef!, userId: dto.subjectUserId! }, select: { id: true },
+      });
+      if (!conversation) {
+        return this.recordDecision(dto, AuthorityDecisionResult.DENY, 'Private conversation does not belong to this authority subject', null, actorUserId);
+      }
+    }
+    if (dto.resourceClass === AuthorityResourceClass.CONNECTED_ACCOUNT) {
+      const account = await this.prisma.db.connectedAccount.findFirst({
+        where: { id: dto.resourceRef!, userId: dto.subjectUserId! }, select: { id: true },
+      });
+      if (!account) {
+        return this.recordDecision(dto, AuthorityDecisionResult.DENY, 'Connected account does not belong to this authority subject', null, actorUserId);
+      }
     }
 
     const scopeKey = this.scopeKey(dto.contextType, dto.subjectUserId, dto.organizationId);
@@ -350,8 +423,13 @@ export class AuthorityService {
       }
     }
 
-    if (ALWAYS_PERSON_CONTROLLED.has(dto.resourceClass) && !dto.subjectUserId) {
-      throw new BadRequestException(`${dto.resourceClass} authority must name the affected person`);
+    if (dto.contextType === AuthorityContextType.BUSINESS_TENANT) {
+      if (ALWAYS_PERSON_CONTROLLED.has(dto.resourceClass) && !dto.subjectUserId) {
+        throw new BadRequestException(`${dto.resourceClass} authority must name the affected person`);
+      }
+      if (!ALWAYS_PERSON_CONTROLLED.has(dto.resourceClass) && dto.subjectUserId) {
+        throw new BadRequestException('Organization-owned authority cannot be converted into personal authority by naming an employee');
+      }
     }
 
     if (dto.resourceClass === AuthorityResourceClass.CONVERSATION) {
@@ -405,10 +483,6 @@ export class AuthorityService {
       return record.subjectUserId === userId;
     }
 
-    // Naming an employee never converts organization-owned authority into
-    // employee-owned authority. Only explicitly human/private resource
-    // classes follow the affected person; every other Business permission
-    // starts conservatively with the current organization OWNER.
     if (ALWAYS_PERSON_CONTROLLED.has(record.resourceClass)) {
       return Boolean(record.subjectUserId) && record.subjectUserId === userId;
     }
