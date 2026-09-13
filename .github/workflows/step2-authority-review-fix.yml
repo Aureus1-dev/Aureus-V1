@@ -1,0 +1,62 @@
+name: Step 2 Authority Review Fix
+
+on:
+  push:
+    branches:
+      - chatgpt/aureus-business-step2-authority-consent-trust
+
+permissions:
+  contents: write
+
+jobs:
+  repair:
+    if: ${{ github.actor != 'github-actions[bot]' }}
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: aureus
+          POSTGRES_PASSWORD: aureus
+          POSTGRES_DB: aureus
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U aureus"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      DATABASE_URL: postgresql://aureus:aureus@localhost:5432/aureus?schema=public
+      JWT_ACCESS_SECRET: ci-only-secret-do-not-use-in-production-min-32-chars
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: chatgpt/aureus-business-step2-authority-consent-trust
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: pnpm/action-setup@v4
+        with:
+          version: '10.32.1'
+          run_install: false
+      - run: pnpm install
+      - name: Apply review repair
+        run: python3 scripts/step2-authority-review-fix.py
+      - name: Generate and typecheck
+        run: |
+          npx prisma generate
+          pnpm run check-types
+      - name: Migrate and run authority e2e
+        run: |
+          npx prisma migrate deploy
+          pnpm --filter @aureus-v1/api run test -- authority.e2e.spec.ts --runInBand
+      - name: Commit repair
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          rm -f scripts/step2-authority-review-fix.py .github/workflows/step2-authority-review-fix.yml
+          git add -A
+          git commit -m "Step 2: enforce resource-owner approval boundary"
+          git push origin HEAD:chatgpt/aureus-business-step2-authority-consent-trust
