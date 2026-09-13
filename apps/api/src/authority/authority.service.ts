@@ -54,26 +54,28 @@ export class AuthorityService {
       throw new BadRequestException('Permission expiry must be in the future');
     }
 
-    const request = await this.prisma.db.authorityRequest.create({
-      data: {
-        contextType: dto.contextType,
-        subjectUserId: dto.subjectUserId ?? null,
-        organizationId: dto.organizationId ?? null,
-        capability: dto.capability,
-        resourceClass: dto.resourceClass,
-        resourceRef: dto.resourceRef ?? null,
-        purpose: dto.purpose.trim(),
-        source: dto.source ?? AuthorityRequestSource.USER,
-        requestedByUserId: caller.id,
-        expiresAt: dto.expiresAt ? new Date(dto.expiresAt) : null,
-        policyVersion: POLICY_VERSION,
-      },
-    });
+    return this.prisma.db.$transaction(async (tx) => {
+      const request = await tx.authorityRequest.create({
+        data: {
+          contextType: dto.contextType,
+          subjectUserId: dto.subjectUserId ?? null,
+          organizationId: dto.organizationId ?? null,
+          capability: dto.capability,
+          resourceClass: dto.resourceClass,
+          resourceRef: dto.resourceRef ?? null,
+          purpose: dto.purpose.trim(),
+          source: dto.source ?? AuthorityRequestSource.USER,
+          requestedByUserId: caller.id,
+          expiresAt: dto.expiresAt ? new Date(dto.expiresAt) : null,
+          policyVersion: POLICY_VERSION,
+        },
+      });
 
-    await this.prisma.db.authorityEvent.create({
-      data: this.eventData(AuthorityEventType.REQUEST_CREATED, caller.id, request),
+      await tx.authorityEvent.create({
+        data: this.eventData(AuthorityEventType.REQUEST_CREATED, caller.id, request),
+      });
+      return request;
     });
-    return request;
   }
 
   async approve(requestId: string, caller: AuthenticatedUser) {
@@ -154,15 +156,18 @@ export class AuthorityService {
     if (request.status !== AuthorityRequestStatus.PENDING) {
       throw new BadRequestException('This permission request is no longer pending');
     }
-    const claimed = await this.prisma.db.authorityRequest.updateMany({
-      where: { id: request.id, status: AuthorityRequestStatus.PENDING },
-      data: { status: AuthorityRequestStatus.DENIED, deniedByUserId: caller.id, decidedAt: new Date() },
+
+    return this.prisma.db.$transaction(async (tx) => {
+      const claimed = await tx.authorityRequest.updateMany({
+        where: { id: request.id, status: AuthorityRequestStatus.PENDING },
+        data: { status: AuthorityRequestStatus.DENIED, deniedByUserId: caller.id, decidedAt: new Date() },
+      });
+      if (claimed.count !== 1) throw new BadRequestException('This permission request is no longer pending');
+      await tx.authorityEvent.create({
+        data: { ...this.eventData(AuthorityEventType.REQUEST_DENIED, caller.id, request), reason: dto.reason ?? 'Denied by approver' },
+      });
+      return { id: request.id, status: AuthorityRequestStatus.DENIED };
     });
-    if (claimed.count !== 1) throw new BadRequestException('This permission request is no longer pending');
-    await this.prisma.db.authorityEvent.create({
-      data: { ...this.eventData(AuthorityEventType.REQUEST_DENIED, caller.id, request), reason: dto.reason ?? 'Denied by approver' },
-    });
-    return { id: request.id, status: AuthorityRequestStatus.DENIED };
   }
 
   async revoke(grantId: string, dto: AuthorityReasonDto, caller: AuthenticatedUser) {
@@ -178,6 +183,7 @@ export class AuthorityService {
         capability: selected.capability,
         resourceClass: selected.resourceClass,
         resourceRef: selected.resourceRef,
+        purpose: selected.purpose,
       };
       // A member is revoking the permission, not one database row. If the
       // same exact authority was granted twice, every active duplicate must
@@ -215,75 +221,97 @@ export class AuthorityService {
     this.assertNoSecrets(dto.reason);
     await this.assertScopeController(dto.contextType, dto.subjectUserId, dto.organizationId, caller.id);
     const scopeKey = this.scopeKey(dto.contextType, dto.subjectUserId, dto.organizationId);
-    const state = await this.prisma.db.authorityCapabilityState.upsert({
-      where: { scopeKey_capability: { scopeKey, capability: dto.capability } },
-      create: {
-        scopeKey,
-        contextType: dto.contextType,
-        subjectUserId: dto.subjectUserId ?? null,
-        organizationId: dto.organizationId ?? null,
-        capability: dto.capability,
-        status: AuthorityCapabilityStatus.SUSPENDED,
-        suspendedReason: dto.reason ?? 'Member suspended this capability',
-        suspendedAt: new Date(),
-        suspendedByUserId: caller.id,
-      },
-      update: {
-        status: AuthorityCapabilityStatus.SUSPENDED,
-        suspendedReason: dto.reason ?? 'Member suspended this capability',
-        suspendedAt: new Date(),
-        suspendedByUserId: caller.id,
-        resumedAt: null,
-        resumedByUserId: null,
-      },
+
+    return this.prisma.db.$transaction(async (tx) => {
+      const state = await tx.authorityCapabilityState.upsert({
+        where: { scopeKey_capability: { scopeKey, capability: dto.capability } },
+        create: {
+          scopeKey,
+          contextType: dto.contextType,
+          subjectUserId: dto.subjectUserId ?? null,
+          organizationId: dto.organizationId ?? null,
+          capability: dto.capability,
+          status: AuthorityCapabilityStatus.SUSPENDED,
+          suspendedReason: dto.reason ?? 'Member suspended this capability',
+          suspendedAt: new Date(),
+          suspendedByUserId: caller.id,
+        },
+        update: {
+          status: AuthorityCapabilityStatus.SUSPENDED,
+          suspendedReason: dto.reason ?? 'Member suspended this capability',
+          suspendedAt: new Date(),
+          suspendedByUserId: caller.id,
+          resumedAt: null,
+          resumedByUserId: null,
+        },
+      });
+      await tx.authorityEvent.create({
+        data: {
+          eventType: AuthorityEventType.CAPABILITY_SUSPENDED,
+          actorUserId: caller.id,
+          contextType: dto.contextType,
+          subjectUserId: dto.subjectUserId ?? null,
+          organizationId: dto.organizationId ?? null,
+          capability: dto.capability,
+          reason: state.suspendedReason,
+        },
+      });
+      return state;
     });
-    await this.prisma.db.authorityEvent.create({
-      data: {
-        eventType: AuthorityEventType.CAPABILITY_SUSPENDED,
-        actorUserId: caller.id,
-        contextType: dto.contextType,
-        subjectUserId: dto.subjectUserId ?? null,
-        organizationId: dto.organizationId ?? null,
-        capability: dto.capability,
-        reason: state.suspendedReason,
-      },
-    });
-    return state;
   }
 
   async resume(dto: AuthorityCapabilityControlDto, caller: AuthenticatedUser) {
     await this.assertScopeController(dto.contextType, dto.subjectUserId, dto.organizationId, caller.id);
     const scopeKey = this.scopeKey(dto.contextType, dto.subjectUserId, dto.organizationId);
-    const state = await this.prisma.db.authorityCapabilityState.upsert({
-      where: { scopeKey_capability: { scopeKey, capability: dto.capability } },
-      create: {
-        scopeKey,
-        contextType: dto.contextType,
-        subjectUserId: dto.subjectUserId ?? null,
-        organizationId: dto.organizationId ?? null,
-        capability: dto.capability,
-        status: AuthorityCapabilityStatus.ACTIVE,
-        resumedAt: new Date(),
-        resumedByUserId: caller.id,
-      },
-      update: {
-        status: AuthorityCapabilityStatus.ACTIVE,
-        resumedAt: new Date(),
-        resumedByUserId: caller.id,
-      },
+
+    return this.prisma.db.$transaction(async (tx) => {
+      // Restoring an organization-wide capability can increase effective
+      // authority, so current ownership is revalidated under the same row lock
+      // used by Step 1 ownership transfer and Step 2 approval.
+      if (dto.contextType === AuthorityContextType.BUSINESS_TENANT && !dto.subjectUserId) {
+        await tx.$queryRaw(
+          Prisma.sql`SELECT "id" FROM "Organization" WHERE "id" = CAST(${dto.organizationId} AS uuid) FOR UPDATE`,
+        );
+        const membership = await tx.organizationMember.findUnique({
+          where: { organizationId_userId: { organizationId: dto.organizationId!, userId: caller.id } },
+          select: { role: true },
+        });
+        if (membership?.role !== OrganizationMemberRole.OWNER) {
+          throw new NotFoundException('Authority scope not found');
+        }
+      }
+
+      const state = await tx.authorityCapabilityState.upsert({
+        where: { scopeKey_capability: { scopeKey, capability: dto.capability } },
+        create: {
+          scopeKey,
+          contextType: dto.contextType,
+          subjectUserId: dto.subjectUserId ?? null,
+          organizationId: dto.organizationId ?? null,
+          capability: dto.capability,
+          status: AuthorityCapabilityStatus.ACTIVE,
+          resumedAt: new Date(),
+          resumedByUserId: caller.id,
+        },
+        update: {
+          status: AuthorityCapabilityStatus.ACTIVE,
+          resumedAt: new Date(),
+          resumedByUserId: caller.id,
+        },
+      });
+      await tx.authorityEvent.create({
+        data: {
+          eventType: AuthorityEventType.CAPABILITY_RESUMED,
+          actorUserId: caller.id,
+          contextType: dto.contextType,
+          subjectUserId: dto.subjectUserId ?? null,
+          organizationId: dto.organizationId ?? null,
+          capability: dto.capability,
+          reason: 'Capability restored; existing grants are still evaluated normally',
+        },
+      });
+      return state;
     });
-    await this.prisma.db.authorityEvent.create({
-      data: {
-        eventType: AuthorityEventType.CAPABILITY_RESUMED,
-        actorUserId: caller.id,
-        contextType: dto.contextType,
-        subjectUserId: dto.subjectUserId ?? null,
-        organizationId: dto.organizationId ?? null,
-        capability: dto.capability,
-        reason: 'Capability restored; existing grants are still evaluated normally',
-      },
-    });
-    return state;
   }
 
   async evaluateForCaller(dto: AuthorityEvaluationDto, caller: AuthenticatedUser) {
@@ -344,7 +372,7 @@ export class AuthorityService {
       orderBy: { createdAt: 'desc' },
     });
     if (grant) {
-      return this.recordDecision(dto, AuthorityDecisionResult.PERMIT, 'Exact active permission exists', grant.id, actorUserId);
+      return this.recordDecision(dto, AuthorityDecisionResult.PERMIT, 'Exact active permission exists for this purpose', grant.id, actorUserId);
     }
 
     const revoked = await this.prisma.db.authorityGrant.findFirst({
@@ -355,7 +383,7 @@ export class AuthorityService {
       return this.recordDecision(dto, AuthorityDecisionResult.DENY, 'Permission was revoked', null, actorUserId);
     }
 
-    return this.recordDecision(dto, AuthorityDecisionResult.NEEDS_APPROVAL, 'No sufficient active permission exists', null, actorUserId);
+    return this.recordDecision(dto, AuthorityDecisionResult.NEEDS_APPROVAL, 'No sufficient active permission exists for this purpose', null, actorUserId);
   }
 
   async trustSnapshot(caller: AuthenticatedUser) {
@@ -555,6 +583,7 @@ export class AuthorityService {
       capability: dto.capability,
       resourceClass: dto.resourceClass,
       resourceRef: dto.resourceRef ?? null,
+      purpose: dto.purpose.trim(),
     };
   }
 
