@@ -32,6 +32,7 @@ import { AdministrationModule } from './administration/administration.module';
 import { UserInterestsModule } from './users/interests/user-interests.module';
 import { HealthModule } from './health/health.module';
 import { ConsentModule } from './consent/consent.module';
+import { AuthorityModule } from './authority/authority.module';
 import { PublicWardModule } from './public-ward/public-ward.module';
 import { ResponsibilitiesModule } from './responsibilities/responsibilities.module';
 import { PeopleHelpModule } from './people-help/people-help.module';
@@ -117,6 +118,7 @@ import { PeopleHelpModule } from './people-help/people-help.module';
     UserInterestsModule,
     HealthModule,
     ConsentModule,
+    AuthorityModule,
     PublicWardModule,
     ResponsibilitiesModule,
     PeopleHelpModule,
