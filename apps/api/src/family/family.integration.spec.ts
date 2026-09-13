@@ -52,16 +52,20 @@ describe('Parent + Child PC-001 — Prisma integration', () => {
     await prisma.onModuleDestroy();
   });
 
-  it('requires guardian attestation plus affirmative child assent before authority is active', async () => {
+  it('requires guardian attestation plus discoverable affirmative child assent before authority is active', async () => {
     const proposed = await family.proposeRelationship(childId, caller(guardianId));
     expect(proposed.status).toBe(ParentChildRelationshipStatus.PENDING);
     expect(proposed.guardianAttestedAt).toBeInstanceOf(Date);
     expect(proposed.childAssentedAt).toBeNull();
 
     await expect(family.requireActiveRelationship(guardianId, childId)).rejects.toThrow();
+    expect(await family.listPendingForChild(caller(outsiderId))).toEqual([]);
+    expect(await family.listPendingForChild(caller(childId))).toEqual([proposed]);
+
     const assented = await family.assentRelationship(proposed.id, caller(childId));
     expect(assented.status).toBe(ParentChildRelationshipStatus.ACTIVE);
     expect(assented.childAssentedAt).toBeInstanceOf(Date);
+    expect(await family.listPendingForChild(caller(childId))).toEqual([]);
 
     const children = await family.listChildren(caller(guardianId));
     expect(children).toEqual([

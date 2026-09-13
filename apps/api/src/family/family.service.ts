@@ -61,6 +61,20 @@ export class FamilyService {
     }
   }
 
+  async listPendingForChild(
+    caller: AuthenticatedUser,
+  ): Promise<GuardianChildRelationshipResponseDto[]> {
+    const pending = await this.prisma.db.guardianChildRelationship.findMany({
+      where: {
+        childUserId: caller.id,
+        status: ParentChildRelationshipStatus.PENDING,
+        childAssentedAt: null,
+      },
+      orderBy: { createdAt: 'asc' },
+    });
+    return pending.map(GuardianChildRelationshipResponseDto.fromEntity);
+  }
+
   async assentRelationship(
     relationshipId: string,
     caller: AuthenticatedUser,
@@ -142,7 +156,7 @@ export class FamilyService {
     if (childIds.length === 0) return [];
 
     const children = await this.prisma.db.user.findMany({
-      where: { id: { in: childIds }, deletedAt: null },
+      where: { id: { in: childIds }, status: UserStatus.ACTIVE, deletedAt: null },
       select: { id: true, profile: { select: { displayName: true } } },
     });
     const byId = new Map(children.map((child) => [child.id, child.profile?.displayName ?? null]));

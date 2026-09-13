@@ -41,6 +41,15 @@ export class FamilyController {
     return this.family.proposeRelationship(dto.childUserId, caller);
   }
 
+  @Get('relationships/pending')
+  @ApiOperation({ summary: 'List only pending guardian proposals addressed to the current child principal' })
+  @ApiResponse({ status: 200, type: [GuardianChildRelationshipResponseDto] })
+  listPending(
+    @CurrentUser() caller: AuthenticatedUser,
+  ): Promise<GuardianChildRelationshipResponseDto[]> {
+    return this.family.listPendingForChild(caller);
+  }
+
   @Post('relationships/:id/assent')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Child principal affirmatively assents to a pending guardian relationship' })
