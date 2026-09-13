@@ -28,9 +28,3 @@ export class ConfirmBusinessResponsibilityCompletionDto {
   @IsBoolean()
   confirmed!: boolean;
 }
-
-export class CancelBusinessResponsibilityDto {
-  @ApiPropertyOptional({ description: 'Short non-secret cancellation reason. Stored only in the tenant audit event.' })
-  @IsOptional() @IsString() @MaxLength(500)
-  reason?: string;
-}
