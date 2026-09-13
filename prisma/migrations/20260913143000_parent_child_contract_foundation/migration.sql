@@ -91,17 +91,23 @@ CREATE INDEX "ResponsibilityWorkContract_createdByUserId_idx"
 
 -- These PC-001 schema models deliberately keep principal/provenance ids scalar
 -- rather than adding reverse relation fields to the existing monolithic User and
--- Responsibility declarations. Database triggers enforce the same existence and
--- lifecycle guarantees without creating Prisma schema drift from undeclared FKs.
+-- Responsibility declarations. Database triggers enforce existence and lifecycle
+-- guarantees without creating Prisma schema drift from undeclared FKs. The
+-- referenced row is KEY SHARE locked so a concurrent delete cannot race an insert;
+-- once the insert commits, the lifecycle trigger handles any subsequent delete.
 CREATE FUNCTION enforce_guardian_child_relationship_users()
 RETURNS TRIGGER AS $$
 BEGIN
-  IF NOT EXISTS (SELECT 1 FROM "User" WHERE "id" = NEW."guardianUserId") THEN
+  PERFORM 1 FROM "User" WHERE "id" = NEW."guardianUserId" FOR KEY SHARE;
+  IF NOT FOUND THEN
     RAISE EXCEPTION 'guardian user does not exist' USING ERRCODE = '23503';
   END IF;
-  IF NOT EXISTS (SELECT 1 FROM "User" WHERE "id" = NEW."childUserId") THEN
+
+  PERFORM 1 FROM "User" WHERE "id" = NEW."childUserId" FOR KEY SHARE;
+  IF NOT FOUND THEN
     RAISE EXCEPTION 'child user does not exist' USING ERRCODE = '23503';
   END IF;
+
   RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;
@@ -114,7 +120,8 @@ FOR EACH ROW EXECUTE FUNCTION enforce_guardian_child_relationship_users();
 CREATE FUNCTION enforce_work_contract_responsibility()
 RETURNS TRIGGER AS $$
 BEGIN
-  IF NOT EXISTS (SELECT 1 FROM "Responsibility" WHERE "id" = NEW."responsibilityId") THEN
+  PERFORM 1 FROM "Responsibility" WHERE "id" = NEW."responsibilityId" FOR KEY SHARE;
+  IF NOT FOUND THEN
     RAISE EXCEPTION 'responsibility does not exist' USING ERRCODE = '23503';
   END IF;
   RETURN NEW;
