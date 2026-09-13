@@ -97,6 +97,8 @@ describe('Authority, Consent & Trust — E2E', () => {
     const grant = await request(app.getHttpServer()).post(`/authority/requests/${created.body.id}/approve`).set(auth(employeeToken)).send({}).expect(201);
     expect((await request(app.getHttpServer()).post('/authority/evaluate').set(auth(employeeToken)).send(evaluation).expect(201)).body.result).toBe('PERMIT');
 
+    // Knowing a grant id never gives another tenant/person control over it.
+    await request(app.getHttpServer()).post(`/authority/grants/${grant.body.id}/revoke`).set(auth(outsiderToken)).send({ reason: 'not mine' }).expect(404);
     await request(app.getHttpServer()).post(`/authority/grants/${grant.body.id}/revoke`).set(auth(employeeToken)).send({ reason: 'I changed my mind' }).expect(201);
     expect((await request(app.getHttpServer()).post('/authority/evaluate').set(auth(employeeToken)).send(evaluation).expect(201)).body.result).toBe('DENY');
   });
@@ -119,6 +121,29 @@ describe('Authority, Consent & Trust — E2E', () => {
       resourceClass: AuthorityResourceClass.BUSINESS_DATA,
     }).expect(201);
     expect(evalResult.body.result).toBe('PERMIT');
+  });
+
+  it('does not let an employee self-approve organization-owned authority merely by naming themselves as the subject', async () => {
+    const created = await request(app.getHttpServer()).post('/authority/requests').set(auth(employeeToken)).send({
+      contextType: AuthorityContextType.BUSINESS_TENANT,
+      organizationId: orgId,
+      subjectUserId: employeeId,
+      capability: AuthorityCapability.ACT,
+      resourceClass: AuthorityResourceClass.BUSINESS_DATA,
+      purpose: 'Act on company operating data in my work context',
+    }).expect(201);
+
+    await request(app.getHttpServer()).post(`/authority/requests/${created.body.id}/approve`).set(auth(employeeToken)).send({}).expect(404);
+    await request(app.getHttpServer()).post(`/authority/requests/${created.body.id}/approve`).set(auth(ownerToken)).send({}).expect(201);
+
+    const result = await request(app.getHttpServer()).post('/authority/evaluate').set(auth(employeeToken)).send({
+      contextType: AuthorityContextType.BUSINESS_TENANT,
+      organizationId: orgId,
+      subjectUserId: employeeId,
+      capability: AuthorityCapability.ACT,
+      resourceClass: AuthorityResourceClass.BUSINESS_DATA,
+    }).expect(201);
+    expect(result.body.result).toBe('PERMIT');
   });
 
   it('never lets the employer approve an employee microphone permission; the employee can approve, suspend, and restore it', async () => {
@@ -196,6 +221,21 @@ describe('Authority, Consent & Trust — E2E', () => {
       capability: AuthorityCapability.SEE, resourceClass: AuthorityResourceClass.OTHER,
     }).expect(201);
     expect(result.body.result).not.toBe('PERMIT');
+  });
+
+  it('resume never manufactures authority when no active grant exists', async () => {
+    const scope = {
+      contextType: AuthorityContextType.PERSONAL,
+      subjectUserId: employeeId,
+      capability: AuthorityCapability.WRITE,
+    };
+    await request(app.getHttpServer()).post('/authority/capabilities/suspend').set(auth(employeeToken)).send({ ...scope, reason: 'pause writes' }).expect(201);
+    await request(app.getHttpServer()).post('/authority/capabilities/resume').set(auth(employeeToken)).send(scope).expect(201);
+    const result = await request(app.getHttpServer()).post('/authority/evaluate').set(auth(employeeToken)).send({
+      ...scope,
+      resourceClass: AuthorityResourceClass.FILES,
+    }).expect(201);
+    expect(result.body.result).toBe('NEEDS_APPROVAL');
   });
 
   it('rejects secret material from the authority ledger and exposes a plain trust snapshot', async () => {

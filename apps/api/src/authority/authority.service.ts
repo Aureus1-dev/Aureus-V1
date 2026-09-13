@@ -395,8 +395,23 @@ export class AuthorityService {
     return request;
   }
 
-  private async canControl(record: { contextType: AuthorityContextType; subjectUserId: string | null; organizationId: string | null }, userId: string) {
-    if (record.subjectUserId) return record.subjectUserId === userId;
+  private async canControl(record: {
+    contextType: AuthorityContextType;
+    subjectUserId: string | null;
+    organizationId: string | null;
+    resourceClass: AuthorityResourceClass;
+  }, userId: string) {
+    if (record.contextType === AuthorityContextType.PERSONAL) {
+      return record.subjectUserId === userId;
+    }
+
+    // Naming an employee never converts organization-owned authority into
+    // employee-owned authority. Only explicitly human/private resource
+    // classes follow the affected person; every other Business permission
+    // starts conservatively with the current organization OWNER.
+    if (ALWAYS_PERSON_CONTROLLED.has(record.resourceClass)) {
+      return Boolean(record.subjectUserId) && record.subjectUserId === userId;
+    }
     if (!record.organizationId) return false;
     const membership = await this.prisma.db.organizationMember.findUnique({
       where: { organizationId_userId: { organizationId: record.organizationId, userId } },
@@ -408,7 +423,20 @@ export class AuthorityService {
   private async assertScopeController(contextType: AuthorityContextType, subjectUserId: string | undefined, organizationId: string | undefined, userId: string) {
     const error = await this.scopeError(contextType, subjectUserId, organizationId);
     if (error) throw new BadRequestException(error);
-    if (!(await this.canControl({ contextType, subjectUserId: subjectUserId ?? null, organizationId: organizationId ?? null }, userId))) {
+
+    // Capability suspension is deliberately simpler than a grant: a person
+    // controls their own person-scoped kill switch, while the business OWNER
+    // controls the organization-wide kill switch.
+    if (contextType === AuthorityContextType.PERSONAL || subjectUserId) {
+      if (subjectUserId !== userId) throw new NotFoundException('Authority scope not found');
+      return;
+    }
+    if (!organizationId) throw new NotFoundException('Authority scope not found');
+    const membership = await this.prisma.db.organizationMember.findUnique({
+      where: { organizationId_userId: { organizationId, userId } },
+      select: { role: true },
+    });
+    if (membership?.role !== OrganizationMemberRole.OWNER) {
       throw new NotFoundException('Authority scope not found');
     }
   }
