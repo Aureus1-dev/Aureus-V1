@@ -88,6 +88,7 @@ enum ResponsibilityContextType {
 enum ResponsibilityKind {
   OPPORTUNITY_DECISION
   OPPORTUNITY_APPLICATION_GUIDANCE
+  BUSINESS_PROMISE
 }
 
 enum ResponsibilityStatus {
@@ -1051,8 +1052,6 @@ enum ResourceCategory {
   OTHER
 }
 
-// What kind of thing the listing represents (PA-014: "organizations, programs,
-// services, professionals, tools, and community resources").
 enum ResourceType {
   ORGANIZATION
   PROGRAM
@@ -1070,14 +1069,10 @@ enum ResourceStatus {
   ARCHIVED
 }
 
-// ===========================================================================
-// Resource  —  Core Resource Directory model (PA-014)
-// ===========================================================================
-
 model Resource {
   id             String  @id @default(uuid()) @db.Uuid
   sequenceNumber Int     @unique @default(autoincrement())
-  resourceRef    String? @unique // AUR-RES-000001, set after insert
+  resourceRef    String? @unique
 
   title            String
   shortDescription String
@@ -1114,9 +1109,6 @@ model Resource {
   sourceUrl  String?
   sourceType SourceType @default(ADMIN_ENTRY)
 
-  // The user (Organization/Business representative, Steward, or Admin) who
-  // manages this listing. Always the creator at insert time; Steward/Admin
-  // may edit any listing regardless of ownerId (PA-018 role-based access).
   ownerId         String    @db.Uuid
   submittedById   String    @db.Uuid
   createdById     String    @db.Uuid
@@ -1137,10 +1129,6 @@ model Resource {
   @@index([country])
   @@index([createdAt])
 }
-
-// ===========================================================================
-// SavedResource  —  Members bookmark resources for later
-// ===========================================================================
 
 model SavedResource {
   id         String   @id @default(uuid()) @db.Uuid
@@ -1193,12 +1181,6 @@ enum BusinessPublicStatus {
   PAUSED
 }
 
-// Step 1 — Business Identity & Boundary: the full invitation lifecycle
-// (§8). An invitation is address-bound (invitedEmail), not identity-bound —
-// it exists before the invitee necessarily has, or is known to have, an
-// Aureus account — and never itself grants access; only an ACCEPTED
-// invitation may result in an OrganizationMember row, created atomically
-// with the acceptance.
 enum OrganizationInvitationStatus {
   PENDING
   ACCEPTED
@@ -1307,14 +1289,10 @@ enum LibraryCandidateExportStatus {
   REJECTED
 }
 
-// ===========================================================================
-// Organization  —  Core Business Portal model (PA-011)
-// ===========================================================================
-
 model Organization {
   id              String  @id @default(uuid()) @db.Uuid
   sequenceNumber  Int     @unique @default(autoincrement())
-  organizationRef String? @unique // AUR-ORG-000001, set after insert
+  organizationRef String? @unique
 
   name             String
   shortDescription String
@@ -1343,8 +1321,6 @@ model Organization {
   updatedAt       DateTime  @updatedAt
   deletedAt       DateTime?
 
-  // Canonical tenant boundary: Organization.id is the tenant_id carried by
-  // every business-console request and audit event.
   tenantVersion Int @default(1)
 
   members                     OrganizationMember[]
@@ -1370,12 +1346,6 @@ model Organization {
   @@index([createdAt])
 }
 
-// ===========================================================================
-// OrganizationMember  —  Verified representatives acting on an Organization's
-// behalf (PA-011). ADMIN manages the org profile and membership; MEMBER is a
-// recognized representative without membership-management authority.
-// ===========================================================================
-
 model OrganizationMember {
   id             String                 @id @default(uuid()) @db.Uuid
   organizationId String                 @db.Uuid
@@ -1394,16 +1364,6 @@ model OrganizationMember {
   @@index([organizationId, role])
 }
 
-// ===========================================================================
-// OrganizationInvitation — Step 1 Business Identity & Boundary §8. Address-
-// bound (invitedEmail), not identity-bound: an invitation may target a
-// person before they have — or are known by the inviter to have — an
-// Aureus account. Accepting requires the authenticated caller's own email
-// to match invitedEmail, which is what prevents a third party from
-// intercepting or replaying someone else's invitation. Membership is
-// created only at acceptance, atomically with the PENDING → ACCEPTED
-// transition; the invitation row itself never grants access.
-// ===========================================================================
 model OrganizationInvitation {
   id               String                       @id @default(uuid()) @db.Uuid
   organizationId   String                       @db.Uuid
@@ -1421,21 +1381,11 @@ model OrganizationInvitation {
   updatedAt        DateTime                     @updatedAt
 
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  // DB-enforced invariant (Step 1 repair #5, migration
-  // 20260912150000_step1_repair_pending_invitation_uniqueness): a partial
-  // unique index on (organizationId, lower(invitedEmail)) WHERE status =
-  // 'PENDING' — not expressible via @@unique, since Prisma has no syntax
-  // for a partial/expression index. Prevents two concurrent PENDING
-  // invitations to the same organization+email; re-inviting after an
-  // earlier invitation resolved (accepted/declined/revoked/expired) is
-  // still allowed, since only PENDING rows are covered.
 
   @@index([organizationId, status])
   @@index([invitedEmail, status])
 }
 
-// One business operating profile per tenant. Structured JSON is deliberately
-// bounded by DTO validation and database shape checks in the PF-004 migration.
 model BusinessProfile {
   id                    String               @id @default(uuid()) @db.Uuid
   organizationId        String               @unique @db.Uuid
@@ -1453,8 +1403,6 @@ model BusinessProfile {
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 }
 
-// Append-only tenant-scoped audit context. Application code creates events;
-// there are intentionally no update/delete routes.
 model TenantAuditEvent {
   id             String            @id @default(uuid()) @db.Uuid
   organizationId String            @db.Uuid
@@ -1471,8 +1419,6 @@ model TenantAuditEvent {
   @@index([organizationId, actorId])
 }
 
-// Tenant-owned operating knowledge. Approval here means approved by this
-// business for its Ward; it never means admitted to the Aureus Library.
 model BusinessKnowledgeRecord {
   id                    String                      @id @default(uuid()) @db.Uuid
   organizationId        String                      @db.Uuid
@@ -1509,8 +1455,6 @@ model BusinessKnowledgeRecord {
   @@index([accountableReviewerId])
 }
 
-// A bounded snapshot offered for later Library admission review. Creating a
-// candidate does not publish, approve, or transmit it outside V1.
 model LibraryCandidateExport {
   id                String                       @id @default(uuid()) @db.Uuid
   organizationId    String                       @db.Uuid
@@ -1530,10 +1474,6 @@ model LibraryCandidateExport {
   @@index([knowledgeRecordId])
 }
 
-// Public, tenant-isolated Ward conversations. The bearer secret returned to
-// the browser is never stored; only its SHA-256 digest is retained here.
-// A Ward conversation is deliberately separate from AiConversation, whose
-// identity and memory belong to an authenticated Aureus member.
 model WardConversation {
   id              String                 @id @default(uuid()) @db.Uuid
   organizationId  String                 @db.Uuid
@@ -1556,10 +1496,6 @@ model WardConversation {
   @@index([expiresAt])
 }
 
-// A visitor creates a lead only by granting the exact server-owned consent
-// copy. Contact details are never inferred from chat. The related Ward
-// conversation is retained for the same bounded period so the business sees
-// the attributable context the visitor explicitly agreed to share.
 model WardLead {
   id                      String                 @id @default(uuid()) @db.Uuid
   organizationId          String                 @db.Uuid
@@ -1604,8 +1540,6 @@ model WardLead {
   @@index([retentionExpiresAt])
 }
 
-// Append-only operational history. It deliberately excludes contact PII;
-// deleting a lead also deletes its history and attributed conversation.
 model WardLeadEvent {
   id             String            @id @default(uuid()) @db.Uuid
   organizationId String            @db.Uuid
@@ -1641,9 +1575,6 @@ model WardMessage {
   @@index([organizationId, createdAt])
 }
 
-// Exact approved tenant sources attributed to one public answer. The
-// organizationId is part of both foreign keys so cross-tenant citation is
-// structurally impossible even if application code regresses.
 model WardMessageSource {
   organizationId      String   @db.Uuid
   wardMessageId       String   @db.Uuid
@@ -1671,9 +1602,6 @@ enum StewardshipRelationshipStatus {
   ENDED
 }
 
-// How a relationship came to exist. AI_RECOMMENDATION always lands in
-// PENDING — the canonical product decision is that AI may recommend a
-// steward but may never automatically assign one.
 enum StewardshipRelationshipOrigin {
   MEMBER_REQUEST
   AI_RECOMMENDATION
@@ -1720,13 +1648,6 @@ enum StewardshipEscalationStatus {
   CLOSED
 }
 
-// ===========================================================================
-// StewardCapacity  —  Configurable per-steward active-member ceiling
-// (PA-012). The default (25) lives exactly once, here, as the Prisma column
-// default — application code never hardcodes it; a lazily-created row is
-// upserted with this default the first time a steward's capacity matters.
-// ===========================================================================
-
 model StewardCapacity {
   id               String   @id @default(uuid()) @db.Uuid
   stewardId        String   @unique @db.Uuid
@@ -1737,31 +1658,18 @@ model StewardCapacity {
   updatedAt        DateTime @updatedAt
 }
 
-// ===========================================================================
-// StewardshipRelationship  —  Core steward<->member pairing and its full
-// lifecycle history (PA-012). A steward is a guide, not an owner: rows are
-// never deleted and never mutated back to an earlier state once ENDED —
-// reassignment ends one row and creates another, preserving complete history.
-// ===========================================================================
-
 model StewardshipRelationship {
   id String @id @default(uuid()) @db.Uuid
 
   memberId String @db.Uuid
   member   User   @relation("StewardshipRelationshipMember", fields: [memberId], references: [id], onDelete: Cascade)
 
-  // Nullable: a PENDING relationship created by a member's generic request
-  // may not yet name a specific steward.
   stewardId String? @db.Uuid
   steward   User?   @relation("StewardshipRelationshipSteward", fields: [stewardId], references: [id], onDelete: Cascade)
 
   status StewardshipRelationshipStatus @default(PENDING)
   origin StewardshipRelationshipOrigin
 
-  // Actor-audit pointers (who requested/assigned/recommended this), loose
-  // UUID references with no FK — mirrors Resource/Opportunity's ownerId-style
-  // audit fields (ADR-006 §3), distinct from memberId/stewardId above, which
-  // are the real relationship parties and carry real FKs (ADR-010 Decision 3).
   requestedById            String? @db.Uuid
   assignedById             String? @db.Uuid
   assignedByOrganizationId String? @db.Uuid
@@ -1788,12 +1696,6 @@ model StewardshipRelationship {
   @@index([status])
 }
 
-// ===========================================================================
-// StewardshipNote  —  Steward-authored notes on a relationship. PRIVATE by
-// default (least privilege); only SHARED notes are ever visible to the
-// member (PA-012 Member Experience / Steward Authority boundaries).
-// ===========================================================================
-
 model StewardshipNote {
   id             String                    @id @default(uuid()) @db.Uuid
   relationshipId String                    @db.Uuid
@@ -1806,13 +1708,6 @@ model StewardshipNote {
 
   @@index([relationshipId])
 }
-
-// ===========================================================================
-// StewardshipTask  —  Steward-created follow-up tasks for a member (PA-012).
-// Distinct from the member's own Journey Engine Task: this is authored by
-// the steward, not owned by the member, and is visible to the member as a
-// read-only "assigned task."
-// ===========================================================================
 
 model StewardshipTask {
   id             String                  @id @default(uuid()) @db.Uuid
@@ -1828,12 +1723,6 @@ model StewardshipTask {
 
   @@index([relationshipId])
 }
-
-// ===========================================================================
-// StewardshipRecommendation  —  A steward recommends an Opportunity or a
-// Resource to a member (PA-012). Exactly one of opportunityId/resourceId is
-// set, enforced in the service layer (matches `type`).
-// ===========================================================================
 
 model StewardshipRecommendation {
   id             String                        @id @default(uuid()) @db.Uuid
@@ -1854,19 +1743,6 @@ model StewardshipRecommendation {
   @@index([opportunityId])
   @@index([resourceId])
 }
-
-// ===========================================================================
-// StewardshipEscalation  —  A confidential request for additional
-// stewardship, never an accusation, disciplinary record, or presumption of
-// wrongdoing (PA-012; reframed constitutionally by WO-030 Founder Decision
-// #4, which now governs this model platform-wide). Not exposed to the
-// member concerned — "Escalate issues" is listed under Steward Authority,
-// not Member Experience. Exactly one of relationshipId/podId is set,
-// mirroring StewardshipRecommendation's real-nullable-FK-per-target shape;
-// enforced in the service layer. A Pod escalation may be raised by any
-// ACTIVE Pod member, not only the Pod Steward, so a concern about a
-// Steward's own conduct is never filterable by that Steward.
-// ===========================================================================
 
 model StewardshipEscalation {
   id              String                        @id @default(uuid()) @db.Uuid
@@ -1893,10 +1769,6 @@ model StewardshipEscalation {
 // Communication System Enums (PA-015)
 // ===========================================================================
 
-// The coarse "what is this about" classification, doubling as the
-// integration-source domain (Notification.type carries the fine-grained,
-// free-text event key so future domains never need an enum migration to add
-// a new notification kind — see ADR-012 Decision 2).
 enum NotificationCategory {
   ACCOUNT
   STEWARDSHIP
@@ -1918,9 +1790,6 @@ enum DeliveryChannel {
   EMAIL
 }
 
-// DELIVERED is only ever set for IN_APP (persistence itself is the honest
-// delivery confirmation); EMAIL tops out at SENT — there is no delivery
-// webhook yet, so EMAIL never fabricates DELIVERED (ADR-012 Decision 6).
 enum DeliveryStatus {
   PENDING
   SENT
@@ -1950,24 +1819,11 @@ enum ConversationType {
   POD
 }
 
-// Reserved for forward compatibility with a future external delivery
-// channel; every V1 message is in-app and synchronously persisted, so SENT
-// is the only value ever actually written (ADR-012 Decision 5).
 enum MessageStatus {
   SENT
   DELIVERED
   FAILED
 }
-
-// ===========================================================================
-// Notification  —  In-app notification delivered to a single recipient
-// (PA-015). `category` is the coarse classification; `type` is a free-text,
-// dot-namespaced event key (e.g. "stewardship.relationship.activated") so
-// any current or future domain can mint new notification kinds without a
-// schema migration. `dedupeKey`, when supplied by the calling domain, gives
-// the integration point (NotificationsService.notify()) DB-enforced
-// idempotency against retried domain-event delivery.
-// ===========================================================================
 
 model Notification {
   id          String               @id @default(uuid()) @db.Uuid
@@ -1993,13 +1849,6 @@ model Notification {
   @@index([category])
 }
 
-// ===========================================================================
-// NotificationDelivery  —  Per-channel delivery attempt/status record for a
-// Notification (PA-015 §Delivery Tracking). The unique constraint on
-// [notificationId, channel] is what makes a repeated send request a no-op
-// rather than a duplicate send (ADR-012 Decision 6).
-// ===========================================================================
-
 model NotificationDelivery {
   id             String          @id @default(uuid()) @db.Uuid
   notificationId String          @db.Uuid
@@ -2017,19 +1866,6 @@ model NotificationDelivery {
   @@index([status])
 }
 
-// ===========================================================================
-// NotificationPreference  —  Per-user, per-category channel preferences
-// (PA-015 §Communication Preferences). Absence of a row for a given
-// [userId, category] means the secure default (both channels enabled)
-// applies — rows only exist once a user has customized a category. SYSTEM
-// category's inAppEnabled cannot be set false (enforced in the service, not
-// the schema) — the platform's one non-disableable channel, per PA-015's
-// "Override member communication preferences except for critical platform
-// or safety notifications" boundary. digestEnabled/quietHours* are a stored
-// foundation for a future scheduled-digest capability; nothing reads them
-// yet (ADR-012 Decision 4).
-// ===========================================================================
-
 model NotificationPreference {
   id              String               @id @default(uuid()) @db.Uuid
   userId          String               @db.Uuid
@@ -2045,17 +1881,6 @@ model NotificationPreference {
 
   @@unique([userId, category])
 }
-
-// ===========================================================================
-// Announcement  —  Platform/organization/role/steward-audience broadcast
-// (PA-015 §Announcements). Exactly one of organizationId/targetRole/
-// stewardId is set, matching `scope` (enforced in the service layer, mirrors
-// StewardshipRecommendation's type/target pairing). Publishing fans out one
-// Notification per resolved recipient (ADR-012 Decision 3). `isCritical`
-// bypasses recipient ANNOUNCEMENT-category preference filtering for the
-// in-app channel only — the schema-level mechanism for PA-015's "critical
-// platform or safety notifications" carve-out.
-// ===========================================================================
 
 model Announcement {
   id             String             @id @default(uuid()) @db.Uuid
@@ -2082,20 +1907,6 @@ model Announcement {
   @@index([organizationId])
 }
 
-// ===========================================================================
-// Conversation  —  A messaging thread (PA-015 §Direct and Contextual
-// Messaging). STEWARDSHIP conversations are 1:1 with a StewardshipRelationship
-// (the unique `relationshipId` makes "start a conversation" idempotent —
-// get-or-create by relationship, never a duplicate thread per relationship).
-// ORGANIZATION conversations scope participants to representatives of the
-// same Organization (no member-enrollment model exists yet — mirrors
-// ADR-011 Decision 8's documented Business Portal scoping limitation).
-// POD conversations are 1:1 with a Pod (unique `podId`, same get-or-create
-// idempotency as STEWARDSHIP) with every ACTIVE PodMembership seated as a
-// participant — the exact N-participant extension ADR-012 Decision 8
-// pre-declared for this moment (WO-030).
-// ===========================================================================
-
 model Conversation {
   id             String                   @id @default(uuid()) @db.Uuid
   type           ConversationType
@@ -2115,15 +1926,6 @@ model Conversation {
   @@index([organizationId])
 }
 
-// ===========================================================================
-// ConversationParticipant  —  Explicit participant whitelist for a
-// Conversation. Authorization always checks membership in this table, never
-// re-derives it from the Conversation's type-specific scoping fields at
-// message-send time — defense in depth if a relationship/org membership
-// later changes shape (ADR-012 Decision 7). `lastReadAt` is the read-state
-// foundation ("Message status" requirement) without per-message receipts.
-// ===========================================================================
-
 model ConversationParticipant {
   id             String       @id @default(uuid()) @db.Uuid
   conversationId String       @db.Uuid
@@ -2137,11 +1939,6 @@ model ConversationParticipant {
   @@index([userId])
 }
 
-// ===========================================================================
-// Message  —  A single message within a Conversation. `senderId` is always
-// derived from the authenticated JWT, never trusted from the request body.
-// ===========================================================================
-
 model Message {
   id             String        @id @default(uuid()) @db.Uuid
   conversationId String        @db.Uuid
@@ -2152,7 +1949,7 @@ model Message {
   status         MessageStatus @default(SENT)
   createdAt      DateTime      @default(now())
   deletedAt      DateTime?
-  deletedById    String?       @db.Uuid // soft reference to User, no enforced relation (matches CitySheetEntry.verifiedById convention)
+  deletedById    String?       @db.Uuid
 
   reports MessageReport[]
 
@@ -2160,28 +1957,15 @@ model Message {
   @@index([senderId])
 }
 
-// ===========================================================================
-// MessageReport  —  PD-008 (Platform-Wide Content Moderation & Trust/Safety).
-// Any conversation participant may report a message; a Platform/System
-// Administrator (any conversation type) or, for POD conversations, that
-// Pod's Steward (delegated from the Pods domain — Communication does not
-// depend on Pods) reviews the queue and resolves it. Kept separate from
-// StewardshipEscalation deliberately: an escalation is a confidential
-// request for additional stewardship support and is never an accusation
-// (Founder Decision #4, `pod-escalations.service.ts`); a message report is
-// exactly that — an accusation about specific content — a different
-// concept that must not be blurred into the escalation model.
-// ===========================================================================
-
 model MessageReport {
   id             String              @id @default(uuid()) @db.Uuid
   messageId      String              @db.Uuid
   message        Message             @relation(fields: [messageId], references: [id], onDelete: Cascade)
   conversationId String              @db.Uuid
-  reporterId     String              @db.Uuid // soft reference to User, no enforced relation (matches CitySheetEntry.verifiedById convention)
+  reporterId     String              @db.Uuid
   reason         String
   status         MessageReportStatus @default(OPEN)
-  resolvedById   String?             @db.Uuid // soft reference to User, no enforced relation
+  resolvedById   String?             @db.Uuid
   resolvedAt     DateTime?
   createdAt      DateTime            @default(now())
 
@@ -2217,41 +2001,24 @@ enum KnowledgeArticleStatus {
   ARCHIVED
 }
 
-// ===========================================================================
-// KnowledgeArticle  —  Core Knowledge System model (PA-013). Reuses the
-// shared VerificationStatus verification workflow verbatim from Resources/
-// Opportunities/Organizations (PA-013 "verify information before
-// publication" is the same shape of problem those domains already solved).
-// `version` + KnowledgeArticleRevision together satisfy "track revisions and
-// version history" — the one genuinely new capability this domain needs
-// beyond the established verification-workflow pattern.
-// ===========================================================================
-
 model KnowledgeArticle {
   id             String  @id @default(uuid()) @db.Uuid
   sequenceNumber Int     @unique @default(autoincrement())
-  articleRef     String? @unique // AUR-KB-000001, set after insert
+  articleRef     String? @unique
 
   title    String
   summary  String
   content  String
   category KnowledgeCategory
   tags     String[]          @default([])
-
-  // "Approved external sources" (PA-013 Inputs) — optional provenance link.
   sourceUrl String?
 
   status             KnowledgeArticleStatus @default(DRAFT)
   verificationStatus VerificationStatus     @default(DRAFT)
   rejectionReason    String?
-
   version Int @default(1)
-
   datePublished    DateTime?
   dateLastVerified DateTime?
-
-  // Loose audit pointers (no FK), mirroring Resource.ownerId (ADR-006 §3) —
-  // authorship attribution, not a relational identity.
   authorId        String    @db.Uuid
   lastUpdatedById String    @db.Uuid
   createdAt       DateTime  @default(now())
@@ -2267,16 +2034,6 @@ model KnowledgeArticle {
   @@index([authorId])
   @@index([createdAt])
 }
-
-// ===========================================================================
-// KnowledgeArticleRevision  —  A snapshot of a KnowledgeArticle's content
-// immediately before a substantive edit (title/summary/content/category).
-// Real FK to KnowledgeArticle: this is genuine containment, not an audit
-// pointer — a revision cannot outlive its article (mirrors
-// StewardshipNote/StewardshipTask's relationship to StewardshipRelationship,
-// ADR-011). Articles are never hard-deleted (soft delete only), so revision
-// history is preserved for the life of the platform.
-// ===========================================================================
 
 model KnowledgeArticleRevision {
   id            String            @id @default(uuid()) @db.Uuid
@@ -2298,9 +2055,6 @@ model KnowledgeArticleRevision {
 // Academy Enums (PA-010)
 // ===========================================================================
 
-// Shared Draft/Active/Archived lifecycle for Course and LearningPath — the
-// same shape as KnowledgeArticleStatus/ResourceStatus, named generically
-// since two Academy entities share it (ADR-014).
 enum AcademyContentStatus {
   DRAFT
   ACTIVE
@@ -2340,22 +2094,10 @@ enum MediaType {
   ATTACHMENT
 }
 
-// ===========================================================================
-// Course  —  Core Academy model (PA-010). Reuses the shared VerificationStatus
-// verification workflow verbatim (Resources/Opportunities/Organizations/
-// Knowledge — a fifth domain now sharing this pattern), plus a `version`
-// counter and CourseRevision pre-edit snapshots (identical shape to
-// KnowledgeArticle/KnowledgeArticleRevision, ADR-013) for "versioned
-// curriculum." `organizationId` is an optional Business Portal integration
-// point (attribution only — course authority remains Steward/Admin-only
-// per the founder's WO-026 canonical decision, unlike Resources/Knowledge's
-// broader creator set).
-// ===========================================================================
-
 model Course {
   id             String  @id @default(uuid()) @db.Uuid
   sequenceNumber Int     @unique @default(autoincrement())
-  courseRef      String? @unique // AUR-CRS-000001, set after insert
+  courseRef      String? @unique
 
   title                    String
   shortDescription         String
@@ -2366,14 +2108,10 @@ model Course {
   status             AcademyContentStatus @default(DRAFT)
   verificationStatus VerificationStatus   @default(DRAFT)
   rejectionReason    String?
-
   version             Int     @default(1)
   grantsCertification Boolean @default(false)
-
-  // Optional Business Portal integration — attribution only.
   organizationId String?       @db.Uuid
   organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
-
   authorId        String    @db.Uuid
   lastUpdatedById String    @db.Uuid
   datePublished   DateTime?
@@ -2412,12 +2150,6 @@ model CourseRevision {
   @@index([courseId])
 }
 
-// ===========================================================================
-// Module / Lesson  —  A Course's structural content tree. `Lesson.
-// relatedArticleId` is an optional Knowledge System integration point
-// (supplementary reading), validated against a real KnowledgeArticle row.
-// ===========================================================================
-
 model Module {
   id          String   @id @default(uuid()) @db.Uuid
   courseId    String   @db.Uuid
@@ -2441,13 +2173,10 @@ model Lesson {
   content                  String
   position                 Int
   estimatedDurationMinutes Int?
-
   relatedArticleId String?           @db.Uuid
   relatedArticle   KnowledgeArticle? @relation(fields: [relatedArticleId], references: [id], onDelete: SetNull)
-
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-
   progress LessonProgress[]
   media    CourseMedia[]
 
@@ -2455,34 +2184,22 @@ model Lesson {
   @@index([relatedArticleId])
 }
 
-// ===========================================================================
-// LearningPath  —  A curated, ordered sequence of Courses (PA-010). Enrollment
-// and completion are Course-scoped only in this foundation, not LearningPath-
-// scoped — a LearningPath is a discovery/curation structure a member browses
-// and works through course-by-course; see ADR-014 for the deferred
-// path-level-progress-aggregation Future Extension Point.
-// ===========================================================================
-
 model LearningPath {
   id             String  @id @default(uuid()) @db.Uuid
   sequenceNumber Int     @unique @default(autoincrement())
-  pathRef        String? @unique // AUR-LP-000001, set after insert
-
+  pathRef        String? @unique
   title            String
   shortDescription String
-  fullDescription  String
-
+  fullDescription String
   status             AcademyContentStatus @default(DRAFT)
   verificationStatus VerificationStatus   @default(DRAFT)
   rejectionReason    String?
-
   authorId        String    @db.Uuid
   lastUpdatedById String    @db.Uuid
   datePublished   DateTime?
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
   deletedAt       DateTime?
-
   pathCourses LearningPathCourse[]
 
   @@index([verificationStatus])
@@ -2504,14 +2221,6 @@ model LearningPathCourse {
   @@index([courseId])
 }
 
-// ===========================================================================
-// Enrollment / LessonProgress  —  A member's (or steward's) participation in
-// a Course. Real FK to User: a genuine relationship, mirroring the
-// StewardshipRelationship/ConversationParticipant precedent, not an audit
-// pointer. `Enrollment` auto-completes when every Lesson in the Course
-// reaches COMPLETED (ADR-014).
-// ===========================================================================
-
 model Enrollment {
   id       String           @id @default(uuid()) @db.Uuid
   userId   String           @db.Uuid
@@ -2519,11 +2228,9 @@ model Enrollment {
   courseId String           @db.Uuid
   course   Course           @relation(fields: [courseId], references: [id], onDelete: Cascade)
   status   EnrollmentStatus @default(ACTIVE)
-
   enrolledAt  DateTime  @default(now())
   completedAt DateTime?
   updatedAt   DateTime  @updatedAt
-
   lessonProgress LessonProgress[]
 
   @@unique([userId, courseId])
@@ -2538,7 +2245,6 @@ model LessonProgress {
   lessonId     String               @db.Uuid
   lesson       Lesson               @relation(fields: [lessonId], references: [id], onDelete: Cascade)
   status       LessonProgressStatus @default(NOT_STARTED)
-
   startedAt   DateTime?
   completedAt DateTime?
   updatedAt   DateTime  @updatedAt
@@ -2548,13 +2254,6 @@ model LessonProgress {
   @@index([lessonId])
 }
 
-// ===========================================================================
-// Certification  —  Steward certification foundation (PA-010). Auto-issued
-// when a Course with `grantsCertification: true` is completed. A minimal,
-// genuinely functional foundation — no renewal/expiration/external-
-// verification logic yet (ADR-014 Known Limitations).
-// ===========================================================================
-
 model Certification {
   id             String   @id @default(uuid()) @db.Uuid
   sequenceNumber Int      @unique @default(autoincrement())
@@ -2562,25 +2261,17 @@ model Certification {
   user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   courseId       String   @db.Uuid
   course         Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
-  certificateRef String?  @unique // AUR-CERT-000001, set after insert
+  certificateRef String?  @unique
   issuedAt       DateTime @default(now())
 
   @@unique([userId, courseId])
   @@index([userId])
 }
 
-// ===========================================================================
-// MediaAsset / CourseMedia  —  Steward Content Studio (PA-010, part of
-// Academy per the founder's canonical decision, not a standalone domain).
-// `storageRef` is an opaque pointer (key/URL) — a storage abstraction only;
-// no cloud storage provider is implemented in this WO (ADR-014 Decision 5).
-// ===========================================================================
-
 model MediaAsset {
   id             String  @id @default(uuid()) @db.Uuid
   sequenceNumber Int     @unique @default(autoincrement())
-  mediaRef       String? @unique // AUR-MED-000001, set after insert
-
+  mediaRef       String? @unique
   type            MediaType
   title           String
   description     String?
@@ -2588,12 +2279,10 @@ model MediaAsset {
   mimeType        String?
   sizeBytes       Int?
   durationSeconds Int?
-
   uploadedById String    @db.Uuid
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
   deletedAt    DateTime?
-
   courseMedia CourseMedia[]
 
   @@index([type])
@@ -2617,13 +2306,7 @@ model CourseMedia {
 }
 
 // ===========================================================================
-// AI Intelligence Engine  —  Orchestrates the existing Aureus platform for a
-// member/steward (PA-006). NOT a general chatbot: every capability is scoped
-// to explaining/recommending against real platform data (Journeys,
-// Opportunities, Resources, Knowledge, Academy, Stewardship, Business
-// Portal). The AI never performs an irreversible action automatically — a
-// Recommendation is a suggestion record only; approving one is a status
-// flip, not an auto-executed action (ADR-015 Decision 6).
+// AI Intelligence Engine
 // ===========================================================================
 
 enum AiProvider {
@@ -2667,18 +2350,13 @@ enum AiRecommendationStatus {
   DISMISSED
 }
 
-// AiConversation / AiMessage  —  Conversation-memory abstraction for AI
-// Question Answering. Real FK to User: a genuine per-member record, not an
-// audit pointer (mirrors Enrollment/Certification, ADR-014).
 model AiConversation {
   id     String  @id @default(uuid()) @db.Uuid
   userId String  @db.Uuid
   user   User    @relation(fields: [userId], references: [id], onDelete: Cascade)
   title  String?
-
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-
   messages                  AiMessage[]
   requests                  AiRequest[]
   voiceSessions             AiVoiceSession[]
@@ -2687,10 +2365,6 @@ model AiConversation {
 
   @@index([userId])
 }
-
-// ===========================================================================
-// Guided external application assistance — See → Guide (Issue #95 §3)
-// ===========================================================================
 
 enum GuidedApplicationSessionStatus {
   ACTIVE
@@ -2705,23 +2379,14 @@ model GuidedApplicationSession {
   conversation   AiConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
   opportunityId  String         @db.Uuid
   opportunity    Opportunity    @relation(fields: [opportunityId], references: [id], onDelete: Cascade)
-
-  // OR-002 binds a People-help guide to the exact Responsibility it serves.
-  // Null preserves pre-OR-002 / direct See→Guide sessions as legacy guidance.
   responsibilityId String?         @db.Uuid
   responsibility   Responsibility? @relation(fields: [responsibilityId], references: [id], onDelete: SetNull)
-
-  // Snapshot of the verified canonical application destination selected at
-  // session start. Screenshots and extracted field values are deliberately
-  // never stored in this model.
   applicationUrl String
   status         GuidedApplicationSessionStatus @default(ACTIVE)
-
   screenCaptureConsentGrantedAt DateTime?
   screenCaptureConsentRevokedAt DateTime?
   lastFrameAnalyzedAt           DateTime?
   endedAt                       DateTime?
-
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -2738,11 +2403,6 @@ model AiMessage {
   role           AiMessageRole
   content        String
   createdAt      DateTime       @default(now())
-
-  // Voice Domain additive fields (ADR-017). A text message leaves all three
-  // null/default — voice and text share this one canonical message table
-  // rather than forking a parallel one, per Founder Decision 2 ("One Steward
-  // and One Canonical Conversation").
   completionStatus AiMessageCompletionStatus @default(COMPLETE)
   voiceSessionId   String?                   @db.Uuid
   voiceSession     AiVoiceSession?           @relation(fields: [voiceSessionId], references: [id], onDelete: SetNull)
@@ -2766,41 +2426,23 @@ enum VoiceSessionEndReason {
   RECONNECT_SUPERSEDED
 }
 
-// AiVoiceSession  —  One realtime voice connection against the canonical
-// AiConversation (Founder Decision 2). The backend never proxies audio
-// (Founder Decision 1: client connects directly to the provider over
-// WebRTC) — this row is the durable record of policy applied, timing, and
-// how the session ended, not a media relay. Raw audio is never referenced
-// or persisted here (Founder Decision 3/5).
 model AiVoiceSession {
   id             String         @id @default(uuid()) @db.Uuid
   conversationId String         @db.Uuid
   conversation   AiConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
   userId         String         @db.Uuid
   user           User           @relation(fields: [userId], references: [id], onDelete: Cascade)
-
   provider AiProvider @default(OPENAI)
   model    String
   voice    String
-
-  // Snapshot of the Conversation Timing Layer policy actually applied to
-  // this session (turn_detection mode + config sent to the provider at
-  // broker time) — recorded here, not accepted from the client, so timing
-  // is auditable backend architecture rather than a frontend setting
-  // (Founder instruction: "Treat timing as a first-class architectural
-  // concern, not a frontend animation").
   turnDetectionMode   String
   turnDetectionConfig Json
-
   providerSessionRef String?
-
   startedAt DateTime               @default(now())
   endedAt   DateTime?
   endReason VoiceSessionEndReason?
-
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-
   messages   AiMessage[]
   turnEvents AiTurnEvent[]
 
@@ -2819,16 +2461,10 @@ enum AiTurnEventType {
   SILENCE_TIMEOUT
 }
 
-// AiTurnEvent  —  Conversation Timing Layer evidence (AFX-002, AFX-003 §3-5,
-// §9). An append-only log of turn-taking state, reported by the client as
-// events finalize and correlated by providerItemId. This is what lets the
-// Domain Readiness Report validate timing behavior (e.g. that a pause alone
-// never finalizes a member turn) instead of merely asserting it.
 model AiTurnEvent {
   id             String         @id @default(uuid()) @db.Uuid
   voiceSessionId String         @db.Uuid
   voiceSession   AiVoiceSession @relation(fields: [voiceSessionId], references: [id], onDelete: Cascade)
-
   type           AiTurnEventType
   providerItemId String?
   occurredAt     DateTime
@@ -2839,25 +2475,15 @@ model AiTurnEvent {
   @@index([voiceSessionId, occurredAt])
 }
 
-// AiRequest  —  One row per provider call. Unifies "AI request history,"
-// "cost tracking," and "audit logging" into a single ledger, the same
-// reasoning as ADR-014 Decision 7's single completion/certification code
-// path: they are one event, not three independently-invoked mechanisms.
 model AiRequest {
   id     String  @id @default(uuid()) @db.Uuid
   userId String? @db.Uuid
   user   User?   @relation(fields: [userId], references: [id], onDelete: Cascade)
-
   conversationId String?         @db.Uuid
   conversation   AiConversation? @relation(fields: [conversationId], references: [id], onDelete: SetNull)
-
-  // Exactly one identity context is present: an authenticated member
-  // (userId/conversationId) or a public tenant Ward conversation. The PF-006
-  // migration enforces this invariant at the database layer.
   organizationId     String?           @db.Uuid
   wardConversationId String?           @db.Uuid
   wardConversation   WardConversation? @relation(fields: [organizationId, wardConversationId], references: [organizationId, id], onDelete: Cascade)
-
   capability       AiCapability
   provider         AiProvider
   model            String
@@ -2867,9 +2493,7 @@ model AiRequest {
   latencyMs        Int
   status           AiRequestStatus
   errorMessage     String?
-
   createdAt DateTime @default(now())
-
   recommendations AiRecommendation[]
 
   @@index([userId])
@@ -2879,17 +2503,6 @@ model AiRequest {
   @@index([createdAt])
 }
 
-// AiOperationalConfig  —  Live, Founder-editable AI spend controls (PR-003).
-// A single-row table (id is always "singleton", enforced at the repository
-// layer rather than a DB constraint — Postgres has no native "exactly one
-// row" constraint short of a check against a generated column) rather than
-// a KV settings table, since there are exactly three related knobs and no
-// foreseeable need for a generic config store. Replaces the env-var-only
-// controls from PR-002: those required a process restart to change; this
-// lets a Platform/System Administrator toggle emergency stop or adjust
-// budget ceilings from the Founder Operating System without one. Env vars
-// (AI_EMERGENCY_STOP, AI_*_BUDGET_USD) remain the seed-time defaults for a
-// fresh installation, read once when this table is empty.
 model AiOperationalConfig {
   id                   String   @id @default("singleton")
   emergencyStop        Boolean  @default(false)
@@ -2900,36 +2513,19 @@ model AiOperationalConfig {
   updatedAt            DateTime @updatedAt
 }
 
-// AiCapabilityBudget  —  PD-009 (AI Provider Resilience) per-capability
-// ceiling, additive sibling of AiOperationalConfig's platform-wide/per-user
-// ceilings, not a replacement (enforceSpendCeilings checks all three).
-// Either field may be set independently: dailyBudgetUsd for capabilities
-// with a real, observable per-token cost; dailyRequestLimit for capabilities
-// where dollar cost isn't observable at this layer — Voice specifically
-// (ADR-017 Decision 6: realtime usage happens directly between client and
-// provider, so every Voice AiRequest is logged at costUsd: 0 by design; a
-// dollar ceiling could never trigger for it, so a request-count ceiling is
-// the only lever that is actually real for that capability today).
 model AiCapabilityBudget {
   id                String       @id @default(uuid()) @db.Uuid
   capability        AiCapability @unique
   dailyBudgetUsd    Float?
   dailyRequestLimit Int?
-  updatedById       String?      @db.Uuid // soft reference to User, no enforced relation (matches CitySheetEntry.verifiedById convention)
+  updatedById       String?      @db.Uuid
   updatedAt         DateTime     @updatedAt
 }
 
-// AiRecommendation  —  A suggestion the AI Engine produced. Real, nullable,
-// mutually-exclusive FKs per target type, reusing the StewardshipRecommendation
-// precedent (a fixed, small target-type set) rather than a polymorphic loose
-// pointer (ADR-015 Decision 5). Approval never triggers an automatic action —
-// the member/steward always completes the real action (enroll, save, etc.)
-// through the existing domain's own endpoints.
 model AiRecommendation {
   id     String @id @default(uuid()) @db.Uuid
   userId String @db.Uuid
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
-
   opportunityId  String?                  @db.Uuid
   opportunity    Opportunity?             @relation(fields: [opportunityId], references: [id], onDelete: Cascade)
   resourceId     String?                  @db.Uuid
@@ -2938,20 +2534,13 @@ model AiRecommendation {
   course         Course?                  @relation(fields: [courseId], references: [id], onDelete: Cascade)
   podId          String?                  @db.Uuid
   pod            Pod?                     @relation(fields: [podId], references: [id], onDelete: Cascade)
-  // STEWARD_ESCALATION target (PR-004) — a suggestion that the member
-  // consider reaching out to their steward, never an AI-filed escalation
-  // itself (StewardshipEscalation creation stays steward/admin-only;
-  // human stewardship always overrides AI).
   relationshipId String?                  @db.Uuid
   relationship   StewardshipRelationship? @relation(fields: [relationshipId], references: [id], onDelete: Cascade)
-
   rationale String
   status    AiRecommendationStatus @default(PENDING)
   decidedAt DateTime?
-
   aiRequestId String?    @db.Uuid
   aiRequest   AiRequest? @relation(fields: [aiRequestId], references: [id], onDelete: SetNull)
-
   createdAt DateTime @default(now())
 
   @@index([userId])
@@ -2970,11 +2559,6 @@ enum AiOrchestrationGoal {
   JOURNEY_GUIDANCE
   STEWARD_ESCALATION
   EDUCATIONAL_RECOMMENDATION
-  // Member Arrival — Steward Experience migration (Founder-approved). Fans
-  // out to RecommendationsService.generate() across every relevant
-  // category plus NeedsService's City Sheet match, then ranks the combined
-  // candidate set into one Primary + Supporting plan — the one goal this
-  // orchestrator resolves to more than a single delegate capability.
   COORDINATED_PLAN
 }
 
@@ -2985,28 +2569,15 @@ enum AiOrchestrationStatus {
   NO_ACTION
 }
 
-// ===========================================================================
-// AiOrchestrationRun  —  PR-004 Intelligence Layer. A parent tracing record
-// for one orchestrator call: which goal was requested, which of the AI
-// Engine's existing capabilities the orchestrator decided to invoke to
-// serve it (a documented, deterministic decision — never a free-form agent
-// loop), and the human-readable outcome. Each invoked capability still
-// writes its own AiRequest row exactly as it always has (unify the
-// audit/cost/spend-ceiling path, ADR-015 Decision 3) — this table never
-// duplicates that ledger, only correlates and explains it.
-// ===========================================================================
-
 model AiOrchestrationRun {
   id     String @id @default(uuid()) @db.Uuid
   userId String @db.Uuid
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
-
   goal                AiOrchestrationGoal
   capabilitiesInvoked AiCapability[]
   outcome             String
   status              AiOrchestrationStatus
   latencyMs           Int
-
   createdAt DateTime @default(now())
 
   @@index([userId])
@@ -3015,12 +2586,7 @@ model AiOrchestrationRun {
 }
 
 // ===========================================================================
-// Pods System (PA-009, OAS-ACA-009)  —  Aureus's smallest living
-// communities. WO-030. "They do not exist to manage people. They exist to
-// care for people." (Article I). Every model and enum below carries the 13
-// Founder Decisions made during Founder Review — see
-// docs/work-orders/WO-030-Pods-Founder-Review-Specification.md for the full
-// constitutional reasoning behind each choice.
+// Pods System
 // ===========================================================================
 
 enum PodType {
@@ -3040,10 +2606,6 @@ enum PodMemberRole {
   STEWARD
 }
 
-// DECLINED and ENDED are distinct: DECLINED/DEFERRED describe a response to
-// an invitation that never became membership; ENDED describes membership
-// that concluded. A proactive Home Pod invitation is never automatic
-// assignment (Founder Decision #1).
 enum PodMembershipStatus {
   PENDING
   ACTIVE
@@ -3113,16 +2675,10 @@ enum PodInvitationStatus {
   EXPIRED
 }
 
-// Pod  —  The community itself. PodStatus is intentionally not the shared
-// VerificationStatus enum: a Pod is a living group with an operational
-// lifecycle, not publishable content with a moderation workflow.
-// `parentPodId` is "Stewardship Origin" (Founder Decision #11) — institutional
-// memory of faithful multiplication, never hierarchy, ownership, or ranking.
-// Every child Pod is a fully independent community from the moment it exists.
 model Pod {
   id               String    @id @default(uuid()) @db.Uuid
   sequenceNumber   Int       @unique @default(autoincrement())
-  podRef           String?   @unique // AUR-POD-000001, set after insert
+  podRef           String?   @unique
   name             String
   shortDescription String
   fullDescription  String
@@ -3130,31 +2686,18 @@ model Pod {
   status           PodStatus @default(FORMING)
   capacity         Int       @default(12)
   primaryLanguage  String?
-
-  // Coarse local-area signal (Founder Decision #8) — the community area this
-  // Pod (especially a HOME Pod) primarily serves, set by its Steward/Admin.
-  // Same shape as Profile's member-facing location fields; never precise
-  // geolocation. This is what a member's own Profile location is matched
-  // against in the deterministic scoring function (§2.3).
   city          String?
   region        String?
   stateProvince String?
   country       String?
-
-  // Column default, never a hardcoded app constant (StewardCapacity
-  // precedent) — no PodEvent held within this many days signals DORMANT.
   dormancyThresholdDays Int @default(60)
-
-  // Stewardship Origin (Founder Decision #11) — see model doc-comment.
   parentPodId String? @db.Uuid
   parentPod   Pod?    @relation("PodStewardshipOrigin", fields: [parentPodId], references: [id])
   childPods   Pod[]   @relation("PodStewardshipOrigin")
-
   createdById String    @db.Uuid
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
   deletedAt   DateTime?
-
   members           PodMembership[]
   events            PodEvent[]
   meetingSchedule   PodMeetingSchedule?
@@ -3170,34 +2713,19 @@ model Pod {
   @@index([parentPodId])
 }
 
-// PodMembership  —  Who belongs to which Pod, and how. Mirrors
-// StewardshipRelationship's real-FK join-with-lifecycle shape: rows are
-// never rewritten, only superseded (ADR-011). AI_MATCH_SUGGESTION always
-// lands PENDING — AI may suggest a Pod, it may never finalize a membership
-// (ADR-015 Decision 6, extended here for a second domain). A member's Home
-// Pod is derived (their one ACTIVE membership where Pod.type = HOME); no
-// denormalized field lives on User. "At most one ACTIVE and one PENDING
-// membership per (pod, user)" is a service-layer invariant, not a DB
-// constraint — the same choice StewardshipRelationship already makes, since
-// a DB-level unique on (podId, userId, status) would wrongly block a
-// member's second ENDED cycle (join, leave, rejoin, leave again).
 model PodMembership {
   id     String @id @default(uuid()) @db.Uuid
   podId  String @db.Uuid
   pod    Pod    @relation(fields: [podId], references: [id], onDelete: Cascade)
   userId String @db.Uuid
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
-
   role   PodMemberRole       @default(MEMBER)
   status PodMembershipStatus @default(PENDING)
   origin PodMembershipOrigin
-
   invitedById String? @db.Uuid
-
   joinedAt  DateTime?
   endedAt   DateTime?
   endReason String?
-
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -3206,9 +2734,6 @@ model PodMembership {
   @@index([status])
 }
 
-// PodEvent  —  A concrete, scheduled gathering with attendance. Kept
-// intentionally minimal: OAS-OPS-104 is a facilitation script for the human
-// Steward to follow, not data the platform needs to store.
 model PodEvent {
   id          String         @id @default(uuid()) @db.Uuid
   podId       String         @db.Uuid
@@ -3223,17 +2748,12 @@ model PodEvent {
   status      PodEventStatus @default(SCHEDULED)
   createdAt   DateTime       @default(now())
   updatedAt   DateTime       @updatedAt
-
   rsvps PodEventRsvp[]
 
   @@index([podId])
   @@index([startsAt])
 }
 
-// PodEventRsvp  —  Upcoming RSVPs are visible to fellow Pod members;
-// `attended` (set after the fact by the Steward) is visible only to the
-// member themselves, their Steward, and Admins, and is never a performance
-// metric anywhere it is surfaced (Founder Decision #5).
 model PodEventRsvp {
   id       String       @id @default(uuid()) @db.Uuid
   eventId  String       @db.Uuid
@@ -3242,7 +2762,6 @@ model PodEventRsvp {
   user     User         @relation(fields: [userId], references: [id], onDelete: Cascade)
   response RsvpResponse @default(MAYBE)
   attended Boolean?
-
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -3250,20 +2769,13 @@ model PodEventRsvp {
   @@index([userId])
 }
 
-// PodMeetingSchedule  —  The recurring pattern, kept separate from
-// individual PodEvent instances. Never auto-generates future PodEvents
-// (Founder Decision #10) — instead, its stored defaults (cadence, location,
-// durationMinutes) pre-fill the next PodEvent a Steward creates. The
-// Steward always reviews, edits as needed, and publishes: "Automation shall
-// remove unnecessary administrative burden, but it shall never replace
-// intentional stewardship."
 model PodMeetingSchedule {
   id              String         @id @default(uuid()) @db.Uuid
   podId           String         @unique @db.Uuid
   pod             Pod            @relation(fields: [podId], references: [id], onDelete: Cascade)
   cadence         MeetingCadence @default(WEEKLY)
-  dayOfWeek       Int? // 0-6, null for AD_HOC
-  timeOfDay       String? // "19:00" — no timezone-aware scheduling infra exists yet
+  dayOfWeek       Int?
+  timeOfDay       String?
   location        String?
   durationMinutes Int?
   createdById     String         @db.Uuid
@@ -3271,9 +2783,6 @@ model PodMeetingSchedule {
   updatedAt       DateTime       @updatedAt
 }
 
-// PodServiceProject  —  Article IX's "who needs us?" — lightweight, not a
-// project-management system. Deliberately no task list, budget, or
-// volunteer sign-up matrix.
 model PodServiceProject {
   id           String               @id @default(uuid()) @db.Uuid
   podId        String               @db.Uuid
@@ -3289,30 +2798,19 @@ model PodServiceProject {
   @@index([status])
 }
 
-// PodRequest  —  A member's request to join, leave, be reassigned, or
-// propose a new Pod — Article VIII's "Freedom of Belonging" made concrete.
-// Always reviewed, never silently auto-applied. An approved
-// PROPOSE_NEW_POD request creates a new Pod{status: FORMING}; per Founder
-// Decision #2, its first Steward is institutionally appointed, never
-// automatically the proposer.
 model PodRequest {
   id     String         @id @default(uuid()) @db.Uuid
   userId String         @db.Uuid
   user   User           @relation(fields: [userId], references: [id], onDelete: Cascade)
   type   PodRequestType
-
-  // Target Pod for JOIN/LEAVE/REASSIGNMENT; null for PROPOSE_NEW_POD.
   podId String? @db.Uuid
   pod   Pod?    @relation(fields: [podId], references: [id], onDelete: Cascade)
-
   proposedPodName        String?
   proposedPodDescription String?
   reason                 String?
-
   status      PodRequestStatus @default(PENDING)
   decidedById String?          @db.Uuid
   decidedAt   DateTime?
-
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -3321,10 +2819,6 @@ model PodRequest {
   @@index([status])
 }
 
-// PodInvitation  —  Article IV's "never forced... always invited." Who may
-// issue one depends on the target Pod's type (Founder Decision #3): Home
-// Pod — Steward/Institution only; Interest Pod — any ACTIVE member.
-// Enforced in the service layer against the target Pod's `type`.
 model PodInvitation {
   id            String              @id @default(uuid()) @db.Uuid
   podId         String              @db.Uuid
@@ -3335,7 +2829,6 @@ model PodInvitation {
   message       String?
   status        PodInvitationStatus @default(PENDING)
   respondedAt   DateTime?
-
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -3344,24 +2837,8 @@ model PodInvitation {
   @@index([status])
 }
 
-// No PodMetrics model exists by design. Per Article X and the founder's
-// non-surveillance instruction, Pod metrics (attendance rate, membership
-// size/stability, service-project completion, meeting cadence adherence)
-// are computed on read, at the Pod level, from the operational models
-// above — never persisted per-member, never a stored score or ranking.
-
 // ===========================================================================
-// Connected Experiences (PA-018, FPB-009)  —  DOMAIN-008. "Feel like memory,
-// not surveillance." Every ConnectedAccount is opt-in and revocable; the
-// backend never fabricates a successful third-party connection — a provider
-// with no live credentials configured is honestly reported as COMING_SOON
-// and no row is created for it (Founder Decision 1). Documents are fully
-// real in V1 (no third party required); AI summarization operates only on
-// member-supplied extractedText, never invented from a filename alone
-// (Founder Decision 2). StewardActivityLog is the append-only audit trail
-// behind the future Trust Center (Founder Decision 5) — every connection,
-// revocation, upload, summarization, and deletion is recorded with the
-// acting party (member, AI Steward, or system).
+// Connected Experiences
 // ===========================================================================
 
 enum ConnectedProviderType {
@@ -3408,81 +2885,59 @@ enum StewardActivityActor {
   SYSTEM
 }
 
-// A member may hold at most one account per provider type at a time
-// (@@unique below) — reconnecting after a revoke updates the existing row
-// rather than creating a duplicate.
 model ConnectedAccount {
   id     String @id @default(uuid()) @db.Uuid
   userId String @db.Uuid
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
-
   providerType       ConnectedProviderType
   status             ConnectedAccountStatus @default(CONNECTED)
   grantedScopes      String[]
   externalAccountRef String?
-
   connectedAt DateTime  @default(now())
   revokedAt   DateTime?
-
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-
   activity StewardActivityLog[]
 
   @@unique([userId, providerType])
   @@index([userId])
 }
 
-// storageRef is an opaque pointer (ADR-014 Decision 5 pattern, reused from
-// MediaAsset) — this domain does not invent a new cloud storage mechanism.
-// extractedText is supplied by the member/frontend, not read from
-// storageRef's bytes by the backend; aiSummary is only ever generated from
-// real extractedText, never fabricated from title/filename alone.
 model Document {
   id             String  @id @default(uuid()) @db.Uuid
   sequenceNumber Int     @unique @default(autoincrement())
-  documentRef    String? @unique // AUR-DOC-000001, set after insert
-
+  documentRef    String? @unique
   userId String @db.Uuid
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
-
   title            String
   originalFilename String
   mimeType         String
   sizeBytes        Int
   storageRef       String
   category         DocumentCategory @default(OTHER)
-
   extractedText        String?
   aiSummary            String?
   aiSummaryGeneratedAt DateTime?
-
   uploadedAt DateTime  @default(now())
   updatedAt  DateTime  @updatedAt
   deletedAt  DateTime?
-
   activity StewardActivityLog[]
 
   @@index([userId])
   @@index([category])
 }
 
-// Append-only audit trail. Never updated or deleted once written — the
-// foundation for the future Trust Center (Founder Decision 5).
 model StewardActivityLog {
   id     String @id @default(uuid()) @db.Uuid
   userId String @db.Uuid
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
-
   eventType   StewardActivityEventType
   actor       StewardActivityActor
   description String
-
   connectedAccountId String?           @db.Uuid
   connectedAccount   ConnectedAccount? @relation(fields: [connectedAccountId], references: [id], onDelete: SetNull)
   documentId         String?           @db.Uuid
   document           Document?         @relation(fields: [documentId], references: [id], onDelete: SetNull)
-
   occurredAt DateTime @default(now())
 
   @@index([userId])
@@ -3490,26 +2945,9 @@ model StewardActivityLog {
 }
 
 // ===========================================================================
-// Launch City Sheet  —  Work Order A1 (docs/launch/WORKORDERS.md)
-//
-// The verified referral sheet LAUNCH-001 requires before any member arrives:
-// "Every crisis and assistance referral for the launch metro verified by a
-// human within 14 days of launch" (Gate A), feeding the Clearing (Gate B)
-// and curated Search (Gate C) — never live-crawled data. Distinct from the
-// general-purpose Resource directory (PA-014) above: entries here are
-// scoped to one launch metro, carry a mandatory human-verification
-// lifecycle, and hold fields (hours, eligibility, cost, required documents,
-// emergency-service flag) that a crisis handoff or curated search result
-// must be able to show honestly. This work order defines structure only —
-// no entries are populated here (that is A3/A4).
+// Launch City Sheet
 // ===========================================================================
 
-// LAUNCH-001 names crisis lines, assistance programs, legal aid, and food
-// resources explicitly (Gate A), and the burden-scope boundary names the
-// kinds of help V1 takes on (utilities, mail, benefits applications,
-// job-search support, transportation, hard calls). Every category named in
-// either passage is represented here, per A1's acceptance criterion that
-// the schema "can represent every referral category LAUNCH-001 names."
 enum CitySheetCategory {
   CRISIS_LINE
   ASSISTANCE_PROGRAM
@@ -3524,28 +2962,11 @@ enum CitySheetCategory {
   OTHER
 }
 
-// Not requested directly by A1's field list, but required to enforce the
-// Founder's P1 decision in the data itself rather than only in prose: the
-// city sheet begins with Chester and Delaware County, and a Greater
-// Philadelphia entry is only in scope when it "genuinely accepts and serves
-// members from the launch area." Recording that judgment per entry (rather
-// than inferring it from an address string) lets Gate A5's QA spot-check
-// and any future audit confirm the boundary was actually applied, not
-// merely stated.
 enum LaunchAreaScope {
   CORE_LAUNCH_COUNTY
   GREATER_PHILADELPHIA_SUPPLEMENTAL
 }
 
-// Not requested directly by A1's field list, but required by A1's own
-// acceptance criteria for A4 ("100% of entries carry a human verification
-// timestamp and verifier name; zero unverified entries reach Gate B") and
-// by Gate B/C's dependency on Gate A being fully verified before use. This
-// tracks the candidate -> verified lifecycle explicitly, distinct from the
-// active/inactive status below (which tracks whether an already-verified
-// resource is currently operating). REJECTED (A4-PREP) is a genuine
-// terminal-failure state — a candidate confirmed wrong, defunct, or out of
-// scope is not merely "unverified" or "needs another look."
 enum CitySheetVerificationStatus {
   UNVERIFIED
   VERIFIED
@@ -3558,18 +2979,12 @@ enum CitySheetEntryStatus {
   INACTIVE
 }
 
-// A4-PREP (docs/launch/WORKORDERS.md) — Human Steward Verification Workflow.
 enum CitySheetVerificationEventType {
   VERIFIED
   REJECTED
   FLAGGED_FOR_REVIEW
 }
 
-// Preserves context alongside a verification decision without changing the
-// decision's governance: a HIGH/MEDIUM/LOW confidence value never gates
-// whether verify/reject succeeds, it only records how sure the human
-// steward was, for later prioritization (e.g. re-checking LOW-confidence
-// entries sooner).
 enum CitySheetVerificationConfidence {
   HIGH
   MEDIUM
@@ -3579,59 +2994,36 @@ enum CitySheetVerificationConfidence {
 model CitySheetEntry {
   id             String  @id @default(uuid()) @db.Uuid
   sequenceNumber Int     @unique @default(autoincrement())
-  citySheetRef   String? @unique // AUR-CS-000001, set after insert (mirrors Resource's resourceRef convention)
-
+  citySheetRef   String? @unique
   organizationName String
   category         CitySheetCategory
   description      String
-
   address     String?
   serviceArea String
   launchScope LaunchAreaScope @default(CORE_LAUNCH_COUNTY)
-
   phone   String?
   website String?
   hours   String
-
   eligibilityRequirements String?
   languagesSupported      String[] @default([])
   accessibilityNotes      String?
   cost                    String?
   requiredDocuments       String[] @default([])
-
   referralRequired   Boolean @default(false)
   isEmergencyService Boolean @default(false)
-
-  // Gate C (C5: Verified resource presentation) — explicitly labels an
-  // entry as build/test fixture data (e.g. seeded for C4-C8's testing
-  // against fixtures ahead of A4), distinct from a real, unverified A3
-  // candidate. Never inferred from naming conventions — set deliberately
-  // by whoever creates the entry.
   isTestFixture Boolean @default(false)
-
   verificationStatus     CitySheetVerificationStatus      @default(UNVERIFIED)
   verificationConfidence CitySheetVerificationConfidence?
   lastVerifiedAt         DateTime?
-  verifiedById           String?                          @db.Uuid // soft reference to User, no enforced relation (matches Resource.ownerId convention)
-  verificationNotes      String? // the steward's own call notes as of the current status — see verificationEvents for full history
+  verifiedById           String?                          @db.Uuid
+  verificationNotes      String?
   rejectionReason        String?
   nextReviewDueAt        DateTime?
-
-  // Where/how this candidate was originally compiled (e.g. A3's web-research
-  // citations). Set once at creation and never touched by verify/reject/
-  // flag-for-review — distinct from verificationNotes (the steward's call
-  // notes), which those actions do overwrite. Keeping provenance separate
-  // means a verification call can never accidentally erase the record of
-  // where a candidate came from.
   sourceNotes String?
-
   status CitySheetEntryStatus @default(ACTIVE)
-
   createdById String @db.Uuid
-
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-
   verificationEvents CitySheetVerificationEvent[]
   resourceOffers     ResourceOffer[]
 
@@ -3642,21 +3034,12 @@ model CitySheetEntry {
   @@index([createdById])
 }
 
-// A4-PREP — configuration-driven verification checklist template. A null
-// category applies to every category ("common" item); category-scoped items
-// are combined with the common set when a checklist is generated for an
-// entry. Lives in the database (not hardcoded per category in application
-// code) specifically so Operations can add, reorder, or retire items
-// without an engineering deploy. No hard delete — isActive false retires an
-// item while preserving it for any historical verificationEvents that
-// snapshot its label.
 model CitySheetChecklistItem {
   id        String             @id @default(uuid()) @db.Uuid
   category  CitySheetCategory?
   label     String
   sortOrder Int                @default(0)
   isActive  Boolean            @default(true)
-
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -3665,30 +3048,17 @@ model CitySheetChecklistItem {
   @@index([sortOrder])
 }
 
-// A4-PREP — append-only verification history. verify()/reject()/
-// flagForReview() each insert a new row here rather than overwriting
-// anything, so no verification event is ever lost even though
-// CitySheetEntry's own verificationStatus/verifiedById/lastVerifiedAt/
-// verificationConfidence fields continue to reflect only the current state
-// for convenient querying. This table is the permanent record — nothing
-// in this domain ever updates or deletes a row here once written.
 model CitySheetVerificationEvent {
   id               String         @id @default(uuid()) @db.Uuid
   citySheetEntryId String         @db.Uuid
   citySheetEntry   CitySheetEntry @relation(fields: [citySheetEntryId], references: [id], onDelete: Cascade)
-
   eventType          CitySheetVerificationEventType
   previousStatus     CitySheetVerificationStatus
   newStatus          CitySheetVerificationStatus
   confidence         CitySheetVerificationConfidence?
   notes              String?
-  // Snapshot of {itemId, label, confirmed, note}[] at the time of this
-  // event — stored as a label snapshot (not just an itemId lookup) so this
-  // history reads correctly even if the checklist item is later edited or
-  // retired.
   checklistResponses Json?
-
-  performedById String   @db.Uuid // soft reference to User, no enforced relation (matches CitySheetEntry.verifiedById convention)
+  performedById String   @db.Uuid
   performedAt   DateTime @default(now())
 
   @@index([citySheetEntryId])
@@ -3697,16 +3067,6 @@ model CitySheetVerificationEvent {
   @@index([eventType])
 }
 
-// ===========================================================================
-// StatedNeed  —  Gate C, "The Clearing" (C1: Understanding). The first
-// concrete signal that a member's own words, sent through the existing AI
-// Conversation domain (no menu navigation involved), have been recognized as
-// a stated need. Captured automatically from the first user message of a
-// conversation — this is the entry point the rest of the Clearing (C2
-// clarification, C3 urgency, C4 resource discovery, ...) will build on.
-// Append-only: a conversation states one need; later Gate C work orders add
-// their own records referencing this one rather than mutating it.
-// ===========================================================================
 model StatedNeed {
   id             String         @id @default(uuid()) @db.Uuid
   userId         String         @db.Uuid
@@ -3714,9 +3074,7 @@ model StatedNeed {
   conversationId String         @db.Uuid
   conversation   AiConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
   content        String
-
   createdAt DateTime @default(now())
-
   resourceOffers  ResourceOffer[]
   needEscalations NeedEscalation[]
   unresolvedNeed  UnresolvedNeed?
@@ -3725,12 +3083,6 @@ model StatedNeed {
   @@index([conversationId])
 }
 
-// Gate C (C5: Verified resource presentation). Records that a matched City
-// Sheet resource was actually offered to a member, and whatever the member
-// did about it — "every offer made, and the member's acceptance or refusal
-// of it, is recorded" per the acceptance criteria. A fresh offer is created
-// each time a resource is (re-)presented; the member's response is recorded
-// on that same row, never inferred or overwritten silently.
 enum ResourceOfferResponse {
   PENDING
   ACCEPTED
@@ -3745,7 +3097,6 @@ model ResourceOffer {
   statedNeed       StatedNeed     @relation(fields: [statedNeedId], references: [id], onDelete: Cascade)
   citySheetEntryId String         @db.Uuid
   citySheetEntry   CitySheetEntry @relation(fields: [citySheetEntryId], references: [id], onDelete: Cascade)
-
   response    ResourceOfferResponse @default(PENDING)
   offeredAt   DateTime              @default(now())
   respondedAt DateTime?
@@ -3755,12 +3106,6 @@ model ResourceOffer {
   @@index([citySheetEntryId])
 }
 
-// Gate C (C6: Steward escalation). A member's own, explicit choice to ask
-// for a human steward on a stated need — never triggered automatically.
-// `acknowledgedById`/`resolvedById` are soft references (no enforced
-// relation), matching `StewardshipEscalation.raisedById`/`resolvedById` and
-// `CitySheetEntry.verifiedById` — the steward/admin acting here is not the
-// escalation's own subject, so no back-relation is needed on User.
 enum NeedEscalationStatus {
   PENDING
   ACKNOWLEDGED
@@ -3773,7 +3118,6 @@ model NeedEscalation {
   user         User       @relation(fields: [userId], references: [id], onDelete: Cascade)
   statedNeedId String     @db.Uuid
   statedNeed   StatedNeed @relation(fields: [statedNeedId], references: [id], onDelete: Cascade)
-
   reason           String?
   status           NeedEscalationStatus @default(PENDING)
   acknowledgedById String?              @db.Uuid
@@ -3788,32 +3132,19 @@ model NeedEscalation {
   @@index([status])
 }
 
-// Gate C (C6). The honestly published on-call rotation a member is told
-// about when escalating — a single config row (mirrors
-// `AiOperationalConfig`'s singleton pattern), left null until a Human
-// Steward/Founder sets it to the real rotation. Never defaults to a
-// fabricated value: `hoursDescription: null` means "not yet configured,"
-// and every member-facing surface must say exactly that rather than guess.
 model PublishedOnCallHours {
   id               String   @id @default("singleton")
   hoursDescription String?
-  updatedById      String?  @db.Uuid // soft reference to User, no enforced relation (matches CitySheetEntry.verifiedById convention)
+  updatedById      String?  @db.Uuid
   updatedAt        DateTime @updatedAt
 }
 
-// Gate C (C7: Safe failure). Recorded the moment a stated need has no
-// verified resource available AND no steward reachable to page — the
-// member is never silently left at a dead end, and this row is the durable
-// evidence that the need was seen and not resolved. One row per stated
-// need (idempotent — re-checking an already-recorded need never spawns a
-// duplicate).
 model UnresolvedNeed {
   id           String     @id @default(uuid()) @db.Uuid
   userId       String     @db.Uuid
   user         User       @relation(fields: [userId], references: [id], onDelete: Cascade)
   statedNeedId String     @unique @db.Uuid
   statedNeed   StatedNeed @relation(fields: [statedNeedId], references: [id], onDelete: Cascade)
-
   reason    String
   message   String
   createdAt DateTime @default(now())
