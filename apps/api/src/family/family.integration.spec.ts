@@ -73,6 +73,17 @@ describe('Parent + Child PC-001 — Prisma integration', () => {
     ]);
   });
 
+  it('enforces principal existence at the database boundary without schema-only foreign-key drift', async () => {
+    await expect(
+      prisma.db.guardianChildRelationship.create({
+        data: {
+          guardianUserId: guardianId,
+          childUserId: randomUUID(),
+        },
+      }),
+    ).rejects.toThrow();
+  });
+
   it('hides relationship mutation from an unrelated member and rejects self-relationships', async () => {
     await expect(family.proposeRelationship(guardianId, caller(guardianId))).rejects.toThrow();
     const active = await family.requireActiveRelationship(guardianId, childId);
@@ -148,5 +159,12 @@ describe('Parent + Child PC-001 — Prisma integration', () => {
     await expect(
       contracts.createInitial(responsibility.id, outsiderId, childId, base),
     ).rejects.toThrow();
+
+    await prisma.db.responsibility.delete({ where: { id: responsibility.id } });
+    expect(
+      await prisma.db.responsibilityWorkContract.count({
+        where: { responsibilityId: responsibility.id },
+      }),
+    ).toBe(0);
   });
 });
