@@ -321,6 +321,10 @@ export class AuthorityService {
 
   /** Non-model policy gateway for future executors. No cache: every call reads current grant/suspension state. */
   async evaluate(dto: AuthorityEvaluationDto, actorUserId?: string) {
+    // Evaluation itself writes an audit decision, so secret-like metadata must
+    // be rejected before any decision row can persist it.
+    this.assertNoSecrets(dto.purpose, dto.resourceRef);
+
     const shapeError = await this.scopeError(dto.contextType, dto.subjectUserId, dto.organizationId);
     if (shapeError) return this.recordDecision(dto, AuthorityDecisionResult.DENY, shapeError, null, actorUserId);
 
