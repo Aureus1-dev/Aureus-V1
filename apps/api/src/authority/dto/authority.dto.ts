@@ -97,4 +97,8 @@ export class AuthorityEvaluationDto {
   @ApiPropertyOptional()
   @IsOptional() @IsString() @MaxLength(500)
   resourceRef?: string;
+
+  @ApiProperty({ description: 'The exact approved purpose for this attempted authority use.' })
+  @IsString() @MinLength(3) @MaxLength(500)
+  purpose: string;
 }
