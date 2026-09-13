@@ -31,7 +31,11 @@ CREATE TABLE "GuardianChildRelationship" (
   "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
   "updatedAt" TIMESTAMP(3) NOT NULL,
   CONSTRAINT "GuardianChildRelationship_pkey" PRIMARY KEY ("id"),
-  CONSTRAINT "GuardianChildRelationship_not_self" CHECK ("guardianUserId" <> "childUserId")
+  CONSTRAINT "GuardianChildRelationship_not_self" CHECK ("guardianUserId" <> "childUserId"),
+  CONSTRAINT "GuardianChildRelationship_active_requires_assent"
+    CHECK ("status" <> 'ACTIVE' OR "childAssentedAt" IS NOT NULL),
+  CONSTRAINT "GuardianChildRelationship_revoked_requires_timestamp"
+    CHECK ("status" <> 'REVOKED' OR "revokedAt" IS NOT NULL)
 );
 
 CREATE TABLE "ResponsibilityWorkContract" (
@@ -41,7 +45,7 @@ CREATE TABLE "ResponsibilityWorkContract" (
   "workForm" "GovernedWorkForm" NOT NULL,
   "sourceType" "GovernedWorkSourceType" NOT NULL,
   "sourceUserId" UUID,
-  "stakeTypes" "GovernedWorkStakeType"[],
+  "stakeTypes" "GovernedWorkStakeType"[] NOT NULL,
   "doneMeans" JSONB NOT NULL,
   "principalCarries" JSONB NOT NULL,
   "aureusCarries" JSONB NOT NULL,
@@ -57,7 +61,12 @@ CREATE TABLE "ResponsibilityWorkContract" (
   "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
   CONSTRAINT "ResponsibilityWorkContract_pkey" PRIMARY KEY ("id"),
   CONSTRAINT "ResponsibilityWorkContract_version_positive" CHECK ("version" > 0),
-  CONSTRAINT "ResponsibilityWorkContract_stake_required" CHECK (cardinality("stakeTypes") > 0)
+  CONSTRAINT "ResponsibilityWorkContract_stake_required" CHECK (cardinality("stakeTypes") > 0),
+  CONSTRAINT "ResponsibilityWorkContract_renegotiation_reason_required" CHECK (
+    ("version" = 1 AND "changeReason" IS NULL)
+    OR
+    ("version" > 1 AND NULLIF(BTRIM("changeReason"), '') IS NOT NULL)
+  )
 );
 
 CREATE INDEX "GuardianChildRelationship_guardianUserId_status_idx"
