@@ -14,7 +14,7 @@ function makeReqRes(path: string) {
 describe('V1ScopeMiddleware', () => {
   const middleware = new V1ScopeMiddleware();
 
-  it.each(['/academy/courses', '/pods'])(
+  it.each(['/academy/courses', '/pods', '/family/children'])(
     '404s a gated prefix (%s) while its flag is off',
     (path) => {
       const { req, res, next, status, json } = makeReqRes(path);
@@ -63,9 +63,10 @@ describe('V1ScopeMiddleware', () => {
     expect(next).toHaveBeenCalled();
   });
 
-  it('Academy and Pods stay off; voice was reopened by Founder decision (C2)', () => {
+  it('Academy, Pods, and Parent + Child stay off; voice remains open', () => {
     expect(V1_FEATURE_FLAGS.voice).toBe(true);
     expect(V1_FEATURE_FLAGS.academy).toBe(false);
     expect(V1_FEATURE_FLAGS.pods).toBe(false);
+    expect(V1_FEATURE_FLAGS.parentChild).toBe(false);
   });
 });

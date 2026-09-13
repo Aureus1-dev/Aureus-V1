@@ -1,0 +1,76 @@
+// Parent + Child — PC-001 relationship authority + governed-work contract foundation.
+//
+// This file intentionally does not create a second work root. Responsibility remains
+// the canonical cross-domain work object. These records supply relational authority
+// and an immutable contract envelope that later Parent + Child slices bind to a
+// Responsibility.
+
+enum ParentChildRelationshipStatus {
+  PENDING
+  ACTIVE
+  REVOKED
+}
+
+enum GovernedWorkForm {
+  PRACTICE
+}
+
+enum GovernedWorkSourceType {
+  CHILD_CHOSEN
+  PARENT_ASSIGNED
+  EXTERNAL_OBLIGATION
+  SHARED_HOUSEHOLD
+}
+
+enum GovernedWorkStakeType {
+  AUTHORITATIVE_ASSIGNMENT
+  EXPLICIT_COMMITMENT
+  EXTERNAL_CLOCK
+  DEPENDENT_PERSON
+  RESOURCE_COMMITMENT
+  IRREVERSIBLE_ACTION
+  PREAGREED_SUCCESS_STANDARD
+}
+
+model GuardianChildRelationship {
+  id                String                        @id @default(uuid()) @db.Uuid
+  guardianUserId    String                        @db.Uuid
+  childUserId       String                        @db.Uuid
+  status            ParentChildRelationshipStatus @default(PENDING)
+  guardianAttestedAt DateTime                     @default(now())
+  childAssentedAt   DateTime?
+  revokedAt         DateTime?
+  createdAt         DateTime                      @default(now())
+  updatedAt         DateTime                      @updatedAt
+
+  @@index([guardianUserId, status])
+  @@index([childUserId, status])
+  @@index([guardianUserId, childUserId, createdAt])
+}
+
+model ResponsibilityWorkContract {
+  id                        String                  @id @default(uuid()) @db.Uuid
+  responsibilityId          String                  @db.Uuid
+  version                   Int
+  workForm                  GovernedWorkForm
+  sourceType                GovernedWorkSourceType
+  sourceUserId              String?                 @db.Uuid
+  stakeTypes                GovernedWorkStakeType[]
+  doneMeans                 Json
+  principalCarries          Json
+  aureusCarries             Json
+  togetherCarries           Json
+  humanRequired             Json
+  expectedEvidence          Json
+  assistanceBoundary        Json
+  verificationPolicyVersion String
+  workTemplateKey           String
+  difficultyKey             String?
+  createdByUserId           String                  @db.Uuid
+  changeReason              String?
+  createdAt                 DateTime                @default(now())
+
+  @@unique([responsibilityId, version])
+  @@index([responsibilityId, createdAt])
+  @@index([createdByUserId])
+}

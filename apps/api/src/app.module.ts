@@ -35,36 +35,16 @@ import { ConsentModule } from './consent/consent.module';
 import { PublicWardModule } from './public-ward/public-ward.module';
 import { ResponsibilitiesModule } from './responsibilities/responsibilities.module';
 import { PeopleHelpModule } from './people-help/people-help.module';
+import { FamilyModule } from './family/family.module';
 
 @Module({
   imports: [
-    // ── Configuration + env validation ─────────────────────────────────────
-    // Schema lives in ./config/env.validation.ts (PD-002) so the exact same
-    // validation an actual boot performs can also run standalone via
-    // `src/scripts/verify-env.ts`, ahead of a deploy.
-    //
-    // envFilePath is explicit (config audit fix): without it, dotenv's
-    // default lookup is relative to process.cwd(), which is apps/api when
-    // this app's own dev/start script runs (pnpm/turbo run a workspace
-    // package's script with that package's directory as cwd) — not the
-    // repo root, where the monorepo's single .env actually lives. Left
-    // unset, a correctly-configured root .env is silently never read and
-    // boot fails with "DATABASE_URL is required" even though the file is
-    // right there one directory up. apps/api/.env is checked first (so a
-    // per-package override still wins if anyone ever adds one), root .env
-    // second. Both entries are skipped silently if absent — production
-    // and CI, which set real environment variables directly and have no
-    // .env file at all, are unaffected either way.
     ConfigModule.forRoot({
       isGlobal: true,
       envFilePath: [join(__dirname, '.env'), join(__dirname, '..', '..', '..', '.env')],
       validationOptions: { abortEarly: false },
       validationSchema: envValidationSchema,
     }),
-
-    // ── Rate limiting (PD-002: Redis-backed storage when REDIS_URL is set —
-    // see RedisThrottlerStorageService for why this matters once there's
-    // more than one API replica) ─────────────────────────────────────────────
     ThrottlerModule.forRootAsync({
       imports: [ConfigModule],
       inject: [ConfigService],
@@ -79,21 +59,16 @@ import { PeopleHelpModule } from './people-help/people-help.module';
         return {
           throttlers: [
             {
-              name:  'default',
-              ttl:   60_000,  // 1-minute window
-              limit: 100,     // 100 requests per window per IP
+              name: 'default',
+              ttl: 60_000,
+              limit: 100,
             },
           ],
           storage: redisUrl ? new RedisThrottlerStorageService(redisUrl) : undefined,
         };
       },
     }),
-
-    // Guest Steward mode: powers GuestLifecycleService's scheduled purge
-    // (auth/guest-lifecycle.service.ts) — registered once, globally, here.
     ScheduleModule.forRoot(),
-
-    // ── Domain modules ──────────────────────────────────────────────────────
     PrismaModule,
     AuthModule,
     UsersModule,
@@ -120,24 +95,15 @@ import { PeopleHelpModule } from './people-help/people-help.module';
     PublicWardModule,
     ResponsibilitiesModule,
     PeopleHelpModule,
+    FamilyModule,
   ],
-
   providers: [
-    // Apply ThrottlerGuard globally to all routes
     { provide: APP_GUARD, useClass: ThrottlerGuard },
-    // Guest Steward mode privacy lifecycle (see the interceptor's own
-    // doc comment for why this is an interceptor and not folded into
-    // JwtStrategy) — a true no-op for every non-guest request.
     { provide: APP_INTERCEPTOR, useClass: GuestActivityInterceptor },
   ],
 })
 export class AppModule implements NestModule {
   configure(consumer: MiddlewareConsumer): void {
-    // Structured per-request access log (PD-002) — every route, including
-    // health checks, so a slow/failing instance is diagnosable from logs
-    // alone. V1ScopeMiddleware (C2) runs second so a blocked request is
-    // still logged, then 404s before reaching any guard or controller for
-    // a domain cut from the five-member pilot (voice, Academy, Pods).
     consumer.apply(RequestLoggingMiddleware, V1ScopeMiddleware).forRoutes('*');
   }
 }
