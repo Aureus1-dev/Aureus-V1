@@ -40,7 +40,7 @@ const ALL_SURFACES: SurfaceDefinition[] = [
   { id: 'business', label: 'Business', href: '/business', tier: 'secondary' },
   { id: 'profile', label: 'Profile', href: '/profile', tier: 'secondary' },
   { id: 'settings', label: 'Settings', href: '/settings', tier: 'primary' },
-  { id: 'permissions', label: 'Connected Experiences', href: '/permissions', tier: 'secondary' },
+  { id: 'permissions', label: 'Trust & Permissions', href: '/permissions', tier: 'secondary' },
   { id: 'search', label: 'Search', href: '/search', tier: 'secondary' },
   { id: 'help', label: 'Help & Support', href: '/help', tier: 'secondary' },
 ];

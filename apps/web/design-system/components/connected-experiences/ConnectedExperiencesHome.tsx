@@ -8,10 +8,12 @@ import { ConnectedExperiencesTabs, type ConnectedExperiencesTab } from './Connec
 import { ConnectedAccountsTab } from './ConnectedAccountsTab';
 import { DocumentsTab } from './DocumentsTab';
 import { ActivityTab } from './ActivityTab';
+import { TrustCenterTab } from './TrustCenterTab';
 
-type TabId = 'accounts' | 'documents' | 'activity';
+type TabId = 'trust' | 'accounts' | 'documents' | 'activity';
 
 const TABS: ConnectedExperiencesTab[] = [
+  { id: 'trust', label: 'Trust & Permissions' },
   { id: 'accounts', label: 'Connected Accounts' },
   { id: 'documents', label: 'Documents' },
   { id: 'activity', label: 'Activity' },
@@ -44,11 +46,19 @@ export function ConnectedExperiencesHome({ initialTab = 'accounts' }: ConnectedE
 
   return (
     <Room
-      title={initialTab === 'documents' ? 'Document Review' : 'Connected Experiences'}
-      description="Your Steward never assumes access. Every connection here is opt-in, revocable, and explained plainly."
+      title={initialTab === 'documents' ? 'Document Review' : initialTab === 'trust' ? 'Trust & Permissions' : 'Connected Experiences'}
+      description="Aureus asks before new authority. You can see what is allowed and take permission back directly."
     >
       <ConnectedExperiencesTabs tabs={TABS} activeId={activeTab} onChange={(id) => setActiveTab(id as TabId)} />
 
+      <div
+        role="tabpanel"
+        id="connected-experiences-panel-trust"
+        aria-labelledby="connected-experiences-tab-trust"
+        hidden={activeTab !== 'trust'}
+      >
+        {activeTab === 'trust' ? <TrustCenterTab /> : null}
+      </div>
       <div
         role="tabpanel"
         id="connected-experiences-panel-accounts"
