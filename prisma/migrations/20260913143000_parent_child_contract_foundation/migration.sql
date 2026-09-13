@@ -80,19 +80,72 @@ CREATE INDEX "ResponsibilityWorkContract_responsibilityId_createdAt_idx"
 CREATE INDEX "ResponsibilityWorkContract_createdByUserId_idx"
   ON "ResponsibilityWorkContract"("createdByUserId");
 
-ALTER TABLE "GuardianChildRelationship"
-  ADD CONSTRAINT "GuardianChildRelationship_guardianUserId_fkey"
-  FOREIGN KEY ("guardianUserId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-ALTER TABLE "GuardianChildRelationship"
-  ADD CONSTRAINT "GuardianChildRelationship_childUserId_fkey"
-  FOREIGN KEY ("childUserId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-ALTER TABLE "ResponsibilityWorkContract"
-  ADD CONSTRAINT "ResponsibilityWorkContract_responsibilityId_fkey"
-  FOREIGN KEY ("responsibilityId") REFERENCES "Responsibility"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+-- These PC-001 schema models deliberately keep principal/provenance ids scalar
+-- rather than adding reverse relation fields to the existing monolithic User and
+-- Responsibility declarations. Database triggers enforce the same existence and
+-- lifecycle guarantees without creating Prisma schema drift from undeclared FKs.
+CREATE FUNCTION enforce_guardian_child_relationship_users()
+RETURNS TRIGGER AS $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM "User" WHERE "id" = NEW."guardianUserId") THEN
+    RAISE EXCEPTION 'guardian user does not exist' USING ERRCODE = '23503';
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM "User" WHERE "id" = NEW."childUserId") THEN
+    RAISE EXCEPTION 'child user does not exist' USING ERRCODE = '23503';
+  END IF;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER "GuardianChildRelationship_users_exist"
+BEFORE INSERT OR UPDATE OF "guardianUserId", "childUserId"
+ON "GuardianChildRelationship"
+FOR EACH ROW EXECUTE FUNCTION enforce_guardian_child_relationship_users();
+
+CREATE FUNCTION enforce_work_contract_responsibility()
+RETURNS TRIGGER AS $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM "Responsibility" WHERE "id" = NEW."responsibilityId") THEN
+    RAISE EXCEPTION 'responsibility does not exist' USING ERRCODE = '23503';
+  END IF;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER "ResponsibilityWorkContract_responsibility_exists"
+BEFORE INSERT ON "ResponsibilityWorkContract"
+FOR EACH ROW EXECUTE FUNCTION enforce_work_contract_responsibility();
+
+-- Preserve privacy/lifecycle behavior even though the additive Prisma schema
+-- intentionally does not declare reverse relations on the legacy root models.
+CREATE FUNCTION cleanup_parent_child_relationships_on_user_delete()
+RETURNS TRIGGER AS $$
+BEGIN
+  DELETE FROM "GuardianChildRelationship"
+  WHERE "guardianUserId" = OLD."id" OR "childUserId" = OLD."id";
+  RETURN OLD;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER "GuardianChildRelationship_user_lifecycle"
+AFTER DELETE ON "User"
+FOR EACH ROW EXECUTE FUNCTION cleanup_parent_child_relationships_on_user_delete();
+
+CREATE FUNCTION cleanup_work_contracts_on_responsibility_delete()
+RETURNS TRIGGER AS $$
+BEGIN
+  DELETE FROM "ResponsibilityWorkContract" WHERE "responsibilityId" = OLD."id";
+  RETURN OLD;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER "ResponsibilityWorkContract_responsibility_lifecycle"
+AFTER DELETE ON "Responsibility"
+FOR EACH ROW EXECUTE FUNCTION cleanup_work_contracts_on_responsibility_delete();
 
 -- Done Means and carry allocation are commitments, not editable form fields.
--- A material change must create a new version. DELETE remains possible through
--- Responsibility/User lifecycle cascades so privacy deletion is not blocked.
+-- A material change must create a new version. DELETE remains available for
+-- Responsibility/User lifecycle deletion so privacy erasure is not blocked.
 CREATE FUNCTION prevent_responsibility_work_contract_update()
 RETURNS TRIGGER AS $$
 BEGIN
