@@ -10,12 +10,14 @@ import {
 import { Test } from '@nestjs/testing';
 import request from 'supertest';
 import { AppModule } from '../app.module';
+import { AuthService } from '../auth/auth.service';
 import { AllExceptionsFilter } from '../common/filters/all-exceptions.filter';
 import { PrismaService } from '../prisma/prisma.service';
 
 describe('Business Responsibilities & Promises — E2E', () => {
   let app: INestApplication;
   let prisma: PrismaService;
+  let authService: AuthService;
   const marker = `step3-${randomUUID()}`;
 
   const users: Record<string, { id: string; token: string }> = {};
@@ -29,15 +31,19 @@ describe('Business Responsibilities & Promises — E2E', () => {
     app.useGlobalFilters(new AllExceptionsFilter());
     await app.init();
     prisma = app.get(PrismaService);
+    authService = app.get(AuthService);
 
     async function register(label: string) {
-      const response = await request(app.getHttpServer())
-        .post('/auth/register')
-        .send({ email: `${label}-${marker}@example.test`, password: 'Str0ng!Passw0rd' })
-        .expect(201);
+      // This suite is testing Business Responsibilities, not auth throttling.
+      // Use the real registration service so fixture setup does not consume the
+      // production 5/minute per-IP credential throttle and fail after user five.
+      const response = await authService.register({
+        email: `${label}-${marker}@example.test`,
+        password: 'Str0ng!Passw0rd',
+      });
       users[label] = {
-        id: response.body.user.id as string,
-        token: response.body.tokens.accessToken as string,
+        id: response.user.id,
+        token: response.tokens.accessToken,
       };
     }
 
