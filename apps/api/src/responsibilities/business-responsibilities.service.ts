@@ -79,7 +79,7 @@ export class BusinessResponsibilitiesService {
       // idempotency table. The request key remains inspectable in the bounded
       // success contract, while the transaction lock prevents double promises.
       const lockKey = `${organizationId}:${dto.requestKey}`;
-      await tx.$queryRaw(
+      await tx.$executeRaw(
         Prisma.sql`SELECT pg_advisory_xact_lock(hashtextextended(${lockKey}, 0))`,
       );
 
