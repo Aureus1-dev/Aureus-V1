@@ -2,7 +2,10 @@ import "dotenv/config";
 import { defineConfig } from "prisma/config";
 
 export default defineConfig({
-  schema: "prisma/schema.prisma",
+  // Prisma 7 supports a schema folder. Keep the existing 3,000+ line
+  // schema.prisma intact and let bounded domains add additive *.prisma files
+  // beside it instead of turning one file into the permanent merge hotspot.
+  schema: "prisma",
   migrations: {
     path: "prisma/migrations",
     // Admin bootstrap (PR-002) — idempotent, no-ops unless

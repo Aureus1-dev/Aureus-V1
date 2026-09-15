@@ -8,25 +8,21 @@
  * Academy and Pods are cut for V1 entirely (LAUNCH-001: "No Pods, no
  * Academy"), with no bypass for any role — fully built, unreachable until
  * a Founder decision flips them back on. Voice was reopened by a later
- * Founder decision: `VoiceProviderModule` already selects the real
- * `OpenAiVoiceProvider` over the stub whenever `OPENAI_API_KEY` is
- * configured, so this flag now only gates member reachability, not
- * provider selection.
+ * Founder decision. Parent + Child is implemented behind a hard-off launch
+ * gate until minor authorization, assent, privacy, retention, and safeguarding
+ * gates are separately approved.
  */
-export type V1FeatureKey = 'voice' | 'academy' | 'pods';
+export type V1FeatureKey = 'voice' | 'academy' | 'pods' | 'parentChild';
 
 /**
- * A plain mutable object, not `as const` — the Academy and Pods e2e
- * suites deliberately flip their own flag on for the duration of their
- * run (see the `beforeAll`/`afterAll` in each) so they keep proving the
- * underlying domain still works end-to-end while it's gated off by
- * default for the pilot. Restored to its default before every other
- * suite runs.
+ * A plain mutable object, not `as const` — gated-domain e2e suites may flip
+ * their own flag on for the duration of a test and restore it afterwards.
  */
 export const V1_FEATURE_FLAGS: Record<V1FeatureKey, boolean> = {
   voice: true,
   academy: false,
   pods: false,
+  parentChild: false,
 };
 
 /** API path prefixes gated by each flag. Checked by V1ScopeMiddleware. */
@@ -34,4 +30,5 @@ export const V1_GATED_API_PREFIXES: ReadonlyArray<{ prefix: string; feature: V1F
   { prefix: '/ai/voice', feature: 'voice' },
   { prefix: '/academy', feature: 'academy' },
   { prefix: '/pods', feature: 'pods' },
+  { prefix: '/family', feature: 'parentChild' },
 ];

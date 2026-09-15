@@ -36,6 +36,7 @@ import { AuthorityModule } from './authority/authority.module';
 import { PublicWardModule } from './public-ward/public-ward.module';
 import { ResponsibilitiesModule } from './responsibilities/responsibilities.module';
 import { PeopleHelpModule } from './people-help/people-help.module';
+import { FamilyModule } from './family/family.module';
 
 @Module({
   imports: [
@@ -122,6 +123,7 @@ import { PeopleHelpModule } from './people-help/people-help.module';
     PublicWardModule,
     ResponsibilitiesModule,
     PeopleHelpModule,
+    FamilyModule,
   ],
 
   providers: [
