@@ -88,6 +88,7 @@ enum ResponsibilityContextType {
 enum ResponsibilityKind {
   OPPORTUNITY_DECISION
   OPPORTUNITY_APPLICATION_GUIDANCE
+  BUSINESS_PROMISE
 }
 
 enum ResponsibilityStatus {
@@ -2470,7 +2471,7 @@ model LearningPath {
 
   title            String
   shortDescription String
-  fullDescription  String
+  fullDescription String
 
   status             AcademyContentStatus @default(DRAFT)
   verificationStatus VerificationStatus   @default(DRAFT)
