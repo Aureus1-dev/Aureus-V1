@@ -27,7 +27,9 @@ describe('Business Responsibilities & Promises — E2E', () => {
   beforeAll(async () => {
     const moduleRef = await Test.createTestingModule({ imports: [AppModule] }).compile();
     app = moduleRef.createNestApplication();
-    app.useGlobalPipes(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true, transform: true }));
+    app.useGlobalPipes(
+      new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true, transform: true }),
+    );
     app.useGlobalFilters(new AllExceptionsFilter());
     await app.init();
     prisma = app.get(PrismaService);
@@ -90,8 +92,12 @@ describe('Business Responsibilities & Promises — E2E', () => {
   });
 
   afterAll(async () => {
-    await prisma.db.organization.deleteMany({ where: { id: { in: [orgId, otherOrgId].filter(Boolean) } } });
-    await prisma.db.user.deleteMany({ where: { id: { in: Object.values(users).map((user) => user.id) } } });
+    await prisma.db.organization.deleteMany({
+      where: { id: { in: [orgId, otherOrgId].filter(Boolean) } },
+    });
+    await prisma.db.user.deleteMany({
+      where: { id: { in: Object.values(users).map((user) => user.id) } },
+    });
     await app.close();
   });
 
@@ -100,7 +106,8 @@ describe('Business Responsibilities & Promises — E2E', () => {
   const createBody = (requestKey = randomUUID()) => ({
     requestKey,
     objective: 'Prepare the approved scope for the customer follow-up',
-    promise: 'Aureus will carry this work until the success criterion is reported complete or the business cancels it.',
+    promise:
+      'Aureus will carry this work until the success criterion is reported complete or the business cancels it.',
     criterion: 'The approved scope is ready for the next business action.',
     dueAt: new Date(Date.now() + 86_400_000).toISOString(),
   });
@@ -144,7 +151,11 @@ describe('Business Responsibilities & Promises — E2E', () => {
     const rows = await prisma.db.responsibility.findMany({
       where: { principalOrganizationId: orgId },
     });
-    expect(rows.filter((row) => (row.successCriteria as { requestKey?: string }).requestKey === requestKey)).toHaveLength(1);
+    expect(
+      rows.filter(
+        (row) => (row.successCriteria as { requestKey?: string }).requestKey === requestKey,
+      ),
+    ).toHaveLength(1);
   });
 
   it('serializes concurrent duplicate acceptance into one promise', async () => {
@@ -160,8 +171,16 @@ describe('Business Responsibilities & Promises — E2E', () => {
   });
 
   it('keeps mutation roles least-privileged while every current tenant member can read', async () => {
-    await request(app.getHttpServer()).post(url()).set(auth('viewer')).send(createBody()).expect(403);
-    await request(app.getHttpServer()).post(url()).set(auth('member')).send(createBody()).expect(403);
+    await request(app.getHttpServer())
+      .post(url())
+      .set(auth('viewer'))
+      .send(createBody())
+      .expect(403);
+    await request(app.getHttpServer())
+      .post(url())
+      .set(auth('member'))
+      .send(createBody())
+      .expect(403);
 
     const created = await request(app.getHttpServer())
       .post(url())
@@ -169,15 +188,25 @@ describe('Business Responsibilities & Promises — E2E', () => {
       .send(createBody())
       .expect(201);
 
-    await request(app.getHttpServer()).get(url(`/${created.body.id}`)).set(auth('viewer')).expect(200);
-    await request(app.getHttpServer()).get(url(`/${created.body.id}`)).set(auth('member')).expect(200);
+    await request(app.getHttpServer())
+      .get(url(`/${created.body.id}`))
+      .set(auth('viewer'))
+      .expect(200);
+    await request(app.getHttpServer())
+      .get(url(`/${created.body.id}`))
+      .set(auth('member'))
+      .expect(200);
 
     await request(app.getHttpServer())
       .post(url(`/${created.body.id}/complete`))
       .set(auth('operator'))
       .send({ confirmed: true })
       .expect(403);
-    await request(app.getHttpServer()).post(url(`/${created.body.id}/cancel`)).set(auth('operator')).send({}).expect(403);
+    await request(app.getHttpServer())
+      .post(url(`/${created.body.id}/cancel`))
+      .set(auth('operator'))
+      .send({})
+      .expect(403);
   });
 
   it('never leaks or mutates a responsibility across tenants', async () => {
@@ -187,8 +216,15 @@ describe('Business Responsibilities & Promises — E2E', () => {
       .send(createBody())
       .expect(201);
 
-    await request(app.getHttpServer()).get(url(`/${created.body.id}`)).set(auth('outsider')).expect(404);
-    await request(app.getHttpServer()).post(url(`/${created.body.id}/needs-you`)).set(auth('outsider')).send({}).expect(404);
+    await request(app.getHttpServer())
+      .get(url(`/${created.body.id}`))
+      .set(auth('outsider'))
+      .expect(404);
+    await request(app.getHttpServer())
+      .post(url(`/${created.body.id}/needs-you`))
+      .set(auth('outsider'))
+      .send({})
+      .expect(404);
 
     await request(app.getHttpServer())
       .get(`/organizations/${otherOrgId}/responsibilities/${created.body.id}`)
@@ -234,9 +270,81 @@ describe('Business Responsibilities & Promises — E2E', () => {
     expect(activeReplay.body.events).toHaveLength(active.body.events.length);
   });
 
+  it('communicates attention idempotently to current managers and never across roles or tenants', async () => {
+    const body = createBody();
+    const created = await request(app.getHttpServer())
+      .post(url())
+      .set(auth('operator'))
+      .send(body)
+      .expect(201);
+
+    const acceptedKey = `business-responsibility:${created.body.id}:accepted`;
+    const accepted = await prisma.db.notification.findMany({
+      where: { dedupeKey: acceptedKey },
+      orderBy: { recipientId: 'asc' },
+    });
+    expect(accepted.map((notification) => notification.recipientId).sort()).toEqual(
+      [users.owner.id, users.admin.id, users.manager.id].sort(),
+    );
+
+    await request(app.getHttpServer()).post(url()).set(auth('operator')).send(body).expect(201);
+    expect(await prisma.db.notification.count({ where: { dedupeKey: acceptedKey } })).toBe(3);
+
+    await request(app.getHttpServer())
+      .post(url(`/${created.body.id}/needs-you`))
+      .set(auth('operator'))
+      .send({})
+      .expect(201);
+    await request(app.getHttpServer())
+      .post(url(`/${created.body.id}/needs-you`))
+      .set(auth('operator'))
+      .send({})
+      .expect(201);
+
+    const needsYouKey = `business-responsibility:${created.body.id}:needs_you`;
+    const needsYou = await prisma.db.notification.findMany({ where: { dedupeKey: needsYouKey } });
+    expect(needsYou).toHaveLength(3);
+    expect(needsYou.flatMap((notification) => Object.keys(notification.data ?? {})).sort()).toEqual(
+      [
+        'organizationId',
+        'responsibilityId',
+        'status',
+        'organizationId',
+        'responsibilityId',
+        'status',
+        'organizationId',
+        'responsibilityId',
+        'status',
+      ].sort(),
+    );
+
+    await request(app.getHttpServer())
+      .post(url(`/${created.body.id}/complete`))
+      .set(auth('manager'))
+      .send({ confirmed: true })
+      .expect(201);
+
+    const completed = await prisma.db.notification.findMany({
+      where: { dedupeKey: `business-responsibility:${created.body.id}:completed_reported` },
+    });
+    expect(completed.map((notification) => notification.recipientId).sort()).toEqual(
+      [users.owner.id, users.admin.id].sort(),
+    );
+    expect(
+      completed.every(
+        (notification) =>
+          (notification.data as { evidenceLevel?: string }).evidenceLevel === 'REPORTED',
+      ),
+    ).toBe(true);
+  });
+
   it('lets a current manager report completion but never overclaims verified evidence', async () => {
-    const authorityBefore = await prisma.db.authorityGrant.count({ where: { organizationId: orgId } });
-    const stateBefore = await prisma.db.authorityCapabilityState.count({ where: { organizationId: orgId } });
+    const authorityBefore = await prisma.db.authorityGrant.count({
+      where: { organizationId: orgId },
+    });
+    const stateBefore = await prisma.db.authorityCapabilityState.count({
+      where: { organizationId: orgId },
+    });
 
     const created = await request(app.getHttpServer())
       .post(url())
@@ -258,7 +366,9 @@ describe('Business Responsibilities & Promises — E2E', () => {
 
     expect(completed.body.status).toBe(ResponsibilityStatus.COMPLETED);
     const evidence = completed.body.events.filter((event: { type: string }) =>
-      [ResponsibilityEventType.ACTION_EVIDENCED, ResponsibilityEventType.COMPLETED].includes(event.type as ResponsibilityEventType),
+      [ResponsibilityEventType.ACTION_EVIDENCED, ResponsibilityEventType.COMPLETED].includes(
+        event.type as ResponsibilityEventType,
+      ),
     );
     expect(evidence).toHaveLength(2);
     for (const event of evidence) {
@@ -277,8 +387,25 @@ describe('Business Responsibilities & Promises — E2E', () => {
       .expect(201);
     expect(replay.body.events).toHaveLength(completed.body.events.length);
 
-    expect(await prisma.db.authorityGrant.count({ where: { organizationId: orgId } })).toBe(authorityBefore);
-    expect(await prisma.db.authorityCapabilityState.count({ where: { organizationId: orgId } })).toBe(stateBefore);
+    const receipt = await request(app.getHttpServer())
+      .get(url(`/${created.body.id}/evidence`))
+      .set(auth('member'))
+      .expect(200);
+    expect(receipt.body.evidenceSummary).toContain('reported');
+    expect(receipt.body.evidenceSummary).toContain('does not claim independent verification');
+    expect(receipt.body.lifecycle.at(-1).evidenceLevel).toBe(ResponsibilityEvidenceLevel.REPORTED);
+
+    await request(app.getHttpServer())
+      .get(`/organizations/${otherOrgId}/responsibilities/${created.body.id}/evidence`)
+      .set(auth('outsider'))
+      .expect(404);
+
+    expect(await prisma.db.authorityGrant.count({ where: { organizationId: orgId } })).toBe(
+      authorityBefore,
+    );
+    expect(
+      await prisma.db.authorityCapabilityState.count({ where: { organizationId: orgId } }),
+    ).toBe(stateBefore);
   });
 
   it('cancels truthfully and never reopens a terminal responsibility', async () => {

@@ -24,6 +24,7 @@ import {
   CreateBusinessResponsibilityDto,
 } from './dto/business-responsibility.dto';
 import type { ResponsibilityWithEvents } from './repositories/responsibility.repository.interface';
+import { BusinessResponsibilityCommunicationsService } from './business-responsibility-communications.service';
 
 const EVENT_INCLUDE = {
   events: { orderBy: { occurredAt: 'asc' as const } },
@@ -58,7 +59,10 @@ const SECRET_PATTERNS = [
 
 @Injectable()
 export class BusinessResponsibilitiesService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly communications: BusinessResponsibilityCommunicationsService,
+  ) {}
 
   async create(
     organizationId: string,
@@ -71,9 +75,13 @@ export class BusinessResponsibilitiesService {
       throw new BadRequestException('Responsibility due date must be in the future');
     }
 
-    return this.prisma.db.$transaction(async (tx) => {
+    const responsibility = await this.prisma.db.$transaction(async (tx) => {
       const role = await this.lockCurrentMember(tx, organizationId, caller.id);
-      this.assertRole(role, WORK_ROLES, 'This organization role cannot accept work for the business');
+      this.assertRole(
+        role,
+        WORK_ROLES,
+        'This organization role cannot accept work for the business',
+      );
 
       // Serialize identical client requests without inventing another durable
       // idempotency table. The request key remains inspectable in the bounded
@@ -153,6 +161,8 @@ export class BusinessResponsibilitiesService {
         include: EVENT_INCLUDE,
       });
     });
+    await this.communications.accepted(responsibility);
+    return responsibility;
   }
 
   async list(
@@ -185,9 +195,13 @@ export class BusinessResponsibilitiesService {
     responsibilityId: string,
     caller: AuthenticatedUser,
   ): Promise<ResponsibilityWithEvents> {
-    return this.prisma.db.$transaction(async (tx) => {
+    const responsibility = await this.prisma.db.$transaction(async (tx) => {
       const role = await this.lockCurrentMember(tx, organizationId, caller.id);
-      this.assertRole(role, WORK_ROLES, 'This organization role cannot change responsibility state');
+      this.assertRole(
+        role,
+        WORK_ROLES,
+        'This organization role cannot change responsibility state',
+      );
       const current = await this.findBusinessResponsibilityTx(tx, organizationId, responsibilityId);
 
       if (current.status === ResponsibilityStatus.WAITING_ON_USER) return current;
@@ -206,7 +220,8 @@ export class BusinessResponsibilitiesService {
         },
         data: { status: ResponsibilityStatus.WAITING_ON_USER },
       });
-      if (count !== 1) throw new ConflictException('Responsibility state changed; retry from the current state');
+      if (count !== 1)
+        throw new ConflictException('Responsibility state changed; retry from the current state');
 
       await tx.responsibilityEvent.create({
         data: {
@@ -218,8 +233,13 @@ export class BusinessResponsibilitiesService {
           toStatus: ResponsibilityStatus.WAITING_ON_USER,
         },
       });
-      return tx.responsibility.findUniqueOrThrow({ where: { id: current.id }, include: EVENT_INCLUDE });
+      return tx.responsibility.findUniqueOrThrow({
+        where: { id: current.id },
+        include: EVENT_INCLUDE,
+      });
     });
+    await this.communications.needsYou(responsibility);
+    return responsibility;
   }
 
   async resume(
@@ -229,7 +249,11 @@ export class BusinessResponsibilitiesService {
   ): Promise<ResponsibilityWithEvents> {
     return this.prisma.db.$transaction(async (tx) => {
       const role = await this.lockCurrentMember(tx, organizationId, caller.id);
-      this.assertRole(role, WORK_ROLES, 'This organization role cannot change responsibility state');
+      this.assertRole(
+        role,
+        WORK_ROLES,
+        'This organization role cannot change responsibility state',
+      );
       const current = await this.findBusinessResponsibilityTx(tx, organizationId, responsibilityId);
 
       if (current.status === ResponsibilityStatus.ACTIVE) return current;
@@ -248,7 +272,8 @@ export class BusinessResponsibilitiesService {
         },
         data: { status: ResponsibilityStatus.ACTIVE },
       });
-      if (count !== 1) throw new ConflictException('Responsibility state changed; retry from the current state');
+      if (count !== 1)
+        throw new ConflictException('Responsibility state changed; retry from the current state');
 
       await tx.responsibilityEvent.create({
         data: {
@@ -260,7 +285,10 @@ export class BusinessResponsibilitiesService {
           toStatus: ResponsibilityStatus.ACTIVE,
         },
       });
-      return tx.responsibility.findUniqueOrThrow({ where: { id: current.id }, include: EVENT_INCLUDE });
+      return tx.responsibility.findUniqueOrThrow({
+        where: { id: current.id },
+        include: EVENT_INCLUDE,
+      });
     });
   }
 
@@ -270,9 +298,10 @@ export class BusinessResponsibilitiesService {
     dto: ConfirmBusinessResponsibilityCompletionDto,
     caller: AuthenticatedUser,
   ): Promise<ResponsibilityWithEvents> {
-    if (!dto.confirmed) throw new BadRequestException('Completion requires an explicit confirmation');
+    if (!dto.confirmed)
+      throw new BadRequestException('Completion requires an explicit confirmation');
 
-    return this.prisma.db.$transaction(async (tx) => {
+    const responsibility = await this.prisma.db.$transaction(async (tx) => {
       const role = await this.lockCurrentMember(tx, organizationId, caller.id);
       this.assertRole(role, MANAGE_ROLES, 'Only a current business manager may confirm completion');
       const current = await this.findBusinessResponsibilityTx(tx, organizationId, responsibilityId);
@@ -298,7 +327,8 @@ export class BusinessResponsibilitiesService {
         },
         data: { status: ResponsibilityStatus.COMPLETED, completedAt },
       });
-      if (count !== 1) throw new ConflictException('Responsibility state changed; retry from the current state');
+      if (count !== 1)
+        throw new ConflictException('Responsibility state changed; retry from the current state');
 
       const evidence = {
         sourceSystem: 'AUREUS_BUSINESS',
@@ -332,8 +362,13 @@ export class BusinessResponsibilitiesService {
         ],
       });
 
-      return tx.responsibility.findUniqueOrThrow({ where: { id: current.id }, include: EVENT_INCLUDE });
+      return tx.responsibility.findUniqueOrThrow({
+        where: { id: current.id },
+        include: EVENT_INCLUDE,
+      });
     });
+    await this.communications.completedReported(responsibility);
+    return responsibility;
   }
 
   async cancel(
@@ -341,9 +376,13 @@ export class BusinessResponsibilitiesService {
     responsibilityId: string,
     caller: AuthenticatedUser,
   ): Promise<ResponsibilityWithEvents> {
-    return this.prisma.db.$transaction(async (tx) => {
+    const responsibility = await this.prisma.db.$transaction(async (tx) => {
       const role = await this.lockCurrentMember(tx, organizationId, caller.id);
-      this.assertRole(role, MANAGE_ROLES, 'Only a current business manager may cancel a responsibility');
+      this.assertRole(
+        role,
+        MANAGE_ROLES,
+        'Only a current business manager may cancel a responsibility',
+      );
       const current = await this.findBusinessResponsibilityTx(tx, organizationId, responsibilityId);
 
       if (current.status === ResponsibilityStatus.CANCELLED) return current;
@@ -359,7 +398,8 @@ export class BusinessResponsibilitiesService {
         },
         data: { status: ResponsibilityStatus.CANCELLED },
       });
-      if (count !== 1) throw new ConflictException('Responsibility state changed; retry from the current state');
+      if (count !== 1)
+        throw new ConflictException('Responsibility state changed; retry from the current state');
 
       await tx.responsibilityEvent.create({
         data: {
@@ -371,8 +411,13 @@ export class BusinessResponsibilitiesService {
           toStatus: ResponsibilityStatus.CANCELLED,
         },
       });
-      return tx.responsibility.findUniqueOrThrow({ where: { id: current.id }, include: EVENT_INCLUDE });
+      return tx.responsibility.findUniqueOrThrow({
+        where: { id: current.id },
+        include: EVENT_INCLUDE,
+      });
     });
+    await this.communications.cancelled(responsibility);
+    return responsibility;
   }
 
   private async requireCurrentMember(organizationId: string, userId: string) {
@@ -403,7 +448,11 @@ export class BusinessResponsibilitiesService {
     return membership[0].role;
   }
 
-  private assertRole(role: OrganizationMemberRole, allowed: Set<OrganizationMemberRole>, message: string) {
+  private assertRole(
+    role: OrganizationMemberRole,
+    allowed: Set<OrganizationMemberRole>,
+    message: string,
+  ) {
     if (!allowed.has(role)) throw new ForbiddenException(message);
   }
 
@@ -411,18 +460,20 @@ export class BusinessResponsibilitiesService {
     organizationId: string,
     responsibilityId: string,
   ): Promise<ResponsibilityWithEvents> {
-    return this.prisma.db.responsibility.findFirst({
-      where: {
-        id: responsibilityId,
-        contextType: ResponsibilityContextType.BUSINESS_TENANT,
-        principalOrganizationId: organizationId,
-        kind: ResponsibilityKind.BUSINESS_PROMISE,
-      },
-      include: EVENT_INCLUDE,
-    }).then((record) => {
-      if (!record) throw new NotFoundException('Responsibility not found');
-      return record;
-    });
+    return this.prisma.db.responsibility
+      .findFirst({
+        where: {
+          id: responsibilityId,
+          contextType: ResponsibilityContextType.BUSINESS_TENANT,
+          principalOrganizationId: organizationId,
+          kind: ResponsibilityKind.BUSINESS_PROMISE,
+        },
+        include: EVENT_INCLUDE,
+      })
+      .then((record) => {
+        if (!record) throw new NotFoundException('Responsibility not found');
+        return record;
+      });
   }
 
   private async findBusinessResponsibilityTx(
@@ -452,7 +503,9 @@ export class BusinessResponsibilitiesService {
   private assertNoSecrets(...values: string[]) {
     for (const value of values) {
       if (SECRET_PATTERNS.some((pattern) => pattern.test(value))) {
-        throw new BadRequestException('Do not put passwords, tokens, API keys, or other secret material in responsibilities');
+        throw new BadRequestException(
+          'Do not put passwords, tokens, API keys, or other secret material in responsibilities',
+        );
       }
     }
   }
