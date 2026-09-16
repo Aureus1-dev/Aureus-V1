@@ -103,7 +103,8 @@ Step 1 must:
 - reuse the existing human escalation domain;
 - create/resolve no duplicate steward queue;
 - expose whether a steward route was requested/reachable/recorded based on source truth;
-- treat a resolved human escalation as `REPORTED` unless an independent verification source actually proves the underlying life outcome;
+- never treat a resolved human escalation as proof that the underlying life outcome occurred; a resolved escalation proves only that the human handoff itself reached its terminal state;
+- require separate source-domain outcome evidence for the underlying need; an explicit member outcome report is `REPORTED` unless independently verified elsewhere;
 - never claim that a human was contacted, assigned, or completed work when the source domain does not establish that fact.
 
 Full caseload assignment, supervisor operations, queue prioritization, and steward workspace are People Step 4, not Step 1.
@@ -192,7 +193,7 @@ Step 1 is not complete until tests prove at minimum:
 8. member decline changes continuation behavior and is not immediately ignored;
 9. explicit Human Steward request uses the existing escalation domain and does not create a duplicate queue;
 10. unreachable Human Steward is not represented as reachable;
-11. resolved human escalation remains `REPORTED` unless independent verification exists;
+11. resolved human escalation never completes the underlying need by itself; explicit member outcome evidence remains `REPORTED` unless independent verification exists;
 12. Responsible Continuation preserves one Responsibility while moving among valid routes;
 13. Responsible Continuation cannot bypass authority/privacy/member decline;
 14. repeated continuation is retry-safe and cannot endlessly duplicate route records/events;

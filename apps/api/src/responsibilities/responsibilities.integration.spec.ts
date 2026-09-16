@@ -232,6 +232,87 @@ describe('Responsibility Core — Prisma integration', () => {
     ).rejects.toThrow();
   });
 
+  it('deduplicates concurrent Personal Need acceptance at the database boundary', async () => {
+    const conversationId = randomUUID();
+    const attempts = await Promise.all(
+      Array.from({ length: 8 }, (_, index) =>
+        repo.createAccepted({
+          principalUserId: userId,
+          kind: ResponsibilityKind.PERSONAL_NEED_RESOLUTION,
+          successCriteria: {
+            type: 'PERSONAL_NEED_RESOLUTION',
+            statedNeedId: randomUUID(),
+          },
+          objective: `Carry one personal need, attempt ${index}`,
+          originConversationId: conversationId,
+          originOpportunityId: null,
+        }),
+      ),
+    );
+
+    expect(new Set(attempts.map((row) => row.id))).toHaveLength(1);
+    expect(
+      await prisma.db.responsibility.count({
+        where: {
+          principalUserId: userId,
+          originConversationId: conversationId,
+          kind: ResponsibilityKind.PERSONAL_NEED_RESOLUTION,
+          status: {
+            in: [
+              ResponsibilityStatus.ACTIVE,
+              ResponsibilityStatus.WAITING_ON_AUREUS,
+              ResponsibilityStatus.WAITING_ON_USER,
+              ResponsibilityStatus.WAITING_ON_THIRD_PARTY,
+              ResponsibilityStatus.BLOCKED,
+            ],
+          },
+        },
+      }),
+    ).toBe(1);
+  });
+
+  it('rejects cross-context or non-private Personal Need rows at the database boundary', async () => {
+    await expect(
+      prisma.db.responsibility.create({
+        data: {
+          kind: ResponsibilityKind.PERSONAL_NEED_RESOLUTION,
+          objective: 'Personal Need may not become Business work',
+          status: ResponsibilityStatus.ACTIVE,
+          contextType: ResponsibilityContextType.BUSINESS_TENANT,
+          principalUserId: null,
+          principalOrganizationId: organizationId,
+          originConversationId: randomUUID(),
+          originOpportunityId: null,
+          successCriteria: { type: 'PERSONAL_NEED_RESOLUTION', statedNeedId: randomUUID() },
+          authorityClass: ResponsibilityAuthorityClass.GUIDANCE_ONLY,
+          authorityPolicyVersion: 'responsibility-guidance-v1',
+          privacyScope: ResponsibilityPrivacyScope.BUSINESS_PRIVATE,
+          privacyPolicyVersion: 'business-private-v1',
+        },
+      }),
+    ).rejects.toThrow();
+
+    await expect(
+      prisma.db.responsibility.create({
+        data: {
+          kind: ResponsibilityKind.PERSONAL_NEED_RESOLUTION,
+          objective: 'Personal Need must remain private',
+          status: ResponsibilityStatus.ACTIVE,
+          contextType: ResponsibilityContextType.PERSONAL,
+          principalUserId: userId,
+          principalOrganizationId: null,
+          originConversationId: randomUUID(),
+          originOpportunityId: null,
+          successCriteria: { type: 'PERSONAL_NEED_RESOLUTION', statedNeedId: randomUUID() },
+          authorityClass: ResponsibilityAuthorityClass.GUIDANCE_ONLY,
+          authorityPolicyVersion: 'responsibility-guidance-v1',
+          privacyScope: ResponsibilityPrivacyScope.SHARED_TRANSACTION,
+          privacyPolicyVersion: 'shared-transaction-v1',
+        },
+      }),
+    ).rejects.toThrow();
+  });
+
   it('cascades personal Responsibility/event state when the owning User is deleted', async () => {
     const ephemeral = await prisma.db.user.create({
       data: { email: 'cascade-' + marker + '@example.test' },
