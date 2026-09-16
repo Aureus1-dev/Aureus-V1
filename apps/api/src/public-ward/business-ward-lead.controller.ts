@@ -4,6 +4,7 @@ import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { AuthenticatedUser } from '../auth/strategies/jwt.strategy';
 import { BusinessTenantMembershipGuard } from '../organizations/guards/business-tenant-membership.guard';
+import { BusinessLeadTransitionService } from './business-lead-transition.service';
 import { BusinessRevenueCompletionService } from './business-revenue-completion.service';
 import { AssignWardLeadDto } from './dto/assign-ward-lead.dto';
 import { ListWardLeadsQueryDto } from './dto/list-ward-leads-query.dto';
@@ -18,6 +19,7 @@ import { WardLeadService } from './ward-lead.service';
 export class BusinessWardLeadController {
   constructor(
     private readonly leads: WardLeadService,
+    private readonly leadTransitions: BusinessLeadTransitionService,
     private readonly revenueCompletion: BusinessRevenueCompletionService,
   ) {}
 
@@ -61,7 +63,7 @@ export class BusinessWardLeadController {
     @Body() dto: TransitionWardLeadDto,
     @CurrentUser() caller: AuthenticatedUser,
   ) {
-    return this.leads.transitionBusinessLead(organizationId, leadId, dto, caller);
+    return this.leadTransitions.transition(organizationId, leadId, dto, caller);
   }
 
   @Post(':leadId/revenue-milestones')
