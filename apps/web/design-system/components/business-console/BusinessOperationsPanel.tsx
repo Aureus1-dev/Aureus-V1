@@ -16,6 +16,7 @@ import {
 } from '../../../lib/api/business-operations';
 import { useBusiness, useSession } from '../../../state';
 import { KitchenBathReadyProjectCard } from '../public-ward/KitchenBathReadyProjectCard';
+import { RevenueCompletionPanel } from './RevenueCompletionPanel';
 import styles from './BusinessOperationsPanel.module.css';
 
 const NEXT_STATUS: Partial<Record<WardLeadStatus, WardLeadStatus[]>> = {
@@ -392,6 +393,19 @@ export function BusinessOperationsPanel() {
               <h4>Ready Project</h4>
               <KitchenBathReadyProjectCard project={selected.readyProject} audience="business" />
             </>
+          ) : null}
+
+          {selected.revenueCompletion && session.accessToken && tenantId ? (
+            <RevenueCompletionPanel
+              key={`${tenantId}:${selected.id}:${selected.revenueCompletion.currentStage ?? 'start'}`}
+              accessToken={session.accessToken}
+              tenantId={tenantId}
+              leadId={selected.id}
+              projection={selected.revenueCompletion}
+              onChanged={async () => {
+                await refresh(session.accessToken!, tenantId, selected.id);
+              }}
+            />
           ) : null}
 
           <h4>Source conversation evidence</h4>
