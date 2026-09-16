@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import {
   NeedEscalationStatus,
+  NeedOutcomeStatus,
   ResourceOfferResponse,
   ResponsibilityEvidenceLevel,
   ResponsibilityStatus,
@@ -18,6 +19,7 @@ import {
   PersonalResolutionRouteKind,
   PersonalResolutionStateDto,
   RequestHumanStewardDto,
+  ReportPersonalResolutionOutcomeDto,
   RespondToResolutionResourceDto,
 } from './people-resolutions.dto';
 
@@ -93,23 +95,45 @@ export class PeopleResolutionsService {
       return this.project(responsibility, need, caller);
     }
 
-    const escalationRows = await this.escalations.findEscalations(need.id, caller.id);
-    const resolvedEscalation = escalationRows.find(
-      (row) => row.status === NeedEscalationStatus.RESOLVED,
-    );
-    if (resolvedEscalation) {
+    const latestOutcome = await this.needs.findLatestOutcomeReport(need.id, caller.id);
+    if (latestOutcome?.status === NeedOutcomeStatus.RESOLVED) {
       responsibility = await this.responsibilities.completePersonalNeedWithEvidence(
         responsibility.id,
         caller,
         {
           sourceSystem: 'NEEDS',
-          sourceRecordType: 'NeedEscalation',
-          sourceRecordId: resolvedEscalation.id,
-          sourceState: NeedEscalationStatus.RESOLVED,
+          sourceRecordType: 'NeedOutcomeReport',
+          sourceRecordId: latestOutcome.id,
+          sourceState: NeedOutcomeStatus.RESOLVED,
           evidenceLevel: ResponsibilityEvidenceLevel.REPORTED,
         },
       );
       return this.project(responsibility, need, caller);
+    }
+
+    const escalationRows = await this.escalations.findEscalations(need.id, caller.id);
+    const resolvedEscalation = escalationRows.find(
+      (row) => row.status === NeedEscalationStatus.RESOLVED,
+    );
+    const outcomeAfterResolvedEscalation = Boolean(
+      latestOutcome &&
+        resolvedEscalation?.resolvedAt &&
+        latestOutcome.createdAt >= resolvedEscalation.resolvedAt
+    );
+    if (resolvedEscalation && !outcomeAfterResolvedEscalation) {
+      responsibility = await this.responsibilities.markPersonalNeedWaitingOnUser(
+        responsibility.id,
+        caller,
+      );
+      return this.projectWithKnownSources(
+        responsibility,
+        need,
+        await this.needs.findMatchingResources(need.id, caller.id),
+        null,
+        PersonalResolutionRouteKind.CLARIFICATION,
+        'A Human Steward finished the handoff, but that does not prove the underlying need is resolved. Tell Aureus whether the need itself is now resolved.',
+        true,
+      );
     }
 
     const openEscalation = escalationRows.find(
@@ -131,7 +155,13 @@ export class PeopleResolutionsService {
     ]);
 
     const acceptedOffer = offers.find(
-      (offer) => offer.response === ResourceOfferResponse.ACCEPTED,
+      (offer) =>
+        offer.response === ResourceOfferResponse.ACCEPTED &&
+        !(
+          latestOutcome?.status === NeedOutcomeStatus.STILL_UNRESOLVED &&
+          offer.respondedAt &&
+          latestOutcome.createdAt >= offer.respondedAt
+        ),
     );
     if (acceptedOffer) {
       responsibility = await this.responsibilities.markPersonalNeedWaitingOnThirdParty(
@@ -339,6 +369,46 @@ export class PeopleResolutionsService {
         caller,
       );
       return this.project(waiting, need, caller);
+    }
+
+    return this.continue(responsibility.id, caller);
+  }
+
+  async reportOutcome(
+    responsibilityId: string,
+    dto: ReportPersonalResolutionOutcomeDto,
+    caller: AuthenticatedUser,
+  ): Promise<PersonalResolutionStateDto> {
+    const responsibility = await this.responsibilities.findOwnedPersonalNeedResolution(
+      responsibilityId,
+      caller,
+    );
+    const need = await this.getNeedForResponsibility(responsibility, caller.id);
+
+    if (TERMINAL_STATUSES.has(responsibility.status)) {
+      return this.project(responsibility, need, caller);
+    }
+
+    const report = await this.needs.recordOutcomeReport(
+      need.id,
+      dto.resolved ? NeedOutcomeStatus.RESOLVED : NeedOutcomeStatus.STILL_UNRESOLVED,
+      dto.note,
+      caller.id,
+    );
+
+    if (report.status === NeedOutcomeStatus.RESOLVED) {
+      const completed = await this.responsibilities.completePersonalNeedWithEvidence(
+        responsibility.id,
+        caller,
+        {
+          sourceSystem: 'NEEDS',
+          sourceRecordType: 'NeedOutcomeReport',
+          sourceRecordId: report.id,
+          sourceState: NeedOutcomeStatus.RESOLVED,
+          evidenceLevel: ResponsibilityEvidenceLevel.REPORTED,
+        },
+      );
+      return this.project(completed, need, caller);
     }
 
     return this.continue(responsibility.id, caller);

@@ -1,6 +1,7 @@
 import { NotFoundException } from '@nestjs/common';
 import {
   NeedEscalationStatus,
+  NeedOutcomeStatus,
   ResourceOfferResponse,
   ResponsibilityEvidenceLevel,
   ResponsibilityStatus,
@@ -102,6 +103,8 @@ describe('PeopleResolutionsService', () => {
         recordedAt: null,
       }),
       isHumanStewardReachable: jest.fn().mockResolvedValue(true),
+      findLatestOutcomeReport: jest.fn().mockResolvedValue(null),
+      recordOutcomeReport: jest.fn(),
     } as unknown as jest.Mocked<NeedsService>;
 
     escalations = {
@@ -369,7 +372,7 @@ describe('PeopleResolutionsService', () => {
     expect(result.routeKind).toBe(PersonalResolutionRouteKind.HUMAN_STEWARD);
   });
 
-  it('completes only as REPORTED when the source NeedEscalation is resolved', async () => {
+  it('does not confuse a resolved human escalation with the underlying life outcome', async () => {
     responsibilities.findOwnedPersonalNeedResolution.mockResolvedValue(
       responsibility(ResponsibilityStatus.WAITING_ON_THIRD_PARTY),
     );
@@ -380,11 +383,38 @@ describe('PeopleResolutionsService', () => {
         reason: null,
         status: NeedEscalationStatus.RESOLVED,
         acknowledgedAt: new Date(),
-        resolutionNotes: 'Member reported utility service is stable.',
+        resolutionNotes: 'Called the member back.',
         resolvedAt: new Date(),
         createdAt: new Date(),
       },
     ]);
+    responsibilities.markPersonalNeedWaitingOnUser.mockResolvedValue(
+      responsibility(ResponsibilityStatus.WAITING_ON_USER),
+    );
+
+    const result = await service.continue(
+      '44444444-4444-4444-8444-444444444444',
+      caller,
+    );
+
+    expect(responsibilities.completePersonalNeedWithEvidence).not.toHaveBeenCalled();
+    expect(result.responsibility.status).toBe(ResponsibilityStatus.WAITING_ON_USER);
+    expect(result.nextStep).toContain('does not prove the underlying need is resolved');
+  });
+
+  it('completes as REPORTED only after the member explicitly reports the underlying need resolved', async () => {
+    responsibilities.findOwnedPersonalNeedResolution.mockResolvedValue(
+      responsibility(ResponsibilityStatus.WAITING_ON_THIRD_PARTY),
+    );
+    const report = {
+      id: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',
+      userId: caller.id,
+      statedNeedId: need.id,
+      status: NeedOutcomeStatus.RESOLVED,
+      note: 'My electricity stayed on.',
+      createdAt: new Date(),
+    };
+    needs.recordOutcomeReport.mockResolvedValue(report as never);
     responsibilities.completePersonalNeedWithEvidence.mockResolvedValue(
       responsibility(ResponsibilityStatus.COMPLETED, [
         {
@@ -395,25 +425,33 @@ describe('PeopleResolutionsService', () => {
           fromStatus: ResponsibilityStatus.WAITING_ON_THIRD_PARTY,
           toStatus: ResponsibilityStatus.COMPLETED,
           sourceSystem: 'NEEDS',
-          sourceRecordType: 'NeedEscalation',
-          sourceRecordId: '99999999-9999-4999-8999-999999999999',
-          sourceState: NeedEscalationStatus.RESOLVED,
+          sourceRecordType: 'NeedOutcomeReport',
+          sourceRecordId: report.id,
+          sourceState: NeedOutcomeStatus.RESOLVED,
           evidenceLevel: ResponsibilityEvidenceLevel.REPORTED,
           occurredAt: new Date(),
         } as ResponsibilityResponseDto['events'][number],
       ]),
     );
 
-    const result = await service.continue(
+    const result = await service.reportOutcome(
       '44444444-4444-4444-8444-444444444444',
+      { resolved: true, note: 'My electricity stayed on.' },
       caller,
     );
 
+    expect(needs.recordOutcomeReport).toHaveBeenCalledWith(
+      need.id,
+      NeedOutcomeStatus.RESOLVED,
+      'My electricity stayed on.',
+      caller.id,
+    );
     expect(responsibilities.completePersonalNeedWithEvidence).toHaveBeenCalledWith(
       expect.any(String),
       caller,
       expect.objectContaining({
-        sourceRecordType: 'NeedEscalation',
+        sourceRecordType: 'NeedOutcomeReport',
+        sourceRecordId: report.id,
         evidenceLevel: ResponsibilityEvidenceLevel.REPORTED,
       }),
     );

@@ -229,6 +229,7 @@ model User {
   resourceOffers              ResourceOffer[]
   needEscalations             NeedEscalation[]
   unresolvedNeeds             UnresolvedNeed[]
+  needOutcomeReports          NeedOutcomeReport[]
   harvestPlans                HarvestPlan[]
   guidedApplicationSessions   GuidedApplicationSession[]
   responsibilitiesAsPrincipal Responsibility[]           @relation("ResponsibilityPrincipalUser")
@@ -3709,6 +3710,11 @@ model CitySheetVerificationEvent {
 // Append-only: a conversation states one need; later Gate C work orders add
 // their own records referencing this one rather than mutating it.
 // ===========================================================================
+enum NeedOutcomeStatus {
+  RESOLVED
+  STILL_UNRESOLVED
+}
+
 model StatedNeed {
   id             String         @id @default(uuid()) @db.Uuid
   userId         String         @db.Uuid
@@ -3722,9 +3728,28 @@ model StatedNeed {
   resourceOffers  ResourceOffer[]
   needEscalations NeedEscalation[]
   unresolvedNeed  UnresolvedNeed?
+  outcomeReports  NeedOutcomeReport[]
 
   @@index([userId])
   @@index([conversationId])
+}
+
+// People Step 1 — append-only explicit member outcome evidence. This is a
+// report about the underlying stated need, not a workflow/case record. It
+// exists so a callback, referral, or handoff can never be mistaken for the
+// life outcome itself.
+model NeedOutcomeReport {
+  id           String            @id @default(uuid()) @db.Uuid
+  userId       String            @db.Uuid
+  user         User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  statedNeedId String            @db.Uuid
+  statedNeed   StatedNeed        @relation(fields: [statedNeedId], references: [id], onDelete: Cascade)
+  status       NeedOutcomeStatus
+  note         String?
+  createdAt    DateTime          @default(now())
+
+  @@index([userId])
+  @@index([statedNeedId, createdAt])
 }
 
 // Gate C (C5: Verified resource presentation). Records that a matched City

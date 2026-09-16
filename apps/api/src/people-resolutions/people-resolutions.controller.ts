@@ -12,6 +12,7 @@ import {
   AcceptPersonalResolutionDto,
   PersonalResolutionStateDto,
   RequestHumanStewardDto,
+  ReportPersonalResolutionOutcomeDto,
   RespondToResolutionResourceDto,
 } from './people-resolutions.dto';
 import { PeopleResolutionsService } from './people-resolutions.service';
@@ -70,6 +71,19 @@ export class PeopleResolutionsController {
     @CurrentUser() caller: AuthenticatedUser,
   ): Promise<PersonalResolutionStateDto> {
     return this.resolutions.respondToResource(responsibilityId, dto, caller);
+  }
+
+  @Post(':responsibilityId/outcome')
+  @ApiOperation({
+    summary: 'Explicitly report whether the underlying personal need is resolved',
+  })
+  @ApiResponse({ status: 201, type: PersonalResolutionStateDto })
+  reportOutcome(
+    @Param('responsibilityId') responsibilityId: string,
+    @Body() dto: ReportPersonalResolutionOutcomeDto,
+    @CurrentUser() caller: AuthenticatedUser,
+  ): Promise<PersonalResolutionStateDto> {
+    return this.resolutions.reportOutcome(responsibilityId, dto, caller);
   }
 
   @Post(':responsibilityId/human-steward')

@@ -52,6 +52,18 @@ export class RequestHumanStewardDto {
   reason?: string;
 }
 
+export class ReportPersonalResolutionOutcomeDto {
+  @ApiProperty({ description: 'Whether the underlying life need is now resolved.' })
+  @IsBoolean()
+  resolved!: boolean;
+
+  @ApiPropertyOptional({ maxLength: 1000 })
+  @IsOptional()
+  @IsString()
+  @MaxLength(1000)
+  note?: string;
+}
+
 export enum PersonalResolutionRouteKind {
   VERIFIED_RESOURCE = 'VERIFIED_RESOURCE',
   HUMAN_STEWARD = 'HUMAN_STEWARD',
