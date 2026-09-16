@@ -211,11 +211,15 @@ export function availableRevenueActions(input: {
 
   const latestProposal = proposals.at(-1) ?? null;
   const latestDecisionMilestone = decisions.at(-1) ?? null;
-  const decisionAfterLatestProposal = Boolean(
-    latestProposal &&
-      latestDecisionMilestone &&
-      Date.parse(latestDecisionMilestone.occurredAt) >= Date.parse(latestProposal.occurredAt),
-  );
+  // The input milestone array is the canonical ledger projection order. Use
+  // that sequence rather than timestamps so equal-millisecond events cannot
+  // invert a revision-requested -> revised-proposal flow.
+  const latestProposalIndex = latestProposal ? milestones.lastIndexOf(latestProposal) : -1;
+  const latestDecisionIndex = latestDecisionMilestone
+    ? milestones.lastIndexOf(latestDecisionMilestone)
+    : -1;
+  const decisionAfterLatestProposal =
+    latestProposalIndex >= 0 && latestDecisionIndex > latestProposalIndex;
   const latestDecision = latestDecisionMilestone?.decision ?? null;
   const canManage = MANAGE_ROLES.has(role);
 
