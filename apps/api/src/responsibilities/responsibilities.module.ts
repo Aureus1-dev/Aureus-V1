@@ -23,6 +23,11 @@ import { ResponsibilitiesService } from './responsibilities.service';
       useClass: PrismaResponsibilityRepository,
     },
   ],
-  exports: [ResponsibilitiesService, BusinessResponsibilitiesService, RESPONSIBILITY_REPOSITORY],
+  exports: [
+    ResponsibilitiesService,
+    BusinessResponsibilitiesService,
+    BusinessResponsibilityCommunicationsService,
+    RESPONSIBILITY_REPOSITORY,
+  ],
 })
 export class ResponsibilitiesModule {}
