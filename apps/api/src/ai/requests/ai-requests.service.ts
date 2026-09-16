@@ -7,6 +7,7 @@ import { PLATFORM_ADMIN_ROLES } from '../common/ai-roles.util';
 import { ModerationService } from '../moderation/moderation.service';
 import { wrapUntrustedUserContent } from '../moderation/prompt-injection.util';
 import { MEMBER_STEWARD_SYSTEM_PROMPT } from '../prompts/member-steward-system-prompt';
+import { AUREUS_STEWARD_CHARACTER } from '../prompts/aureus-steward-character';
 import { AI_PROVIDER, AiCompletionMessage, AiToolCallRequest, AiToolDefinition, IAiProvider } from '../providers/ai-provider.interface';
 import { computeCostUsd } from './ai-pricing.util';
 import { AiOperationalConfigService } from './ai-operational-config.service';
@@ -76,14 +77,37 @@ export class AiRequestsService {
     // regress to help-desk behavior even if an older caller still imports it.
     // Additional system messages (for example visible interface context) are
     // retained unchanged.
-    const messages =
-      params.capability === AiCapability.QUESTION_ANSWERING
-        ? params.messages.map((message, index) =>
-            index === 0 && message.role === 'system'
-              ? { ...message, content: MEMBER_STEWARD_SYSTEM_PROMPT }
-              : message,
-          )
-        : params.messages;
+    let messages: AiCompletionMessage[];
+    if (params.capability === AiCapability.QUESTION_ANSWERING) {
+      // Member conversation has a fuller real-life scope and action boundary
+      // than the shared character alone. Replace an obsolete caller-owned
+      // prompt, or prepend the governed member prompt when none was supplied.
+      messages =
+        params.messages[0]?.role === 'system'
+          ? params.messages.map((message, index) =>
+              index === 0 ? { ...message, content: MEMBER_STEWARD_SYSTEM_PROMPT } : message,
+            )
+          : [{ role: 'system', content: MEMBER_STEWARD_SYSTEM_PROMPT }, ...params.messages];
+    } else if (params.messages[0]?.role === 'system') {
+      // Specialized capabilities retain every narrow safety/output rule while
+      // inheriting the same Aureus character. Prompts already composed from
+      // the shared contract are left byte-for-byte unchanged.
+      const first = params.messages[0];
+      messages =
+        typeof first.content === 'string'
+          ? first.content.includes(AUREUS_STEWARD_CHARACTER)
+            ? params.messages
+            : [
+                { ...first, content: `${AUREUS_STEWARD_CHARACTER}\n\n${first.content}` },
+                ...params.messages.slice(1),
+              ]
+          : [{ role: 'system', content: AUREUS_STEWARD_CHARACTER }, ...params.messages];
+    } else {
+      // Academy, Journey, Opportunity, Resource, and Knowledge insight calls
+      // historically supplied only a user message. Central composition keeps
+      // those facets from silently becoming an ungoverned second personality.
+      messages = [{ role: 'system', content: AUREUS_STEWARD_CHARACTER }, ...params.messages];
+    }
 
     const moderationResult = await this.moderation.checkMessages(messages);
     if (moderationResult.flagged) {
