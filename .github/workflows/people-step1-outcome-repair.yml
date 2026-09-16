@@ -1,0 +1,283 @@
+name: People Step 1 outcome-truth repair
+
+on:
+  push:
+    branches:
+      - people/step1-need-to-resolution-v2
+
+permissions:
+  contents: write
+
+jobs:
+  repair:
+    if: ${{ !contains(github.event.head_commit.message, '[people-step1-outcome-repaired]') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Add canonical member outcome evidence and remove false human-completion inference
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          cat > apps/api/src/needs/repositories/need-outcome-report.repository.interface.ts <<'TS'
+          import { NeedOutcomeReport, NeedOutcomeStatus } from '@prisma/client';
+
+          export const NEED_OUTCOME_REPORT_REPOSITORY = 'NEED_OUTCOME_REPORT_REPOSITORY';
+
+          export interface CreateNeedOutcomeReportInput {
+            userId: string;
+            statedNeedId: string;
+            status: NeedOutcomeStatus;
+            note?: string | null;
+          }
+
+          export interface INeedOutcomeReportRepository {
+            create(input: CreateNeedOutcomeReportInput): Promise<NeedOutcomeReport>;
+            findLatestByStatedNeed(statedNeedId: string): Promise<NeedOutcomeReport | null>;
+          }
+          TS
+
+          cat > apps/api/src/needs/repositories/prisma-need-outcome-report.repository.ts <<'TS'
+          import { Injectable } from '@nestjs/common';
+          import { NeedOutcomeReport } from '@prisma/client';
+          import { PrismaService } from '../../prisma/prisma.service';
+          import {
+            CreateNeedOutcomeReportInput,
+            INeedOutcomeReportRepository,
+          } from './need-outcome-report.repository.interface';
+
+          @Injectable()
+          export class PrismaNeedOutcomeReportRepository implements INeedOutcomeReportRepository {
+            constructor(private readonly prisma: PrismaService) {}
+
+            create(input: CreateNeedOutcomeReportInput): Promise<NeedOutcomeReport> {
+              return this.prisma.db.needOutcomeReport.create({ data: input });
+            }
+
+            findLatestByStatedNeed(statedNeedId: string): Promise<NeedOutcomeReport | null> {
+              return this.prisma.db.needOutcomeReport.findFirst({
+                where: { statedNeedId },
+                orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+              });
+            }
+          }
+          TS
+
+          python - <<'PY'
+          from pathlib import Path
+          import re
+
+          # Prisma: append-only member outcome report in the canonical Needs domain.
+          p = Path('prisma/schema.prisma')
+          s = p.read_text()
+          s = s.replace(
+              '  unresolvedNeeds             UnresolvedNeed[]\n',
+              '  unresolvedNeeds             UnresolvedNeed[]\n  needOutcomeReports          NeedOutcomeReport[]\n',
+              1,
+          )
+          if 'enum NeedOutcomeStatus {' not in s:
+              s = s.replace(
+                  'model StatedNeed {\n',
+                  'enum NeedOutcomeStatus {\n  RESOLVED\n  STILL_UNRESOLVED\n}\n\nmodel StatedNeed {\n',
+                  1,
+              )
+          s = s.replace(
+              '  unresolvedNeed  UnresolvedNeed?\n\n  @@index([userId])',
+              '  unresolvedNeed  UnresolvedNeed?\n  outcomeReports  NeedOutcomeReport[]\n\n  @@index([userId])',
+              1,
+          )
+          if 'model NeedOutcomeReport {' not in s:
+              anchor = '''  @@index([userId])\n  @@index([conversationId])\n}\n\n// Gate C (C5: Verified resource presentation).'''
+              insert = '''  @@index([userId])\n  @@index([conversationId])\n}\n\n// People Step 1 — append-only explicit member outcome evidence. This is a\n// report about the underlying stated need, not a workflow/case record. It\n// exists so a callback, referral, or handoff can never be mistaken for the\n// life outcome itself.\nmodel NeedOutcomeReport {\n  id           String            @id @default(uuid()) @db.Uuid\n  userId       String            @db.Uuid\n  user         User              @relation(fields: [userId], references: [id], onDelete: Cascade)\n  statedNeedId String            @db.Uuid\n  statedNeed   StatedNeed        @relation(fields: [statedNeedId], references: [id], onDelete: Cascade)\n  status       NeedOutcomeStatus\n  note         String?\n  createdAt    DateTime          @default(now())\n\n  @@index([userId])\n  @@index([statedNeedId, createdAt])\n}\n\n// Gate C (C5: Verified resource presentation).'''
+              if anchor not in s:
+                  raise SystemExit('StatedNeed insertion anchor missing')
+              s = s.replace(anchor, insert, 1)
+          p.write_text(s)
+
+          # Needs module: register the canonical outcome repository.
+          p = Path('apps/api/src/needs/needs.module.ts')
+          s = p.read_text()
+          import_anchor = "import { UNRESOLVED_NEED_REPOSITORY } from './repositories/unresolved-need.repository.interface';\n"
+          if 'PrismaNeedOutcomeReportRepository' not in s:
+              s = s.replace(
+                  import_anchor,
+                  import_anchor
+                  + "import { PrismaNeedOutcomeReportRepository } from './repositories/prisma-need-outcome-report.repository';\n"
+                  + "import { NEED_OUTCOME_REPORT_REPOSITORY } from './repositories/need-outcome-report.repository.interface';\n",
+                  1,
+              )
+              provider_anchor = '    { provide: UNRESOLVED_NEED_REPOSITORY, useClass: PrismaUnresolvedNeedRepository },\n'
+              s = s.replace(
+                  provider_anchor,
+                  provider_anchor
+                  + '    { provide: NEED_OUTCOME_REPORT_REPOSITORY, useClass: PrismaNeedOutcomeReportRepository },\n',
+                  1,
+              )
+          p.write_text(s)
+
+          # Needs service: self-scoped append/read API for member outcome evidence.
+          p = Path('apps/api/src/needs/needs.service.ts')
+          s = p.read_text()
+          s = s.replace(
+              "import { CitySheetCategory, CitySheetEntryStatus, CitySheetVerificationStatus, UserRole } from '@prisma/client';",
+              "import { CitySheetCategory, CitySheetEntryStatus, CitySheetVerificationStatus, NeedOutcomeStatus, UserRole } from '@prisma/client';\nimport type { NeedOutcomeReport } from '@prisma/client';",
+              1,
+          )
+          repo_import = '''import {\n  IUnresolvedNeedRepository,\n  UNRESOLVED_NEED_REPOSITORY,\n} from './repositories/unresolved-need.repository.interface';\n'''
+          if 'INeedOutcomeReportRepository' not in s:
+              s = s.replace(
+                  repo_import,
+                  repo_import
+                  + "import { INeedOutcomeReportRepository, NEED_OUTCOME_REPORT_REPOSITORY } from './repositories/need-outcome-report.repository.interface';\n",
+                  1,
+              )
+              ctor_anchor = '    @Inject(UNRESOLVED_NEED_REPOSITORY) private readonly unresolvedNeeds: IUnresolvedNeedRepository,\n'
+              s = s.replace(
+                  ctor_anchor,
+                  ctor_anchor
+                  + '    @Inject(NEED_OUTCOME_REPORT_REPOSITORY) private readonly outcomeReports: INeedOutcomeReportRepository,\n',
+                  1,
+              )
+              method_anchor = '''  /**\n   * OR-004 needs to distinguish "no verified resource" from "all currently\n'''
+              methods = '''  /** People Step 1: the member explicitly reports the underlying need outcome. */\n  async recordOutcomeReport(\n    needId: string,\n    status: NeedOutcomeStatus,\n    note: string | null | undefined,\n    callerId: string,\n  ): Promise<NeedOutcomeReport> {\n    const need = await this.getOwnedNeedOrThrow(needId, callerId);\n    return this.outcomeReports.create({\n      userId: callerId,\n      statedNeedId: need.id,\n      status,\n      note: note?.trim() || null,\n    });\n  }\n\n  /** Latest explicit member report, self-scoped through the owned StatedNeed. */\n  async findLatestOutcomeReport(\n    needId: string,\n    callerId: string,\n  ): Promise<NeedOutcomeReport | null> {\n    const need = await this.getOwnedNeedOrThrow(needId, callerId);\n    return this.outcomeReports.findLatestByStatedNeed(need.id);\n  }\n\n'''
+              if method_anchor not in s:
+                  raise SystemExit('NeedsService outcome method anchor missing')
+              s = s.replace(method_anchor, methods + method_anchor, 1)
+          p.write_text(s)
+
+          # DTO: explicit member outcome report, not inferred from a route/handoff.
+          p = Path('apps/api/src/people-resolutions/people-resolutions.dto.ts')
+          s = p.read_text()
+          if 'ReportPersonalResolutionOutcomeDto' not in s:
+              anchor = '''export class RequestHumanStewardDto {\n  @ApiPropertyOptional({ maxLength: 500 })\n  @IsOptional()\n  @IsString()\n  @MaxLength(500)\n  reason?: string;\n}\n\n'''
+              addition = anchor + '''export class ReportPersonalResolutionOutcomeDto {\n  @ApiProperty({ description: 'Whether the underlying life need is now resolved.' })\n  @IsBoolean()\n  resolved!: boolean;\n\n  @ApiPropertyOptional({ maxLength: 1000 })\n  @IsOptional()\n  @IsString()\n  @MaxLength(1000)\n  note?: string;\n}\n\n'''
+              if anchor not in s:
+                  raise SystemExit('Outcome DTO anchor missing')
+              s = s.replace(anchor, addition, 1)
+          p.write_text(s)
+
+          # Controller: member-controlled outcome attestation endpoint.
+          p = Path('apps/api/src/people-resolutions/people-resolutions.controller.ts')
+          s = p.read_text()
+          s = s.replace(
+              '  RequestHumanStewardDto,\n',
+              '  RequestHumanStewardDto,\n  ReportPersonalResolutionOutcomeDto,\n',
+              1,
+          )
+          if "@Post(':responsibilityId/outcome')" not in s:
+              anchor = "  @Post(':responsibilityId/human-steward')\n"
+              method = '''  @Post(':responsibilityId/outcome')\n  @ApiOperation({\n    summary: 'Explicitly report whether the underlying personal need is resolved',\n  })\n  @ApiResponse({ status: 201, type: PersonalResolutionStateDto })\n  reportOutcome(\n    @Param('responsibilityId') responsibilityId: string,\n    @Body() dto: ReportPersonalResolutionOutcomeDto,\n    @CurrentUser() caller: AuthenticatedUser,\n  ): Promise<PersonalResolutionStateDto> {\n    return this.resolutions.reportOutcome(responsibilityId, dto, caller);\n  }\n\n'''
+              if anchor not in s:
+                  raise SystemExit('Controller human-steward anchor missing')
+              s = s.replace(anchor, method + anchor, 1)
+          p.write_text(s)
+
+          # Service: only explicit underlying-need outcome can close; a human callback cannot.
+          p = Path('apps/api/src/people-resolutions/people-resolutions.service.ts')
+          s = p.read_text()
+          s = s.replace(
+              '  NeedEscalationStatus,\n',
+              '  NeedEscalationStatus,\n  NeedOutcomeStatus,\n',
+              1,
+          )
+          s = s.replace(
+              '  RequestHumanStewardDto,\n',
+              '  RequestHumanStewardDto,\n  ReportPersonalResolutionOutcomeDto,\n',
+              1,
+          )
+
+          # Replace the old false inference: RESOLVED escalation != resolved life need.
+          old = '''    const escalationRows = await this.escalations.findEscalations(need.id, caller.id);\n    const resolvedEscalation = escalationRows.find(\n      (row) => row.status === NeedEscalationStatus.RESOLVED,\n    );\n    if (resolvedEscalation) {\n      responsibility = await this.responsibilities.completePersonalNeedWithEvidence(\n        responsibility.id,\n        caller,\n        {\n          sourceSystem: 'NEEDS',\n          sourceRecordType: 'NeedEscalation',\n          sourceRecordId: resolvedEscalation.id,\n          sourceState: NeedEscalationStatus.RESOLVED,\n          evidenceLevel: ResponsibilityEvidenceLevel.REPORTED,\n        },\n      );\n      return this.project(responsibility, need, caller);\n    }\n\n    const openEscalation = escalationRows.find(\n'''
+          new = '''    const latestOutcome = await this.needs.findLatestOutcomeReport(need.id, caller.id);\n    if (latestOutcome?.status === NeedOutcomeStatus.RESOLVED) {\n      responsibility = await this.responsibilities.completePersonalNeedWithEvidence(\n        responsibility.id,\n        caller,\n        {\n          sourceSystem: 'NEEDS',\n          sourceRecordType: 'NeedOutcomeReport',\n          sourceRecordId: latestOutcome.id,\n          sourceState: NeedOutcomeStatus.RESOLVED,\n          evidenceLevel: ResponsibilityEvidenceLevel.REPORTED,\n        },\n      );\n      return this.project(responsibility, need, caller);\n    }\n\n    const escalationRows = await this.escalations.findEscalations(need.id, caller.id);\n    const resolvedEscalation = escalationRows.find(\n      (row) => row.status === NeedEscalationStatus.RESOLVED,\n    );\n    const outcomeAfterResolvedEscalation = Boolean(\n      latestOutcome &&\n        resolvedEscalation?.resolvedAt &&\n        latestOutcome.createdAt >= resolvedEscalation.resolvedAt\n    );\n    if (resolvedEscalation && !outcomeAfterResolvedEscalation) {\n      responsibility = await this.responsibilities.markPersonalNeedWaitingOnUser(\n        responsibility.id,\n        caller,\n      );\n      return this.projectWithKnownSources(\n        responsibility,\n        need,\n        await this.needs.findMatchingResources(need.id, caller.id),\n        null,\n        PersonalResolutionRouteKind.CLARIFICATION,\n        'A Human Steward finished the handoff, but that does not prove the underlying need is resolved. Tell Aureus whether the need itself is now resolved.',\n        true,\n      );\n    }\n\n    const openEscalation = escalationRows.find(\n'''
+          if old not in s:
+              raise SystemExit('Old escalation-completion block missing')
+          s = s.replace(old, new, 1)
+
+          # A fresh STILL_UNRESOLVED report supersedes an older accepted resource as a successful route.
+          s = s.replace(
+              '''    const acceptedOffer = offers.find(\n      (offer) => offer.response === ResourceOfferResponse.ACCEPTED,\n    );\n''',
+              '''    const acceptedOffer = offers.find(\n      (offer) =>\n        offer.response === ResourceOfferResponse.ACCEPTED &&\n        !(\n          latestOutcome?.status === NeedOutcomeStatus.STILL_UNRESOLVED &&\n          offer.respondedAt &&\n          latestOutcome.createdAt >= offer.respondedAt\n        ),\n    );\n''',
+              1,
+          )
+
+          # Add the member outcome command before human-steward request.
+          if 'async reportOutcome(' not in s:
+              anchor = '  async requestHumanSteward(\n'
+              method = '''  async reportOutcome(\n    responsibilityId: string,\n    dto: ReportPersonalResolutionOutcomeDto,\n    caller: AuthenticatedUser,\n  ): Promise<PersonalResolutionStateDto> {\n    const responsibility = await this.responsibilities.findOwnedPersonalNeedResolution(\n      responsibilityId,\n      caller,\n    );\n    const need = await this.getNeedForResponsibility(responsibility, caller.id);\n\n    if (TERMINAL_STATUSES.has(responsibility.status)) {\n      return this.project(responsibility, need, caller);\n    }\n\n    const report = await this.needs.recordOutcomeReport(\n      need.id,\n      dto.resolved ? NeedOutcomeStatus.RESOLVED : NeedOutcomeStatus.STILL_UNRESOLVED,\n      dto.note,\n      caller.id,\n    );\n\n    if (report.status === NeedOutcomeStatus.RESOLVED) {\n      const completed = await this.responsibilities.completePersonalNeedWithEvidence(\n        responsibility.id,\n        caller,\n        {\n          sourceSystem: 'NEEDS',\n          sourceRecordType: 'NeedOutcomeReport',\n          sourceRecordId: report.id,\n          sourceState: NeedOutcomeStatus.RESOLVED,\n          evidenceLevel: ResponsibilityEvidenceLevel.REPORTED,\n        },\n      );\n      return this.project(completed, need, caller);\n    }\n\n    return this.continue(responsibility.id, caller);\n  }\n\n'''
+              if anchor not in s:
+                  raise SystemExit('reportOutcome insertion anchor missing')
+              s = s.replace(anchor, method + anchor, 1)
+          p.write_text(s)
+
+          # Unit tests: mock canonical outcome methods and replace the false-completion test.
+          p = Path('apps/api/src/people-resolutions/people-resolutions.service.spec.ts')
+          s = p.read_text()
+          s = s.replace(
+              '  NeedEscalationStatus,\n',
+              '  NeedEscalationStatus,\n  NeedOutcomeStatus,\n',
+              1,
+          )
+          s = s.replace(
+              '''      isHumanStewardReachable: jest.fn().mockResolvedValue(true),\n''',
+              '''      isHumanStewardReachable: jest.fn().mockResolvedValue(true),\n      findLatestOutcomeReport: jest.fn().mockResolvedValue(null),\n      recordOutcomeReport: jest.fn(),\n''',
+              1,
+          )
+          start = s.find("  it('completes only as REPORTED when the source NeedEscalation is resolved'")
+          if start == -1:
+              raise SystemExit('Old false-completion test not found')
+          end_marker = '\n  });\n});'
+          end = s.find(end_marker, start)
+          if end == -1:
+              raise SystemExit('Old test tail not found')
+          replacement = '''  it('does not confuse a resolved human escalation with the underlying life outcome', async () => {\n    responsibilities.findOwnedPersonalNeedResolution.mockResolvedValue(\n      responsibility(ResponsibilityStatus.WAITING_ON_THIRD_PARTY),\n    );\n    escalations.findEscalations.mockResolvedValue([\n      {\n        id: '99999999-9999-4999-8999-999999999999',\n        statedNeedId: need.id,\n        reason: null,\n        status: NeedEscalationStatus.RESOLVED,\n        acknowledgedAt: new Date(),\n        resolutionNotes: 'Called the member back.',\n        resolvedAt: new Date(),\n        createdAt: new Date(),\n      },\n    ]);\n    responsibilities.markPersonalNeedWaitingOnUser.mockResolvedValue(\n      responsibility(ResponsibilityStatus.WAITING_ON_USER),\n    );\n\n    const result = await service.continue(\n      '44444444-4444-4444-8444-444444444444',\n      caller,\n    );\n\n    expect(responsibilities.completePersonalNeedWithEvidence).not.toHaveBeenCalled();\n    expect(result.responsibility.status).toBe(ResponsibilityStatus.WAITING_ON_USER);\n    expect(result.nextStep).toContain('does not prove the underlying need is resolved');\n  });\n\n  it('completes as REPORTED only after the member explicitly reports the underlying need resolved', async () => {\n    responsibilities.findOwnedPersonalNeedResolution.mockResolvedValue(\n      responsibility(ResponsibilityStatus.WAITING_ON_THIRD_PARTY),\n    );\n    const report = {\n      id: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',\n      userId: caller.id,\n      statedNeedId: need.id,\n      status: NeedOutcomeStatus.RESOLVED,\n      note: 'My electricity stayed on.',\n      createdAt: new Date(),\n    };\n    needs.recordOutcomeReport.mockResolvedValue(report as never);\n    responsibilities.completePersonalNeedWithEvidence.mockResolvedValue(\n      responsibility(ResponsibilityStatus.COMPLETED, [\n        {\n          id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',\n          type: 'COMPLETED',\n          actorClass: 'SYSTEM',\n          actorUserId: null,\n          fromStatus: ResponsibilityStatus.WAITING_ON_THIRD_PARTY,\n          toStatus: ResponsibilityStatus.COMPLETED,\n          sourceSystem: 'NEEDS',\n          sourceRecordType: 'NeedOutcomeReport',\n          sourceRecordId: report.id,\n          sourceState: NeedOutcomeStatus.RESOLVED,\n          evidenceLevel: ResponsibilityEvidenceLevel.REPORTED,\n          occurredAt: new Date(),\n        } as ResponsibilityResponseDto['events'][number],\n      ]),\n    );\n\n    const result = await service.reportOutcome(\n      '44444444-4444-4444-8444-444444444444',\n      { resolved: true, note: 'My electricity stayed on.' },\n      caller,\n    );\n\n    expect(needs.recordOutcomeReport).toHaveBeenCalledWith(\n      need.id,\n      NeedOutcomeStatus.RESOLVED,\n      'My electricity stayed on.',\n      caller.id,\n    );\n    expect(responsibilities.completePersonalNeedWithEvidence).toHaveBeenCalledWith(\n      expect.any(String),\n      caller,\n      expect.objectContaining({\n        sourceRecordType: 'NeedOutcomeReport',\n        sourceRecordId: report.id,\n        evidenceLevel: ResponsibilityEvidenceLevel.REPORTED,\n      }),\n    );\n    expect(result.responsibility.status).toBe(ResponsibilityStatus.COMPLETED);\n    expect(result.evidenceMeaning).toContain('not representing that report as independent');\n  });'''
+          s = s[:start] + replacement + s[end + len('\n  });'):]
+          p.write_text(s)
+          PY
+
+          mkdir -p prisma/migrations/20260916020200_add_need_outcome_report
+          cat > prisma/migrations/20260916020200_add_need_outcome_report/migration.sql <<'SQL'
+          CREATE TYPE "NeedOutcomeStatus" AS ENUM ('RESOLVED', 'STILL_UNRESOLVED');
+
+          CREATE TABLE "NeedOutcomeReport" (
+            "id" UUID NOT NULL,
+            "userId" UUID NOT NULL,
+            "statedNeedId" UUID NOT NULL,
+            "status" "NeedOutcomeStatus" NOT NULL,
+            "note" TEXT,
+            "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            CONSTRAINT "NeedOutcomeReport_pkey" PRIMARY KEY ("id")
+          );
+
+          CREATE INDEX "NeedOutcomeReport_userId_idx" ON "NeedOutcomeReport"("userId");
+          CREATE INDEX "NeedOutcomeReport_statedNeedId_createdAt_idx" ON "NeedOutcomeReport"("statedNeedId", "createdAt");
+
+          ALTER TABLE "NeedOutcomeReport"
+            ADD CONSTRAINT "NeedOutcomeReport_userId_fkey"
+            FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+          ALTER TABLE "NeedOutcomeReport"
+            ADD CONSTRAINT "NeedOutcomeReport_statedNeedId_fkey"
+            FOREIGN KEY ("statedNeedId") REFERENCES "StatedNeed"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+          SQL
+
+          rm -f .github/workflows/people-step1-outcome-repair.yml
+
+      - name: Sanity checks
+        run: |
+          set -euo pipefail
+          grep -q 'model NeedOutcomeReport' prisma/schema.prisma
+          grep -q "sourceRecordType: 'NeedOutcomeReport'" apps/api/src/people-resolutions/people-resolutions.service.ts
+          grep -q 'does not prove the underlying need is resolved' apps/api/src/people-resolutions/people-resolutions.service.ts
+          ! grep -q "sourceRecordType: 'NeedEscalation'" apps/api/src/people-resolutions/people-resolutions.service.ts
+
+      - name: Commit repair
+        run: |
+          set -euo pipefail
+          git config user.name 'Aureus Step Builder'
+          git config user.email 'actions@users.noreply.github.com'
+          git add -A
+          git commit -m 'fix: require explicit underlying-need outcome evidence [people-step1-outcome-repaired]'
+          git push origin HEAD:people/step1-need-to-resolution-v2
