@@ -258,7 +258,7 @@ export class PeopleResolutionsService {
             latestOutcome.createdAt.getTime() > safeFailure.recordedAt.getTime()
         );
 
-        if (durableNoRouteConfirmed && safeFailure.recordId) {
+        if (durableNoRouteConfirmed && safeFailure.recordId && latestOutcome) {
           responsibility = await this.responsibilities.exhaustPersonalNeedWithEvidence(
             responsibility.id,
             caller,
@@ -268,6 +268,15 @@ export class PeopleResolutionsService {
               sourceRecordId: safeFailure.recordId,
               sourceState: NO_VERIFIED_RESOURCE_NO_STEWARD_REASON,
               evidenceLevel: ResponsibilityEvidenceLevel.REPORTED,
+              supportingEvidence: [
+                {
+                  sourceSystem: 'NEEDS',
+                  sourceRecordType: 'NeedOutcomeReport',
+                  sourceRecordId: latestOutcome.id,
+                  sourceState: NeedOutcomeStatus.STILL_UNRESOLVED,
+                  evidenceLevel: ResponsibilityEvidenceLevel.REPORTED,
+                },
+              ],
             },
           );
           return this.projectWithKnownSources(
@@ -296,9 +305,27 @@ export class PeopleResolutionsService {
         );
       }
 
-      // With a recognized need and no verified resource, a non-triggered Gate
-      // C safe-failure check means a Human Steward/Admin is currently reachable.
-      responsibility = await this.responsibilities.markPersonalNeedWaitingOnUser(
+      // Gate C can be non-triggered because either a verified source record
+      // exists or a human is reachable. Do not infer human reachability from
+      // that compound result; check the human fact directly before saying so.
+      const humanReachable = await this.needs.isHumanStewardReachable();
+      if (humanReachable) {
+        responsibility = await this.responsibilities.markPersonalNeedWaitingOnUser(
+          responsibility.id,
+          caller,
+        );
+        return this.projectWithKnownSources(
+          responsibility,
+          need,
+          matchingResources,
+          null,
+          PersonalResolutionRouteKind.HUMAN_STEWARD,
+          'No verified resource route is available right now. A Human Steward is reachable if you want Aureus to bring one in.',
+          true,
+        );
+      }
+
+      responsibility = await this.responsibilities.resumePersonalNeedForAureus(
         responsibility.id,
         caller,
       );
@@ -307,9 +334,9 @@ export class PeopleResolutionsService {
         need,
         matchingResources,
         null,
-        PersonalResolutionRouteKind.HUMAN_STEWARD,
-        'No verified resource route is available right now. A Human Steward is reachable if you want Aureus to bring one in.',
-        true,
+        PersonalResolutionRouteKind.NONE,
+        'Aureus does not have a resource route it can safely present from the current matched set, and no Human Steward is reachable right now. The Responsibility remains open while Aureus reconciles the available routes.',
+        false,
       );
     }
 

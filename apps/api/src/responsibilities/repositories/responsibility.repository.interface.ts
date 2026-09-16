@@ -22,12 +22,21 @@ export interface CreateAcceptedResponsibilityInput {
   dueAt?: Date | null;
 }
 
-export interface ResponsibilityEvidenceInput {
+export interface ResponsibilityEvidenceReference {
   sourceSystem: string;
   sourceRecordType: string;
   sourceRecordId: string;
   sourceState: string;
   evidenceLevel: ResponsibilityEvidenceLevel;
+}
+
+export interface ResponsibilityEvidenceInput extends ResponsibilityEvidenceReference {
+  /**
+   * Additional source records that jointly support the same terminal claim.
+   * Each reference is persisted as its own ACTION_EVIDENCED ledger event so
+   * audit provenance is not collapsed into an opaque string or duplicated DB.
+   */
+  supportingEvidence?: ResponsibilityEvidenceReference[];
 }
 
 export interface IResponsibilityRepository {
