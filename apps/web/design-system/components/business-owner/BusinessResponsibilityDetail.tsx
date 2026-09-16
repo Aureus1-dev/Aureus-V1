@@ -25,7 +25,7 @@ interface Props {
 
 type DetailState = 'loading' | 'ready' | 'working' | 'error';
 
-const OPEN_STATUSES = new Set(['ACTIVE', 'WAITING_ON_AUREUS', 'WAITING_ON_THIRD_PARTY']);
+const TERMINAL_STATUSES = new Set(['COMPLETED', 'RESPONSIBLY_EXHAUSTED', 'CANCELLED']);
 
 /**
  * Step 5 — one Responsibility, in full.
@@ -115,8 +115,17 @@ export function BusinessResponsibilityDetail({
   }
 
   const outcome = describeCompletion(receipt);
-  const isOpen = OPEN_STATUSES.has(receipt.status) || receipt.status === 'WAITING_ON_USER';
-  const isTerminal = !isOpen && receipt.status !== 'BLOCKED';
+  const isTerminal = TERMINAL_STATUSES.has(receipt.status);
+
+  // These affordances mirror the canonical Step 3 service exactly. The UI is
+  // not an authority boundary, but it must not offer transitions the server
+  // deterministically rejects.
+  const canRequestInput = capabilities.canChangeWorkState && receipt.status === 'ACTIVE';
+  const canResume = capabilities.canChangeWorkState && receipt.status === 'WAITING_ON_USER';
+  const canComplete =
+    capabilities.canManageCompletion &&
+    (receipt.status === 'ACTIVE' || receipt.status === 'WAITING_ON_USER');
+  const canCancel = capabilities.canManageCompletion && !isTerminal;
 
   return (
     <aside className={styles.panel} aria-labelledby="responsibility-detail-heading">
@@ -198,12 +207,12 @@ export function BusinessResponsibilityDetail({
       ) : null}
 
       {/*
-        Only actions the caller's organization role may actually perform are
-        offered. The server re-checks every one of these; hiding them simply
-        avoids presenting an action that would be refused.
+        Only actions the caller's organization role and the canonical Step 3
+        state machine actually permit are offered. The server still re-checks
+        every one; hiding invalid transitions prevents misleading controls.
       */}
       <div className={styles.actions}>
-        {capabilities.canChangeWorkState && receipt.status !== 'WAITING_ON_USER' && !isTerminal ? (
+        {canRequestInput ? (
           <button
             type="button"
             className={styles.secondary}
@@ -214,7 +223,7 @@ export function BusinessResponsibilityDetail({
           </button>
         ) : null}
 
-        {capabilities.canChangeWorkState && receipt.status === 'WAITING_ON_USER' ? (
+        {canResume ? (
           <button
             type="button"
             className={styles.secondary}
@@ -225,29 +234,30 @@ export function BusinessResponsibilityDetail({
           </button>
         ) : null}
 
-        {capabilities.canManageCompletion && !isTerminal ? (
-          <>
-            <button
-              type="button"
-              className={styles.primary}
-              disabled={state === 'working'}
-              onClick={() => void run(confirmBusinessResponsibilityCompletion)}
-            >
-              Confirm this is done
-            </button>
-            <button
-              type="button"
-              className={styles.secondary}
-              disabled={state === 'working'}
-              onClick={() => void run(cancelBusinessResponsibility)}
-            >
-              Cancel this work
-            </button>
-          </>
+        {canComplete ? (
+          <button
+            type="button"
+            className={styles.primary}
+            disabled={state === 'working'}
+            onClick={() => void run(confirmBusinessResponsibilityCompletion)}
+          >
+            Confirm this is done
+          </button>
+        ) : null}
+
+        {canCancel ? (
+          <button
+            type="button"
+            className={styles.secondary}
+            disabled={state === 'working'}
+            onClick={() => void run(cancelBusinessResponsibility)}
+          >
+            Cancel this work
+          </button>
         ) : null}
       </div>
 
-      {capabilities.canManageCompletion && !isTerminal ? (
+      {canComplete ? (
         <p className={styles.caution}>
           Confirming records your attestation that this happened. It is stored as a reported
           result, not an independent verification.
