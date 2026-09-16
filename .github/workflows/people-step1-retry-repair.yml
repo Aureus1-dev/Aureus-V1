@@ -1,0 +1,84 @@
+name: People Step 1 retry identity repair
+
+on:
+  push:
+    branches:
+      - people/step1-need-to-resolution-v2
+
+permissions:
+  contents: write
+
+jobs:
+  repair:
+    if: ${{ !contains(github.event.head_commit.message, '[people-step1-retry-repaired]') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Preserve canonical StatedNeed identity across retries
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+
+          p = Path('apps/api/src/responsibilities/responsibilities.service.ts')
+          s = p.read_text()
+          old = '''    await this.validateOwnedConversation(input.conversationId, caller);\n\n    const existing = await this.repo.findOpenConversationResponsibility(\n      caller.id,\n      input.conversationId,\n      ResponsibilityKind.PERSONAL_NEED_RESOLUTION,\n    );\n    if (existing) return ResponsibilityResponseDto.fromEntity(existing);\n\n    const responsibility = await this.repo.createAccepted({\n      principalUserId: caller.id,\n      kind: ResponsibilityKind.PERSONAL_NEED_RESOLUTION,\n      objective: input.objective.slice(0, 2000),\n      originConversationId: input.conversationId,\n      originOpportunityId: null,\n      successCriteria: input.successCriteria,\n      dueAt: input.dueAt ?? null,\n    });\n\n    return ResponsibilityResponseDto.fromEntity(responsibility);\n'''
+          new = '''    await this.validateOwnedConversation(input.conversationId, caller);\n\n    const requestedCriteria = input.successCriteria as { statedNeedId?: unknown };\n    const requestedNeedId =\n      typeof requestedCriteria?.statedNeedId === 'string'\n        ? requestedCriteria.statedNeedId\n        : null;\n    if (!requestedNeedId) {\n      throw new ConflictException('Personal Need Responsibility requires canonical StatedNeed provenance');\n    }\n\n    const latest = await this.repo.findLatestPersonalByConversationKind(\n      caller.id,\n      input.conversationId,\n      ResponsibilityKind.PERSONAL_NEED_RESOLUTION,\n    );\n    if (latest) {\n      const latestCriteria = latest.successCriteria as { statedNeedId?: unknown } | null;\n      const latestNeedId =\n        latestCriteria && typeof latestCriteria.statedNeedId === 'string'\n          ? latestCriteria.statedNeedId\n          : null;\n\n      // POST retry for the same canonical need is idempotent even after the\n      // Responsibility is terminal. A new life need must have new StatedNeed\n      // provenance; it may never silently inherit the old promise/outcome.\n      if (latestNeedId === requestedNeedId) {\n        return ResponsibilityResponseDto.fromEntity(latest);\n      }\n      if (\n        latest.status !== ResponsibilityStatus.COMPLETED &&\n        latest.status !== ResponsibilityStatus.RESPONSIBLY_EXHAUSTED &&\n        latest.status !== ResponsibilityStatus.CANCELLED\n      ) {\n        throw new ConflictException(\n          'This conversation already has an open Personal Need Responsibility for different StatedNeed provenance',\n        );\n      }\n    }\n\n    const responsibility = await this.repo.createAccepted({\n      principalUserId: caller.id,\n      kind: ResponsibilityKind.PERSONAL_NEED_RESOLUTION,\n      objective: input.objective.slice(0, 2000),\n      originConversationId: input.conversationId,\n      originOpportunityId: null,\n      successCriteria: input.successCriteria,\n      dueAt: input.dueAt ?? null,\n    });\n\n    // A concurrent request for a different need on the same conversation can\n    // lose the partial-unique-index race. Never return the winner as though it\n    // belonged to this request; fail closed on provenance mismatch.\n    const persistedCriteria = responsibility.successCriteria as { statedNeedId?: unknown } | null;\n    if (persistedCriteria?.statedNeedId !== requestedNeedId) {\n      throw new ConflictException(\n        'Personal Need Responsibility provenance changed during concurrent acceptance',\n      );\n    }\n\n    return ResponsibilityResponseDto.fromEntity(responsibility);\n'''
+          if old not in s:
+              raise SystemExit('acceptPersonalNeedResolution block not found')
+          p.write_text(s.replace(old, new, 1))
+
+          # Correct Set assertion and use one canonical StatedNeed id for all race attempts.
+          p = Path('apps/api/src/responsibilities/responsibilities.integration.spec.ts')
+          s = p.read_text()
+          s = s.replace(
+              '''    const conversationId = randomUUID();\n    const attempts = await Promise.all(\n      Array.from({ length: 8 }, (_, index) =>\n        repo.createAccepted({\n          principalUserId: userId,\n          kind: ResponsibilityKind.PERSONAL_NEED_RESOLUTION,\n          successCriteria: {\n            type: 'PERSONAL_NEED_RESOLUTION',\n            statedNeedId: randomUUID(),\n          },\n''',
+              '''    const conversationId = randomUUID();\n    const statedNeedId = randomUUID();\n    const attempts = await Promise.all(\n      Array.from({ length: 8 }, (_, index) =>\n        repo.createAccepted({\n          principalUserId: userId,\n          kind: ResponsibilityKind.PERSONAL_NEED_RESOLUTION,\n          successCriteria: {\n            type: 'PERSONAL_NEED_RESOLUTION',\n            statedNeedId,\n          },\n''',
+              1,
+          )
+          s = s.replace(
+              '    expect(new Set(attempts.map((row) => row.id))).toHaveLength(1);\n',
+              '    expect(new Set(attempts.map((row) => row.id)).size).toBe(1);\n',
+              1,
+          )
+          p.write_text(s)
+
+          # Terminal retry of the same StatedNeed returns terminal truth; it does not reopen.
+          p = Path('apps/api/src/people-resolutions/people-resolutions.e2e.spec.ts')
+          s = p.read_text()
+          old = '''            it('does not reopen terminal work on retry', async () => {\n              const retry = await request(app.getHttpServer())\n                .post('/people/resolutions')\n                .set('Authorization', `Bearer ${ownerToken}`)\n                .send({ statedNeedId, objective: 'Try again after completion' })\n                .expect(201);\n\n              expect(retry.body.responsibility.id).not.toBe(responsibilityId);\n              expect(retry.body.responsibility.status).not.toBe(ResponsibilityStatus.COMPLETED);\n            });\n'''
+          new = '''            it('does not reopen terminal work on retry of the same StatedNeed', async () => {\n              const retry = await request(app.getHttpServer())\n                .post('/people/resolutions')\n                .set('Authorization', `Bearer ${ownerToken}`)\n                .send({ statedNeedId, objective: 'Try again after completion' })\n                .expect(201);\n\n              expect(retry.body.responsibility.id).toBe(responsibilityId);\n              expect(retry.body.responsibility.status).toBe(ResponsibilityStatus.COMPLETED);\n              expect(\n                await prisma.db.responsibility.count({\n                  where: {\n                    principalUserId: ownerId,\n                    kind: ResponsibilityKind.PERSONAL_NEED_RESOLUTION,\n                    originConversationId: conversationId,\n                  },\n                }),\n              ).toBe(1);\n            });\n'''
+          if old not in s:
+              raise SystemExit('terminal retry E2E block missing')
+          p.write_text(s.replace(old, new, 1))
+
+          # Clarify the contract's retry/new-intent rule.
+          p = Path('docs/work-orders/AUREUS-PEOPLE-STEP1-NEED-TO-RESOLUTION.md')
+          s = p.read_text()
+          s = s.replace(
+              '- A later explicit member request may create a new responsibility when the prior one is terminal; GET/retry must never reopen terminal work.\n',
+              '- GET/retry or repeated acceptance of the same canonical StatedNeed must return terminal truth and never reopen or duplicate it. A genuinely new member request requires new StatedNeed provenance before a new Responsibility may be created.\n',
+              1,
+          )
+          p.write_text(s)
+          PY
+
+          rm -f .github/workflows/people-step1-retry-repair.yml
+
+      - name: Sanity checks
+        run: |
+          set -euo pipefail
+          grep -q 'same canonical need is idempotent even after' apps/api/src/responsibilities/responsibilities.service.ts
+          grep -q 'new Set(attempts.map((row) => row.id)).size' apps/api/src/responsibilities/responsibilities.integration.spec.ts
+          grep -q 'retry of the same StatedNeed' apps/api/src/people-resolutions/people-resolutions.e2e.spec.ts
+
+      - name: Commit repair
+        run: |
+          set -euo pipefail
+          git config user.name 'Aureus Step Builder'
+          git config user.email 'actions@users.noreply.github.com'
+          git add -A
+          git commit -m 'fix: preserve Step 1 StatedNeed identity across retries [people-step1-retry-repaired]'
+          git push origin HEAD:people/step1-need-to-resolution-v2
