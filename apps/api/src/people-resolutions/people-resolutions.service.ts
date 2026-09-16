@@ -12,6 +12,7 @@ import { StatedNeedResponseDto } from '../needs/dto/stated-need-response.dto';
 import { NeedEscalationsService } from '../needs/need-escalations.service';
 import { NeedsService } from '../needs/needs.service';
 import { matchCategoriesForNeed } from '../needs/resource-matching.util';
+import { NO_VERIFIED_RESOURCE_NO_STEWARD_REASON } from '../needs/safe-failure.util';
 import { ResponsibilityResponseDto } from '../responsibilities/dto/responsibility-response.dto';
 import { ResponsibilitiesService } from '../responsibilities/responsibilities.service';
 import {
@@ -242,11 +243,44 @@ export class PeopleResolutionsService {
     }
 
     if (matchingResources.length === 0) {
-      // Gate C records the current dead end durably, but its trigger includes
-      // present-time human reachability. That evidence is intentionally NOT
-      // strong enough to terminally exhaust the durable Responsibility.
+      // Gate C persists a canonical no-route record only when a recognized
+      // need has neither a currently verified resource nor a reachable human.
+      // A single observation is transient and stays open. Exhaustion requires
+      // the member to later confirm the need is still unresolved and a fresh
+      // reconciliation to prove the same no-route condition still holds.
       const safeFailure = await this.needs.checkSafeFailure(need.id, caller.id);
       if (safeFailure.triggered) {
+        const durableNoRouteConfirmed = Boolean(
+          safeFailure.recordId &&
+            safeFailure.reason === NO_VERIFIED_RESOURCE_NO_STEWARD_REASON &&
+            safeFailure.recordedAt &&
+            latestOutcome?.status === NeedOutcomeStatus.STILL_UNRESOLVED &&
+            latestOutcome.createdAt.getTime() > safeFailure.recordedAt.getTime()
+        );
+
+        if (durableNoRouteConfirmed && safeFailure.recordId) {
+          responsibility = await this.responsibilities.exhaustPersonalNeedWithEvidence(
+            responsibility.id,
+            caller,
+            {
+              sourceSystem: 'NEEDS',
+              sourceRecordType: 'UnresolvedNeed',
+              sourceRecordId: safeFailure.recordId,
+              sourceState: NO_VERIFIED_RESOURCE_NO_STEWARD_REASON,
+              evidenceLevel: ResponsibilityEvidenceLevel.REPORTED,
+            },
+          );
+          return this.projectWithKnownSources(
+            responsibility,
+            need,
+            matchingResources,
+            null,
+            PersonalResolutionRouteKind.NONE,
+            'Aureus could not achieve the requested outcome. The need remained unresolved after a recorded no-route state, and a fresh check still found no verified resource or reachable Human Steward.',
+            false,
+          );
+        }
+
         responsibility = await this.responsibilities.resumePersonalNeedForAureus(
           responsibility.id,
           caller,
@@ -505,10 +539,18 @@ export class PeopleResolutionsService {
         false,
       );
     }
-    if (
-      responsibility.status === ResponsibilityStatus.RESPONSIBLY_EXHAUSTED ||
-      responsibility.status === ResponsibilityStatus.CANCELLED
-    ) {
+    if (responsibility.status === ResponsibilityStatus.RESPONSIBLY_EXHAUSTED) {
+      return this.projectWithKnownSources(
+        responsibility,
+        need,
+        resources,
+        null,
+        PersonalResolutionRouteKind.NONE,
+        'Aureus could not achieve the requested outcome. The current permitted routes were responsibly exhausted after a persisted no-route state and a later report that the need remained unresolved.',
+        false,
+      );
+    }
+    if (responsibility.status === ResponsibilityStatus.CANCELLED) {
       return this.projectWithKnownSources(
         responsibility,
         need,
