@@ -39,7 +39,6 @@ const TOKEN_TTL_MS = 24 * 60 * 60 * 1000;
 const RETENTION_MS = 7 * 24 * 60 * 60 * 1000;
 const MAX_TURNS = 20;
 const HISTORY_MESSAGES = 6;
-const OPENING_MESSAGE = 'How can we help?';
 
 type PublicContact = {
   type: 'PHONE' | 'SMS' | 'EMAIL' | 'WEBSITE';
@@ -94,7 +93,7 @@ export class PublicWardService {
           conversationId: created.id,
           role: WardMessageRole.WARD,
           responseKind: WardResponseKind.OPENING,
-          content: OPENING_MESSAGE,
+          content: `Hello. I'm Aureus, the AI Steward for ${tenant.name}. How can we help?`,
         },
       });
       return { conversation: created, opening: message };

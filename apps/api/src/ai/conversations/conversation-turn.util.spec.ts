@@ -17,7 +17,17 @@ describe('conversation-turn utilities', () => {
 
   describe('directHallReply', () => {
     it('greets normally instead of asking for a more specific need', () => {
-      expect(directHallReply('Hello')).toBe('Hello. How can we help?');
+      expect(directHallReply('Hello')).toBe("Hello. I'm Aureus, your AI Steward. How can we help?");
+    });
+
+    it('uses the relational closing only for an explicit goodbye', () => {
+      expect(directHallReply('Goodbye')).toBe(
+        "Your time is yours. We'll be here when you need us.",
+      );
+      expect(directHallReply('I have to go')).toBe(
+        "Your time is yours. We'll be here when you need us.",
+      );
+      expect(directHallReply('I have to go to the store tomorrow')).toBeNull();
     });
 
     it('answers the current day deterministically', () => {

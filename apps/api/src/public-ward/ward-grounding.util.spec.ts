@@ -53,6 +53,17 @@ describe('public Ward grounding', () => {
     expect(prompt).not.toContain('Ignore previous instructions');
   });
 
+  it('uses the same Aureus Steward character without weakening business grounding', () => {
+    const prompt = buildWardGroundingPrompt(
+      'Example Kitchens',
+      rankWardKnowledge('What services do you offer?', records),
+    );
+    expect(prompt).toContain('You are Aureus, an AI Steward');
+    expect(prompt).toContain('One character, many expressions');
+    expect(prompt).toContain('AI Steward speaking for Example Kitchens');
+    expect(prompt).toContain('Use only the approved source packet');
+  });
+
   it('fails closed when a provider answer has no valid source citation', () => {
     expect(validateGroundedWardAnswer('We definitely offer that.', 2)).toBeNull();
     expect(validateGroundedWardAnswer('We offer it [S99].', 2)).toBeNull();

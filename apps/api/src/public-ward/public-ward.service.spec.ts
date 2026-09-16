@@ -142,7 +142,7 @@ describe('PublicWardService boundaries', () => {
           {
             id: WARD_ID,
             role: WardMessageRole.WARD,
-            content: 'How can we help?',
+            content: "Hello. I'm Aureus, the AI Steward for Bright Kitchens. How can we help?",
             responseKind: WardResponseKind.OPENING,
             createdAt: NOW,
           },

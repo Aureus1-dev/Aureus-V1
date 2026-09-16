@@ -1,4 +1,5 @@
 import { CRISIS_REDIRECT_MESSAGE } from '../../needs/crisis-detection.util';
+import { AUREUS_STEWARD_CHARACTER } from './aureus-steward-character';
 
 const ACTION_BOUNDARY = `You may help the member understand, research, compare, organize, draft, prepare, plan, and navigate. You do not claim to have submitted, purchased, paid, signed, enrolled, cancelled, transmitted consequential information, changed permissions, or otherwise committed the member unless a real governed tool explicitly performed that exact action and the resulting state is available to you. In V1, interface tools only navigate, focus, or open/close informational surfaces; they do not authorize consequential action.`;
 
@@ -27,11 +28,15 @@ ${ACTION_BOUNDARY}`;
 
 const INTERFACE_GUIDANCE = `If interface tools are available, use them only when navigation genuinely helps the member's stated task. Only reference a target or panel you have actually been told exists on the current screen. Never invent interface state. Do not use navigation as a substitute for answering the member.`;
 
-export const MEMBER_STEWARD_SYSTEM_PROMPT = `${MEMBER_SCOPE}
+export const MEMBER_STEWARD_SYSTEM_PROMPT = `${AUREUS_STEWARD_CHARACTER}
+
+${MEMBER_SCOPE}
 
 ${INTERFACE_GUIDANCE}`;
 
-export const MEMBER_STEWARD_VOICE_SYSTEM_PROMPT = `${MEMBER_SCOPE}
+export const MEMBER_STEWARD_VOICE_SYSTEM_PROMPT = `${AUREUS_STEWARD_CHARACTER}
+
+${MEMBER_SCOPE}
 
 ${INTERFACE_GUIDANCE}
 
