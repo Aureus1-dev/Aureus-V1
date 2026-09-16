@@ -90,6 +90,46 @@ describe('BusinessOwnerHome tenant-switch isolation', () => {
     mockSession.mockReturnValue({ session: { accessToken: 'token' } });
   });
 
+  it('hides previously loaded tenant data immediately while the next tenant is still loading', async () => {
+    const orgBList = deferred<BusinessResponsibilityDto[]>();
+    const orgBConsole = deferred<{ membershipRole: string }>();
+
+    mockList.mockImplementation((_token, organizationId) => {
+      if (organizationId === 'org-a') {
+        return Promise.resolve([responsibility('a-private', 'Org A private work')]);
+      }
+      return orgBList.promise;
+    });
+    mockConsole.mockImplementation((_token, organizationId) => {
+      if (organizationId === 'org-a') return Promise.resolve({ membershipRole: 'OWNER' } as never);
+      return orgBConsole.promise as never;
+    });
+
+    setTenant('org-a', 'First Company');
+    const { rerender } = render(<BusinessOwnerHome />);
+
+    expect(await screen.findByText('Org A private work')).toBeInTheDocument();
+
+    setTenant('org-b', 'Second Company');
+    rerender(<BusinessOwnerHome />);
+
+    // The render-time tenant binding must hide A before B's effect/request has
+    // completed. Waiting for the effect would permit a one-frame privacy leak.
+    expect(screen.getByRole('heading', { name: 'Second Company' })).toBeInTheDocument();
+    expect(screen.queryByText('Org A private work')).not.toBeInTheDocument();
+    expect(screen.getByRole('status')).toHaveTextContent(/loading what aureus is carrying/i);
+
+    await act(async () => {
+      orgBList.resolve([responsibility('b-work', 'Org B current work')]);
+      orgBConsole.resolve({ membershipRole: 'VIEWER' });
+      await orgBList.promise;
+      await orgBConsole.promise;
+    });
+
+    expect(await screen.findByText('Org B current work')).toBeInTheDocument();
+    expect(screen.queryByText('Org A private work')).not.toBeInTheDocument();
+  });
+
   it('discards a late prior-tenant response and prior-tenant role after switching businesses', async () => {
     const orgAList = deferred<BusinessResponsibilityDto[]>();
     const orgAConsole = deferred<{ membershipRole: string }>();
