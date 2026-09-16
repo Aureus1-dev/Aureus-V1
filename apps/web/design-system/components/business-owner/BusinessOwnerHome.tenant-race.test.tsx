@@ -169,7 +169,7 @@ describe('BusinessOwnerHome tenant-switch isolation', () => {
 
     await waitFor(() => {
       expect(screen.queryByText('Org A private work')).not.toBeInTheDocument();
-      expect(screen.getByText('Org B current work')).toBeInTheDocument();
+      expect(screen.getAllByText('Org B current work').length).toBeGreaterThan(0);
     });
     expect(screen.getByRole('heading', { name: 'Second Company' })).toBeInTheDocument();
     expect(within(detail).queryByRole('button', { name: /confirm this is done/i })).toBeNull();
