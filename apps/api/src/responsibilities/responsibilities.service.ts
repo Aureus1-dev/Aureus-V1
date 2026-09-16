@@ -173,12 +173,45 @@ export class ResponsibilitiesService {
   ): Promise<ResponsibilityResponseDto> {
     await this.validateOwnedConversation(input.conversationId, caller);
 
-    const existing = await this.repo.findOpenConversationResponsibility(
+    const requestedCriteria = input.successCriteria as { statedNeedId?: unknown };
+    const requestedNeedId =
+      typeof requestedCriteria?.statedNeedId === 'string'
+        ? requestedCriteria.statedNeedId
+        : null;
+    if (!requestedNeedId) {
+      throw new ConflictException(
+        'Personal Need Responsibility requires canonical StatedNeed provenance',
+      );
+    }
+
+    const latest = await this.repo.findLatestPersonalByConversationKind(
       caller.id,
       input.conversationId,
       ResponsibilityKind.PERSONAL_NEED_RESOLUTION,
     );
-    if (existing) return ResponsibilityResponseDto.fromEntity(existing);
+    if (latest) {
+      const latestCriteria = latest.successCriteria as { statedNeedId?: unknown } | null;
+      const latestNeedId =
+        latestCriteria && typeof latestCriteria.statedNeedId === 'string'
+          ? latestCriteria.statedNeedId
+          : null;
+
+      // Same canonical need stays the same promise even after terminal state.
+      // POST retries therefore return terminal truth instead of reopening work.
+      if (latestNeedId === requestedNeedId) {
+        return ResponsibilityResponseDto.fromEntity(latest);
+      }
+
+      const terminal =
+        latest.status === ResponsibilityStatus.COMPLETED ||
+        latest.status === ResponsibilityStatus.RESPONSIBLY_EXHAUSTED ||
+        latest.status === ResponsibilityStatus.CANCELLED;
+      if (!terminal) {
+        throw new ConflictException(
+          'This conversation already has an open Personal Need Responsibility for different StatedNeed provenance',
+        );
+      }
+    }
 
     const responsibility = await this.repo.createAccepted({
       principalUserId: caller.id,
@@ -189,6 +222,17 @@ export class ResponsibilitiesService {
       successCriteria: input.successCriteria,
       dueAt: input.dueAt ?? null,
     });
+
+    // If a concurrent request for different provenance won the database race,
+    // never return its Responsibility as though it belonged to this request.
+    const persistedCriteria = responsibility.successCriteria as {
+      statedNeedId?: unknown;
+    } | null;
+    if (persistedCriteria?.statedNeedId !== requestedNeedId) {
+      throw new ConflictException(
+        'Personal Need Responsibility provenance changed during concurrent acceptance',
+      );
+    }
 
     return ResponsibilityResponseDto.fromEntity(responsibility);
   }

@@ -76,7 +76,7 @@ Aureus may recommend and explain. It may not coerce.
 - A declined resource remains declined for the current decision context and should not be immediately re-presented as if nothing happened.
 - Human Steward escalation is not automatic merely because the model prefers it; use the existing explicit escalation semantics.
 - Member cancellation/decline must be preserved truthfully.
-- A later explicit member request may create a new responsibility when the prior one is terminal; GET/retry must never reopen terminal work.
+- GET/retry or repeated acceptance of the same canonical StatedNeed must return terminal truth and never reopen or duplicate it. A genuinely new member request requires new StatedNeed provenance before a new Responsibility may be created.
 
 ## 7. Responsible Continuation
 

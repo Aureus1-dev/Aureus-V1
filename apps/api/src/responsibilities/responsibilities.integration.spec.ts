@@ -234,6 +234,7 @@ describe('Responsibility Core — Prisma integration', () => {
 
   it('deduplicates concurrent Personal Need acceptance at the database boundary', async () => {
     const conversationId = randomUUID();
+    const statedNeedId = randomUUID();
     const attempts = await Promise.all(
       Array.from({ length: 8 }, (_, index) =>
         repo.createAccepted({
@@ -241,7 +242,7 @@ describe('Responsibility Core — Prisma integration', () => {
           kind: ResponsibilityKind.PERSONAL_NEED_RESOLUTION,
           successCriteria: {
             type: 'PERSONAL_NEED_RESOLUTION',
-            statedNeedId: randomUUID(),
+            statedNeedId,
           },
           objective: `Carry one personal need, attempt ${index}`,
           originConversationId: conversationId,
@@ -250,7 +251,7 @@ describe('Responsibility Core — Prisma integration', () => {
       ),
     );
 
-    expect(new Set(attempts.map((row) => row.id))).toHaveLength(1);
+    expect(new Set(attempts.map((row) => row.id)).size).toBe(1);
     expect(
       await prisma.db.responsibility.count({
         where: {

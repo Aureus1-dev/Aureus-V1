@@ -206,14 +206,23 @@ describe('People Step 1 — Universal Need to Resolution E2E', () => {
     expect(completion?.evidenceLevel).toBe(ResponsibilityEvidenceLevel.REPORTED);
   });
 
-  it('does not reopen terminal work on retry', async () => {
+  it('does not reopen terminal work on retry of the same StatedNeed', async () => {
     const retry = await request(app.getHttpServer())
       .post('/people/resolutions')
       .set('Authorization', `Bearer ${ownerToken}`)
       .send({ statedNeedId, objective: 'Try again after completion' })
       .expect(201);
 
-    expect(retry.body.responsibility.id).not.toBe(responsibilityId);
-    expect(retry.body.responsibility.status).not.toBe(ResponsibilityStatus.COMPLETED);
+    expect(retry.body.responsibility.id).toBe(responsibilityId);
+    expect(retry.body.responsibility.status).toBe(ResponsibilityStatus.COMPLETED);
+    expect(
+      await prisma.db.responsibility.count({
+        where: {
+          principalUserId: ownerId,
+          kind: ResponsibilityKind.PERSONAL_NEED_RESOLUTION,
+          originConversationId: conversationId,
+        },
+      }),
+    ).toBe(1);
   });
 });
