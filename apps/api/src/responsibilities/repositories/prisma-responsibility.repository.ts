@@ -416,6 +416,7 @@ export class PrismaResponsibilityRepository implements IResponsibilityRepository
       if (!current) throw new NotFoundException('Responsibility not found');
       if (current.status === ResponsibilityStatus.COMPLETED) return current;
 
+      const { supportingEvidence: _supportingEvidence, ...primaryEvidence } = evidence;
       const evidencedAt = new Date();
       const completedAt = new Date(evidencedAt.getTime() + 1);
       const { count } = await tx.responsibility.updateMany({
@@ -450,7 +451,7 @@ export class PrismaResponsibilityRepository implements IResponsibilityRepository
               fromStatus: null,
               toStatus: null,
               occurredAt: evidencedAt,
-              ...evidence,
+              ...primaryEvidence,
             },
             {
               responsibilityId: id,
@@ -460,7 +461,7 @@ export class PrismaResponsibilityRepository implements IResponsibilityRepository
               fromStatus: current.status,
               toStatus: ResponsibilityStatus.COMPLETED,
               occurredAt: completedAt,
-              ...evidence,
+              ...primaryEvidence,
             },
           ],
         });
@@ -500,8 +501,12 @@ export class PrismaResponsibilityRepository implements IResponsibilityRepository
         return current;
       }
 
-      const evidencedAt = new Date();
-      const exhaustedAt = new Date(evidencedAt.getTime() + 1);
+      const { supportingEvidence = [], ...primaryEvidence } = evidence;
+      const firstEvidenceAt = new Date();
+      const primaryEvidenceAt = new Date(
+        firstEvidenceAt.getTime() + supportingEvidence.length,
+      );
+      const exhaustedAt = new Date(primaryEvidenceAt.getTime() + 1);
       const { count } = await tx.responsibility.updateMany({
         where: {
           id,
@@ -515,6 +520,16 @@ export class PrismaResponsibilityRepository implements IResponsibilityRepository
       if (count === 1) {
         await tx.responsibilityEvent.createMany({
           data: [
+            ...supportingEvidence.map((supporting, index) => ({
+              responsibilityId: id,
+              type: ResponsibilityEventType.ACTION_EVIDENCED,
+              actorClass: ResponsibilityActorClass.SYSTEM,
+              actorUserId: null,
+              fromStatus: null,
+              toStatus: null,
+              occurredAt: new Date(firstEvidenceAt.getTime() + index),
+              ...supporting,
+            })),
             {
               responsibilityId: id,
               type: ResponsibilityEventType.ACTION_EVIDENCED,
@@ -522,8 +537,8 @@ export class PrismaResponsibilityRepository implements IResponsibilityRepository
               actorUserId: null,
               fromStatus: null,
               toStatus: null,
-              occurredAt: evidencedAt,
-              ...evidence,
+              occurredAt: primaryEvidenceAt,
+              ...primaryEvidence,
             },
             {
               responsibilityId: id,
@@ -533,7 +548,7 @@ export class PrismaResponsibilityRepository implements IResponsibilityRepository
               fromStatus: current.status,
               toStatus: ResponsibilityStatus.RESPONSIBLY_EXHAUSTED,
               occurredAt: exhaustedAt,
-              ...evidence,
+              ...primaryEvidence,
             },
           ],
         });
