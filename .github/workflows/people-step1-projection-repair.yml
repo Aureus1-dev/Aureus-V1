@@ -1,0 +1,83 @@
+name: People Step 1 projection consistency repair
+
+on:
+  push:
+    branches:
+      - people/step1-need-to-resolution-v2
+
+permissions:
+  contents: write
+
+jobs:
+  repair:
+    if: ${{ !contains(github.event.head_commit.message, '[people-step1-projection-repaired]') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Align current escalation and outcome projection semantics
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+
+          p = Path('apps/api/src/people-resolutions/people-resolutions.service.ts')
+          s = p.read_text()
+
+          old = '''    const escalationRows = await this.escalations.findEscalations(need.id, caller.id);\n    const resolvedEscalation = escalationRows.find(\n      (row) => row.status === NeedEscalationStatus.RESOLVED,\n    );\n    const outcomeAfterResolvedEscalation = Boolean(\n      latestOutcome &&\n        resolvedEscalation?.resolvedAt &&\n        latestOutcome.createdAt >= resolvedEscalation.resolvedAt\n    );\n    if (resolvedEscalation && !outcomeAfterResolvedEscalation) {\n      responsibility = await this.responsibilities.markPersonalNeedWaitingOnUser(\n        responsibility.id,\n        caller,\n      );\n      return this.projectWithKnownSources(\n        responsibility,\n        need,\n        await this.needs.findMatchingResources(need.id, caller.id),\n        null,\n        PersonalResolutionRouteKind.CLARIFICATION,\n        'A Human Steward finished the handoff, but that does not prove the underlying need is resolved. Tell Aureus whether the need itself is now resolved.',\n        true,\n      );\n    }\n\n    const openEscalation = escalationRows.find(\n      (row) =>\n        row.status === NeedEscalationStatus.PENDING ||\n        row.status === NeedEscalationStatus.ACKNOWLEDGED,\n    );\n    if (openEscalation) {\n      responsibility = await this.responsibilities.markPersonalNeedWaitingOnThirdParty(\n        responsibility.id,\n        caller,\n      );\n      return this.project(responsibility, need, caller);\n    }\n'''
+          new = '''    const escalationRows = await this.escalations.findEscalations(need.id, caller.id);\n    // NeedEscalationsService returns newest-first. Only the current/latest human\n    // handoff may drive routing; an older resolved escalation must never mask a\n    // newer open one or repeatedly demand outcome confirmation.\n    const latestEscalation = escalationRows[0] ?? null;\n    if (\n      latestEscalation?.status === NeedEscalationStatus.PENDING ||\n      latestEscalation?.status === NeedEscalationStatus.ACKNOWLEDGED\n    ) {\n      responsibility = await this.responsibilities.markPersonalNeedWaitingOnThirdParty(\n        responsibility.id,\n        caller,\n      );\n      return this.project(responsibility, need, caller);\n    }\n\n    if (latestEscalation?.status === NeedEscalationStatus.RESOLVED) {\n      const outcomeAfterResolvedEscalation = Boolean(\n        latestOutcome &&\n          latestEscalation.resolvedAt &&\n          latestOutcome.createdAt >= latestEscalation.resolvedAt\n      );\n      if (!outcomeAfterResolvedEscalation) {\n        responsibility = await this.responsibilities.markPersonalNeedWaitingOnUser(\n          responsibility.id,\n          caller,\n        );\n        return this.projectWithKnownSources(\n          responsibility,\n          need,\n          await this.needs.findMatchingResources(need.id, caller.id),\n          null,\n          PersonalResolutionRouteKind.CLARIFICATION,\n          'A Human Steward finished the handoff, but that does not prove the underlying need is resolved. Tell Aureus whether the need itself is now resolved.',\n          true,\n        );\n      }\n    }\n'''
+          if old not in s:
+              raise SystemExit('continue escalation block anchor missing')
+          s = s.replace(old, new, 1)
+
+          # requestHumanSteward: only the newest escalation controls whether a new handoff exists.
+          old = '''    const rows = await this.escalations.findEscalations(need.id, caller.id);\n    const resolved = rows.find((row) => row.status === NeedEscalationStatus.RESOLVED);\n    if (resolved) {\n      return this.continue(responsibility.id, caller);\n    }\n\n    const open = rows.find(\n      (row) =>\n        row.status === NeedEscalationStatus.PENDING ||\n        row.status === NeedEscalationStatus.ACKNOWLEDGED,\n    );\n\n    if (!open) {\n'''
+          new = '''    const rows = await this.escalations.findEscalations(need.id, caller.id);\n    const latestEscalation = rows[0] ?? null;\n    if (latestEscalation?.status === NeedEscalationStatus.RESOLVED) {\n      return this.continue(responsibility.id, caller);\n    }\n\n    const open =\n      latestEscalation?.status === NeedEscalationStatus.PENDING ||\n      latestEscalation?.status === NeedEscalationStatus.ACKNOWLEDGED\n        ? latestEscalation\n        : null;\n\n    if (!open) {\n'''
+          if old not in s:
+              raise SystemExit('requestHumanSteward current escalation block missing')
+          s = s.replace(old, new, 1)
+
+          # Read projection must use the same outcome/escalation truth as continue().
+          old = '''    const [offers, resources, escalationRows] = await Promise.all([\n      this.needs.findOffers(need.id, caller.id),\n      this.needs.findMatchingResources(need.id, caller.id),\n      this.escalations.findEscalations(need.id, caller.id),\n    ]);\n'''
+          new = '''    const [offers, resources, escalationRows, latestOutcome] = await Promise.all([\n      this.needs.findOffers(need.id, caller.id),\n      this.needs.findMatchingResources(need.id, caller.id),\n      this.escalations.findEscalations(need.id, caller.id),\n      this.needs.findLatestOutcomeReport(need.id, caller.id),\n    ]);\n'''
+          if old not in s:
+              raise SystemExit('project Promise.all anchor missing')
+          s = s.replace(old, new, 1)
+
+          old = '''    const openEscalation = escalationRows.find(\n      (row) =>\n        row.status === NeedEscalationStatus.PENDING ||\n        row.status === NeedEscalationStatus.ACKNOWLEDGED,\n    );\n    if (openEscalation) {\n      return this.projectWithKnownSources(\n        responsibility,\n        need,\n        resources,\n        null,\n        PersonalResolutionRouteKind.HUMAN_STEWARD,\n        'Human Steward help is in progress.',\n        false,\n      );\n    }\n\n    const accepted = offers.find((offer) => offer.response === ResourceOfferResponse.ACCEPTED);\n'''
+          new = '''    const latestEscalation = escalationRows[0] ?? null;\n    if (\n      latestEscalation?.status === NeedEscalationStatus.PENDING ||\n      latestEscalation?.status === NeedEscalationStatus.ACKNOWLEDGED\n    ) {\n      return this.projectWithKnownSources(\n        responsibility,\n        need,\n        resources,\n        null,\n        PersonalResolutionRouteKind.HUMAN_STEWARD,\n        'Human Steward help is in progress.',\n        false,\n      );\n    }\n\n    if (latestEscalation?.status === NeedEscalationStatus.RESOLVED) {\n      const outcomeAfterResolvedEscalation = Boolean(\n        latestOutcome &&\n          latestEscalation.resolvedAt &&\n          latestOutcome.createdAt >= latestEscalation.resolvedAt\n      );\n      if (!outcomeAfterResolvedEscalation) {\n        return this.projectWithKnownSources(\n          responsibility,\n          need,\n          resources,\n          null,\n          PersonalResolutionRouteKind.CLARIFICATION,\n          'A Human Steward finished the handoff, but that does not prove the underlying need is resolved. Tell Aureus whether the need itself is now resolved.',\n          true,\n        );\n      }\n    }\n\n    const accepted = offers.find(\n      (offer) =>\n        offer.response === ResourceOfferResponse.ACCEPTED &&\n        !(\n          latestOutcome?.status === NeedOutcomeStatus.STILL_UNRESOLVED &&\n          offer.respondedAt &&\n          latestOutcome.createdAt >= offer.respondedAt\n        ),\n    );\n'''
+          if old not in s:
+              raise SystemExit('project escalation/accepted block missing')
+          s = s.replace(old, new, 1)
+          p.write_text(s)
+
+          # Add one regression test proving a newer open escalation beats old resolved history.
+          p = Path('apps/api/src/people-resolutions/people-resolutions.service.spec.ts')
+          s = p.read_text()
+          if "newer open human escalation wins over older resolved history" not in s:
+              anchor = "  it('does not confuse a resolved human escalation with the underlying life outcome', async () => {\n"
+              test = '''  it('newer open human escalation wins over older resolved history', async () => {\n    responsibilities.findOwnedPersonalNeedResolution.mockResolvedValue(\n      responsibility(ResponsibilityStatus.ACTIVE),\n    );\n    const now = new Date();\n    escalations.findEscalations.mockResolvedValue([\n      {\n        id: 'cccccccc-cccc-4ccc-8ccc-cccccccccccc',\n        statedNeedId: need.id,\n        reason: 'Current request',\n        status: NeedEscalationStatus.PENDING,\n        acknowledgedAt: null,\n        resolutionNotes: null,\n        resolvedAt: null,\n        createdAt: now,\n      },\n      {\n        id: '99999999-9999-4999-8999-999999999999',\n        statedNeedId: need.id,\n        reason: 'Older request',\n        status: NeedEscalationStatus.RESOLVED,\n        acknowledgedAt: new Date(now.getTime() - 2000),\n        resolutionNotes: 'Called the member back.',\n        resolvedAt: new Date(now.getTime() - 1000),\n        createdAt: new Date(now.getTime() - 3000),\n      },\n    ]);\n    responsibilities.markPersonalNeedWaitingOnThirdParty.mockResolvedValue(\n      responsibility(ResponsibilityStatus.WAITING_ON_THIRD_PARTY),\n    );\n\n    const result = await service.continue(\n      '44444444-4444-4444-8444-444444444444',\n      caller,\n    );\n\n    expect(responsibilities.markPersonalNeedWaitingOnThirdParty).toHaveBeenCalled();\n    expect(responsibilities.completePersonalNeedWithEvidence).not.toHaveBeenCalled();\n    expect(result.routeKind).toBe(PersonalResolutionRouteKind.HUMAN_STEWARD);\n  });\n\n'''
+              if anchor not in s:
+                  raise SystemExit('test insertion anchor missing')
+              s = s.replace(anchor, test + anchor, 1)
+          p.write_text(s)
+          PY
+
+          rm -f .github/workflows/people-step1-projection-repair.yml
+
+      - name: Sanity checks
+        run: |
+          set -euo pipefail
+          grep -q 'const latestEscalation = escalationRows\[0\]' apps/api/src/people-resolutions/people-resolutions.service.ts
+          grep -q 'findLatestOutcomeReport' apps/api/src/people-resolutions/people-resolutions.service.ts
+          grep -q 'newer open human escalation wins over older resolved history' apps/api/src/people-resolutions/people-resolutions.service.spec.ts
+
+      - name: Commit repair
+        run: |
+          set -euo pipefail
+          git config user.name 'Aureus Step Builder'
+          git config user.email 'actions@users.noreply.github.com'
+          git add -A
+          git commit -m 'fix: align People Step 1 read and continuation truth [people-step1-projection-repaired]'
+          git push origin HEAD:people/step1-need-to-resolution-v2
