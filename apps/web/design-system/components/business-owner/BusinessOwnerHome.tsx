@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   listBusinessResponsibilities,
   type BusinessResponsibilityDto,
@@ -42,25 +42,30 @@ export function BusinessOwnerHome() {
   const [role, setRole] = useState<string | null>(null);
   const [state, setState] = useState<LoadState>('loading');
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const loadGeneration = useRef(0);
 
   const load = useCallback(
-    async (accessToken: string, organizationId: string) => {
-      setState('loading');
+    async (accessToken: string, organizationId: string, generation: number) => {
       try {
-        const rows = await listBusinessResponsibilities(accessToken, organizationId);
+        const [rows, console_] = await Promise.all([
+          listBusinessResponsibilities(accessToken, organizationId),
+          getBusinessConsole(accessToken, organizationId).catch(() => null),
+        ]);
+
+        // A context switch invalidates every older response. This prevents a
+        // slow request for Organization A from rendering A's private work or
+        // role affordances after the member has moved to Organization B.
+        if (loadGeneration.current !== generation) return;
+
         setResponsibilities(rows);
-        // Role drives which controls are offered. A failure here must never
-        // widen capability, so the role stays null and controls stay hidden.
-        try {
-          const console_ = await getBusinessConsole(accessToken, organizationId);
-          setRole(console_.membershipRole);
-        } catch {
-          setRole(null);
-        }
+        setRole(console_?.membershipRole ?? null);
         setState('ready');
       } catch {
-        // A failed panel shows a bounded failure, never invented rows.
+        if (loadGeneration.current !== generation) return;
+        // A failed panel shows a bounded failure, never invented rows. Role
+        // also fails closed so a read error cannot widen browser affordances.
         setResponsibilities([]);
+        setRole(null);
         setState('error');
       }
     },
@@ -70,14 +75,25 @@ export function BusinessOwnerHome() {
   useEffect(() => {
     if (!session.accessToken) return;
     if (businessState.isLoading) return;
-    if (!activeTenant) {
-      setResponsibilities([]);
-      setSelectedId(null);
-      setState('no-business');
-      return;
-    }
+
+    const generation = ++loadGeneration.current;
     setSelectedId(null);
-    void load(session.accessToken, activeTenant.id);
+    setResponsibilities([]);
+    setRole(null);
+
+    if (!activeTenant) {
+      setState('no-business');
+      return () => {
+        if (loadGeneration.current === generation) loadGeneration.current += 1;
+      };
+    }
+
+    setState('loading');
+    void load(session.accessToken, activeTenant.id, generation);
+
+    return () => {
+      if (loadGeneration.current === generation) loadGeneration.current += 1;
+    };
   }, [session.accessToken, businessState.isLoading, activeTenant, load]);
 
   const capabilities = useMemo(() => capabilitiesForRole(role), [role]);
@@ -194,6 +210,7 @@ export function BusinessOwnerHome() {
 
       {selectedId && tenantId ? (
         <BusinessResponsibilityDetail
+          key={`${tenantId}:${selectedId}`}
           organizationId={tenantId}
           responsibilityId={selectedId}
           capabilities={capabilities}
