@@ -122,15 +122,35 @@ describe('OR-004 revenue completion projection', () => {
         decision: RevenueDecision.REVISION_REQUESTED,
       }),
     ];
-    expect(
-      projection({ events: revisedNeeded }).availableActions,
-    ).toEqual([RevenueCompletionStage.PROPOSAL_RECORDED]);
+    expect(projection({ events: revisedNeeded }).availableActions).toEqual([
+      RevenueCompletionStage.PROPOSAL_RECORDED,
+    ]);
 
     const revisedProposal = [
       ...revisedNeeded,
       revenueEvent('proposal-2', RevenueCompletionStage.PROPOSAL_RECORDED, 4),
     ];
     expect(projection({ events: revisedProposal }).availableActions).toEqual([
+      RevenueCompletionStage.FOLLOW_UP_RECORDED,
+      RevenueCompletionStage.DECISION_RECORDED,
+    ]);
+  });
+
+  it('uses canonical milestone sequence when revision and revised proposal share a timestamp', () => {
+    const sameSecond = 3;
+    const events = [
+      revenueEvent('validated', RevenueCompletionStage.READY_PROJECT_VALIDATED, 1),
+      revenueEvent('proposal-1', RevenueCompletionStage.PROPOSAL_RECORDED, 2),
+      revenueEvent('decision-1', RevenueCompletionStage.DECISION_RECORDED, sameSecond, {
+        decision: RevenueDecision.REVISION_REQUESTED,
+        requestKey: '22222222-2222-4222-8222-000000000301',
+      }),
+      revenueEvent('proposal-2', RevenueCompletionStage.PROPOSAL_RECORDED, sameSecond, {
+        requestKey: '22222222-2222-4222-8222-000000000302',
+      }),
+    ];
+
+    expect(projection({ events }).availableActions).toEqual([
       RevenueCompletionStage.FOLLOW_UP_RECORDED,
       RevenueCompletionStage.DECISION_RECORDED,
     ]);
