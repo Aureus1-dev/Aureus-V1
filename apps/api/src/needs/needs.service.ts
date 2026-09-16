@@ -134,6 +134,16 @@ export class NeedsService {
   }
 
   /**
+   * OR-004 needs to distinguish "no verified resource" from "all currently
+   * verified resource routes were already declined." Expose the same
+   * operational reachability fact C7 already uses rather than inferring it
+   * from a safe-failure result or duplicating the Users query elsewhere.
+   */
+  async isHumanStewardReachable(): Promise<boolean> {
+    return this.isStewardReachable();
+  }
+
+  /**
    * Gate C (C7: Safe failure). Honestly checks whether this stated need
    * currently has neither a verified City Sheet resource nor a reachable
    * steward — the one condition where a member could otherwise be left at
