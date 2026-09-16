@@ -40,6 +40,7 @@ export function BusinessOwnerHome() {
 
   const [responsibilities, setResponsibilities] = useState<BusinessResponsibilityDto[]>([]);
   const [role, setRole] = useState<string | null>(null);
+  const [loadedTenantId, setLoadedTenantId] = useState<string | null>(null);
   const [state, setState] = useState<LoadState>('loading');
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const loadGeneration = useRef(0);
@@ -59,6 +60,7 @@ export function BusinessOwnerHome() {
 
         setResponsibilities(rows);
         setRole(console_?.membershipRole ?? null);
+        setLoadedTenantId(organizationId);
         setState('ready');
       } catch {
         if (loadGeneration.current !== generation) return;
@@ -66,6 +68,7 @@ export function BusinessOwnerHome() {
         // also fails closed so a read error cannot widen browser affordances.
         setResponsibilities([]);
         setRole(null);
+        setLoadedTenantId(organizationId);
         setState('error');
       }
     },
@@ -80,6 +83,7 @@ export function BusinessOwnerHome() {
     setSelectedId(null);
     setResponsibilities([]);
     setRole(null);
+    setLoadedTenantId(null);
 
     if (!activeTenant) {
       setState('no-business');
@@ -96,20 +100,37 @@ export function BusinessOwnerHome() {
     };
   }, [session.accessToken, businessState.isLoading, activeTenant, load]);
 
-  const capabilities = useMemo(() => capabilitiesForRole(role), [role]);
+  // Rendered work and rendered role capability are explicitly tied to the
+  // tenant that produced them. This is evaluated during render (before an
+  // effect can run), so a context switch cannot paint even one stale frame.
+  const contextMatches = Boolean(
+    activeTenant && !businessState.isLoading && loadedTenantId === tenantId,
+  );
+  const displayState: LoadState = businessState.isLoading
+    ? 'loading'
+    : !activeTenant
+      ? 'no-business'
+      : loadedTenantId === tenantId
+        ? state
+        : 'loading';
+  const visibleResponsibilities = contextMatches ? responsibilities : [];
+  const capabilities = useMemo(
+    () => capabilitiesForRole(contextMatches ? role : null),
+    [contextMatches, role],
+  );
 
   const groups = useMemo(() => {
     const needsYou: BusinessResponsibilityDto[] = [];
     const carrying: BusinessResponsibilityDto[] = [];
     const closed: BusinessResponsibilityDto[] = [];
-    for (const row of responsibilities) {
+    for (const row of visibleResponsibilities) {
       const group = ownerGroupFor(row.status);
       if (group === 'needsYou') needsYou.push(row);
       else if (group === 'carrying') carrying.push(row);
       else closed.push(row);
     }
     return { needsYou, carrying, closed: closed.slice(0, 5) };
-  }, [responsibilities]);
+  }, [visibleResponsibilities]);
 
   const onChanged = useCallback(
     (updated: BusinessResponsibilityDto) => {
@@ -120,7 +141,7 @@ export function BusinessOwnerHome() {
     [],
   );
 
-  if (state === 'no-business') {
+  if (displayState === 'no-business') {
     return (
       <section className={styles.surface} aria-labelledby="owner-home-heading">
         <h1 id="owner-home-heading" className={styles.title}>
@@ -149,20 +170,20 @@ export function BusinessOwnerHome() {
         </Link>
       </header>
 
-      {state === 'loading' ? (
+      {displayState === 'loading' ? (
         <p className={styles.muted} role="status">
           Loading what Aureus is carrying…
         </p>
       ) : null}
 
-      {state === 'error' ? (
+      {displayState === 'error' ? (
         <p className={styles.failure} role="alert">
           Aureus could not load this business&rsquo;s work right now. Nothing here is out of date —
           it simply has not loaded. Try again shortly.
         </p>
       ) : null}
 
-      {state === 'ready' ? (
+      {displayState === 'ready' ? (
         <>
           <OwnerSection
             id="needs-you"
@@ -208,7 +229,7 @@ export function BusinessOwnerHome() {
         </>
       ) : null}
 
-      {selectedId && tenantId ? (
+      {contextMatches && selectedId && tenantId ? (
         <BusinessResponsibilityDetail
           key={`${tenantId}:${selectedId}`}
           organizationId={tenantId}
