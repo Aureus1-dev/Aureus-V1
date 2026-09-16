@@ -372,6 +372,47 @@ describe('PeopleResolutionsService', () => {
     expect(result.routeKind).toBe(PersonalResolutionRouteKind.HUMAN_STEWARD);
   });
 
+  it('newer open human escalation wins over older resolved history', async () => {
+    responsibilities.findOwnedPersonalNeedResolution.mockResolvedValue(
+      responsibility(ResponsibilityStatus.ACTIVE),
+    );
+    const now = new Date();
+    escalations.findEscalations.mockResolvedValue([
+      {
+        id: 'cccccccc-cccc-4ccc-8ccc-cccccccccccc',
+        statedNeedId: need.id,
+        reason: 'Current request',
+        status: NeedEscalationStatus.PENDING,
+        acknowledgedAt: null,
+        resolutionNotes: null,
+        resolvedAt: null,
+        createdAt: now,
+      },
+      {
+        id: '99999999-9999-4999-8999-999999999999',
+        statedNeedId: need.id,
+        reason: 'Older request',
+        status: NeedEscalationStatus.RESOLVED,
+        acknowledgedAt: new Date(now.getTime() - 2000),
+        resolutionNotes: 'Called the member back.',
+        resolvedAt: new Date(now.getTime() - 1000),
+        createdAt: new Date(now.getTime() - 3000),
+      },
+    ]);
+    responsibilities.markPersonalNeedWaitingOnThirdParty.mockResolvedValue(
+      responsibility(ResponsibilityStatus.WAITING_ON_THIRD_PARTY),
+    );
+
+    const result = await service.continue(
+      '44444444-4444-4444-8444-444444444444',
+      caller,
+    );
+
+    expect(responsibilities.markPersonalNeedWaitingOnThirdParty).toHaveBeenCalled();
+    expect(responsibilities.completePersonalNeedWithEvidence).not.toHaveBeenCalled();
+    expect(result.routeKind).toBe(PersonalResolutionRouteKind.HUMAN_STEWARD);
+  });
+
   it('does not confuse a resolved human escalation with the underlying life outcome', async () => {
     responsibilities.findOwnedPersonalNeedResolution.mockResolvedValue(
       responsibility(ResponsibilityStatus.WAITING_ON_THIRD_PARTY),

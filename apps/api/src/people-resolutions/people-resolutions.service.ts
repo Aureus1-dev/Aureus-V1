@@ -112,41 +112,42 @@ export class PeopleResolutionsService {
     }
 
     const escalationRows = await this.escalations.findEscalations(need.id, caller.id);
-    const resolvedEscalation = escalationRows.find(
-      (row) => row.status === NeedEscalationStatus.RESOLVED,
-    );
-    const outcomeAfterResolvedEscalation = Boolean(
-      latestOutcome &&
-        resolvedEscalation?.resolvedAt &&
-        latestOutcome.createdAt >= resolvedEscalation.resolvedAt
-    );
-    if (resolvedEscalation && !outcomeAfterResolvedEscalation) {
-      responsibility = await this.responsibilities.markPersonalNeedWaitingOnUser(
-        responsibility.id,
-        caller,
-      );
-      return this.projectWithKnownSources(
-        responsibility,
-        need,
-        await this.needs.findMatchingResources(need.id, caller.id),
-        null,
-        PersonalResolutionRouteKind.CLARIFICATION,
-        'A Human Steward finished the handoff, but that does not prove the underlying need is resolved. Tell Aureus whether the need itself is now resolved.',
-        true,
-      );
-    }
-
-    const openEscalation = escalationRows.find(
-      (row) =>
-        row.status === NeedEscalationStatus.PENDING ||
-        row.status === NeedEscalationStatus.ACKNOWLEDGED,
-    );
-    if (openEscalation) {
+    // NeedEscalationsService returns newest-first. Only the current/latest human
+    // handoff may drive routing; an older resolved escalation must never mask a
+    // newer open one or repeatedly demand outcome confirmation.
+    const latestEscalation = escalationRows[0] ?? null;
+    if (
+      latestEscalation?.status === NeedEscalationStatus.PENDING ||
+      latestEscalation?.status === NeedEscalationStatus.ACKNOWLEDGED
+    ) {
       responsibility = await this.responsibilities.markPersonalNeedWaitingOnThirdParty(
         responsibility.id,
         caller,
       );
       return this.project(responsibility, need, caller);
+    }
+
+    if (latestEscalation?.status === NeedEscalationStatus.RESOLVED) {
+      const outcomeAfterResolvedEscalation = Boolean(
+        latestOutcome &&
+          latestEscalation.resolvedAt &&
+          latestOutcome.createdAt >= latestEscalation.resolvedAt
+      );
+      if (!outcomeAfterResolvedEscalation) {
+        responsibility = await this.responsibilities.markPersonalNeedWaitingOnUser(
+          responsibility.id,
+          caller,
+        );
+        return this.projectWithKnownSources(
+          responsibility,
+          need,
+          await this.needs.findMatchingResources(need.id, caller.id),
+          null,
+          PersonalResolutionRouteKind.CLARIFICATION,
+          'A Human Steward finished the handoff, but that does not prove the underlying need is resolved. Tell Aureus whether the need itself is now resolved.',
+          true,
+        );
+      }
     }
 
     const [offers, matchingResources] = await Promise.all([
@@ -430,16 +431,16 @@ export class PeopleResolutionsService {
     }
 
     const rows = await this.escalations.findEscalations(need.id, caller.id);
-    const resolved = rows.find((row) => row.status === NeedEscalationStatus.RESOLVED);
-    if (resolved) {
+    const latestEscalation = rows[0] ?? null;
+    if (latestEscalation?.status === NeedEscalationStatus.RESOLVED) {
       return this.continue(responsibility.id, caller);
     }
 
-    const open = rows.find(
-      (row) =>
-        row.status === NeedEscalationStatus.PENDING ||
-        row.status === NeedEscalationStatus.ACKNOWLEDGED,
-    );
+    const open =
+      latestEscalation?.status === NeedEscalationStatus.PENDING ||
+      latestEscalation?.status === NeedEscalationStatus.ACKNOWLEDGED
+        ? latestEscalation
+        : null;
 
     if (!open) {
       const humanReachable = await this.needs.isHumanStewardReachable();
@@ -486,10 +487,11 @@ export class PeopleResolutionsService {
     need: StatedNeedResponseDto,
     caller: AuthenticatedUser,
   ): Promise<PersonalResolutionStateDto> {
-    const [offers, resources, escalationRows] = await Promise.all([
+    const [offers, resources, escalationRows, latestOutcome] = await Promise.all([
       this.needs.findOffers(need.id, caller.id),
       this.needs.findMatchingResources(need.id, caller.id),
       this.escalations.findEscalations(need.id, caller.id),
+      this.needs.findLatestOutcomeReport(need.id, caller.id),
     ]);
 
     if (responsibility.status === ResponsibilityStatus.COMPLETED) {
@@ -518,12 +520,11 @@ export class PeopleResolutionsService {
       );
     }
 
-    const openEscalation = escalationRows.find(
-      (row) =>
-        row.status === NeedEscalationStatus.PENDING ||
-        row.status === NeedEscalationStatus.ACKNOWLEDGED,
-    );
-    if (openEscalation) {
+    const latestEscalation = escalationRows[0] ?? null;
+    if (
+      latestEscalation?.status === NeedEscalationStatus.PENDING ||
+      latestEscalation?.status === NeedEscalationStatus.ACKNOWLEDGED
+    ) {
       return this.projectWithKnownSources(
         responsibility,
         need,
@@ -535,7 +536,34 @@ export class PeopleResolutionsService {
       );
     }
 
-    const accepted = offers.find((offer) => offer.response === ResourceOfferResponse.ACCEPTED);
+    if (latestEscalation?.status === NeedEscalationStatus.RESOLVED) {
+      const outcomeAfterResolvedEscalation = Boolean(
+        latestOutcome &&
+          latestEscalation.resolvedAt &&
+          latestOutcome.createdAt >= latestEscalation.resolvedAt
+      );
+      if (!outcomeAfterResolvedEscalation) {
+        return this.projectWithKnownSources(
+          responsibility,
+          need,
+          resources,
+          null,
+          PersonalResolutionRouteKind.CLARIFICATION,
+          'A Human Steward finished the handoff, but that does not prove the underlying need is resolved. Tell Aureus whether the need itself is now resolved.',
+          true,
+        );
+      }
+    }
+
+    const accepted = offers.find(
+      (offer) =>
+        offer.response === ResourceOfferResponse.ACCEPTED &&
+        !(
+          latestOutcome?.status === NeedOutcomeStatus.STILL_UNRESOLVED &&
+          offer.respondedAt &&
+          latestOutcome.createdAt >= offer.respondedAt
+        ),
+    );
     if (accepted) {
       return this.projectWithKnownSources(
         responsibility,
