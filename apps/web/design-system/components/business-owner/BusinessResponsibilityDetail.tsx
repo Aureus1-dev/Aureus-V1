@@ -82,9 +82,12 @@ export function BusinessResponsibilityDetail({
       onChanged(updated);
       await load();
     } catch {
-      // The server refused or failed. Show that plainly; never assume the
-      // change landed and never mutate local state to look successful.
-      setActionError('That action did not complete. Nothing was changed.');
+      // A failed response cannot prove whether the server committed the action
+      // before the connection failed. Preserve the last confirmed receipt and
+      // state that uncertainty plainly instead of claiming nothing changed.
+      setActionError(
+        'Aureus could not confirm whether that action completed. Close and reopen this work to refresh the record before trying again.',
+      );
       setState('ready');
     }
   };
