@@ -15,33 +15,48 @@ The vertical slice is:
 
 `Ready Project → expert validation → proposal recorded → follow-up recorded → customer decision → contract/deposit boundary → operations handoff → terminal sales outcome`
 
-This slice records and governs facts about actions performed by authorized humans or external systems. It does **not** autonomously send a proposal, sign a contract, accept terms, charge a card, move money, or promise a construction schedule.
+This slice records and governs facts about actions performed by authorized humans or external systems. It does **not** autonomously send a proposal, sign a contract, accept terms, capture payment credentials, move money, or promise a construction schedule.
 
 ## 2. Reuse decision
 
-### KEEP
+The implementation reuses the canonical layers already built in Steps 3 and 4.
 
-- `WardLead` remains the canonical consented customer transaction envelope.
-- `WardLead.status` remains the coarse sales-handoff lifecycle (`SUBMITTED → ACCEPTED → CONTACTED → CLOSED/LOST`).
-- `WardLeadEvent` remains the tenant-scoped append-only transaction history.
-- OR-003 `KitchenBathReadyProject` remains the deterministic project-intake projection.
-- Organization membership and tenant guards remain the authority boundary.
-- Responsibility remains the durable work/commitment layer; OR-004 does not create a parallel generic task engine.
+### Transaction truth
 
-### EXTEND
+`WardLead` remains the consented customer transaction envelope and the source of the coarse sales outcome:
 
-`WardLeadEvent` receives the minimum structured revenue-milestone envelope required to represent facts that the current four event shapes cannot represent truthfully:
+`SUBMITTED → ACCEPTED → CONTACTED → CLOSED | LOST`
 
-- one revenue event type;
-- one bounded revenue-stage enum;
-- one idempotency key for retried writes;
-- one bounded JSON metadata payload.
+OR-004 does not add `Deal`, `Project`, `Proposal`, `Contract`, `Payment`, or duplicate pipeline tables.
 
-No `Deal`, `Project`, `Proposal`, `Contract`, `Payment`, or duplicate pipeline table is added.
+### Carried-work truth
+
+The first revenue milestone lazily establishes one idempotent Step 3 `BUSINESS_PROMISE` Responsibility for the lead using a deterministic namespaced UUID request key.
+
+The Responsibility:
+
+- is `BUSINESS_TENANT` / `BUSINESS_PRIVATE`;
+- carries `GUIDANCE_ONLY` authority;
+- is provenance-bound to the retained Ward conversation;
+- stores `domain = OR004_REVENUE_COMPLETION` and the canonical lead id inside the existing bounded `successCriteria` contract;
+- inherits the exact `WardLead.retentionExpiresAt` deadline;
+- is completed through the canonical Step 3 completion service when the sales responsibility reaches operations handoff or a recorded loss.
+
+### Evidence truth
+
+Revenue milestones reuse Step 4 `ResponsibilityEvent` as reference-only evidence.
+
+Each revenue report is an append-only `ACTION_EVIDENCED` event with:
+
+- `sourceSystem = AUREUS_BUSINESS_REVENUE`;
+- `sourceRecordType = RevenueMilestone.<STAGE>`;
+- an immutable source record id containing the reporting business user id plus caller request UUID;
+- a bounded opaque evidence reference in `sourceState`;
+- `evidenceLevel = REPORTED`.
+
+The implementation does **not** add revenue JSON blobs to the customer handoff or copy raw proposals/contracts/payment data into Aureus.
 
 ## 3. Revenue stages
-
-The bounded stage vocabulary is:
 
 1. `READY_PROJECT_VALIDATED`
 2. `PROPOSAL_RECORDED`
@@ -51,9 +66,20 @@ The bounded stage vocabulary is:
 6. `DEPOSIT_RECORDED`
 7. `OPERATIONS_HANDOFF_RECORDED`
 
-A stage record means only that an authorized business representative **reported** that milestone and supplied its bounded supporting facts. It is not independent verification.
+Every stage means only that an authorized business representative **reported** the milestone and supplied an opaque evidence reference. It is never independent verification.
 
-## 4. Stage contracts
+## 4. Write contract
+
+Every request supplies:
+
+- `stage` — one bounded stage above;
+- `requestKey` — caller-generated UUID used for idempotent retry;
+- `evidenceReference` — 1–72 characters, identifier-safe characters only; no free-form document/payment content;
+- `decision` — only for `DECISION_RECORDED`: `ACCEPTED | DECLINED | REVISION_REQUESTED`.
+
+No arbitrary notes, contract bodies, signatures, card/bank values, passwords, or raw payment data are accepted by this endpoint.
+
+## 5. Stage ordering
 
 ### READY_PROJECT_VALIDATED
 
@@ -61,282 +87,281 @@ Requires:
 - OR-003 Ready Project exists;
 - `readinessStatus = READY_FOR_EXPERT_REVIEW`;
 - lead is non-terminal;
-- authorized tenant worker.
+- work-record authority.
 
-Payload:
-- `note` — factual expert-validation note, 3–500 chars.
-
-This records that required expert review occurred. It does not claim site conditions are independently verified by Aureus.
+May occur once.
 
 ### PROPOSAL_RECORDED
 
 Requires:
-- lead status `CONTACTED`;
 - Ready Project validation exists;
-- authorized tenant worker.
+- lead is `CONTACTED`;
+- work-record authority.
 
-Payload:
-- `proposalReference` — business-owned opaque reference, 1–120 chars;
-- `proposalAmountCents` — optional non-negative integer;
-- `note` — optional factual note, max 500 chars.
-
-Aureus does not generate/send/approve the proposal in this slice.
+A second proposal is allowed only after the latest decision is `REVISION_REQUESTED`; it represents the revised proposal. Otherwise a second proposal with a new request key is rejected.
 
 ### FOLLOW_UP_RECORDED
 
 Requires:
-- proposal exists;
-- lead non-terminal;
-- authorized tenant worker.
+- a proposal exists;
+- the latest proposal is awaiting decision;
+- work-record authority.
 
-Payload:
-- `note` — factual follow-up note, 3–500 chars.
-
-Multiple follow-ups are allowed; every write requires a unique idempotency key.
+May repeat with distinct request keys.
 
 ### DECISION_RECORDED
 
 Requires:
-- proposal exists;
-- lead status `CONTACTED`;
-- `OWNER`, `ADMIN`, or `MANAGER` authority (or existing privileged platform authority).
-
-Payload:
-- `decision`: `ACCEPTED | DECLINED | REVISION_REQUESTED`;
-- `note` — factual decision basis, 3–500 chars.
+- a proposal exists;
+- that latest proposal has no later decision yet;
+- lead is `CONTACTED`;
+- manager authority.
 
 Effects:
-- `DECLINED` atomically records the decision and moves the existing `WardLead` to `LOST` with the factual outcome reason.
-- `ACCEPTED` and `REVISION_REQUESTED` do not create a new lead status.
-- a later `ACCEPTED` decision may follow `REVISION_REQUESTED`; `DECLINED` is terminal through the existing lead lifecycle.
+- `ACCEPTED` unlocks contract recording;
+- `REVISION_REQUESTED` requires a later proposal before another decision;
+- `DECLINED` records the milestone and moves the existing `WardLead` to `LOST` with a factual reported outcome reason.
 
 ### CONTRACT_RECORDED
 
 Requires:
-- latest recorded decision is `ACCEPTED`;
+- latest decision `ACCEPTED`;
 - lead remains `CONTACTED`;
-- `OWNER`, `ADMIN`, or `MANAGER` authority.
+- manager authority.
 
-Payload:
-- `contractReference` — business-owned opaque reference, 1–120 chars;
-- `depositRequired` — boolean;
-- `note` — optional factual note, max 500 chars.
+May occur once.
 
-Aureus does not create a signature, sign, accept terms, or assert legal enforceability.
+The evidence reference points to the business/external contract record. Aureus does not create a signature or assert legal enforceability.
 
 ### DEPOSIT_RECORDED
 
 Requires:
 - contract exists;
-- contract says `depositRequired = true`;
 - lead remains `CONTACTED`;
-- `OWNER`, `ADMIN`, or `MANAGER` authority.
+- manager authority.
 
-Payload:
-- `depositReference` — business/payment-system opaque reference, 1–120 chars;
-- `depositAmountCents` — non-negative integer;
-- `note` — optional factual note, max 500 chars.
+May occur once and is optional because OR-004 does not invent whether a particular business requires a deposit.
 
-Aureus records a reported payment fact only. It does not collect, initiate, refund, or independently verify money movement in OR-004.
+A deposit report is not a verified payment and does not prove margin or retained earnings.
 
 ### OPERATIONS_HANDOFF_RECORDED
 
 Requires:
 - accepted decision;
 - contract exists;
-- if the latest contract requires a deposit, a deposit record exists after that contract;
 - lead remains `CONTACTED`;
-- `OWNER`, `ADMIN`, or `MANAGER` authority.
+- manager authority.
 
-Payload:
-- `operationsReference` — opaque downstream work-order/project reference, 1–120 chars;
-- `note` — factual handoff note, 3–500 chars.
+A prior deposit report is allowed but not universally required.
 
 Effects:
-- atomically records the handoff and moves the existing `WardLead` to `CLOSED`;
-- `outcomeReason` truthfully states that operations handoff was recorded;
-- does not claim project completion or customer flourishing outcome.
+- records the operations-handoff milestone;
+- moves the existing `WardLead` to `CLOSED` with the factual outcome reason that an accepted sale was reported as handed to operations;
+- completes the canonical revenue Responsibility through Step 3;
+- does not claim remodeling/project completion.
 
-## 5. Authority tiers
+## 6. Authority tiers
 
-### Work-record tier
+### Work-record authority
 
 `OWNER`, `ADMIN`, `MANAGER`, `OPERATOR` may record:
-- expert validation;
+
+- Ready Project validation;
 - proposal existence;
-- follow-up facts.
+- follow-up existence.
 
-### Consequential-boundary record tier
+### Manager boundary authority
 
-Only `OWNER`, `ADMIN`, `MANAGER` (plus already-authorized privileged platform roles) may record:
+Only `OWNER`, `ADMIN`, `MANAGER` may record:
+
 - customer decision;
 - contract boundary;
 - deposit boundary;
-- operations handoff / won-sale close.
+- operations handoff.
 
-These writes still record external/human facts. They never execute signatures or payments.
+`VIEWER` and `MEMBER` do not receive revenue mutation actions.
 
-`VIEWER` and `MEMBER` may read tenant data if the existing tenant boundary permits, but may not mutate revenue milestones.
+The endpoint records reported facts only. No role gains signature/payment/autonomous-closing authority through OR-004.
 
-## 6. Ordering and concurrency
+## 7. Concurrency and idempotency
 
-- Revenue milestone writes are append-only.
-- Every revenue write requires a caller-supplied `idempotencyKey`, 8–120 chars.
-- Database uniqueness on `(organizationId, leadId, idempotencyKey)` makes retries safe.
-- The service validates prerequisite stages against the same tenant/lead inside the transaction.
-- Terminal `CLOSED` / `LOST` leads reject new revenue milestones.
-- `FOLLOW_UP_RECORDED` is repeatable.
-- Proposal/contract/deposit/handoff stages are single-current-chain facts in OR-004; duplicates with a new key are rejected unless explicitly allowed by the stage contract.
-- `DECISION_RECORDED: REVISION_REQUESTED` may repeat; a later `ACCEPTED` or `DECLINED` decision supersedes earlier non-terminal decision reports in the projection without deleting history.
+- The canonical Step 3 Responsibility is get-or-created using Step 3's advisory-lock request-key mechanism.
+- Every revenue write obtains a PostgreSQL advisory transaction lock for the exact `(organizationId, leadId)` revenue stream before reading prerequisites.
+- The request UUID is persisted in the immutable evidence provenance record.
+- A repeated request key with the identical stage/reference/decision returns the already-recorded state rather than writing another milestone.
+- Reusing a request key for different content is a conflict.
+- Different request keys cannot race prerequisite ordering because the whole lead revenue stream is serialized.
+- Terminal leads reject new milestone reports.
 
-## 7. Read projection
+For terminal revenue events, `WardLead` outcome + revenue evidence are written in one DB transaction. Step 3 Responsibility completion is an idempotent governed continuation immediately afterward. If that continuation cannot be confirmed, the API surfaces failure/uncertainty; retrying the same milestone converges completion without duplicating the revenue evidence.
 
-`GET /organizations/:organizationId/business-leads/:leadId` adds `revenueCompletion`, derived from the append-only lead events rather than a second mutable workflow record.
+## 8. Read projection
 
-The projection contains:
+`GET /organizations/:organizationId/business-leads/:leadId` adds `revenueCompletion` for Ready Projects.
+
+It is derived from the canonical lead + canonical Responsibility events and contains:
 
 - contract version;
-- current stage;
-- ordered reported milestones;
-- `nextRequiredAction`;
-- `needsHumanApproval` where appropriate;
-- proposal amount when business-reported;
+- Responsibility id/status when established;
+- current reported stage;
+- lead status;
+- chronological milestone ledger;
+- opaque evidence references;
+- reporter provenance where recoverable;
 - latest decision;
-- contract/deposit requirements;
-- operations handoff reference when reported;
-- explicit evidence label `REPORTED`;
-- bounded Economic Stewardship view.
+- server-calculated `availableActions` for the caller's current organization role;
+- plain-language next required action;
+- explicit `REPORTED` evidence notice;
+- bounded Economic Stewardship evidence.
 
-## 8. Economic Stewardship truth contract
+The web UI consumes `availableActions`; it does not recreate the authority/state machine in the browser.
 
-OR-004 exposes only what the evidence can support:
+## 9. Economic Stewardship truth contract
 
-### Earn
+OR-004 intentionally stops where evidence stops.
 
-If a proposal amount is recorded, report the business-reported proposed value. Otherwise `UNKNOWN`.
+### Earn — `UNKNOWN`
 
-### Convert
+OR-004 records proposal existence but does not ingest proposal value. No revenue amount is invented.
 
-Report the observed/reported revenue stage and whether the existing lead reached `CLOSED` or `LOST`. Do not invent a conversion probability or rate from one transaction.
+### Convert — `REPORTED`
 
-### Keep
+Report the current milestone and canonical `WardLead` outcome. Do not infer probability or fabricate a conversion rate from one transaction.
 
-`UNKNOWN` in OR-004. A deposit is cash-flow evidence, not margin, retained earnings, or profitability.
+### Keep — `UNKNOWN`
 
-### Compound
+A reported deposit is not margin, retained earnings, profitability, or cash-confirmation evidence.
 
-`UNKNOWN` in OR-004. No repeat/referral/retention source is introduced by this slice.
+### Compound — `UNKNOWN`
 
-This is deliberately incomplete rather than falsely precise.
+OR-004 introduces no repeat/referral/retention source.
 
-## 9. Transaction barrier updates
+## 10. OR-003 barrier integrity
 
-The OR-003 barrier graph remains source truth for customer/project intake. OR-004 may derive revenue-progress barrier observations without rewriting the original Ready Project:
+The original Ready Project remains an immutable deterministic projection of its retained handoff source. OR-004 does not rewrite customer discovery or qualification signals after the fact.
 
-- PRICE: proposal recorded → business-reported price exists.
-- ADMINISTRATIVE_FRICTION: contract/handoff milestones may show progress but do not imply all admin friction is eliminated.
-- FUNDING: a deposit record does not establish financing adequacy.
-- TRUST: never inferred from purchase progression.
-- AVAILABILITY/TIMING: operations handoff does not by itself establish final schedule availability.
+Revenue progress may inform later Outcome Graph work, but OR-004 does not silently mark these OR-003 barriers resolved:
 
-## 10. Privacy and data minimization
+- FUNDING;
+- TRUST;
+- AVAILABILITY;
+- TIMING;
+- DECISION_AUTHORITY.
 
-- All revenue writes are tenant-scoped by `organizationId + leadId`.
-- Revenue metadata must not contain passwords, card/bank data, signatures, SSNs, authentication secrets, raw contracts, or raw payment credentials.
-- References are opaque identifiers only.
-- Notes are plain-text sanitized and bounded.
-- Public/customer routes do not expose private revenue milestones in OR-004.
-- Existing lead retention/deletion continues to cascade over the event history.
+A proposal or deposit report is not enough to prove those facts.
 
-## 11. Failure truthfulness
+## 11. Privacy and retention
 
-- A failed client response must not be rendered as proof that a write did or did not commit.
-- The web UI says it could not confirm the update and requires refresh before retrying when completion is uncertain.
-- Idempotency makes a safe retry possible after refresh.
-- `REPORTED` is never presented as `VERIFIED`.
+- All reads/writes are tenant-scoped by existing organization/lead boundaries.
+- Revenue evidence is reference-only and business-private.
+- Evidence references are identifier-shaped and bounded, not free text.
+- Public/customer Ward routes do not expose private revenue milestones.
+- The revenue Responsibility inherits the lead's consented retention deadline.
+- Hourly lead purge removes expired OR-004 Responsibilities before deleting the expired handoff/conversation source.
 
-## 12. UI acceptance
+## 12. Failure truthfulness
 
-Inside the existing business handoff detail, before the raw source transcript:
+A failed network/API response does not prove non-commit.
 
-- show a Revenue Completion surface for Ready Projects;
-- show current revenue stage and next required action;
-- show chronological reported milestones;
-- show Economic Stewardship with unknowns explicitly labeled;
-- provide only actions the current server authority/state permits;
-- never expose payment/signature entry fields;
-- never call a reported deposit “verified payment”;
-- after operations handoff, show the sale as handed to operations, not the remodeling project as completed.
+The web UI must say:
 
-## 13. Required tests
+> Aureus could not confirm whether that revenue update completed. Refresh this handoff before trying again.
 
-### API / service
+It must never say “nothing changed” after an uncertain mutation.
+
+`REPORTED` is never rendered or spoken as `VERIFIED`.
+
+## 13. UI acceptance
+
+Within the existing business handoff detail, after Ready Project and before raw source transcript:
+
+- show Revenue Completion;
+- show current reported stage;
+- show next required action;
+- show server-authorized next milestones only;
+- show chronological milestone evidence and explicit `REPORTED` labels;
+- show Earn / Convert / Keep / Compound without fake precision;
+- accept opaque evidence references only;
+- never expose signature/payment-entry fields;
+- after operations handoff, say the **sale** was handed to operations, not that the remodeling project was completed.
+
+## 14. Required tests
+
+### Projection/unit
+
+Prove:
+- only valid Step 4 `ACTION_EVIDENCED + REPORTED + sourceSystem` rows enter the revenue projection;
+- malformed or `VERIFIED`-mismatched records do not get promoted into this reported milestone surface;
+- role/state action availability fails closed;
+- operator never receives decision/contract/deposit/handoff actions;
+- manager actions follow prerequisite order;
+- revision-requested requires a later proposal;
+- terminal lead exposes no revenue actions;
+- Earn/Keep/Compound unknowns remain explicit.
+
+### API/service
 
 Prove:
 - tenant isolation;
-- unauthorized roles cannot mutate;
-- operator cannot record decision/contract/deposit/handoff;
+- unauthorized membership cannot mutate;
+- operator cannot record manager-boundary stages;
 - Ready Project validation prerequisite;
 - contacted prerequisite for proposal;
 - proposal prerequisite for decision;
-- accepted-decision prerequisite for contract;
-- conditional deposit prerequisite for operations handoff;
-- idempotent retry returns the existing event/result;
-- duplicate non-repeatable stage with a different key is rejected;
+- accepted decision prerequisite for contract;
+- contract prerequisite for deposit/handoff;
+- same request key is idempotent;
+- same request key with different content conflicts;
 - repeated follow-up is allowed;
-- decline atomically records decision + `LOST` state/event;
-- operations handoff atomically records milestone + `CLOSED` state/event;
+- revised proposal is allowed only after revision requested;
+- decline writes reported decision + canonical `LOST` outcome;
+- operations handoff writes milestone + canonical `CLOSED` outcome;
 - terminal lead rejects later writes;
-- cross-tenant idempotency does not collide;
-- notes/references are sanitized/bounded;
-- reported evidence is never emitted as verified.
-
-### E2E
-
-Prove one exact Kitchen & Bath happy path:
-
-`SUBMITTED → ACCEPTED → CONTACTED → READY_PROJECT_VALIDATED → PROPOSAL_RECORDED → FOLLOW_UP_RECORDED → DECISION_RECORDED(ACCEPTED) → CONTRACT_RECORDED(depositRequired=true) → DEPOSIT_RECORDED → OPERATIONS_HANDOFF_RECORDED → CLOSED`
-
-Also prove one declined path ends `LOST`.
+- Responsibility completion converges on terminal retry;
+- revenue Responsibility retention equals lead retention;
+- purge removes expired OR-004 Responsibilities;
+- no revenue event is independently verified.
 
 ### Web
 
 Prove:
-- Revenue Completion is rendered before source transcript;
-- reported labeling is explicit;
-- unknown Keep/Compound are explicit;
-- invalid/unauthorized actions are not offered;
-- uncertain mutation failure language does not claim non-commit;
-- tenant switch cannot leave prior tenant revenue milestones/actions visible.
+- Revenue Completion renders before source transcript;
+- `REPORTED` labeling is visible;
+- Keep and Compound remain `UNKNOWN`;
+- only server-returned actions are offered;
+- no payment/signature form exists;
+- uncertain mutation failure never claims non-commit;
+- tenant switching cannot leave prior-tenant revenue state/actions visible.
 
-## 14. Explicit non-goals
+## 15. Explicit non-goals
 
 OR-004 does **not** build:
 
-- proposal document generation or sending;
+- proposal generation/sending;
 - e-signature;
 - card/bank capture;
 - payment initiation/refund;
 - financing underwriting;
 - construction scheduling;
-- job costing or margin accounting;
+- job costing/margin accounting;
 - invoice/accounting replacement;
 - CRM replacement;
-- external-system adapters (OR-005);
+- external-system execution adapters (OR-005);
 - generalized Outcome Graph / Value Ledger persistence (OR-006);
 - autonomous consequential closing;
 - customer-to-personal Aureus identity promotion.
 
-## 15. Done means
+## 16. Done means
 
-OR-004 is implementation-complete when:
+OR-004 is complete when:
 
-1. the current `WardLead` transaction can be carried from Ready Project through an evidence-bounded operations handoff or loss;
-2. every revenue milestone is tenant-scoped, attributable, append-only, idempotent, and explicitly reported rather than independently verified;
-3. the existing lead reaches its real terminal sales outcome without a second CRM/deal truth;
-4. authority tiers prevent operators from recording consequential-boundary milestones;
-5. Economic Stewardship shows only evidence-supported Earn/Convert facts and labels Keep/Compound unknown;
-6. the existing Business UI surfaces the revenue chain and next human action before transcript detail;
-7. exact-head typecheck, lint, migrations, API tests, web tests, production build, and Docker verification pass;
-8. a reviewer with no authorship in the candidate lineage performs an adversarial exact-SHA review with no BLOCKING/HIGH findings;
-9. Founder decides merge on that exact reviewed SHA.
+1. a Ready Project can be carried through a reference-evidenced operations handoff or recorded loss;
+2. `WardLead` remains transaction truth and Responsibility remains carried-work truth;
+3. no new CRM/deal/project source of truth is created;
+4. every revenue milestone is tenant-scoped, attributable, append-only, idempotent, privacy-bounded, and explicitly `REPORTED`;
+5. authority tiers prevent operators from recording consequential-boundary milestones;
+6. Economic Stewardship is useful without fabricated revenue/margin/compound figures;
+7. the existing Business UI surfaces the revenue chain before transcript evidence;
+8. exact-head typecheck, lint, migrations, API tests, web tests, production build, seed, and Docker verification pass;
+9. a reviewer with no authorship in the candidate lineage performs an adversarial exact-SHA review with no BLOCKING/HIGH findings;
+10. Founder decides merge on that exact reviewed SHA.
