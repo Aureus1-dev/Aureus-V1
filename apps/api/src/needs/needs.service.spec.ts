@@ -9,6 +9,10 @@ import {
   IUnresolvedNeedRepository,
   UNRESOLVED_NEED_REPOSITORY,
 } from './repositories/unresolved-need.repository.interface';
+import {
+  INeedOutcomeReportRepository,
+  NEED_OUTCOME_REPORT_REPOSITORY,
+} from './repositories/need-outcome-report.repository.interface';
 import { CitySheetService } from '../city-sheet/city-sheet.service';
 import { UsersService } from '../users/users.service';
 import type { CitySheetEntryResponseDto } from '../city-sheet/dto/city-sheet-entry-response.dto';
@@ -51,6 +55,9 @@ const mockOffers: jest.Mocked<IResourceOfferRepository> = {
 const mockUnresolvedNeeds: jest.Mocked<IUnresolvedNeedRepository> = {
   create: jest.fn(), findByStatedNeed: jest.fn(),
 };
+const mockOutcomeReports: jest.Mocked<INeedOutcomeReportRepository> = {
+  create: jest.fn(), findLatestByStatedNeed: jest.fn(),
+};
 const mockCitySheet = { findAll: jest.fn(), findById: jest.fn() } as unknown as jest.Mocked<CitySheetService>;
 const mockUsers = { findAll: jest.fn() } as unknown as jest.Mocked<UsersService>;
 
@@ -64,6 +71,7 @@ describe('NeedsService', () => {
         { provide: STATED_NEED_REPOSITORY, useValue: mockRepo },
         { provide: RESOURCE_OFFER_REPOSITORY, useValue: mockOffers },
         { provide: UNRESOLVED_NEED_REPOSITORY, useValue: mockUnresolvedNeeds },
+        { provide: NEED_OUTCOME_REPORT_REPOSITORY, useValue: mockOutcomeReports },
         { provide: CitySheetService, useValue: mockCitySheet },
         { provide: UsersService, useValue: mockUsers },
       ],
