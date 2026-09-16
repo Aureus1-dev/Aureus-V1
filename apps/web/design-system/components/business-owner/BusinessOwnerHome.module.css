@@ -1,0 +1,156 @@
+.surface {
+  width: min(880px, calc(100% - 2rem));
+  margin: 1.5rem auto 3rem;
+  padding: clamp(1.15rem, 3vw, 2rem);
+  border: 1px solid rgba(108, 76, 49, 0.22);
+  border-radius: 1.4rem;
+  background: rgba(252, 248, 239, 0.94);
+  color: #2d241d;
+}
+
+.header {
+  display: flex;
+  gap: 0.75rem;
+  align-items: flex-start;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  margin-bottom: 1.5rem;
+}
+
+.title {
+  margin: 0;
+  font-size: clamp(1.35rem, 4vw, 1.8rem);
+  line-height: 1.2;
+}
+
+.subtitle {
+  margin: 0.35rem 0 0;
+  color: #6b5b4c;
+  font-size: 0.95rem;
+}
+
+.section {
+  margin-bottom: 1.75rem;
+  padding-top: 1rem;
+  border-top: 1px solid rgba(108, 76, 49, 0.16);
+}
+
+/* Needs You is the highest-attention area whenever it is non-empty. */
+.sectionEmphasis {
+  border: 2px solid rgba(150, 74, 36, 0.55);
+  border-radius: 1rem;
+  padding: 1rem;
+  background: rgba(255, 244, 232, 0.9);
+}
+
+.sectionHeading {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  margin: 0 0 0.75rem;
+  font-size: 1.05rem;
+}
+
+.count {
+  display: inline-flex;
+  min-width: 1.5rem;
+  height: 1.5rem;
+  align-items: center;
+  justify-content: center;
+  padding: 0 0.4rem;
+  border-radius: 999px;
+  background: rgba(150, 74, 36, 0.14);
+  color: #7a3c1c;
+  font-size: 0.8rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.row {
+  margin: 0;
+}
+
+.rowButton {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  width: 100%;
+  padding: 0.85rem 1rem;
+  border: 1px solid rgba(108, 76, 49, 0.2);
+  border-radius: 0.85rem;
+  background: #fff;
+  color: inherit;
+  text-align: left;
+  font: inherit;
+  cursor: pointer;
+}
+
+.rowButton:hover {
+  border-color: rgba(108, 76, 49, 0.45);
+}
+
+.rowButton:focus-visible {
+  outline: 2px solid #7a3c1c;
+  outline-offset: 2px;
+}
+
+.objective {
+  font-weight: 600;
+}
+
+.promise,
+.outcomeDetail {
+  color: #6b5b4c;
+  font-size: 0.9rem;
+}
+
+.state {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #7a3c1c;
+}
+
+.empty,
+.muted {
+  margin: 0;
+  color: #6b5b4c;
+  font-size: 0.95rem;
+}
+
+.failure {
+  margin: 0 0 1rem;
+  padding: 0.75rem 1rem;
+  border: 1px solid rgba(150, 44, 36, 0.4);
+  border-radius: 0.75rem;
+  background: rgba(255, 238, 234, 0.9);
+  color: #7a2b21;
+  font-size: 0.92rem;
+}
+
+.trust {
+  margin-top: 1.75rem;
+  padding-top: 1rem;
+  border-top: 1px solid rgba(108, 76, 49, 0.16);
+}
+
+.secondaryLink {
+  display: inline-block;
+  margin-top: 0.5rem;
+  color: #7a3c1c;
+  font-size: 0.92rem;
+}
+
+@media (max-width: 480px) {
+  .surface {
+    width: calc(100% - 1rem);
+    border-radius: 1rem;
+  }
+}
