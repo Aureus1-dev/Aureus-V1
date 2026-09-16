@@ -21,12 +21,12 @@ import {
 } from '@prisma/client';
 import { AuthenticatedUser } from '../auth/strategies/jwt.strategy';
 import { PrismaService } from '../prisma/prisma.service';
+import { BusinessResponsibilityCommunicationsService } from '../responsibilities/business-responsibility-communications.service';
 import { BusinessResponsibilitiesService } from '../responsibilities/business-responsibilities.service';
 import {
   availableRevenueActions,
   buildRevenueCompletionProjection,
   parseRevenueMilestones,
-  REVENUE_RECORD_PREFIX,
   REVENUE_RESPONSIBILITY_PREFIX,
   REVENUE_SOURCE_SYSTEM,
   revenueRecordType,
@@ -64,12 +64,14 @@ const MANAGER_STAGES = new Set<RevenueCompletionStage>([
 
 const TERMINAL_LEADS = new Set<WardLeadStatus>([WardLeadStatus.CLOSED, WardLeadStatus.LOST]);
 const REVENUE_DOMAIN = 'OR004_REVENUE_COMPLETION';
+type TerminalWardLeadStatus = 'CLOSED' | 'LOST';
 
 @Injectable()
 export class BusinessRevenueCompletionService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly businessResponsibilities: BusinessResponsibilitiesService,
+    private readonly responsibilityCommunications: BusinessResponsibilityCommunicationsService,
   ) {}
 
   async projectForLead(input: {
@@ -109,26 +111,12 @@ export class BusinessRevenueCompletionService {
     dto: RecordRevenueMilestoneDto,
     caller: AuthenticatedUser,
   ): Promise<RevenueCompletionProjection> {
-    const initialLead = await this.findScopedLead(organizationId, leadId);
-    const initialRole = await this.requireCurrentMember(organizationId, caller.id);
-    this.assertStageRole(initialRole, dto.stage);
-
-    let responsibility = await this.findRevenueResponsibility(organizationId, leadId);
-    if (!responsibility) {
-      if (TERMINAL_LEADS.has(initialLead.status)) {
-        throw new ConflictException('A terminal lead cannot begin revenue completion');
-      }
-      responsibility = await this.ensureRevenueResponsibility(
-        organizationId,
-        initialLead,
-        caller,
-      );
-    }
+    const requestKey = revenueResponsibilityRequestKey(leadId);
 
     const result = await this.prisma.db.$transaction(async (tx) => {
-      // Serialize all revenue writes for this exact tenant + lead, not merely
-      // identical request keys. Prerequisites therefore cannot be raced by two
-      // different stage requests arriving at the same time.
+      // The exact same lock is used by legacy terminal WardLead transitions.
+      // Responsibility creation, prerequisite validation, and milestone writes
+      // therefore become one serialized decision about whether OR-004 started.
       const lockKey = `${REVENUE_RESPONSIBILITY_PREFIX}:${organizationId}:${leadId}`;
       await tx.$executeRaw(
         Prisma.sql`SELECT pg_advisory_xact_lock(hashtextextended(${lockKey}, 0))`,
@@ -136,27 +124,35 @@ export class BusinessRevenueCompletionService {
 
       const role = await this.lockCurrentMember(tx, organizationId, caller.id);
       this.assertStageRole(role, dto.stage);
+      this.assertDecisionPayload(dto);
 
       const lead = await tx.wardLead.findFirst({
         where: { id: leadId, organizationId, retentionExpiresAt: { gt: new Date() } },
       });
       if (!lead) throw new NotFoundException(`Lead '${leadId}' not found`);
 
-      const currentResponsibility = await tx.responsibility.findFirst({
+      let currentResponsibility = await tx.responsibility.findFirst({
         where: {
-          id: responsibility.id,
           contextType: ResponsibilityContextType.BUSINESS_TENANT,
           principalOrganizationId: organizationId,
           kind: ResponsibilityKind.BUSINESS_PROMISE,
-          successCriteria: { path: ['domain'], equals: REVENUE_DOMAIN },
+          successCriteria: { path: ['requestKey'], equals: requestKey },
         },
         include: { events: { orderBy: [{ occurredAt: 'asc' }, { id: 'asc' }] } },
       });
-      if (!currentResponsibility) {
-        throw new ConflictException('Revenue responsibility changed; refresh before trying again');
+
+      if (
+        currentResponsibility &&
+        !this.isRevenueResponsibilityForLead(currentResponsibility.successCriteria, leadId)
+      ) {
+        throw new ConflictException(
+          'Revenue responsibility request key is already bound to different work',
+        );
       }
 
-      const milestones = parseRevenueMilestones(currentResponsibility.events);
+      let milestones = currentResponsibility
+        ? parseRevenueMilestones(currentResponsibility.events)
+        : [];
       const existing = milestones.find((milestone) => milestone.requestKey === dto.requestKey);
       if (existing) {
         if (
@@ -171,6 +167,8 @@ export class BusinessRevenueCompletionService {
         return {
           terminal: this.isTerminalMilestone(existing.stage, existing.decision),
           role,
+          responsibilityId: currentResponsibility!.id,
+          acceptedResponsibility: null,
         };
       }
 
@@ -191,14 +189,27 @@ export class BusinessRevenueCompletionService {
         );
       }
 
-      if (dto.stage === RevenueCompletionStage.DECISION_RECORDED && !dto.decision) {
-        throw new BadRequestException('A customer decision is required for DECISION_RECORDED');
-      }
-      if (dto.stage !== RevenueCompletionStage.DECISION_RECORDED && dto.decision) {
-        throw new BadRequestException('decision is only valid for DECISION_RECORDED');
+      let acceptedResponsibility: Awaited<
+        ReturnType<BusinessRevenueCompletionService['createRevenueResponsibilityInTransaction']>
+      > | null = null;
+      if (!currentResponsibility) {
+        currentResponsibility = await this.createRevenueResponsibilityInTransaction(
+          tx,
+          organizationId,
+          lead,
+          caller.id,
+          requestKey,
+        );
+        acceptedResponsibility = currentResponsibility;
+        milestones = [];
       }
 
-      const occurredAt = new Date();
+      const lastOccurredAt = currentResponsibility.events.at(-1)?.occurredAt ?? null;
+      const now = new Date();
+      const occurredAt =
+        lastOccurredAt && now.getTime() <= lastOccurredAt.getTime()
+          ? new Date(lastOccurredAt.getTime() + 1)
+          : now;
       const evidence = {
         sourceSystem: REVENUE_SOURCE_SYSTEM,
         sourceRecordType: revenueRecordType(dto.stage),
@@ -246,18 +257,25 @@ export class BusinessRevenueCompletionService {
       return {
         terminal: this.isTerminalMilestone(dto.stage, dto.decision ?? null),
         role,
+        responsibilityId: currentResponsibility.id,
+        acceptedResponsibility,
       };
     });
+
+    if (result.acceptedResponsibility) {
+      // Step 4 communication remains best-effort and occurs after work truth
+      // commits, exactly like ordinary Business Responsibility acceptance.
+      await this.responsibilityCommunications.accepted(result.acceptedResponsibility);
+    }
 
     if (result.terminal) {
       // Canonical Step 3 owns Business Responsibility completion semantics and
       // communication. If this post-commit continuation ever fails, the API
-      // surfaces uncertainty; a retry with the same request key re-enters the
-      // idempotent branch above and converges this completion rather than
-      // writing a second revenue milestone.
+      // surfaces uncertainty; a retry with the same request key converges the
+      // completion without duplicating revenue evidence.
       await this.businessResponsibilities.complete(
         organizationId,
-        responsibility.id,
+        result.responsibilityId,
         { confirmed: true },
         caller,
       );
@@ -288,48 +306,31 @@ export class BusinessRevenueCompletionService {
     return result.count;
   }
 
-  private async ensureRevenueResponsibility(
+  private async createRevenueResponsibilityInTransaction(
+    tx: Prisma.TransactionClient,
     organizationId: string,
-    lead: Awaited<ReturnType<BusinessRevenueCompletionService['findScopedLead']>>,
-    caller: AuthenticatedUser,
+    lead: Awaited<ReturnType<BusinessRevenueCompletionService['findScopedLeadAllowTerminal']>>,
+    actorUserId: string,
+    requestKey: string,
   ) {
-    const requestKey = revenueResponsibilityRequestKey(lead.id);
-    const created = await this.businessResponsibilities.create(
-      organizationId,
-      {
-        requestKey,
-        objective: 'Carry this Kitchen & Bath sale to a recorded operations handoff or recorded loss.',
-        promise:
-          'Aureus will keep the revenue-completion responsibility visible until the business records an operations handoff or a loss.',
-        criterion:
-          'The existing lead reaches a factual terminal sales outcome: operations handoff recorded or loss recorded.',
-      },
-      caller,
-    );
-
-    const existingCriteria =
-      created.successCriteria &&
-      !Array.isArray(created.successCriteria) &&
-      typeof created.successCriteria === 'object'
-        ? (created.successCriteria as Prisma.JsonObject)
-        : {};
-
-    const updated = await this.prisma.db.responsibility.updateMany({
-      where: {
-        id: created.id,
-        contextType: ResponsibilityContextType.BUSINESS_TENANT,
-        principalOrganizationId: organizationId,
-        kind: ResponsibilityKind.BUSINESS_PROMISE,
-        OR: [
-          { originConversationId: null },
-          { originConversationId: lead.conversationId },
-        ],
-      },
+    const responsibility = await tx.responsibility.create({
       data: {
+        kind: ResponsibilityKind.BUSINESS_PROMISE,
+        objective: 'Carry this Kitchen & Bath sale to a recorded operations handoff or recorded loss.',
+        status: ResponsibilityStatus.ACTIVE,
+        contextType: ResponsibilityContextType.BUSINESS_TENANT,
+        principalUserId: null,
+        principalOrganizationId: organizationId,
         originConversationId: lead.conversationId,
-        retentionExpiresAt: lead.retentionExpiresAt,
+        originOpportunityId: null,
         successCriteria: {
-          ...existingCriteria,
+          type: 'BUSINESS_PROMISE_REPORTED_COMPLETION',
+          promise:
+            'Aureus will keep the revenue-completion responsibility visible until the business records an operations handoff or a loss.',
+          criterion:
+            'The existing lead reaches a factual terminal sales outcome: operations handoff recorded or loss recorded.',
+          requestKey,
+          completionEvidence: 'CURRENT_MANAGER_ATTESTATION',
           domain: REVENUE_DOMAIN,
           leadId: lead.id,
           evidenceSemantics: 'BUSINESS_REPORTED_REVENUE_MILESTONES',
@@ -338,47 +339,60 @@ export class BusinessRevenueCompletionService {
         authorityPolicyVersion: 'or004-revenue-completion-v1',
         privacyScope: ResponsibilityPrivacyScope.BUSINESS_PRIVATE,
         privacyPolicyVersion: 'business-private-v1',
+        dueAt: null,
+        retentionExpiresAt: lead.retentionExpiresAt,
       },
     });
-    if (updated.count !== 1) {
-      throw new ConflictException('Revenue responsibility provenance changed; refresh before retrying');
-    }
 
-    const responsibility = await this.findRevenueResponsibility(organizationId, lead.id);
-    if (!responsibility) {
-      throw new ConflictException('Revenue responsibility could not be established');
-    }
-    return responsibility;
-  }
-
-  private async findRevenueResponsibility(organizationId: string, leadId: string) {
-    const requestKey = revenueResponsibilityRequestKey(leadId);
-    return this.prisma.db.responsibility.findFirst({
-      where: {
-        contextType: ResponsibilityContextType.BUSINESS_TENANT,
-        principalOrganizationId: organizationId,
-        kind: ResponsibilityKind.BUSINESS_PROMISE,
-        successCriteria: {
-          path: ['requestKey'],
-          equals: requestKey,
+    const acceptedAt = new Date();
+    const commitmentAt = new Date(acceptedAt.getTime() + 1);
+    await tx.responsibilityEvent.createMany({
+      data: [
+        {
+          responsibilityId: responsibility.id,
+          type: ResponsibilityEventType.ACCEPTED,
+          actorClass: ResponsibilityActorClass.MEMBER,
+          actorUserId,
+          fromStatus: null,
+          toStatus: ResponsibilityStatus.ACTIVE,
+          occurredAt: acceptedAt,
         },
-      },
+        {
+          responsibilityId: responsibility.id,
+          type: ResponsibilityEventType.COMMITMENT_RECORDED,
+          actorClass: ResponsibilityActorClass.AUREUS,
+          actorUserId: null,
+          fromStatus: null,
+          toStatus: null,
+          occurredAt: commitmentAt,
+        },
+      ],
+    });
+
+    return tx.responsibility.findUniqueOrThrow({
+      where: { id: responsibility.id },
       include: { events: { orderBy: [{ occurredAt: 'asc' }, { id: 'asc' }] } },
     });
   }
 
-  private async requireCurrentMember(
-    organizationId: string,
-    userId: string,
-  ): Promise<OrganizationMemberRole> {
-    const membership = await this.prisma.db.organizationMember.findUnique({
-      where: { organizationId_userId: { organizationId, userId } },
-      include: { organization: { select: { deletedAt: true } } },
+  private async findRevenueResponsibility(organizationId: string, leadId: string) {
+    const requestKey = revenueResponsibilityRequestKey(leadId);
+    const responsibility = await this.prisma.db.responsibility.findFirst({
+      where: {
+        contextType: ResponsibilityContextType.BUSINESS_TENANT,
+        principalOrganizationId: organizationId,
+        kind: ResponsibilityKind.BUSINESS_PROMISE,
+        successCriteria: { path: ['requestKey'], equals: requestKey },
+      },
+      include: { events: { orderBy: [{ occurredAt: 'asc' }, { id: 'asc' }] } },
     });
-    if (!membership || membership.organization.deletedAt) {
-      throw new NotFoundException('Business context not found');
+    if (
+      responsibility &&
+      !this.isRevenueResponsibilityForLead(responsibility.successCriteria, leadId)
+    ) {
+      throw new ConflictException('Revenue responsibility provenance does not match this lead');
     }
-    return membership.role;
+    return responsibility;
   }
 
   private async lockCurrentMember(
@@ -404,21 +418,19 @@ export class BusinessRevenueCompletionService {
     }
   }
 
-  private async findScopedLead(organizationId: string, leadId: string) {
-    const lead = await this.prisma.db.wardLead.findFirst({
-      where: {
-        id: leadId,
-        organizationId,
-        retentionExpiresAt: { gt: new Date() },
-        status: { notIn: [WardLeadStatus.CLOSED, WardLeadStatus.LOST] },
-      },
-    });
-    if (!lead) {
-      const terminal = await this.findScopedLeadAllowTerminal(organizationId, leadId);
-      if (terminal) return terminal;
-      throw new NotFoundException(`Lead '${leadId}' not found`);
+  private assertDecisionPayload(dto: RecordRevenueMilestoneDto): void {
+    if (dto.stage === RevenueCompletionStage.DECISION_RECORDED && !dto.decision) {
+      throw new BadRequestException('A customer decision is required for DECISION_RECORDED');
     }
-    return lead;
+    if (dto.stage !== RevenueCompletionStage.DECISION_RECORDED && dto.decision) {
+      throw new BadRequestException('decision is only valid for DECISION_RECORDED');
+    }
+  }
+
+  private isRevenueResponsibilityForLead(criteria: Prisma.JsonValue, leadId: string): boolean {
+    if (!criteria || Array.isArray(criteria) || typeof criteria !== 'object') return false;
+    const object = criteria as Prisma.JsonObject;
+    return object.domain === REVENUE_DOMAIN && object.leadId === leadId;
   }
 
   private async findScopedLeadAllowTerminal(organizationId: string, leadId: string) {
@@ -431,8 +443,8 @@ export class BusinessRevenueCompletionService {
 
   private async closeLeadInTransaction(
     tx: Prisma.TransactionClient,
-    lead: Awaited<ReturnType<BusinessRevenueCompletionService['findScopedLead']>>,
-    toStatus: WardLeadStatus.CLOSED | WardLeadStatus.LOST,
+    lead: Awaited<ReturnType<BusinessRevenueCompletionService['findScopedLeadAllowTerminal']>>,
+    toStatus: TerminalWardLeadStatus,
     reason: string,
     actorUserId: string,
     occurredAt: Date,
