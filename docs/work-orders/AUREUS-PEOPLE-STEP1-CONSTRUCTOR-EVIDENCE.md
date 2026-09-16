@@ -37,9 +37,10 @@ This branch closes the non-blocking findings from the final independent Step 1 r
 
 1. **Reachability copy/source alignment:** a non-triggered Gate C safe-failure result is no longer treated as proof that a Human Steward is reachable. Reachability is checked directly before member copy or a Human Steward route is projected.
 2. **Complete exhaustion provenance:** the terminal exhaustion ledger keeps `UnresolvedNeed` as the primary terminal source and writes the later `NeedOutcomeReport(STILL_UNRESOLVED)` as its own `ACTION_EVIDENCED` supporting record. The two source records remain separate and auditable.
-3. **DB-backed exhaustion proof:** a dedicated E2E test uses real Postgres-backed Needs/Responsibility persistence to prove `UnresolvedNeed → later STILL_UNRESOLVED report → RESPONSIBLY_EXHAUSTED`, including both evidence events.
+3. **DB-backed exhaustion proof:** a dedicated E2E test uses real Postgres-backed Needs/Responsibility persistence to prove `UnresolvedNeed → later STILL_UNRESOLVED report → RESPONSIBLY_EXHAUSTED`, including both evidence records.
 4. **Ordering regression:** focused unit coverage proves a member report that predates the no-route record cannot terminally exhaust the Responsibility.
-5. **No architecture expansion:** no schema migration, new workflow/case/ticket domain, authority expansion, People UI, household model, billing model, or steward-operations surface is added.
+5. **Database evidence-shape alignment:** the new DB-backed test exposed that the original OR-001 evidence constraint allowed source evidence on `ACTION_EVIDENCED` and `COMPLETED` but not the already-existing `RESPONSIBLY_EXHAUSTED` terminal event, even though the Step 1 repository writes canonical exhaustion evidence there. A constraint-only migration now includes `RESPONSIBLY_EXHAUSTED` in the same evidence-bearing terminal shape. It adds no column, enum, model, authority, privacy scope, or workflow.
+6. **No architecture expansion:** no new workflow/case/ticket domain, authority expansion, People UI, household model, billing model, or steward-operations surface is added.
 
 ## Verification expectations for this hardening candidate
 
@@ -47,7 +48,7 @@ Before this follow-up is merged:
 
 1. product/constructor gates must remain green;
 2. Prisma generation, typecheck, lint, clean migrations, API unit/integration/e2e, web tests/build, seed, and Docker verification must pass on the exact candidate head;
-3. the exact candidate SHA must receive a fresh independent Claude audit, focused on the five closed findings and regressions, with no blocking/high finding;
+3. the exact candidate SHA must receive a fresh independent Claude audit, focused on the five closed findings plus the constraint-only DB repair and regressions, with no blocking/high finding;
 4. any material repair after that audit requires a fresh exact-head verification/review cycle;
 5. Founder separately authorizes merge.
 
