@@ -7,6 +7,7 @@ import {
 } from '@nestjs/common';
 import {
   OpportunityStatus,
+  Prisma,
   ResponsibilityEvidenceLevel,
   ResponsibilityKind,
   ResponsibilityStatus,
@@ -23,6 +24,7 @@ import { ResponsibilityResponseDto } from './dto/responsibility-response.dto';
 import {
   IResponsibilityRepository,
   RESPONSIBILITY_REPOSITORY,
+  ResponsibilityEvidenceInput,
   ResponsibilityWithEvents,
 } from './repositories/responsibility.repository.interface';
 
@@ -152,6 +154,152 @@ export class ResponsibilitiesService {
     });
 
     return ResponsibilityResponseDto.fromEntity(responsibility);
+  }
+
+  /**
+   * OR-004 acceptance boundary. People Resolution owns StatedNeed validation;
+   * Responsibility independently re-validates the owned conversation before
+   * recording Aureus's durable commitment. Client input cannot choose
+   * principal/context/privacy/authority/evidence.
+   */
+  async acceptPersonalNeedResolution(
+    input: {
+      conversationId: string;
+      objective: string;
+      successCriteria: Prisma.InputJsonValue;
+      dueAt?: Date | null;
+    },
+    caller: AuthenticatedUser,
+  ): Promise<ResponsibilityResponseDto> {
+    await this.validateOwnedConversation(input.conversationId, caller);
+
+    const requestedCriteria = input.successCriteria as { statedNeedId?: unknown };
+    const requestedNeedId =
+      typeof requestedCriteria?.statedNeedId === 'string'
+        ? requestedCriteria.statedNeedId
+        : null;
+    if (!requestedNeedId) {
+      throw new ConflictException(
+        'Personal Need Responsibility requires canonical StatedNeed provenance',
+      );
+    }
+
+    const latest = await this.repo.findLatestPersonalByConversationKind(
+      caller.id,
+      input.conversationId,
+      ResponsibilityKind.PERSONAL_NEED_RESOLUTION,
+    );
+    if (latest) {
+      const latestCriteria = latest.successCriteria as { statedNeedId?: unknown } | null;
+      const latestNeedId =
+        latestCriteria && typeof latestCriteria.statedNeedId === 'string'
+          ? latestCriteria.statedNeedId
+          : null;
+
+      // Same canonical need stays the same promise even after terminal state.
+      // POST retries therefore return terminal truth instead of reopening work.
+      if (latestNeedId === requestedNeedId) {
+        return ResponsibilityResponseDto.fromEntity(latest);
+      }
+
+      const terminal =
+        latest.status === ResponsibilityStatus.COMPLETED ||
+        latest.status === ResponsibilityStatus.RESPONSIBLY_EXHAUSTED ||
+        latest.status === ResponsibilityStatus.CANCELLED;
+      if (!terminal) {
+        throw new ConflictException(
+          'This conversation already has an open Personal Need Responsibility for different StatedNeed provenance',
+        );
+      }
+    }
+
+    const responsibility = await this.repo.createAccepted({
+      principalUserId: caller.id,
+      kind: ResponsibilityKind.PERSONAL_NEED_RESOLUTION,
+      objective: input.objective.slice(0, 2000),
+      originConversationId: input.conversationId,
+      originOpportunityId: null,
+      successCriteria: input.successCriteria,
+      dueAt: input.dueAt ?? null,
+    });
+
+    // If a concurrent request for different provenance won the database race,
+    // never return its Responsibility as though it belonged to this request.
+    const persistedCriteria = responsibility.successCriteria as {
+      statedNeedId?: unknown;
+    } | null;
+    if (persistedCriteria?.statedNeedId !== requestedNeedId) {
+      throw new ConflictException(
+        'Personal Need Responsibility provenance changed during concurrent acceptance',
+      );
+    }
+
+    return ResponsibilityResponseDto.fromEntity(responsibility);
+  }
+
+  async findOwnedPersonalNeedResolution(
+    id: string,
+    caller: AuthenticatedUser,
+  ): Promise<ResponsibilityResponseDto> {
+    const current = await this.getOwnedPersonalNeedOrThrow(id, caller.id);
+    return ResponsibilityResponseDto.fromEntity(current);
+  }
+
+  async markPersonalNeedWaitingOnUser(
+    id: string,
+    caller: AuthenticatedUser,
+  ): Promise<ResponsibilityResponseDto> {
+    await this.getOwnedPersonalNeedOrThrow(id, caller.id);
+    const current = await this.repo.markWaitingOnUser(id, caller.id);
+    return ResponsibilityResponseDto.fromEntity(current);
+  }
+
+  async markPersonalNeedWaitingOnThirdParty(
+    id: string,
+    caller: AuthenticatedUser,
+  ): Promise<ResponsibilityResponseDto> {
+    await this.getOwnedPersonalNeedOrThrow(id, caller.id);
+    const current = await this.repo.markWaitingOnThirdParty(id, caller.id);
+    return ResponsibilityResponseDto.fromEntity(current);
+  }
+
+  /**
+   * OR-004 continuation boundary. A member action can satisfy the reason we
+   * were waiting on the member even when no external route is presently
+   * available. In that case Aureus retains ownership instead of leaving the
+   * Responsibility falsely WAITING_ON_USER or terminally exhausting it.
+   */
+  async resumePersonalNeedForAureus(
+    id: string,
+    caller: AuthenticatedUser,
+  ): Promise<ResponsibilityResponseDto> {
+    await this.getOwnedPersonalNeedOrThrow(id, caller.id);
+    const current = await this.repo.resumeFromWaitingOnUser(id, caller.id);
+    return ResponsibilityResponseDto.fromEntity(current);
+  }
+
+  async completePersonalNeedWithEvidence(
+    id: string,
+    caller: AuthenticatedUser,
+    evidence: ResponsibilityEvidenceInput,
+  ): Promise<ResponsibilityResponseDto> {
+    await this.getOwnedPersonalNeedOrThrow(id, caller.id);
+    const current = await this.repo.completeWithEvidence(id, caller.id, evidence);
+    return ResponsibilityResponseDto.fromEntity(current);
+  }
+
+  async exhaustPersonalNeedWithEvidence(
+    id: string,
+    caller: AuthenticatedUser,
+    evidence: ResponsibilityEvidenceInput,
+  ): Promise<ResponsibilityResponseDto> {
+    await this.getOwnedPersonalNeedOrThrow(id, caller.id);
+    const current = await this.repo.responsiblyExhaustWithEvidence(
+      id,
+      caller.id,
+      evidence,
+    );
+    return ResponsibilityResponseDto.fromEntity(current);
   }
 
   async findLatestApplicationGuidanceForConversation(
@@ -315,16 +463,7 @@ export class ResponsibilitiesService {
     dto: CreateResponsibilityDto,
     caller: AuthenticatedUser,
   ) {
-    // Validate conversation provenance first so duplicate lookup never becomes
-    // a side channel for another member's conversation.
-    try {
-      await this.conversations.findById(dto.conversationId, caller);
-    } catch (error) {
-      if (error instanceof ForbiddenException || error instanceof NotFoundException) {
-        throw new NotFoundException('Conversation not found');
-      }
-      throw error;
-    }
+    await this.validateOwnedConversation(dto.conversationId, caller);
 
     const opportunity = await this.opportunities.findById(dto.opportunityId);
     const now = new Date();
@@ -341,6 +480,22 @@ export class ResponsibilitiesService {
     return opportunity;
   }
 
+  private async validateOwnedConversation(
+    conversationId: string,
+    caller: AuthenticatedUser,
+  ): Promise<void> {
+    // Validate provenance first so duplicate lookup never becomes a side
+    // channel for another member's conversation.
+    try {
+      await this.conversations.findById(conversationId, caller);
+    } catch (error) {
+      if (error instanceof ForbiddenException || error instanceof NotFoundException) {
+        throw new NotFoundException('Conversation not found');
+      }
+      throw error;
+    }
+  }
+
   private async getOwnedApplicationGuidanceOrThrow(
     id: string,
     principalUserId: string,
@@ -351,6 +506,17 @@ export class ResponsibilitiesService {
       ResponsibilityKind.OPPORTUNITY_APPLICATION_GUIDANCE
     ) {
       throw new NotFoundException('Application-help Responsibility not found');
+    }
+    return responsibility;
+  }
+
+  private async getOwnedPersonalNeedOrThrow(
+    id: string,
+    principalUserId: string,
+  ): Promise<ResponsibilityWithEvents> {
+    const responsibility = await this.getOwnedOrThrow(id, principalUserId);
+    if (responsibility.kind !== ResponsibilityKind.PERSONAL_NEED_RESOLUTION) {
+      throw new NotFoundException('Personal-need Responsibility not found');
     }
     return responsibility;
   }

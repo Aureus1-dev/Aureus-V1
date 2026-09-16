@@ -1,5 +1,6 @@
 import { ForbiddenException, Inject, Injectable, NotFoundException } from '@nestjs/common';
-import { CitySheetCategory, CitySheetEntryStatus, CitySheetVerificationStatus, UserRole } from '@prisma/client';
+import { CitySheetCategory, CitySheetEntryStatus, CitySheetVerificationStatus, NeedOutcomeStatus, UserRole } from '@prisma/client';
+import type { NeedOutcomeReport } from '@prisma/client';
 import { CitySheetService } from '../city-sheet/city-sheet.service';
 import { UsersService } from '../users/users.service';
 import { StatedNeedResponseDto } from './dto/stated-need-response.dto';
@@ -12,6 +13,7 @@ import {
   IUnresolvedNeedRepository,
   UNRESOLVED_NEED_REPOSITORY,
 } from './repositories/unresolved-need.repository.interface';
+import { INeedOutcomeReportRepository, NEED_OUTCOME_REPORT_REPOSITORY } from './repositories/need-outcome-report.repository.interface';
 import { matchCategoriesForNeed } from './resource-matching.util';
 import { NO_VERIFIED_RESOURCE_NO_STEWARD_REASON, SAFE_FAILURE_MESSAGE, SAFE_FAILURE_NEXT_STEP } from './safe-failure.util';
 
@@ -28,6 +30,7 @@ export class NeedsService {
     @Inject(STATED_NEED_REPOSITORY) private readonly repo: IStatedNeedRepository,
     @Inject(RESOURCE_OFFER_REPOSITORY) private readonly offers: IResourceOfferRepository,
     @Inject(UNRESOLVED_NEED_REPOSITORY) private readonly unresolvedNeeds: IUnresolvedNeedRepository,
+    @Inject(NEED_OUTCOME_REPORT_REPOSITORY) private readonly outcomeReports: INeedOutcomeReportRepository,
     private readonly citySheet: CitySheetService,
     private readonly users: UsersService,
   ) {}
@@ -131,6 +134,41 @@ export class NeedsService {
     const need = await this.getOwnedNeedOrThrow(needId, callerId);
     const rows = await this.offers.findAllByStatedNeed(need.id);
     return rows.map(ResourceOfferResponseDto.fromEntity);
+  }
+
+  /** People Step 1: the member explicitly reports the underlying need outcome. */
+  async recordOutcomeReport(
+    needId: string,
+    status: NeedOutcomeStatus,
+    note: string | null | undefined,
+    callerId: string,
+  ): Promise<NeedOutcomeReport> {
+    const need = await this.getOwnedNeedOrThrow(needId, callerId);
+    return this.outcomeReports.create({
+      userId: callerId,
+      statedNeedId: need.id,
+      status,
+      note: note?.trim() || null,
+    });
+  }
+
+  /** Latest explicit member report, self-scoped through the owned StatedNeed. */
+  async findLatestOutcomeReport(
+    needId: string,
+    callerId: string,
+  ): Promise<NeedOutcomeReport | null> {
+    const need = await this.getOwnedNeedOrThrow(needId, callerId);
+    return this.outcomeReports.findLatestByStatedNeed(need.id);
+  }
+
+  /**
+   * OR-004 needs to distinguish "no verified resource" from "all currently
+   * verified resource routes were already declined." Expose the same
+   * operational reachability fact C7 already uses rather than inferring it
+   * from a safe-failure result or duplicating the Users query elsewhere.
+   */
+  async isHumanStewardReachable(): Promise<boolean> {
+    return this.isStewardReachable();
   }
 
   /**

@@ -17,6 +17,8 @@ import { PrismaOnCallHoursRepository } from './repositories/prisma-on-call-hours
 import { ON_CALL_HOURS_REPOSITORY } from './repositories/on-call-hours.repository.interface';
 import { PrismaUnresolvedNeedRepository } from './repositories/prisma-unresolved-need.repository';
 import { UNRESOLVED_NEED_REPOSITORY } from './repositories/unresolved-need.repository.interface';
+import { PrismaNeedOutcomeReportRepository } from './repositories/prisma-need-outcome-report.repository';
+import { NEED_OUTCOME_REPORT_REPOSITORY } from './repositories/need-outcome-report.repository.interface';
 
 @Module({
   imports: [AuthGuardsModule, CitySheetModule, CommunicationModule, UsersModule],
@@ -29,9 +31,12 @@ import { UNRESOLVED_NEED_REPOSITORY } from './repositories/unresolved-need.repos
     { provide: NEED_ESCALATION_REPOSITORY, useClass: PrismaNeedEscalationRepository },
     { provide: ON_CALL_HOURS_REPOSITORY, useClass: PrismaOnCallHoursRepository },
     { provide: UNRESOLVED_NEED_REPOSITORY, useClass: PrismaUnresolvedNeedRepository },
+    { provide: NEED_OUTCOME_REPORT_REPOSITORY, useClass: PrismaNeedOutcomeReportRepository },
   ],
-  // Exported so the AI Conversations domain (Gate C — C1) can capture a
-  // member's first message as a stated need without duplicating this logic.
-  exports: [NeedsService],
+  // OR-004 reuses the existing Needs domain as the source of truth beneath a
+  // durable Responsibility. Exporting the orchestration services avoids a
+  // second resource/escalation implementation while keeping their repositories
+  // private to this module.
+  exports: [NeedsService, NeedEscalationsService],
 })
 export class NeedsModule {}

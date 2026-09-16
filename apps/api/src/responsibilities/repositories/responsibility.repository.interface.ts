@@ -17,8 +17,9 @@ export interface CreateAcceptedResponsibilityInput {
   kind: ResponsibilityKind;
   objective: string;
   originConversationId: string;
-  originOpportunityId: string;
+  originOpportunityId?: string | null;
   successCriteria: Prisma.InputJsonValue;
+  dueAt?: Date | null;
 }
 
 export interface ResponsibilityEvidenceInput {
@@ -33,6 +34,12 @@ export interface IResponsibilityRepository {
   findOpenOpportunityResponsibility(
     principalUserId: string,
     opportunityId: string,
+    kind: ResponsibilityKind,
+  ): Promise<ResponsibilityWithEvents | null>;
+
+  findOpenConversationResponsibility(
+    principalUserId: string,
+    conversationId: string,
     kind: ResponsibilityKind,
   ): Promise<ResponsibilityWithEvents | null>;
 
@@ -60,12 +67,23 @@ export interface IResponsibilityRepository {
     principalUserId: string,
   ): Promise<ResponsibilityWithEvents>;
 
+  markWaitingOnThirdParty(
+    id: string,
+    principalUserId: string,
+  ): Promise<ResponsibilityWithEvents>;
+
   resumeFromWaitingOnUser(
     id: string,
     principalUserId: string,
   ): Promise<ResponsibilityWithEvents>;
 
   completeWithEvidence(
+    id: string,
+    principalUserId: string,
+    evidence: ResponsibilityEvidenceInput,
+  ): Promise<ResponsibilityWithEvents>;
+
+  responsiblyExhaustWithEvidence(
     id: string,
     principalUserId: string,
     evidence: ResponsibilityEvidenceInput,
