@@ -21,47 +21,153 @@ jobs:
           set -euo pipefail
           python - <<'PY'
           from pathlib import Path
+          import re
 
+          # Replace the entire Personal Need acceptance method so the repair is
+          # resilient to comments/whitespace from earlier constructor passes.
           p = Path('apps/api/src/responsibilities/responsibilities.service.ts')
           s = p.read_text()
-          old = '''    await this.validateOwnedConversation(input.conversationId, caller);\n\n    const existing = await this.repo.findOpenConversationResponsibility(\n      caller.id,\n      input.conversationId,\n      ResponsibilityKind.PERSONAL_NEED_RESOLUTION,\n    );\n    if (existing) return ResponsibilityResponseDto.fromEntity(existing);\n\n    const responsibility = await this.repo.createAccepted({\n      principalUserId: caller.id,\n      kind: ResponsibilityKind.PERSONAL_NEED_RESOLUTION,\n      objective: input.objective.slice(0, 2000),\n      originConversationId: input.conversationId,\n      originOpportunityId: null,\n      successCriteria: input.successCriteria,\n      dueAt: input.dueAt ?? null,\n    });\n\n    return ResponsibilityResponseDto.fromEntity(responsibility);\n'''
-          new = '''    await this.validateOwnedConversation(input.conversationId, caller);\n\n    const requestedCriteria = input.successCriteria as { statedNeedId?: unknown };\n    const requestedNeedId =\n      typeof requestedCriteria?.statedNeedId === 'string'\n        ? requestedCriteria.statedNeedId\n        : null;\n    if (!requestedNeedId) {\n      throw new ConflictException('Personal Need Responsibility requires canonical StatedNeed provenance');\n    }\n\n    const latest = await this.repo.findLatestPersonalByConversationKind(\n      caller.id,\n      input.conversationId,\n      ResponsibilityKind.PERSONAL_NEED_RESOLUTION,\n    );\n    if (latest) {\n      const latestCriteria = latest.successCriteria as { statedNeedId?: unknown } | null;\n      const latestNeedId =\n        latestCriteria && typeof latestCriteria.statedNeedId === 'string'\n          ? latestCriteria.statedNeedId\n          : null;\n\n      // POST retry for the same canonical need is idempotent even after the\n      // Responsibility is terminal. A new life need must have new StatedNeed\n      // provenance; it may never silently inherit the old promise/outcome.\n      if (latestNeedId === requestedNeedId) {\n        return ResponsibilityResponseDto.fromEntity(latest);\n      }\n      if (\n        latest.status !== ResponsibilityStatus.COMPLETED &&\n        latest.status !== ResponsibilityStatus.RESPONSIBLY_EXHAUSTED &&\n        latest.status !== ResponsibilityStatus.CANCELLED\n      ) {\n        throw new ConflictException(\n          'This conversation already has an open Personal Need Responsibility for different StatedNeed provenance',\n        );\n      }\n    }\n\n    const responsibility = await this.repo.createAccepted({\n      principalUserId: caller.id,\n      kind: ResponsibilityKind.PERSONAL_NEED_RESOLUTION,\n      objective: input.objective.slice(0, 2000),\n      originConversationId: input.conversationId,\n      originOpportunityId: null,\n      successCriteria: input.successCriteria,\n      dueAt: input.dueAt ?? null,\n    });\n\n    // A concurrent request for a different need on the same conversation can\n    // lose the partial-unique-index race. Never return the winner as though it\n    // belonged to this request; fail closed on provenance mismatch.\n    const persistedCriteria = responsibility.successCriteria as { statedNeedId?: unknown } | null;\n    if (persistedCriteria?.statedNeedId !== requestedNeedId) {\n      throw new ConflictException(\n        'Personal Need Responsibility provenance changed during concurrent acceptance',\n      );\n    }\n\n    return ResponsibilityResponseDto.fromEntity(responsibility);\n'''
-          if old not in s:
-              raise SystemExit('acceptPersonalNeedResolution block not found')
-          p.write_text(s.replace(old, new, 1))
+          pattern = re.compile(
+              r"  async acceptPersonalNeedResolution\(.*?\n  async findOwnedPersonalNeedResolution\(",
+              re.S,
+          )
+          replacement = '''  async acceptPersonalNeedResolution(
+    input: {
+      conversationId: string;
+      objective: string;
+      successCriteria: Prisma.InputJsonValue;
+      dueAt?: Date | null;
+    },
+    caller: AuthenticatedUser,
+  ): Promise<ResponsibilityResponseDto> {
+    await this.validateOwnedConversation(input.conversationId, caller);
 
-          # Correct Set assertion and use one canonical StatedNeed id for all race attempts.
+    const requestedCriteria = input.successCriteria as { statedNeedId?: unknown };
+    const requestedNeedId =
+      typeof requestedCriteria?.statedNeedId === 'string'
+        ? requestedCriteria.statedNeedId
+        : null;
+    if (!requestedNeedId) {
+      throw new ConflictException(
+        'Personal Need Responsibility requires canonical StatedNeed provenance',
+      );
+    }
+
+    const latest = await this.repo.findLatestPersonalByConversationKind(
+      caller.id,
+      input.conversationId,
+      ResponsibilityKind.PERSONAL_NEED_RESOLUTION,
+    );
+    if (latest) {
+      const latestCriteria = latest.successCriteria as { statedNeedId?: unknown } | null;
+      const latestNeedId =
+        latestCriteria && typeof latestCriteria.statedNeedId === 'string'
+          ? latestCriteria.statedNeedId
+          : null;
+
+      // Same canonical need stays the same promise even after terminal state.
+      // POST retries therefore return terminal truth instead of reopening work.
+      if (latestNeedId === requestedNeedId) {
+        return ResponsibilityResponseDto.fromEntity(latest);
+      }
+
+      const terminal =
+        latest.status === ResponsibilityStatus.COMPLETED ||
+        latest.status === ResponsibilityStatus.RESPONSIBLY_EXHAUSTED ||
+        latest.status === ResponsibilityStatus.CANCELLED;
+      if (!terminal) {
+        throw new ConflictException(
+          'This conversation already has an open Personal Need Responsibility for different StatedNeed provenance',
+        );
+      }
+    }
+
+    const responsibility = await this.repo.createAccepted({
+      principalUserId: caller.id,
+      kind: ResponsibilityKind.PERSONAL_NEED_RESOLUTION,
+      objective: input.objective.slice(0, 2000),
+      originConversationId: input.conversationId,
+      originOpportunityId: null,
+      successCriteria: input.successCriteria,
+      dueAt: input.dueAt ?? null,
+    });
+
+    // If a concurrent request for different provenance won the database race,
+    // never return its Responsibility as though it belonged to this request.
+    const persistedCriteria = responsibility.successCriteria as {
+      statedNeedId?: unknown;
+    } | null;
+    if (persistedCriteria?.statedNeedId !== requestedNeedId) {
+      throw new ConflictException(
+        'Personal Need Responsibility provenance changed during concurrent acceptance',
+      );
+    }
+
+    return ResponsibilityResponseDto.fromEntity(responsibility);
+  }
+
+  async findOwnedPersonalNeedResolution('''
+          s2, count = pattern.subn(replacement, s, count=1)
+          if count != 1:
+              raise SystemExit(f'acceptPersonalNeedResolution method match count={count}')
+          p.write_text(s2)
+
+          # Race test: all concurrent attempts are retries of one canonical need.
           p = Path('apps/api/src/responsibilities/responsibilities.integration.spec.ts')
           s = p.read_text()
           s = s.replace(
-              '''    const conversationId = randomUUID();\n    const attempts = await Promise.all(\n      Array.from({ length: 8 }, (_, index) =>\n        repo.createAccepted({\n          principalUserId: userId,\n          kind: ResponsibilityKind.PERSONAL_NEED_RESOLUTION,\n          successCriteria: {\n            type: 'PERSONAL_NEED_RESOLUTION',\n            statedNeedId: randomUUID(),\n          },\n''',
-              '''    const conversationId = randomUUID();\n    const statedNeedId = randomUUID();\n    const attempts = await Promise.all(\n      Array.from({ length: 8 }, (_, index) =>\n        repo.createAccepted({\n          principalUserId: userId,\n          kind: ResponsibilityKind.PERSONAL_NEED_RESOLUTION,\n          successCriteria: {\n            type: 'PERSONAL_NEED_RESOLUTION',\n            statedNeedId,\n          },\n''',
+              '    const conversationId = randomUUID();\n    const attempts = await Promise.all(',
+              '    const conversationId = randomUUID();\n    const statedNeedId = randomUUID();\n    const attempts = await Promise.all(',
               1,
           )
+          s = s.replace('            statedNeedId: randomUUID(),', '            statedNeedId,', 1)
           s = s.replace(
-              '    expect(new Set(attempts.map((row) => row.id))).toHaveLength(1);\n',
-              '    expect(new Set(attempts.map((row) => row.id)).size).toBe(1);\n',
+              '    expect(new Set(attempts.map((row) => row.id))).toHaveLength(1);',
+              '    expect(new Set(attempts.map((row) => row.id)).size).toBe(1);',
               1,
           )
           p.write_text(s)
 
-          # Terminal retry of the same StatedNeed returns terminal truth; it does not reopen.
+          # Same StatedNeed after completion is a retry, not a new life promise.
           p = Path('apps/api/src/people-resolutions/people-resolutions.e2e.spec.ts')
           s = p.read_text()
-          old = '''            it('does not reopen terminal work on retry', async () => {\n              const retry = await request(app.getHttpServer())\n                .post('/people/resolutions')\n                .set('Authorization', `Bearer ${ownerToken}`)\n                .send({ statedNeedId, objective: 'Try again after completion' })\n                .expect(201);\n\n              expect(retry.body.responsibility.id).not.toBe(responsibilityId);\n              expect(retry.body.responsibility.status).not.toBe(ResponsibilityStatus.COMPLETED);\n            });\n'''
-          new = '''            it('does not reopen terminal work on retry of the same StatedNeed', async () => {\n              const retry = await request(app.getHttpServer())\n                .post('/people/resolutions')\n                .set('Authorization', `Bearer ${ownerToken}`)\n                .send({ statedNeedId, objective: 'Try again after completion' })\n                .expect(201);\n\n              expect(retry.body.responsibility.id).toBe(responsibilityId);\n              expect(retry.body.responsibility.status).toBe(ResponsibilityStatus.COMPLETED);\n              expect(\n                await prisma.db.responsibility.count({\n                  where: {\n                    principalUserId: ownerId,\n                    kind: ResponsibilityKind.PERSONAL_NEED_RESOLUTION,\n                    originConversationId: conversationId,\n                  },\n                }),\n              ).toBe(1);\n            });\n'''
-          if old not in s:
-              raise SystemExit('terminal retry E2E block missing')
-          p.write_text(s.replace(old, new, 1))
+          pattern = re.compile(
+              r"  it\('does not reopen terminal work on retry'.*?\n  \}\);\n(?=\}\);\s*$)",
+              re.S,
+          )
+          replacement = '''  it('does not reopen terminal work on retry of the same StatedNeed', async () => {
+    const retry = await request(app.getHttpServer())
+      .post('/people/resolutions')
+      .set('Authorization', `Bearer ${ownerToken}`)
+      .send({ statedNeedId, objective: 'Try again after completion' })
+      .expect(201);
 
-          # Clarify the contract's retry/new-intent rule.
+    expect(retry.body.responsibility.id).toBe(responsibilityId);
+    expect(retry.body.responsibility.status).toBe(ResponsibilityStatus.COMPLETED);
+    expect(
+      await prisma.db.responsibility.count({
+        where: {
+          principalUserId: ownerId,
+          kind: ResponsibilityKind.PERSONAL_NEED_RESOLUTION,
+          originConversationId: conversationId,
+        },
+      }),
+    ).toBe(1);
+  });
+'''
+          s2, count = pattern.subn(replacement, s, count=1)
+          if count != 1:
+              raise SystemExit(f'terminal retry test match count={count}')
+          p.write_text(s2)
+
+          # Keep the frozen contract aligned, but do not make this text edit a
+          # precondition for the runtime repair.
           p = Path('docs/work-orders/AUREUS-PEOPLE-STEP1-NEED-TO-RESOLUTION.md')
           s = p.read_text()
-          s = s.replace(
-              '- A later explicit member request may create a new responsibility when the prior one is terminal; GET/retry must never reopen terminal work.\n',
-              '- GET/retry or repeated acceptance of the same canonical StatedNeed must return terminal truth and never reopen or duplicate it. A genuinely new member request requires new StatedNeed provenance before a new Responsibility may be created.\n',
-              1,
-          )
+          old = '- A later explicit member request may create a new responsibility when the prior one is terminal; GET/retry must never reopen terminal work.'
+          new = '- GET/retry or repeated acceptance of the same canonical StatedNeed must return terminal truth and never reopen or duplicate it. A genuinely new member request requires new StatedNeed provenance before a new Responsibility may be created.'
+          if old in s:
+              s = s.replace(old, new, 1)
           p.write_text(s)
           PY
 
@@ -70,9 +176,10 @@ jobs:
       - name: Sanity checks
         run: |
           set -euo pipefail
-          grep -q 'same canonical need is idempotent even after' apps/api/src/responsibilities/responsibilities.service.ts
+          grep -q 'Same canonical need stays the same promise' apps/api/src/responsibilities/responsibilities.service.ts
           grep -q 'new Set(attempts.map((row) => row.id)).size' apps/api/src/responsibilities/responsibilities.integration.spec.ts
           grep -q 'retry of the same StatedNeed' apps/api/src/people-resolutions/people-resolutions.e2e.spec.ts
+          test ! -e .github/workflows/people-step1-retry-repair.yml
 
       - name: Commit repair
         run: |
