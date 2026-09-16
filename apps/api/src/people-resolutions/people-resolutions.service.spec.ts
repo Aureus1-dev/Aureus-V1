@@ -1,5 +1,6 @@
 import { NotFoundException } from '@nestjs/common';
 import {
+  CitySheetCategory,
   NeedEscalationStatus,
   NeedOutcomeStatus,
   ResourceOfferResponse,
@@ -19,7 +20,7 @@ const caller = { id: '11111111-1111-4111-8111-111111111111' } as AuthenticatedUs
 const need = {
   id: '22222222-2222-4222-8222-222222222222',
   conversationId: '33333333-3333-4333-8333-333333333333',
-  content: 'My electricity will be shut off Friday',
+  content: 'My electric bill is overdue and my utilities will be shut off Friday',
   createdAt: new Date('2026-09-12T12:00:00Z'),
 };
 
@@ -28,7 +29,7 @@ const resource = (id: string, ref: string): MatchedResourceDto =>
     id,
     citySheetRef: ref,
     organizationName: `Resource ${ref}`,
-    category: 'UTILITY_ASSISTANCE',
+    category: CitySheetCategory.HOUSING_UTILITIES,
     description: 'Verified utility help',
     address: null,
     serviceArea: 'Philadelphia',
@@ -228,7 +229,7 @@ describe('PeopleResolutionsService', () => {
       reason: 'NO_VERIFIED_RESOURCE_NO_STEWARD',
       message: 'No verified route is available.',
       nextStep: 'Aureus will preserve the need.',
-      recordedAt: new Date(),
+      recordedAt: new Date('2026-09-12T12:05:00Z'),
     });
     responsibilities.resumePersonalNeedForAureus.mockResolvedValue(
       responsibility(ResponsibilityStatus.ACTIVE),
@@ -249,6 +250,56 @@ describe('PeopleResolutionsService', () => {
     expect(result.routeKind).toBe(PersonalResolutionRouteKind.NONE);
     expect(result.memberActionRequired).toBe(false);
     expect(result.nextStep).toContain('keeping this Responsibility open');
+  });
+
+  it('responsibly exhausts only after a persisted no-route state is followed by a later still-unresolved report and the no-route state remains current', async () => {
+    const recordedAt = new Date('2026-09-12T12:05:00Z');
+    const unresolvedReport = {
+      id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+      userId: caller.id,
+      statedNeedId: need.id,
+      status: NeedOutcomeStatus.STILL_UNRESOLVED,
+      note: 'I still need help.',
+      createdAt: new Date('2026-09-12T12:10:00Z'),
+    };
+    responsibilities.findOwnedPersonalNeedResolution.mockResolvedValue(
+      responsibility(ResponsibilityStatus.ACTIVE),
+    );
+    needs.findLatestOutcomeReport.mockResolvedValue(unresolvedReport as never);
+    needs.findMatchingResources.mockResolvedValue([]);
+    needs.checkSafeFailure.mockResolvedValue({
+      triggered: true,
+      recordId: '88888888-8888-4888-8888-888888888888',
+      reason: 'NO_VERIFIED_RESOURCE_NO_STEWARD',
+      message: 'No verified route is available.',
+      nextStep: 'Aureus will preserve the need.',
+      recordedAt,
+    });
+    responsibilities.exhaustPersonalNeedWithEvidence.mockResolvedValue(
+      responsibility(ResponsibilityStatus.RESPONSIBLY_EXHAUSTED),
+    );
+
+    const result = await service.continue(
+      '44444444-4444-4444-8444-444444444444',
+      caller,
+    );
+
+    expect(responsibilities.exhaustPersonalNeedWithEvidence).toHaveBeenCalledWith(
+      expect.any(String),
+      caller,
+      expect.objectContaining({
+        sourceSystem: 'NEEDS',
+        sourceRecordType: 'UnresolvedNeed',
+        sourceRecordId: '88888888-8888-4888-8888-888888888888',
+        sourceState: 'NO_VERIFIED_RESOURCE_NO_STEWARD',
+        evidenceLevel: ResponsibilityEvidenceLevel.REPORTED,
+      }),
+    );
+    expect(responsibilities.resumePersonalNeedForAureus).not.toHaveBeenCalled();
+    expect(result.responsibility.status).toBe(ResponsibilityStatus.RESPONSIBLY_EXHAUSTED);
+    expect(result.routeKind).toBe(PersonalResolutionRouteKind.NONE);
+    expect(result.memberActionRequired).toBe(false);
+    expect(result.nextStep).toContain('could not achieve');
   });
 
   it('keeps ownership after all current verified routes are declined and no human is reachable', async () => {
