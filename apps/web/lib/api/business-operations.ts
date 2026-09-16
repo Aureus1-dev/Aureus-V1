@@ -120,7 +120,9 @@ export interface BusinessLeadSummary {
 export interface BusinessLeadDetail extends BusinessLeadSummary {
   outcomeReason: string | null;
   readyProject: KitchenBathReadyProject | null;
-  revenueCompletion: RevenueCompletionProjection | null;
+  // Older fixtures and non-OR-004-compatible callers may omit this optional
+  // projection. The live Step 6 endpoint supplies it for retained Ready Projects.
+  revenueCompletion?: RevenueCompletionProjection | null;
   events: Array<{
     id: string;
     type: string;
