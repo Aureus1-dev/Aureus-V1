@@ -5,6 +5,7 @@ import { CommunicationModule } from '../communication/communication.module';
 import { BusinessTenantMembershipGuard } from '../organizations/guards/business-tenant-membership.guard';
 import { OrganizationsModule } from '../organizations/organizations.module';
 import { ResponsibilitiesModule } from '../responsibilities/responsibilities.module';
+import { BusinessLeadTransitionService } from './business-lead-transition.service';
 import { BusinessRevenueCompletionService } from './business-revenue-completion.service';
 import { BusinessWardLeadController } from './business-ward-lead.controller';
 import { KitchenBathPublicController } from './kitchen-bath-public.controller';
@@ -32,6 +33,7 @@ import { WardLeadService } from './ward-lead.service';
   providers: [
     PublicWardService,
     WardLeadService,
+    BusinessLeadTransitionService,
     BusinessRevenueCompletionService,
     KitchenBathPublicService,
     TelephonyContinuityService,
@@ -40,6 +42,7 @@ import { WardLeadService } from './ward-lead.service';
   exports: [
     PublicWardService,
     WardLeadService,
+    BusinessLeadTransitionService,
     BusinessRevenueCompletionService,
     KitchenBathPublicService,
     TelephonyContinuityService,
