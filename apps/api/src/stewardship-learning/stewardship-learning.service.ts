@@ -192,10 +192,14 @@ export class StewardshipLearningService {
       const classification = classifyExplicitMemberLearningSignal(message.content);
       if (!classification) continue;
 
-      // PEOPLE-LEARN-001 Step 1 learns only from the existing universal
-      // People need-to-resolution loop. Do not manufacture a work_id or
-      // attribute another Personal Responsibility kind to that capability.
-      const responsibility = byConversation.get(message.conversationId);
+      // A single conversation may carry sequential People Responsibilities.
+      // Link the message to the Responsibility that existed when the member
+      // wrote it, not simply the newest Responsibility in that conversation.
+      // Each lifetime is [createdAt, next Responsibility createdAt).
+      const responsibility = this.responsibilityAt(
+        byConversation.get(message.conversationId),
+        message.createdAt,
+      );
       if (!responsibility) continue;
 
       candidates.push({
@@ -251,17 +255,35 @@ export class StewardshipLearningService {
 
   private indexResponsibilitiesByConversation(
     responsibilities: ResponsibilityPointer[],
-  ): Map<string, ResponsibilityPointer> {
-    const result = new Map<string, ResponsibilityPointer>();
+  ): Map<string, ResponsibilityPointer[]> {
+    const result = new Map<string, ResponsibilityPointer[]>();
     for (const responsibility of responsibilities) {
-      if (
-        responsibility.originConversationId &&
-        !result.has(responsibility.originConversationId)
-      ) {
-        result.set(responsibility.originConversationId, responsibility);
+      if (!responsibility.originConversationId) continue;
+      const current = result.get(responsibility.originConversationId) ?? [];
+      current.push(responsibility);
+      result.set(responsibility.originConversationId, current);
+    }
+
+    for (const timeline of result.values()) {
+      timeline.sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
+    }
+
+    return result;
+  }
+
+  private responsibilityAt(
+    timeline: ResponsibilityPointer[] | undefined,
+    occurredAt: Date,
+  ): ResponsibilityPointer | null {
+    if (!timeline?.length) return null;
+
+    for (let index = timeline.length - 1; index >= 0; index -= 1) {
+      if (timeline[index].createdAt.getTime() <= occurredAt.getTime()) {
+        return timeline[index];
       }
     }
-    return result;
+
+    return null;
   }
 
   private readStatedNeedId(value: Prisma.JsonValue): string | null {
