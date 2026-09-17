@@ -69,6 +69,20 @@ Where counsel is engaged, the licensed lawyer owns the professional legal judgme
 
 Aureus supports counsel; it does not compete with or silently override counsel.
 
+### Member-facing role disclosure
+
+The role boundary must be visible to the member, not merely true inside the architecture.
+
+At Matter creation — and again before any high-consequence legal-support flow where confusion could reasonably arise — Aureus must plainly disclose, in the member-facing experience, that:
+
+- Aureus is a steward and **not a lawyer or law firm**;
+- Aureus is not entering an attorney-client relationship merely by opening or helping with a Matter;
+- Aureus can help organize, research current authoritative sources, track deadlines, prepare records/questions, and carry permitted administrative work;
+- licensed professional judgment or representation may still be required and will be routed through the human/legal gate when applicable;
+- the member remains the principal and retains their legal decisions.
+
+The disclosure must be understandable, proximate to the legal workflow, and testable. It must not be buried only in Terms of Service or used as a substitute for actually enforcing the role/authority boundary.
+
 ### Aureus owns stewardship
 
 Within granted authority, Aureus may carry:
@@ -124,6 +138,25 @@ Every material authority used by Aureus should preserve enough metadata to answe
 - **is applicability verified, uncertain, or still requiring licensed judgment?**
 
 If jurisdiction, posture, authority, or deadline treatment is unclear, the system escalates rather than guesses.
+
+### Jurisdiction-level legal-assistance enablement gate
+
+Before Aureus enables a category of legal assistance in a jurisdiction, the implementation must establish the permitted scope of that assistance for that jurisdiction and matter type, including any unauthorized-practice-of-law, representation, document-preparation, advocacy, or other restrictions material to the proposed capability.
+
+The enablement decision must be explicit and reviewable rather than inferred from the existence of a generic legal feature. At minimum it should preserve:
+
+- jurisdiction;
+- matter / assistance category;
+- source(s) and date checked;
+- permitted scope;
+- prohibited or human/licensed-only scope;
+- unresolved uncertainty;
+- reviewer / approval basis when a legal gate is required;
+- version or effective date of the enablement rule.
+
+If the permissible scope has not been established, Aureus must default to the narrower safe mode: organize member-provided information, retrieve and cite current official sources, track known dates, and route to qualified assistance, while withholding any jurisdiction-sensitive capability that could cross a professional or legal boundary.
+
+A disclaimer never creates permission to perform an otherwise prohibited act.
 
 ---
 
@@ -369,6 +402,26 @@ Aureus must not claim that information is protected by attorney-client privilege
 
 Consequential external actions require the same explicit authority discipline as the rest of Aureus. A learning signal, model inference, prior similar case, or operational convenience never grants authority.
 
+### Retention, deletion, and legal-hold treatment
+
+Matter records must not be retained forever by default merely because they are legally sensitive or potentially useful.
+
+Before production use, the Matter implementation must define and enforce a retention/deletion policy that works with Aureus's broader privacy controls while accounting for any jurisdiction-, matter-, evidence-, contract-, litigation-hold-, or legal-obligation-specific requirement that legitimately changes ordinary retention.
+
+The record should preserve enough governance metadata to determine, where applicable:
+
+- the governing retention basis;
+- retention start / trigger event;
+- scheduled review or deletion date when one can be determined;
+- member deletion request status;
+- any lawful hold or preservation requirement and its authority/source;
+- who or what authorized an exception;
+- whether the record is active, closed, preserved, eligible for deletion, or actually deleted/anonymized.
+
+Matter closure does not automatically mean immediate deletion, and legal sensitivity does not automatically justify indefinite retention. When a member deletion request conflicts with a valid preservation duty or another uncertain legal obligation, Aureus must preserve the conflict truthfully and route it to the legal/human gate rather than silently deleting or silently retaining.
+
+Derived learning data must follow its own governed minimization/retention rules and must not become a back door for preserving raw Matter content after the source record should no longer be retained.
+
 ---
 
 ## 13. Truth and provenance
@@ -452,7 +505,9 @@ real People conversation
  -> legal need recognized
  -> canonical StatedNeed / Responsibility
  -> bounded Matter record linked to Responsibility
+ -> member-facing steward-not-lawyer disclosure
  -> jurisdiction + forum + posture + urgency
+ -> jurisdiction-level assistance enablement gate satisfied for the capability used
  -> at least one current authoritative source with provenance/freshness
  -> member-reported fact separated from verified official fact
  -> evidence / notice / deadline represented
@@ -461,6 +516,7 @@ real People conversation
  -> human/legal gate demonstrated for reserved judgment/action
  -> permitted next action tracked
  -> truthful result/outcome recorded
+ -> retention/deletion state and any preservation basis represented
  -> Matter remains open until completion/transfer/closure is evidenced
 ```
 
@@ -471,13 +527,16 @@ The first slice must include both allow-path and deny-path proof.
 At minimum prove that Aureus cannot:
 
 - expose one member's Matter to another member;
+- enter a legal-support flow without the required member-facing steward-not-lawyer disclosure;
+- enable a jurisdiction-sensitive assistance capability without an established jurisdiction-level permission/scope gate;
 - treat a civil matter as if a public defender is automatically available;
 - represent stale/model-memory-only law as current verified authority;
 - upgrade member-reported facts to official facts;
 - execute a gated legal action without authority;
 - mark a Matter complete because a referral was merely provided;
 - reassign evidence or deadlines to the wrong Responsibility / Matter;
-- leak raw legal content into the stewardship-learning candidate export.
+- leak raw legal content into the stewardship-learning candidate export;
+- retain a closed Matter indefinitely without an explicit governed retention/preservation basis, or delete one despite an active lawful preservation requirement.
 
 ---
 
@@ -486,6 +545,8 @@ At minimum prove that Aureus cannot:
 This contract does not authorize:
 
 - Aureus practicing law;
+- treating a disclaimer as permission to practice law or perform another prohibited legal service;
+- enabling jurisdiction-sensitive legal assistance before the jurisdiction-level scope gate is established;
 - autonomous representation;
 - autonomous settlement / plea / waiver / filing decisions;
 - a generalized law-firm product;
@@ -524,7 +585,7 @@ No model review, CI result, issue label, or draft PR substitutes for Founder mer
 - carrying deadlines and execution rather than merely advising;
 - finding and supporting counsel where available;
 - responsibly preparing a pro se member where counsel is unavailable and the member chooses to proceed;
-- respecting privacy and explicit authority;
+- respecting privacy, explicit authority, member-facing role disclosure, and governed retention/deletion;
 - invoking human/legal judgment where required;
 - reusing the canonical People/Responsibility/evidence system;
 - proving completion through the ledger.
