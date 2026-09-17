@@ -109,6 +109,7 @@ export class StewardshipLearningService {
       ? await this.prisma.db.responsibility.findMany({
           where: {
             contextType: ResponsibilityContextType.PERSONAL,
+            kind: ResponsibilityKind.PERSONAL_NEED_RESOLUTION,
             originConversationId: { in: [...conversationIds] },
           },
           select: {
@@ -191,12 +192,17 @@ export class StewardshipLearningService {
       const classification = classifyExplicitMemberLearningSignal(message.content);
       if (!classification) continue;
 
+      // PEOPLE-LEARN-001 Step 1 learns only from the existing universal
+      // People need-to-resolution loop. Do not manufacture a work_id or
+      // attribute another Personal Responsibility kind to that capability.
       const responsibility = byConversation.get(message.conversationId);
+      if (!responsibility) continue;
+
       candidates.push({
         contract_version: '1.0.0',
         context: this.contextFor(message.conversation.userId, generatedAt),
         event_id: `member-message:${message.id}`,
-        work_id: responsibility?.id ?? `conversation:${message.conversationId}`,
+        work_id: responsibility.id,
         outcome: 'unknown',
         feedback: {
           signal_kind: classification.signalKind,
@@ -211,9 +217,7 @@ export class StewardshipLearningService {
           source_provenance: 'REPORTED',
           classification_provenance: 'INFERRED',
           capability_hints: classification.capabilityHints,
-          capabilities_used: responsibility
-            ? [ResponsibilityKind.PERSONAL_NEED_RESOLUTION]
-            : ['CONVERSATION'],
+          capabilities_used: [ResponsibilityKind.PERSONAL_NEED_RESOLUTION],
           causal_attribution: 'UNDETERMINED',
         },
         occurred_at: message.createdAt.toISOString(),
