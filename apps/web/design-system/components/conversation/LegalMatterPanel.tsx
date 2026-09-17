@@ -190,11 +190,7 @@ export function LegalMatterPanel({
               />
               I understand Aureus is acting as a steward, not my lawyer or law firm.
             </label>
-            <p className={styles.copy}>
-        {matter.representationRouting.note}
-      </p>
-
-      <div className={styles.actions}>
+            <div className={styles.actions}>
               <Button type="submit" disabled={opening || !disclosureAccepted}>
                 {opening ? 'Opening Matter…' : 'Open Matter'}
               </Button>
@@ -241,6 +237,8 @@ export function LegalMatterPanel({
           and route qualified help—but will not cross into jurisdiction-sensitive legal work.
         </p>
       ) : null}
+
+      <p className={styles.copy}>{matter.representationRouting.note}</p>
 
       {matter.deadlines.length > 0 ? (
         <div className={styles.section}>
