@@ -22,6 +22,7 @@ describe('PEOPLE-LEARN-001 — Stewardship Learning Loop E2E', () => {
   let memberMessageId: string;
   let unrelatedMessageId: string;
   let outcomeReportId: string;
+  let unresolvedNeedId: string;
 
   const marker = `people-learn-${randomUUID()}`;
   const privateFeedback = `I already told you about my calendar ${marker}`;
@@ -106,6 +107,22 @@ describe('PEOPLE-LEARN-001 — Stewardship Learning Loop E2E', () => {
       orderBy: { createdAt: 'desc' },
     });
     outcomeReportId = report.id;
+
+    const existingUnresolved = await prisma.db.unresolvedNeed.findFirst({
+      where: { statedNeedId },
+      orderBy: { createdAt: 'desc' },
+    });
+    const unresolved =
+      existingUnresolved ??
+      (await prisma.db.unresolvedNeed.create({
+        data: {
+          userId: memberId,
+          statedNeedId,
+          reason: 'NO_CURRENT_ROUTE',
+          message: 'No verified route is currently available.',
+        },
+      }));
+    unresolvedNeedId = unresolved.id;
 
     const unrelatedConversation = await request(app.getHttpServer())
       .post('/ai/conversations')
@@ -201,6 +218,27 @@ describe('PEOPLE-LEARN-001 — Stewardship Learning Loop E2E', () => {
         source_provenance: 'REPORTED',
         classification_provenance: 'OBSERVED',
         causal_attribution: 'UNDETERMINED',
+      },
+    });
+
+    const operationalFailureCandidate = response.body.candidates.find(
+      (candidate: { event_id: string }) =>
+        candidate.event_id === `unresolved-need:${unresolvedNeedId}`,
+    );
+    expect(operationalFailureCandidate).toMatchObject({
+      work_id: responsibilityId,
+      outcome: 'unknown',
+      candidate_only: true,
+      feedback: {
+        signal_kind: 'NO_CURRENT_ROUTE',
+        source: {
+          system: 'NEEDS',
+          record_type: 'UnresolvedNeed',
+          record_id: unresolvedNeedId,
+        },
+        source_provenance: 'OBSERVED',
+        classification_provenance: 'OBSERVED',
+        causal_attribution: 'NOT_APPLICABLE',
       },
     });
 
