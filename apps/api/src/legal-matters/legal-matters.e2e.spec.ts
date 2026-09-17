@@ -27,9 +27,11 @@ describe('PEOPLE-LEGAL-001 Matter Stewardship E2E', () => {
   let ownerId: string;
   let otherId: string;
   let stewardId: string;
+  let adminId: string;
   let ownerToken: string;
   let otherToken: string;
   let stewardToken: string;
+  let adminToken: string;
   let conversationId: string;
   let statedNeedId: string;
   let matterId: string;
@@ -53,15 +55,21 @@ describe('PEOPLE-LEGAL-001 Matter Stewardship E2E', () => {
     const ownerEmail = `owner-${marker}@example.test`;
     const otherEmail = `other-${marker}@example.test`;
     const stewardEmail = `steward-${marker}@example.test`;
+    const adminEmail = `admin-${marker}@example.test`;
     const owner = await prisma.db.user.create({ data: { email: ownerEmail } });
     const other = await prisma.db.user.create({ data: { email: otherEmail } });
     const steward = await prisma.db.user.create({ data: { email: stewardEmail, roles: [UserRole.STEWARD] } });
+    const admin = await prisma.db.user.create({
+      data: { email: adminEmail, roles: [UserRole.PLATFORM_ADMINISTRATOR] },
+    });
     ownerId = owner.id;
     otherId = other.id;
     stewardId = steward.id;
+    adminId = admin.id;
     ownerToken = tokenFor(ownerId, ownerEmail, [UserRole.MEMBER]);
     otherToken = tokenFor(otherId, otherEmail, [UserRole.MEMBER]);
     stewardToken = tokenFor(stewardId, stewardEmail, [UserRole.STEWARD]);
+    adminToken = tokenFor(adminId, adminEmail, [UserRole.PLATFORM_ADMINISTRATOR]);
 
     const conversation = await request(app.getHttpServer())
       .post('/ai/conversations')
@@ -107,7 +115,9 @@ describe('PEOPLE-LEGAL-001 Matter Stewardship E2E', () => {
       await prisma.db.responsibility.deleteMany({ where: { principalUserId: ownerId } });
       await prisma.db.statedNeed.deleteMany({ where: { userId: ownerId } });
     }
-    await prisma.db.user.deleteMany({ where: { id: { in: [ownerId, otherId, stewardId].filter(Boolean) } } });
+    await prisma.db.user.deleteMany({
+      where: { id: { in: [ownerId, otherId, stewardId, adminId].filter(Boolean) } },
+    });
     await app.close();
   });
 
@@ -153,6 +163,8 @@ describe('PEOPLE-LEGAL-001 Matter Stewardship E2E', () => {
     expect(response.body.responsibility.kind).toBe('PERSONAL_NEED_RESOLUTION');
     expect(response.body.deadlines[0].status).toBe('REPORTED');
     expect(response.body.retention.state).toBe(LegalMatterRetentionState.ACTIVE);
+    expect(response.body.responsibility.status).not.toBe(ResponsibilityStatus.COMPLETED);
+    expect(response.body.representationRouting.publicDefenderAutomaticallyAssumed).toBe(false);
     expect(response.body.legalAidResources).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
@@ -193,6 +205,75 @@ describe('PEOPLE-LEGAL-001 Matter Stewardship E2E', () => {
       .send({ statement: 'The complaint says a hearing is scheduled.' })
       .expect(201);
     expect(fact.body.provenance).toBe(LegalMatterProvenance.REPORTED);
+  });
+
+  it('does not expose raw Legal Matter content through the stewardship-learning projection', async () => {
+    const privateMarker = `raw-legal-private-${marker}`;
+    await request(app.getHttpServer())
+      .post(`/people/legal-matters/${matterId}/facts`)
+      .set('Authorization', `Bearer ${ownerToken}`)
+      .send({ statement: privateMarker })
+      .expect(201);
+
+    const candidates = await request(app.getHttpServer())
+      .get('/stewardship-learning/candidates')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .expect(200);
+
+    expect(JSON.stringify(candidates.body)).not.toContain(privateMarker);
+  });
+
+  it('rejects binding a source from a different Matter to this Matter deadline', async () => {
+    const secondConversation = await request(app.getHttpServer())
+      .post('/ai/conversations')
+      .set('Authorization', `Bearer ${ownerToken}`)
+      .send({ title: 'Second legal matter conversation' })
+      .expect(201);
+    const secondNeed = await prisma.db.statedNeed.create({
+      data: {
+        userId: ownerId,
+        conversationId: secondConversation.body.id,
+        content: 'I have a separate court notice that needs its own legal matter.',
+      },
+    });
+
+    const secondMatter = await request(app.getHttpServer())
+      .post('/people/legal-matters')
+      .set('Authorization', `Bearer ${ownerToken}`)
+      .send({
+        statedNeedId: secondNeed.id,
+        objective: 'Carry this separate legal matter',
+        jurisdiction: 'Pennsylvania',
+        matterType: 'civil / separate matter',
+        proceduralPosture: 'notice received',
+        urgency: LegalMatterUrgency.ROUTINE,
+        disclosureAccepted: true,
+      })
+      .expect(201);
+
+    const secondSource = await request(app.getHttpServer())
+      .post(`/people/legal-matters/${secondMatter.body.id}/sources`)
+      .set('Authorization', `Bearer ${ownerToken}`)
+      .send({
+        title: 'Separate matter source',
+        url: 'https://example.test/separate-official-source',
+        kind: LegalMatterSourceKind.OFFICIAL_PROCEDURE,
+        jurisdiction: 'Pennsylvania',
+        proposition: 'A source attached to the separate Matter.',
+      })
+      .expect(201);
+
+    await request(app.getHttpServer())
+      .post(`/people/legal-matters/${matterId}/deadlines`)
+      .set('Authorization', `Bearer ${ownerToken}`)
+      .send({
+        label: 'Wrong-matter source must not bind',
+        dueAt: '2026-10-01T12:00:00-04:00',
+        timeZone: 'America/New_York',
+        trigger: 'Cross-Matter binding test',
+        sourceId: secondSource.body.id,
+      })
+      .expect(404);
   });
 
   it('requires an explicit member review request before an internal source identity check', async () => {

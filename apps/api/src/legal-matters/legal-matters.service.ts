@@ -304,6 +304,7 @@ export class LegalMattersService {
       facts: state.facts,
       sources: state.sources,
       legalAidResources: state.legalAidResources,
+      representationRouting: state.representationRouting,
       unresolvedLegalQuestions: [
         'Which legal propositions actually control these facts?',
         'Are any reported deadlines legally calculated or only member-reported?',
@@ -426,6 +427,13 @@ export class LegalMattersService {
     return {
       ...matter,
       legalAidResources: legalAidPage.data,
+      representationRouting: {
+        publicDefenderAutomaticallyAssumed: false,
+        route:
+          'VERIFY_COUNSEL_ELIGIBILITY_AND_USE_VERIFIED_LEGAL_AID_OR_OFFICIAL_SELF_HELP',
+        note:
+          'Aureus never assumes a public defender is available. Criminal appointed-counsel eligibility and civil legal-aid/right-to-counsel/self-help routes must be verified for the actual matter and jurisdiction.',
+      },
       jurisdictionGate: policy
         ? {
             status: policy.status,

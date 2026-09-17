@@ -42,6 +42,11 @@ const baseMatter: LegalMatterDto = {
   reviewRequests: [],
   documentLinks: [],
   legalAidResources: [],
+  representationRouting: {
+    publicDefenderAutomaticallyAssumed: false,
+    route: 'VERIFY_COUNSEL_ELIGIBILITY_AND_USE_VERIFIED_LEGAL_AID_OR_OFFICIAL_SELF_HELP',
+    note: 'Aureus never assumes a public defender is available.',
+  },
   jurisdictionGate: {
     status: 'SAFE_MODE_ONLY',
     sourceUrl: null,

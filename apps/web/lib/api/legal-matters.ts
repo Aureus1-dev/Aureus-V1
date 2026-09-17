@@ -104,6 +104,11 @@ export interface LegalMatterDto {
     };
   }>;
   legalAidResources: LegalAidResourceDto[];
+  representationRouting: {
+    publicDefenderAutomaticallyAssumed: false;
+    route: string;
+    note: string;
+  };
   jurisdictionGate: {
     status: 'SAFE_MODE_ONLY' | 'ENABLED' | 'DISABLED';
     sourceUrl: string | null;
@@ -272,6 +277,11 @@ export function getLegalPreparationPacket(accessToken: string, matterId: string)
     facts: LegalMatterFactDto[];
     sources: LegalMatterSourceDto[];
     legalAidResources: LegalAidResourceDto[];
+    representationRouting: {
+      publicDefenderAutomaticallyAssumed: false;
+      route: string;
+      note: string;
+    };
     unresolvedLegalQuestions: string[];
     memberDecisionsRemainWithMember: true;
     legalReviewRequired: boolean;

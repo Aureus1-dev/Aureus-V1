@@ -190,7 +190,11 @@ export function LegalMatterPanel({
               />
               I understand Aureus is acting as a steward, not my lawyer or law firm.
             </label>
-            <div className={styles.actions}>
+            <p className={styles.copy}>
+        {matter.representationRouting.note}
+      </p>
+
+      <div className={styles.actions}>
               <Button type="submit" disabled={opening || !disclosureAccepted}>
                 {opening ? 'Opening Matter…' : 'Open Matter'}
               </Button>
@@ -334,7 +338,7 @@ export function LegalMatterPanel({
             <input required value={sourceTitle} onChange={(event) => setSourceTitle(event.target.value)} />
           </label>
           <label className={styles.label}>
-            Official HTTPS URL
+            Source HTTPS URL (official status is verified separately)
             <input required type="url" value={sourceUrl} onChange={(event) => setSourceUrl(event.target.value)} />
           </label>
           <label className={styles.label}>
@@ -402,7 +406,7 @@ export function LegalMatterPanel({
 
       {matter.legalAidResources.length > 0 ? (
         <div className={styles.section}>
-          <h3>Verified legal-help routes</h3>
+          <h3>Verified legal-help directory entries</h3>
           {matter.legalAidResources.map((resource) => (
             <div className={styles.item} key={resource.id}>
               <strong>{resource.organizationName}</strong>
@@ -411,7 +415,10 @@ export function LegalMatterPanel({
               {resource.website ? (
                 <a href={resource.website} target="_blank" rel="noreferrer">Official website</a>
               ) : null}
-              <small>Verified resource route. A referral is not treated as completion.</small>
+              <small>
+                The directory entry is verified. Eligibility, jurisdictional fit, and representation
+                availability still require confirmation. A referral is not treated as completion.
+              </small>
             </div>
           ))}
         </div>
