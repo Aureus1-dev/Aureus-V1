@@ -217,6 +217,10 @@ describe('PEOPLE-LEGAL-001 Matter Stewardship E2E', () => {
 
     const candidates = await request(app.getHttpServer())
       .get('/stewardship-learning/candidates')
+      .query({
+        since: new Date(Date.now() - 60_000).toISOString(),
+        limit: 200,
+      })
       .set('Authorization', `Bearer ${adminToken}`)
       .expect(200);
 
