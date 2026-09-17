@@ -20,6 +20,7 @@ describe('PEOPLE-LEARN-001 — Stewardship Learning Loop E2E', () => {
   let statedNeedId: string;
   let responsibilityId: string;
   let memberMessageId: string;
+  let unrelatedMessageId: string;
   let outcomeReportId: string;
 
   const marker = `people-learn-${randomUUID()}`;
@@ -105,6 +106,20 @@ describe('PEOPLE-LEARN-001 — Stewardship Learning Loop E2E', () => {
       orderBy: { createdAt: 'desc' },
     });
     outcomeReportId = report.id;
+
+    const unrelatedConversation = await request(app.getHttpServer())
+      .post('/ai/conversations')
+      .set('Authorization', `Bearer ${memberToken}`)
+      .send({ title: 'Unrelated conversation without People responsibility' })
+      .expect(201);
+    const unrelatedMessage = await prisma.db.aiMessage.create({
+      data: {
+        conversationId: unrelatedConversation.body.id,
+        role: AiMessageRole.USER,
+        content: `I already told you about my calendar outside a People responsibility ${marker}`,
+      },
+    });
+    unrelatedMessageId = unrelatedMessage.id;
   });
 
   afterAll(async () => {
@@ -188,6 +203,13 @@ describe('PEOPLE-LEARN-001 — Stewardship Learning Loop E2E', () => {
         causal_attribution: 'UNDETERMINED',
       },
     });
+
+    expect(
+      response.body.candidates.some(
+        (candidate: { event_id: string }) =>
+          candidate.event_id === `member-message:${unrelatedMessageId}`,
+      ),
+    ).toBe(false);
 
     const serialized = JSON.stringify(response.body);
     expect(serialized).not.toContain(privateFeedback);
