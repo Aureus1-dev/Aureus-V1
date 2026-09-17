@@ -19,6 +19,7 @@ describe('PEOPLE-LEARN-001 — Stewardship Learning Loop E2E', () => {
   let conversationId: string;
   let statedNeedId: string;
   let responsibilityId: string;
+  let secondResponsibilityId: string;
   let memberMessageId: string;
   let unrelatedMessageId: string;
   let outcomeReportId: string;
@@ -124,6 +125,33 @@ describe('PEOPLE-LEARN-001 — Stewardship Learning Loop E2E', () => {
       }));
     unresolvedNeedId = unresolved.id;
 
+    // End the first Responsibility, then create another People Responsibility
+    // in the same long-lived conversation. The earlier member feedback must
+    // continue to link to the Responsibility that existed when it was written.
+    await request(app.getHttpServer())
+      .post(`/people/resolutions/${responsibilityId}/outcome`)
+      .set('Authorization', `Bearer ${memberToken}`)
+      .send({ resolved: true, note: `First need later resolved ${marker}` })
+      .expect(201);
+
+    const secondNeed = await prisma.db.statedNeed.create({
+      data: {
+        userId: memberId,
+        conversationId,
+        content: `I now need help with a separate follow-up task ${marker}`,
+      },
+    });
+    const secondAccepted = await request(app.getHttpServer())
+      .post('/people/resolutions')
+      .set('Authorization', `Bearer ${memberToken}`)
+      .send({
+        statedNeedId: secondNeed.id,
+        objective: 'Carry this separate follow-up need to resolution',
+      })
+      .expect(201);
+    secondResponsibilityId = secondAccepted.body.responsibility.id;
+    expect(secondResponsibilityId).not.toBe(responsibilityId);
+
     const unrelatedConversation = await request(app.getHttpServer())
       .post('/ai/conversations')
       .set('Authorization', `Bearer ${memberToken}`)
@@ -200,6 +228,7 @@ describe('PEOPLE-LEARN-001 — Stewardship Learning Loop E2E', () => {
         causal_attribution: 'UNDETERMINED',
       },
     });
+    expect(feedbackCandidate.work_id).not.toBe(secondResponsibilityId);
 
     const outcomeCandidate = response.body.candidates.find(
       (candidate: { event_id: string }) => candidate.event_id === `need-outcome:${outcomeReportId}`,
