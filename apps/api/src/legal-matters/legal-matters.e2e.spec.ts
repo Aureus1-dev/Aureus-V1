@@ -3,6 +3,9 @@ import { INestApplication, ValidationPipe } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { Test } from '@nestjs/testing';
 import {
+  CitySheetCategory,
+  CitySheetEntryStatus,
+  CitySheetVerificationStatus,
   LegalActionType,
   LegalMatterProvenance,
   LegalMatterRetentionState,
@@ -31,6 +34,7 @@ describe('PEOPLE-LEGAL-001 Matter Stewardship E2E', () => {
   let statedNeedId: string;
   let matterId: string;
   let sourceId: string;
+  let legalAidId: string;
 
   const marker = 'people-legal-' + randomUUID();
   const tokenFor = (id: string, email: string, roles: UserRole[]) =>
@@ -74,9 +78,30 @@ describe('PEOPLE-LEGAL-001 Matter Stewardship E2E', () => {
       },
     });
     statedNeedId = need.id;
+
+    const legalAid = await prisma.db.citySheetEntry.create({
+      data: {
+        organizationName: 'Verified Legal Aid Test Route',
+        category: CitySheetCategory.LEGAL_AID,
+        description: 'A verified test legal-aid route for the Matter Stewardship slice.',
+        serviceArea: 'Philadelphia, Pennsylvania',
+        hours: 'Weekdays',
+        website: 'https://example.test/legal-aid',
+        verificationStatus: CitySheetVerificationStatus.VERIFIED,
+        lastVerifiedAt: new Date(),
+        verifiedById: stewardId,
+        status: CitySheetEntryStatus.ACTIVE,
+        createdById: stewardId,
+        isTestFixture: true,
+      },
+    });
+    legalAidId = legalAid.id;
   });
 
   afterAll(async () => {
+    if (legalAidId) {
+      await prisma.db.citySheetEntry.deleteMany({ where: { id: legalAidId } });
+    }
     if (ownerId) {
       await prisma.db.legalMatter.deleteMany({ where: { userId: ownerId } });
       await prisma.db.responsibility.deleteMany({ where: { principalUserId: ownerId } });
@@ -128,6 +153,15 @@ describe('PEOPLE-LEGAL-001 Matter Stewardship E2E', () => {
     expect(response.body.responsibility.kind).toBe('PERSONAL_NEED_RESOLUTION');
     expect(response.body.deadlines[0].status).toBe('REPORTED');
     expect(response.body.retention.state).toBe(LegalMatterRetentionState.ACTIVE);
+    expect(response.body.legalAidResources).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: legalAidId,
+          organizationName: 'Verified Legal Aid Test Route',
+          verificationStatus: CitySheetVerificationStatus.VERIFIED,
+        }),
+      ]),
+    );
   });
 
   it('is tenant-isolated and does not expose the Matter to another member', async () => {
@@ -180,6 +214,7 @@ describe('PEOPLE-LEGAL-001 Matter Stewardship E2E', () => {
       .send({ note: 'Official source identity checked; no conclusion about applicability.' })
       .expect(201);
     expect(verified.body.verification).toBe(LegalMatterSourceVerification.IDENTITY_VERIFIED);
+    expect(verified.body.provenance).toBe(LegalMatterProvenance.REPORTED);
 
     const observed = await request(app.getHttpServer())
       .post(`/internal/legal-matters/${matterId}/facts/observe`)
@@ -226,6 +261,7 @@ describe('PEOPLE-LEGAL-001 Matter Stewardship E2E', () => {
 
     expect(resolved.body.responsibility.status).toBe(ResponsibilityStatus.COMPLETED);
     expect(resolved.body.retention.state).toBe(LegalMatterRetentionState.REVIEW_REQUIRED);
+    expect(resolved.body.retention.reviewAt).toBeTruthy();
     expect(resolved.body.closedAt).toBeTruthy();
   });
 });

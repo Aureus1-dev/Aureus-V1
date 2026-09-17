@@ -697,7 +697,7 @@ model LegalMatter {
   assistanceMode            String @default("SAFE_MODE")
   legalReviewRequired       Boolean @default(true)
 
-  retentionBasis    String @default("LEGAL_MATTER_POLICY_PENDING")
+  retentionBasis    String @default("LEGAL_MATTER_V1_REVIEW_90_DAYS_AFTER_CLOSURE")
   retentionState    LegalMatterRetentionState @default(ACTIVE)
   retentionReviewAt DateTime?
   legalHoldBasis    String?

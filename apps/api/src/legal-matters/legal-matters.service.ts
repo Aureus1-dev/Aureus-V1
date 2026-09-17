@@ -5,6 +5,9 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import {
+  CitySheetCategory,
+  CitySheetEntryStatus,
+  CitySheetVerificationStatus,
   LegalActionType,
   LegalMatterDeadlineStatus,
   LegalMatterProvenance,
@@ -16,6 +19,7 @@ import {
   ResponsibilityStatus,
 } from '@prisma/client';
 import { AuthenticatedUser } from '../auth/strategies/jwt.strategy';
+import { CitySheetService } from '../city-sheet/city-sheet.service';
 import { NeedsService } from '../needs/needs.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { ResponsibilitiesService } from '../responsibilities/responsibilities.service';
@@ -31,6 +35,8 @@ import {
   VerifyLegalSourceIdentityDto,
 } from './legal-matters.dto';
 
+const RETENTION_REVIEW_AFTER_CLOSE_MS = 90 * 24 * 60 * 60 * 1000;
+
 const SAFE_MODE_ACTIONS = new Set<LegalActionType>([
   LegalActionType.ORGANIZE_RECORDS,
   LegalActionType.RETRIEVE_OFFICIAL_SOURCE,
@@ -44,6 +50,7 @@ export class LegalMattersService {
     private readonly prisma: PrismaService,
     private readonly responsibilities: ResponsibilitiesService,
     private readonly needs: NeedsService,
+    private readonly citySheet: CitySheetService,
   ) {}
 
   async create(dto: CreateLegalMatterDto, caller: AuthenticatedUser) {
@@ -92,7 +99,7 @@ export class LegalMattersService {
           disclosureAcknowledgedAt: new Date(),
           assistanceMode: 'SAFE_MODE',
           legalReviewRequired: true,
-          retentionBasis: 'LEGAL_MATTER_POLICY_PENDING',
+          retentionBasis: 'LEGAL_MATTER_V1_REVIEW_90_DAYS_AFTER_CLOSURE',
           retentionState: LegalMatterRetentionState.ACTIVE,
         },
       });
@@ -267,6 +274,7 @@ export class LegalMattersService {
           outcomeSummary: dto.note?.trim() || 'Member reported the underlying legal need resolved.',
           closedAt: new Date(),
           retentionState: LegalMatterRetentionState.REVIEW_REQUIRED,
+          retentionReviewAt: new Date(Date.now() + RETENTION_REVIEW_AFTER_CLOSE_MS),
         },
       });
     } else {
@@ -322,7 +330,7 @@ export class LegalMattersService {
       where: { id: source.id },
       data: {
         verification: LegalMatterSourceVerification.IDENTITY_VERIFIED,
-        provenance: LegalMatterProvenance.OBSERVED,
+        checkedAt: new Date(),
         verifiedAt: new Date(),
         verifiedByUserId: reviewerId,
         verificationNote: dto.note?.trim() || 'Official-source identity checked under an explicit member review request; applicability remains undetermined.',
@@ -359,7 +367,7 @@ export class LegalMattersService {
   }
 
   async completeReview(matterId: string, reviewerId: string) {
-    const matter = await this.reviewableMatter(matterId);
+    await this.reviewableMatter(matterId);
     await this.prisma.db.legalMatterReviewRequest.updateMany({
       where: { matterId, status: LegalMatterReviewStatus.PENDING },
       data: {
@@ -368,11 +376,12 @@ export class LegalMattersService {
         completedByUserId: reviewerId,
       },
     });
-    await this.prisma.db.legalMatter.update({
-      where: { id: matter.id },
-      data: { legalReviewRequired: false },
-    });
-    return { completed: true };
+    return {
+      completed: true,
+      legalReviewRequired: true,
+      reason:
+        'This bounded review request is complete. The Matter may still require licensed or human legal judgment for later questions or actions.',
+    };
   }
 
   private async project(matterId: string, userId: string) {
@@ -396,8 +405,14 @@ export class LegalMattersService {
     });
     if (!matter) throw new NotFoundException('Legal Matter not found');
 
-    const [resources, policy] = await Promise.all([
-      this.needs.findMatchingResources(matter.statedNeedId, userId),
+    const [legalAidPage, policy] = await Promise.all([
+      this.citySheet.findAll({
+        page: 1,
+        limit: 20,
+        category: CitySheetCategory.LEGAL_AID,
+        status: CitySheetEntryStatus.ACTIVE,
+        verificationStatus: CitySheetVerificationStatus.VERIFIED,
+      }),
       this.prisma.db.legalJurisdictionPolicy.findFirst({
         where: {
           jurisdiction: { equals: matter.jurisdiction, mode: 'insensitive' },
@@ -410,7 +425,7 @@ export class LegalMattersService {
 
     return {
       ...matter,
-      legalAidResources: resources.filter((resource) => resource.category === 'LEGAL_AID'),
+      legalAidResources: legalAidPage.data,
       jurisdictionGate: policy
         ? {
             status: policy.status,

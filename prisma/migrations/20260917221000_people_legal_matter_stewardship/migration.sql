@@ -23,7 +23,7 @@ CREATE TABLE "LegalMatter" (
   "disclosureAcknowledgedAt" TIMESTAMP(3) NOT NULL,
   "assistanceMode" TEXT NOT NULL DEFAULT 'SAFE_MODE',
   "legalReviewRequired" BOOLEAN NOT NULL DEFAULT true,
-  "retentionBasis" TEXT NOT NULL DEFAULT 'LEGAL_MATTER_POLICY_PENDING',
+  "retentionBasis" TEXT NOT NULL DEFAULT 'LEGAL_MATTER_V1_REVIEW_90_DAYS_AFTER_CLOSURE',
   "retentionState" "LegalMatterRetentionState" NOT NULL DEFAULT 'ACTIVE',
   "retentionReviewAt" TIMESTAMP(3),
   "legalHoldBasis" TEXT,
