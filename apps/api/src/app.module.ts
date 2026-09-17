@@ -37,6 +37,7 @@ import { PublicWardModule } from './public-ward/public-ward.module';
 import { ResponsibilitiesModule } from './responsibilities/responsibilities.module';
 import { PeopleHelpModule } from './people-help/people-help.module';
 import { PeopleResolutionsModule } from './people-resolutions/people-resolutions.module';
+import { StewardshipLearningModule } from './stewardship-learning/stewardship-learning.module';
 
 @Module({
   imports: [
@@ -82,8 +83,8 @@ import { PeopleResolutionsModule } from './people-resolutions/people-resolutions
           throttlers: [
             {
               name:  'default',
-              ttl:   60_000,  // 1-minute window
-              limit: 100,     // 100 requests per window per IP
+              ttl:   60_000,
+              limit: 100,
             },
           ],
           storage: redisUrl ? new RedisThrottlerStorageService(redisUrl) : undefined,
@@ -124,6 +125,7 @@ import { PeopleResolutionsModule } from './people-resolutions/people-resolutions
     ResponsibilitiesModule,
     PeopleHelpModule,
     PeopleResolutionsModule,
+    StewardshipLearningModule,
   ],
 
   providers: [
