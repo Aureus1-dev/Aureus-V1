@@ -288,7 +288,6 @@ model User {
   podInvitationsReceived      PodInvitation[]            @relation("PodInvitationInvitee")
   connectedAccounts           ConnectedAccount[]
   documents                   Document[]
-  legalMatterDocumentLinks     LegalMatterDocumentLink[]
   stewardActivityLogs         StewardActivityLog[]
   aiOperationalConfigUpdates  AiOperationalConfig[]
   aiOrchestrationRuns         AiOrchestrationRun[]
@@ -3657,7 +3656,6 @@ model ConnectedAccount {
   updatedAt DateTime @updatedAt
 
   activity StewardActivityLog[]
-  legalMatterLinks LegalMatterDocumentLink[]
 
   @@unique([userId, providerType])
   @@index([userId])
@@ -3691,7 +3689,8 @@ model Document {
   updatedAt  DateTime  @updatedAt
   deletedAt  DateTime?
 
-  activity StewardActivityLog[]
+  activity         StewardActivityLog[]
+  legalMatterLinks LegalMatterDocumentLink[]
 
   @@index([userId])
   @@index([category])
