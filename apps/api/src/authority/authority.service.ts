@@ -1,3 +1,4 @@
+import { createHash } from 'crypto';
 import {
   BadRequestException,
   ForbiddenException,
@@ -15,6 +16,7 @@ import {
   AuthorityRequestSource,
   AuthorityRequestStatus,
   AuthorityResourceClass,
+  AuthorityShareRecipientKind,
   OrganizationMemberRole,
   Prisma,
 } from '@prisma/client';
@@ -27,12 +29,30 @@ import {
   CreateAuthorityRequestDto,
 } from './dto/authority.dto';
 
-const POLICY_VERSION = 'step2-v1';
+const POLICY_VERSION = 'people-step2-v2';
 const ALWAYS_PERSON_CONTROLLED = new Set<AuthorityResourceClass>([
   AuthorityResourceClass.MICROPHONE,
   AuthorityResourceClass.SCREEN,
   AuthorityResourceClass.CONVERSATION,
   AuthorityResourceClass.CONNECTED_ACCOUNT,
+  AuthorityResourceClass.DOCUMENT,
+]);
+
+const PERSONAL_EXACT_DOCUMENT_CAPABILITIES = new Set<AuthorityCapability>([
+  AuthorityCapability.READ,
+  AuthorityCapability.WRITE,
+  AuthorityCapability.SHARE,
+  AuthorityCapability.ACT,
+]);
+
+const FORBIDDEN_SHARE_FIELDS = new Set([
+  '*',
+  'all',
+  'full_history',
+  'full_transcript',
+  'entire_conversation',
+  'entire_history',
+  'raw_transcript',
 ]);
 const SECRET_PATTERNS = [
   /password\s*[:=]\s*\S+/i,
@@ -47,7 +67,9 @@ export class AuthorityService {
   constructor(private readonly prisma: PrismaService) {}
 
   async createRequest(dto: CreateAuthorityRequestDto, caller: AuthenticatedUser) {
-    this.assertNoSecrets(dto.purpose, dto.resourceRef);
+    this.assertNoSecrets(dto.purpose, dto.resourceRef, dto.shareRecipientRef, ...(dto.shareDataFields ?? []));
+    const share = this.normalizeShareScope(dto);
+    if (share.error) throw new BadRequestException(share.error);
     await this.validateScope(dto, caller, true);
 
     if (dto.expiresAt && new Date(dto.expiresAt).getTime() <= Date.now()) {
@@ -63,6 +85,10 @@ export class AuthorityService {
           capability: dto.capability,
           resourceClass: dto.resourceClass,
           resourceRef: dto.resourceRef ?? null,
+          shareRecipientKind: share.scope?.recipientKind ?? null,
+          shareRecipientRef: share.scope?.recipientRef ?? null,
+          shareDataFields: share.scope?.dataFields ?? [],
+          shareScopeKey: share.scope?.key ?? null,
           purpose: dto.purpose.trim(),
           source: dto.source ?? AuthorityRequestSource.USER,
           requestedByUserId: caller.id,
@@ -85,6 +111,19 @@ export class AuthorityService {
     }
     if (request.expiresAt && request.expiresAt <= new Date()) {
       throw new BadRequestException('This permission request has expired');
+    }
+    if (
+      request.capability === AuthorityCapability.SHARE &&
+      (
+        !request.shareScopeKey ||
+        !request.shareRecipientKind ||
+        !request.shareRecipientRef ||
+        request.shareDataFields.length === 0
+      )
+    ) {
+      throw new BadRequestException(
+        'This legacy SHARE request is not recipient/data scoped and must be replaced with a new bounded request',
+      );
     }
 
     return this.prisma.db.$transaction(async (tx) => {
@@ -135,6 +174,10 @@ export class AuthorityService {
           capability: request.capability,
           resourceClass: request.resourceClass,
           resourceRef: request.resourceRef,
+          shareRecipientKind: request.shareRecipientKind,
+          shareRecipientRef: request.shareRecipientRef,
+          shareDataFields: request.shareDataFields,
+          shareScopeKey: request.shareScopeKey,
           purpose: request.purpose,
           policyVersion: request.policyVersion,
           expiresAt: request.expiresAt,
@@ -183,6 +226,7 @@ export class AuthorityService {
         capability: selected.capability,
         resourceClass: selected.resourceClass,
         resourceRef: selected.resourceRef,
+        shareScopeKey: selected.shareScopeKey,
         purpose: selected.purpose,
       };
       // A member is revoking the permission, not one database row. If the
@@ -323,7 +367,11 @@ export class AuthorityService {
   async evaluate(dto: AuthorityEvaluationDto, actorUserId?: string) {
     // Evaluation itself writes an audit decision, so secret-like metadata must
     // be rejected before any decision row can persist it.
-    this.assertNoSecrets(dto.purpose, dto.resourceRef);
+    this.assertNoSecrets(dto.purpose, dto.resourceRef, dto.shareRecipientRef, ...(dto.shareDataFields ?? []));
+    const share = this.normalizeShareScope(dto);
+    if (share.error) {
+      return this.recordDecision(dto, AuthorityDecisionResult.DENY, share.error, null, actorUserId);
+    }
 
     const shapeError = await this.scopeError(dto.contextType, dto.subjectUserId, dto.organizationId);
     if (shapeError) return this.recordDecision(dto, AuthorityDecisionResult.DENY, shapeError, null, actorUserId);
@@ -337,7 +385,28 @@ export class AuthorityService {
       }
     }
 
-    if ((dto.resourceClass === AuthorityResourceClass.CONVERSATION || dto.resourceClass === AuthorityResourceClass.CONNECTED_ACCOUNT) && !dto.resourceRef) {
+    if (
+      dto.contextType === AuthorityContextType.PERSONAL &&
+      dto.resourceClass === AuthorityResourceClass.FILES &&
+      PERSONAL_EXACT_DOCUMENT_CAPABILITIES.has(dto.capability)
+    ) {
+      return this.recordDecision(
+        dto,
+        AuthorityDecisionResult.DENY,
+        'Personal document authority must use DOCUMENT with an exact owned resource reference',
+        null,
+        actorUserId,
+      );
+    }
+
+    if (
+      (
+        dto.resourceClass === AuthorityResourceClass.CONVERSATION ||
+        dto.resourceClass === AuthorityResourceClass.CONNECTED_ACCOUNT ||
+        (dto.resourceClass === AuthorityResourceClass.DOCUMENT && PERSONAL_EXACT_DOCUMENT_CAPABILITIES.has(dto.capability))
+      ) &&
+      !dto.resourceRef
+    ) {
       return this.recordDecision(dto, AuthorityDecisionResult.DENY, `${dto.resourceClass} authority requires an exact resource reference`, null, actorUserId);
     }
     if (dto.resourceClass === AuthorityResourceClass.CONVERSATION) {
@@ -354,6 +423,15 @@ export class AuthorityService {
       });
       if (!account) {
         return this.recordDecision(dto, AuthorityDecisionResult.DENY, 'Connected account does not belong to this authority subject', null, actorUserId);
+      }
+    }
+    if (dto.resourceClass === AuthorityResourceClass.DOCUMENT && dto.resourceRef) {
+      const document = await this.prisma.db.document.findFirst({
+        where: { id: dto.resourceRef, userId: dto.subjectUserId!, deletedAt: null },
+        select: { id: true },
+      });
+      if (!document) {
+        return this.recordDecision(dto, AuthorityDecisionResult.DENY, 'Document does not belong to this authority subject', null, actorUserId);
       }
     }
 
@@ -464,6 +542,14 @@ export class AuthorityService {
       }
     }
 
+    if (
+      dto.contextType === AuthorityContextType.PERSONAL &&
+      dto.resourceClass === AuthorityResourceClass.FILES &&
+      PERSONAL_EXACT_DOCUMENT_CAPABILITIES.has(dto.capability)
+    ) {
+      throw new BadRequestException('Personal document authority must use DOCUMENT with an exact owned resource reference');
+    }
+
     if (dto.resourceClass === AuthorityResourceClass.CONVERSATION) {
       if (!dto.resourceRef) throw new BadRequestException('Conversation authority requires an exact conversation reference');
       const conversation = await this.prisma.db.aiConversation.findFirst({
@@ -478,6 +564,19 @@ export class AuthorityService {
         where: { id: dto.resourceRef, userId: dto.subjectUserId! }, select: { id: true },
       });
       if (!account) throw new NotFoundException('Connected account not found');
+    }
+
+    if (dto.resourceClass === AuthorityResourceClass.DOCUMENT) {
+      if (PERSONAL_EXACT_DOCUMENT_CAPABILITIES.has(dto.capability) && !dto.resourceRef) {
+        throw new BadRequestException('Document authority requires an exact document reference');
+      }
+      if (dto.resourceRef) {
+        const document = await this.prisma.db.document.findFirst({
+          where: { id: dto.resourceRef, userId: dto.subjectUserId!, deletedAt: null },
+          select: { id: true },
+        });
+        if (!document) throw new NotFoundException('Document not found');
+      }
     }
 
     if (creation && dto.capability === AuthorityCapability.SHARE && dto.resourceClass === AuthorityResourceClass.CONVERSATION && !dto.subjectUserId) {
@@ -580,6 +679,7 @@ export class AuthorityService {
   }
 
   private exactGrantWhere(dto: AuthorityEvaluationDto) {
+    const share = this.normalizeShareScope(dto);
     return {
       contextType: dto.contextType,
       subjectUserId: dto.subjectUserId ?? null,
@@ -587,7 +687,83 @@ export class AuthorityService {
       capability: dto.capability,
       resourceClass: dto.resourceClass,
       resourceRef: dto.resourceRef ?? null,
+      shareScopeKey: share.scope?.key ?? null,
       purpose: dto.purpose.trim(),
+    };
+  }
+
+  private normalizeShareScope(dto: CreateAuthorityRequestDto | AuthorityEvaluationDto): {
+    error: string | null;
+    scope: {
+      recipientKind: AuthorityShareRecipientKind;
+      recipientRef: string;
+      dataFields: string[];
+      key: string;
+    } | null;
+  } {
+    const hasShareMetadata =
+      Boolean(dto.shareRecipientKind) ||
+      Boolean(dto.shareRecipientRef?.trim()) ||
+      Boolean(dto.shareDataFields?.length);
+
+    if (dto.capability !== AuthorityCapability.SHARE) {
+      if (hasShareMetadata) {
+        return {
+          error: 'Recipient/data scope metadata may only be supplied for SHARE authority',
+          scope: null,
+        };
+      }
+      return { error: null, scope: null };
+    }
+
+    if (!dto.shareRecipientKind || !dto.shareRecipientRef?.trim()) {
+      return {
+        error: 'SHARE authority requires one exact recipient kind and recipient reference',
+        scope: null,
+      };
+    }
+
+    const dataFields = [...new Set(
+      (dto.shareDataFields ?? [])
+        .map((field) => field.trim().toLowerCase())
+        .filter(Boolean),
+    )].sort();
+
+    if (dataFields.length === 0) {
+      return {
+        error: 'SHARE authority requires one or more explicit minimum-data field identifiers',
+        scope: null,
+      };
+    }
+
+    if (
+      dataFields.some(
+        (field) => FORBIDDEN_SHARE_FIELDS.has(field) || field.includes('*'),
+      )
+    ) {
+      return {
+        error: 'Blanket/full-history/full-transcript sharing is not supported by this authority slice',
+        scope: null,
+      };
+    }
+
+    const recipientRef = dto.shareRecipientRef.trim();
+    const key = createHash('sha256')
+      .update(JSON.stringify({
+        recipientKind: dto.shareRecipientKind,
+        recipientRef,
+        dataFields,
+      }))
+      .digest('hex');
+
+    return {
+      error: null,
+      scope: {
+        recipientKind: dto.shareRecipientKind,
+        recipientRef,
+        dataFields,
+        key,
+      },
     };
   }
 
@@ -601,6 +777,7 @@ export class AuthorityService {
         capability: dto.capability,
         resourceClass: dto.resourceClass,
         resourceRef: dto.resourceRef ?? null,
+        shareScopeKey: this.normalizeShareScope(dto).scope?.key ?? null,
         result,
         reason,
         grantId,

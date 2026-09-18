@@ -2,17 +2,30 @@ import { apiRequest } from './http';
 
 export type AuthorityContextType = 'PERSONAL' | 'BUSINESS_TENANT';
 export type AuthorityCapability = 'SEE' | 'LISTEN' | 'READ' | 'WRITE' | 'SHARE' | 'ACT';
-export type AuthorityResourceClass = 'MICROPHONE' | 'SCREEN' | 'CONVERSATION' | 'CONNECTED_ACCOUNT' | 'CALENDAR' | 'EMAIL' | 'FILES' | 'BUSINESS_DATA' | 'OTHER';
+export type AuthorityResourceClass =
+  | 'MICROPHONE'
+  | 'SCREEN'
+  | 'CONVERSATION'
+  | 'CONNECTED_ACCOUNT'
+  | 'DOCUMENT'
+  | 'CALENDAR'
+  | 'EMAIL'
+  | 'FILES'
+  | 'BUSINESS_DATA'
+  | 'OTHER';
+export type AuthorityShareRecipientKind = 'PERSON' | 'ORGANIZATION' | 'PROVIDER' | 'INSTITUTION' | 'OTHER';
 
 export interface AuthorityRequestDto {
   id: string; contextType: AuthorityContextType; subjectUserId: string | null; organizationId: string | null;
   capability: AuthorityCapability; resourceClass: AuthorityResourceClass; resourceRef: string | null; purpose: string;
+  shareRecipientKind: AuthorityShareRecipientKind | null; shareRecipientRef: string | null; shareDataFields: string[];
   source: 'USER' | 'AUREUS' | 'DERIVED_PATTERN'; status: 'PENDING' | 'APPROVED' | 'DENIED' | 'CANCELLED';
-  canApprove: boolean; canDeny: boolean; createdAt: string;
+  expiresAt: string | null; canApprove: boolean; canDeny: boolean; createdAt: string;
 }
 export interface AuthorityGrantDto {
   id: string; contextType: AuthorityContextType; subjectUserId: string | null; organizationId: string | null;
   capability: AuthorityCapability; resourceClass: AuthorityResourceClass; resourceRef: string | null; purpose: string;
+  shareRecipientKind: AuthorityShareRecipientKind | null; shareRecipientRef: string | null; shareDataFields: string[];
   status: 'ACTIVE' | 'REVOKED'; expiresAt: string | null; canRevoke: boolean; createdAt: string;
 }
 export interface AuthorityStateDto {
