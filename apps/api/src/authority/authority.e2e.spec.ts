@@ -5,6 +5,7 @@ import {
   AuthorityContextType,
   AuthorityRequestSource,
   AuthorityResourceClass,
+  AuthorityShareRecipientKind,
   OrganizationMemberRole,
   OrganizationType,
 } from '@prisma/client';
@@ -27,6 +28,8 @@ describe('Authority, Consent & Trust — E2E', () => {
   let orgId: string;
   let outsiderOrgId: string;
   let privateConversationId: string;
+  let employeeDocumentId: string;
+  let outsiderDocumentId: string;
 
   beforeAll(async () => {
     const moduleRef = await Test.createTestingModule({ imports: [AppModule] }).compile();
@@ -87,6 +90,31 @@ describe('Authority, Consent & Trust — E2E', () => {
     });
     outsiderOrgId = outsiderOrg.id;
     privateConversationId = (await prisma.db.aiConversation.create({ data: { userId: employeeId } })).id;
+
+    employeeDocumentId = (
+      await prisma.db.document.create({
+        data: {
+          userId: employeeId,
+          title: 'Member document',
+          originalFilename: 'member.pdf',
+          mimeType: 'application/pdf',
+          sizeBytes: 100,
+          storageRef: `test/authority/${marker}/member.pdf`,
+        },
+      })
+    ).id;
+    outsiderDocumentId = (
+      await prisma.db.document.create({
+        data: {
+          userId: outsiderId,
+          title: 'Outsider document',
+          originalFilename: 'outsider.pdf',
+          mimeType: 'application/pdf',
+          sizeBytes: 100,
+          storageRef: `test/authority/${marker}/outsider.pdf`,
+        },
+      })
+    ).id;
   });
 
   afterAll(async () => {
@@ -113,6 +141,9 @@ describe('Authority, Consent & Trust — E2E', () => {
         ],
       },
     });
+    await prisma.db.document.deleteMany({
+      where: { id: { in: [employeeDocumentId, outsiderDocumentId].filter(Boolean) } },
+    });
     await prisma.db.organization.deleteMany({ where: { id: { in: orgs } } });
     await prisma.db.user.deleteMany({ where: { id: { in: users } } });
     await app.close();
@@ -128,8 +159,8 @@ describe('Authority, Consent & Trust — E2E', () => {
         contextType: AuthorityContextType.PERSONAL,
         subjectUserId: employeeId,
         capability: AuthorityCapability.READ,
-        resourceClass: AuthorityResourceClass.FILES,
-        purpose: 'Read files I choose for this work',
+        resourceClass: AuthorityResourceClass.OTHER,
+        purpose: 'Read information I choose for this work',
       })
       .expect(201);
 
@@ -137,8 +168,8 @@ describe('Authority, Consent & Trust — E2E', () => {
       contextType: AuthorityContextType.PERSONAL,
       subjectUserId: employeeId,
       capability: AuthorityCapability.READ,
-      resourceClass: AuthorityResourceClass.FILES,
-      purpose: 'Read files I choose for this work',
+      resourceClass: AuthorityResourceClass.OTHER,
+      purpose: 'Read information I choose for this work',
     };
     expect(
       (await request(app.getHttpServer()).post('/authority/evaluate').set(auth(employeeToken)).send(evaluation).expect(201)).body.result,
@@ -535,9 +566,227 @@ describe('Authority, Consent & Trust — E2E', () => {
     const result = await request(app.getHttpServer())
       .post('/authority/evaluate')
       .set(auth(employeeToken))
-      .send({ ...scope, resourceClass: AuthorityResourceClass.FILES, purpose: 'Write selected files' })
+      .send({ ...scope, resourceClass: AuthorityResourceClass.OTHER, purpose: 'Write selected information' })
       .expect(201);
     expect(result.body.result).toBe('NEEDS_APPROVAL');
+  });
+
+
+  it('requires exact owned Document scope for Personal read/write/share/act authority', async () => {
+    await request(app.getHttpServer())
+      .post('/authority/requests')
+      .set(auth(employeeToken))
+      .send({
+        contextType: AuthorityContextType.PERSONAL,
+        subjectUserId: employeeId,
+        capability: AuthorityCapability.READ,
+        resourceClass: AuthorityResourceClass.DOCUMENT,
+        purpose: 'Read one exact document for this task',
+      })
+      .expect(400);
+
+    await request(app.getHttpServer())
+      .post('/authority/requests')
+      .set(auth(employeeToken))
+      .send({
+        contextType: AuthorityContextType.PERSONAL,
+        subjectUserId: employeeId,
+        capability: AuthorityCapability.READ,
+        resourceClass: AuthorityResourceClass.DOCUMENT,
+        resourceRef: outsiderDocumentId,
+        purpose: 'Read a document that is not mine',
+      })
+      .expect(404);
+
+    const created = await request(app.getHttpServer())
+      .post('/authority/requests')
+      .set(auth(employeeToken))
+      .send({
+        contextType: AuthorityContextType.PERSONAL,
+        subjectUserId: employeeId,
+        capability: AuthorityCapability.READ,
+        resourceClass: AuthorityResourceClass.DOCUMENT,
+        resourceRef: employeeDocumentId,
+        purpose: 'Read one exact document for this task',
+      })
+      .expect(201);
+
+    await request(app.getHttpServer())
+      .post(`/authority/requests/${created.body.id}/approve`)
+      .set(auth(employeeToken))
+      .send({})
+      .expect(201);
+
+    const exact = await request(app.getHttpServer())
+      .post('/authority/evaluate')
+      .set(auth(employeeToken))
+      .send({
+        contextType: AuthorityContextType.PERSONAL,
+        subjectUserId: employeeId,
+        capability: AuthorityCapability.READ,
+        resourceClass: AuthorityResourceClass.DOCUMENT,
+        resourceRef: employeeDocumentId,
+        purpose: 'Read one exact document for this task',
+      })
+      .expect(201);
+    expect(exact.body.result).toBe('PERMIT');
+
+    const wrongDocument = await request(app.getHttpServer())
+      .post('/authority/evaluate')
+      .set(auth(employeeToken))
+      .send({
+        contextType: AuthorityContextType.PERSONAL,
+        subjectUserId: employeeId,
+        capability: AuthorityCapability.READ,
+        resourceClass: AuthorityResourceClass.DOCUMENT,
+        resourceRef: outsiderDocumentId,
+        purpose: 'Read one exact document for this task',
+      })
+      .expect(201);
+    expect(wrongDocument.body.result).toBe('DENY');
+
+    const legacyBroadFiles = await request(app.getHttpServer())
+      .post('/authority/evaluate')
+      .set(auth(employeeToken))
+      .send({
+        contextType: AuthorityContextType.PERSONAL,
+        subjectUserId: employeeId,
+        capability: AuthorityCapability.READ,
+        resourceClass: AuthorityResourceClass.FILES,
+        purpose: 'Read all my files',
+      })
+      .expect(201);
+    expect(legacyBroadFiles.body.result).toBe('DENY');
+  });
+
+  it('binds SHARE authority to exact recipient, purpose, resource, and minimum-data scope', async () => {
+    const beforeConsentCount = await prisma.db.consentRecord.count({ where: { userId: employeeId } });
+
+    await request(app.getHttpServer())
+      .post('/authority/requests')
+      .set(auth(employeeToken))
+      .send({
+        contextType: AuthorityContextType.PERSONAL,
+        subjectUserId: employeeId,
+        capability: AuthorityCapability.SHARE,
+        resourceClass: AuthorityResourceClass.CONVERSATION,
+        resourceRef: privateConversationId,
+        purpose: 'Share the minimum case facts with the court',
+        shareDataFields: ['case_number'],
+      })
+      .expect(400);
+
+    await request(app.getHttpServer())
+      .post('/authority/requests')
+      .set(auth(employeeToken))
+      .send({
+        contextType: AuthorityContextType.PERSONAL,
+        subjectUserId: employeeId,
+        capability: AuthorityCapability.SHARE,
+        resourceClass: AuthorityResourceClass.CONVERSATION,
+        resourceRef: privateConversationId,
+        purpose: 'Share the minimum case facts with the court',
+        shareRecipientKind: AuthorityShareRecipientKind.INSTITUTION,
+        shareRecipientRef: 'philadelphia-municipal-court',
+      })
+      .expect(400);
+
+    await request(app.getHttpServer())
+      .post('/authority/requests')
+      .set(auth(employeeToken))
+      .send({
+        contextType: AuthorityContextType.PERSONAL,
+        subjectUserId: employeeId,
+        capability: AuthorityCapability.SHARE,
+        resourceClass: AuthorityResourceClass.CONVERSATION,
+        resourceRef: privateConversationId,
+        purpose: 'Share the minimum case facts with the court',
+        shareRecipientKind: AuthorityShareRecipientKind.INSTITUTION,
+        shareRecipientRef: 'philadelphia-municipal-court',
+        shareDataFields: ['full_transcript'],
+      })
+      .expect(400);
+
+    const body = {
+      contextType: AuthorityContextType.PERSONAL,
+      subjectUserId: employeeId,
+      capability: AuthorityCapability.SHARE,
+      resourceClass: AuthorityResourceClass.CONVERSATION,
+      resourceRef: privateConversationId,
+      purpose: 'Share the minimum case facts with the court',
+      shareRecipientKind: AuthorityShareRecipientKind.INSTITUTION,
+      shareRecipientRef: 'philadelphia-municipal-court',
+      shareDataFields: ['name', 'case_number', 'hearing_date'],
+    };
+    const created = await request(app.getHttpServer())
+      .post('/authority/requests')
+      .set(auth(employeeToken))
+      .send(body)
+      .expect(201);
+
+    const grant = await request(app.getHttpServer())
+      .post(`/authority/requests/${created.body.id}/approve`)
+      .set(auth(employeeToken))
+      .send({})
+      .expect(201);
+    expect(grant.body.shareRecipientRef).toBe('philadelphia-municipal-court');
+    expect(grant.body.shareDataFields).toEqual(['case_number', 'hearing_date', 'name']);
+
+    const exact = await request(app.getHttpServer())
+      .post('/authority/evaluate')
+      .set(auth(employeeToken))
+      .send(body)
+      .expect(201);
+    expect(exact.body.result).toBe('PERMIT');
+
+    const wrongRecipient = await request(app.getHttpServer())
+      .post('/authority/evaluate')
+      .set(auth(employeeToken))
+      .send({ ...body, shareRecipientRef: 'different-recipient' })
+      .expect(201);
+    expect(wrongRecipient.body.result).toBe('NEEDS_APPROVAL');
+
+    const broaderPacket = await request(app.getHttpServer())
+      .post('/authority/evaluate')
+      .set(auth(employeeToken))
+      .send({ ...body, shareDataFields: [...body.shareDataFields, 'full_address'] })
+      .expect(201);
+    expect(broaderPacket.body.result).toBe('NEEDS_APPROVAL');
+
+    const fullTranscript = await request(app.getHttpServer())
+      .post('/authority/evaluate')
+      .set(auth(employeeToken))
+      .send({ ...body, shareDataFields: ['full_transcript'] })
+      .expect(201);
+    expect(fullTranscript.body.result).toBe('DENY');
+
+    const denied = await request(app.getHttpServer())
+      .post('/authority/requests')
+      .set(auth(employeeToken))
+      .send({
+        ...body,
+        purpose: 'Share a different bounded packet',
+        shareDataFields: ['case_number'],
+      })
+      .expect(201);
+    await request(app.getHttpServer())
+      .post(`/authority/requests/${denied.body.id}/deny`)
+      .set(auth(employeeToken))
+      .send({ reason: 'Not now' })
+      .expect(201);
+    const deniedEvaluation = await request(app.getHttpServer())
+      .post('/authority/evaluate')
+      .set(auth(employeeToken))
+      .send({
+        ...body,
+        purpose: 'Share a different bounded packet',
+        shareDataFields: ['case_number'],
+      })
+      .expect(201);
+    expect(deniedEvaluation.body.result).not.toBe('PERMIT');
+
+    const afterConsentCount = await prisma.db.consentRecord.count({ where: { userId: employeeId } });
+    expect(afterConsentCount).toBe(beforeConsentCount);
   });
 
   it('rejects secret material from the authority ledger and exposes a plain trust snapshot', async () => {
@@ -557,7 +806,7 @@ describe('Authority, Consent & Trust — E2E', () => {
       .get('/authority/trust')
       .set(auth(employeeToken))
       .expect(200);
-    expect(snapshot.body.policyVersion).toBe('step2-v1');
+    expect(snapshot.body.policyVersion).toBe('people-step2-v2');
     expect(Array.isArray(snapshot.body.requests)).toBe(true);
     expect(Array.isArray(snapshot.body.grants)).toBe(true);
     expect(Array.isArray(snapshot.body.events)).toBe(true);

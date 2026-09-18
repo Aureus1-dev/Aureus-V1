@@ -433,10 +433,19 @@ enum AuthorityResourceClass {
   SCREEN
   CONVERSATION
   CONNECTED_ACCOUNT
+  DOCUMENT
   CALENDAR
   EMAIL
   FILES
   BUSINESS_DATA
+  OTHER
+}
+
+enum AuthorityShareRecipientKind {
+  PERSON
+  ORGANIZATION
+  PROVIDER
+  INSTITUTION
   OTHER
 }
 
@@ -487,12 +496,16 @@ model AuthorityRequest {
   organizationId    String?                @db.Uuid
   organization      Organization?          @relation("AuthorityRequestOrganization", fields: [organizationId], references: [id], onDelete: Cascade)
   capability        AuthorityCapability
-  resourceClass     AuthorityResourceClass
-  resourceRef       String?
-  purpose           String
-  source            AuthorityRequestSource @default(USER)
-  status            AuthorityRequestStatus @default(PENDING)
-  policyVersion     String                 @default("step2-v1")
+  resourceClass      AuthorityResourceClass
+  resourceRef        String?
+  shareRecipientKind AuthorityShareRecipientKind?
+  shareRecipientRef  String?
+  shareDataFields    String[]                @default([])
+  shareScopeKey      String?
+  purpose            String
+  source             AuthorityRequestSource  @default(USER)
+  status             AuthorityRequestStatus  @default(PENDING)
+  policyVersion      String                  @default("people-step2-v2")
   requestedByUserId String?                @db.Uuid
   approvedByUserId  String?                @db.Uuid
   deniedByUserId    String?                @db.Uuid
@@ -506,6 +519,7 @@ model AuthorityRequest {
   @@index([subjectUserId, status, createdAt])
   @@index([organizationId, status, createdAt])
   @@index([capability, resourceClass, status])
+  @@index([shareScopeKey])
 }
 
 model AuthorityGrant {
@@ -518,10 +532,14 @@ model AuthorityGrant {
   organizationId  String?                @db.Uuid
   organization    Organization?          @relation("AuthorityGrantOrganization", fields: [organizationId], references: [id], onDelete: Cascade)
   capability      AuthorityCapability
-  resourceClass   AuthorityResourceClass
-  resourceRef     String?
-  purpose         String
-  policyVersion   String
+  resourceClass      AuthorityResourceClass
+  resourceRef        String?
+  shareRecipientKind AuthorityShareRecipientKind?
+  shareRecipientRef  String?
+  shareDataFields    String[]               @default([])
+  shareScopeKey      String?
+  purpose            String
+  policyVersion      String
   status          AuthorityGrantStatus   @default(ACTIVE)
   expiresAt       DateTime?
   revokedAt       DateTime?
@@ -532,6 +550,7 @@ model AuthorityGrant {
   @@index([subjectUserId, status, capability, resourceClass])
   @@index([organizationId, status, capability, resourceClass])
   @@index([expiresAt])
+  @@index([shareScopeKey])
 }
 
 model AuthorityCapabilityState {
@@ -585,9 +604,10 @@ model AuthorityDecision {
   subjectUserId  String?                 @db.Uuid
   organizationId String?                 @db.Uuid
   capability     AuthorityCapability
-  resourceClass  AuthorityResourceClass
-  resourceRef    String?
-  result         AuthorityDecisionResult
+  resourceClass AuthorityResourceClass
+  resourceRef   String?
+  shareScopeKey String?
+  result        AuthorityDecisionResult
   reason         String
   grantId        String?                 @db.Uuid
   policyVersion  String
@@ -596,6 +616,7 @@ model AuthorityDecision {
   @@index([subjectUserId, createdAt])
   @@index([organizationId, createdAt])
   @@index([result, createdAt])
+  @@index([shareScopeKey])
 }
 
 // ===========================================================================
