@@ -31,6 +31,7 @@ const snapshot: authorityApi.AuthorityTrustSnapshot = {
     shareDataFields: ['name', 'eligibility_status'],
     source: 'USER',
     status: 'PENDING',
+    expiresAt: '2026-09-20T15:00:00.000Z',
     canApprove: true,
     canDeny: true,
     createdAt: 'x',
@@ -92,6 +93,8 @@ describe('TrustCenterTab', () => {
     expect(screen.getByText('document-1')).toBeInTheDocument();
     expect(screen.getByText(/provider · provider-123/i)).toBeInTheDocument();
     expect(screen.getByText(/name, eligibility_status/i)).toBeInTheDocument();
+    expect(screen.getByText(/Ends automatically/i)).toBeInTheDocument();
+    expect(screen.getByText(/take this permission back here at any time/i)).toBeInTheDocument();
   });
 
   it('exposes approve, deny, revoke, suspend, and restore with truthful continuation copy', async () => {

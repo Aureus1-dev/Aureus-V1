@@ -113,6 +113,13 @@ export function TrustCenterTab() {
             <p>{request.purpose}</p>
             <ExactScope record={request} />
             <p>
+              <strong>Duration:</strong>{' '}
+              {request.expiresAt
+                ? `Ends automatically ${new Date(request.expiresAt).toLocaleString()}`
+                : 'Stays active until you take it back'}
+            </p>
+            <p>You can take this permission back here at any time after approval.</p>
+            <p>
               {request.source === 'DERIVED_PATTERN'
                 ? 'Aureus noticed a pattern. This is only a proposal until you approve it.'
                 : 'This request gives no authority until the right person approves it.'}
@@ -152,7 +159,12 @@ export function TrustCenterTab() {
             <strong>{grant.capability} · {grant.resourceClass}</strong>
             <p>{grant.purpose}</p>
             <ExactScope record={grant} />
-            {grant.expiresAt ? <p>Ends automatically: {new Date(grant.expiresAt).toLocaleString()}</p> : null}
+            <p>
+              <strong>Duration:</strong>{' '}
+              {grant.expiresAt
+                ? `Ends automatically ${new Date(grant.expiresAt).toLocaleString()}`
+                : 'Active until you take it back'}
+            </p>
             {grant.canRevoke ? (
               <>
                 <Button

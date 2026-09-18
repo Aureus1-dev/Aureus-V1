@@ -20,7 +20,7 @@ export interface AuthorityRequestDto {
   capability: AuthorityCapability; resourceClass: AuthorityResourceClass; resourceRef: string | null; purpose: string;
   shareRecipientKind: AuthorityShareRecipientKind | null; shareRecipientRef: string | null; shareDataFields: string[];
   source: 'USER' | 'AUREUS' | 'DERIVED_PATTERN'; status: 'PENDING' | 'APPROVED' | 'DENIED' | 'CANCELLED';
-  canApprove: boolean; canDeny: boolean; createdAt: string;
+  expiresAt: string | null; canApprove: boolean; canDeny: boolean; createdAt: string;
 }
 export interface AuthorityGrantDto {
   id: string; contextType: AuthorityContextType; subjectUserId: string | null; organizationId: string | null;
