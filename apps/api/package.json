@@ -9,6 +9,7 @@
     "lint": "eslint . --ext .ts",
     "check-types": "tsc --noEmit",
     "test": "jest",
+    "test:ci": "jest --coverage --runInBand",
     "test:watch": "jest --watch",
     "test:cov": "jest --coverage"
   },

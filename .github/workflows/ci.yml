@@ -90,7 +90,7 @@ jobs:
         run: npx prisma migrate deploy
 
       - name: Test (API unit, integration, and e2e tests)
-        run: pnpm --filter @aureus-v1/api run test --coverage
+        run: pnpm --filter @aureus-v1/api run test:ci
 
       # The web suite was never run here, so every frontend test in the repo
       # could fail without CI noticing. Kept as its own step rather than
