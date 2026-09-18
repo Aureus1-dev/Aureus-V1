@@ -23,6 +23,9 @@ jobs:
       - name: Adjust staged builder for repeated DTO blocks
         run: python3 scripts/people_household_builder_hotfix.py
 
+      - name: Anchor delegated authority edits
+        run: python3 scripts/people_household_builder_hotfix2.py
+
       - name: Apply bounded PEOPLE-HOUSEHOLD-001 patch
         run: python3 scripts/people_household_builder.py
 
@@ -31,7 +34,7 @@ jobs:
 
       - name: Commit candidate and remove builder machinery
         run: |
-          rm -f scripts/people_household_builder_hotfix.py
+          rm -f scripts/people_household_builder_hotfix.py scripts/people_household_builder_hotfix2.py
           git config user.name "Aureus1-dev"
           git config user.email "aureus.quatise@gmail.com"
           git add -A
