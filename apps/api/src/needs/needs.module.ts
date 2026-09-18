@@ -34,9 +34,14 @@ import { NEED_OUTCOME_REPORT_REPOSITORY } from './repositories/need-outcome-repo
     { provide: NEED_OUTCOME_REPORT_REPOSITORY, useClass: PrismaNeedOutcomeReportRepository },
   ],
   // OR-004 reuses the existing Needs domain as the source of truth beneath a
-  // durable Responsibility. Exporting the orchestration services avoids a
-  // second resource/escalation implementation while keeping their repositories
-  // private to this module.
-  exports: [NeedsService, NeedEscalationsService],
+  // durable Responsibility. People Step 4 additionally consumes the existing
+  // StatedNeed + NeedEscalation repositories as read/queue sources instead of
+  // creating a duplicate Human Steward case system.
+  exports: [
+    NeedsService,
+    NeedEscalationsService,
+    STATED_NEED_REPOSITORY,
+    NEED_ESCALATION_REPOSITORY,
+  ],
 })
 export class NeedsModule {}
