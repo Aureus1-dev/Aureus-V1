@@ -6,6 +6,7 @@ import {
   IsString,
   MaxLength,
   MinLength,
+  ValidateIf,
 } from 'class-validator';
 
 export enum PeopleFollowThroughKind {
@@ -101,8 +102,15 @@ export class RecordFollowThroughAttemptDto {
   @MaxLength(500)
   note?: string;
 
-  @ApiPropertyOptional({ description: 'When Aureus should follow through again, if another attempt is required.' })
-  @IsOptional()
+  @ApiPropertyOptional({
+    description: 'Required after NO_RESPONSE or RESCHEDULED so follow-through cannot silently stop; otherwise optional.',
+  })
+  @ValidateIf(
+    (dto: RecordFollowThroughAttemptDto) =>
+      dto.result === PeopleFollowThroughAttemptResult.NO_RESPONSE ||
+      dto.result === PeopleFollowThroughAttemptResult.RESCHEDULED ||
+      dto.nextAttemptAt !== undefined,
+  )
   @IsDateString()
   nextAttemptAt?: string;
 }
