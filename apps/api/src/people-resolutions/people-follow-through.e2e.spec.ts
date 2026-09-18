@@ -28,9 +28,11 @@ describe('People Step 5 — Obligation & Follow-through E2E', () => {
   let ownerId: string;
   let otherId: string;
   let stewardId: string;
+  let adminId: string;
   let ownerToken: string;
   let otherToken: string;
   let stewardToken: string;
+  let adminToken: string;
   let housingNeedId: string;
   let nonHousingNeedId: string;
   let housingResponsibilityId: string;
@@ -55,17 +57,27 @@ describe('People Step 5 — Obligation & Follow-through E2E', () => {
     const ownerEmail = `owner-${marker}@example.test`;
     const otherEmail = `other-${marker}@example.test`;
     const stewardEmail = `steward-${marker}@example.test`;
-    const [owner, other, steward] = await Promise.all([
+    const adminEmail = `admin-${marker}@example.test`;
+    const [owner, other, steward, admin] = await Promise.all([
       prisma.db.user.create({ data: { email: ownerEmail } }),
       prisma.db.user.create({ data: { email: otherEmail } }),
       prisma.db.user.create({ data: { email: stewardEmail, roles: [UserRole.STEWARD] } }),
+      prisma.db.user.create({
+        data: { email: adminEmail, roles: [UserRole.PLATFORM_ADMINISTRATOR] },
+      }),
     ]);
     ownerId = owner.id;
     otherId = other.id;
     stewardId = steward.id;
+    adminId = admin.id;
     ownerToken = jwt.sign({ sub: ownerId, email: ownerEmail, roles: [UserRole.MEMBER] });
     otherToken = jwt.sign({ sub: otherId, email: otherEmail, roles: [UserRole.MEMBER] });
     stewardToken = jwt.sign({ sub: stewardId, email: stewardEmail, roles: [UserRole.STEWARD] });
+    adminToken = jwt.sign({
+      sub: adminId,
+      email: adminEmail,
+      roles: [UserRole.PLATFORM_ADMINISTRATOR],
+    });
 
     const [housingConversation, nonHousingConversation] = await Promise.all([
       request(app.getHttpServer())
@@ -116,11 +128,15 @@ describe('People Step 5 — Obligation & Follow-through E2E', () => {
 
   afterAll(async () => {
     await prisma.db.stewardshipRelationship.deleteMany({
-      where: { memberId: ownerId, stewardId },
+      where: { memberId: { in: [ownerId, otherId] } },
     });
-    await prisma.db.responsibility.deleteMany({ where: { principalUserId: ownerId } });
-    await prisma.db.statedNeed.deleteMany({ where: { userId: ownerId } });
-    await prisma.db.user.deleteMany({ where: { id: { in: [ownerId, otherId, stewardId] } } });
+    await prisma.db.responsibility.deleteMany({
+      where: { principalUserId: { in: [ownerId, otherId] } },
+    });
+    await prisma.db.statedNeed.deleteMany({ where: { userId: { in: [ownerId, otherId] } } });
+    await prisma.db.user.deleteMany({
+      where: { id: { in: [ownerId, otherId, stewardId, adminId] } },
+    });
     await app.close();
   });
 
@@ -142,6 +158,38 @@ describe('People Step 5 — Obligation & Follow-through E2E', () => {
       .post(`/people/follow-through/${nonHousingResponsibilityId}/housing`)
       .set('Authorization', `Bearer ${ownerToken}`)
       .send(body)
+      .expect(409);
+  });
+
+  it('rejects HUMAN_STEWARD ownership when no ACTIVE StewardshipRelationship exists', async () => {
+    const conversation = await request(app.getHttpServer())
+      .post('/ai/conversations')
+      .set('Authorization', `Bearer ${otherToken}`)
+      .send({ title: 'Step 5 unassigned Human Steward owner proof' })
+      .expect(201);
+    const need = await prisma.db.statedNeed.create({
+      data: {
+        userId: otherId,
+        conversationId: conversation.body.id,
+        content: 'I need housing help with a property callback.',
+      },
+    });
+    const accepted = await request(app.getHttpServer())
+      .post('/people/resolutions')
+      .set('Authorization', `Bearer ${otherToken}`)
+      .send({ statedNeedId: need.id, objective: 'Help me keep this property callback moving' })
+      .expect(201);
+
+    await request(app.getHttpServer())
+      .post(`/people/follow-through/${accepted.body.responsibility.id}/housing`)
+      .set('Authorization', `Bearer ${otherToken}`)
+      .send({
+        kind: 'CALLBACK',
+        owner: 'HUMAN_STEWARD',
+        requiredAction: 'Call the property office',
+        dueAt: '2026-10-01T15:00:00.000Z',
+        dueTimeZone: 'America/New_York',
+      })
       .expect(409);
   });
 
@@ -189,6 +237,32 @@ describe('People Step 5 — Obligation & Follow-through E2E', () => {
       .expect(404);
   });
 
+  it('does not reveal staff-verification target existence before authorization', async () => {
+    await request(app.getHttpServer())
+      .post(`/people/follow-through/${housingResponsibilityId}/due-verification`)
+      .set('Authorization', `Bearer ${otherToken}`)
+      .send({
+        dueAt: '2026-10-02T16:00:00.000Z',
+        sourceSystem: 'PROPERTY_PROVIDER',
+        sourceRecordType: 'AppointmentConfirmation',
+        sourceRecordId: 'existence-probe',
+        sourceState: 'CONFIRMED',
+      })
+      .expect(404);
+
+    await request(app.getHttpServer())
+      .post(`/people/follow-through/${randomUUID()}/due-verification`)
+      .set('Authorization', `Bearer ${otherToken}`)
+      .send({
+        dueAt: '2026-10-02T16:00:00.000Z',
+        sourceSystem: 'PROPERTY_PROVIDER',
+        sourceRecordType: 'AppointmentConfirmation',
+        sourceRecordId: 'existence-probe-random',
+        sourceState: 'CONFIRMED',
+      })
+      .expect(404);
+  });
+
   it('requires current Human Steward assignment for source-backed verification', async () => {
     await request(app.getHttpServer())
       .post(`/people/follow-through/${housingResponsibilityId}/due-verification`)
@@ -200,7 +274,7 @@ describe('People Step 5 — Obligation & Follow-through E2E', () => {
         sourceRecordId: 'confirmation-001',
         sourceState: 'CONFIRMED',
       })
-      .expect(403);
+      .expect(404);
 
     await prisma.db.stewardshipRelationship.create({
       data: {
@@ -270,6 +344,98 @@ describe('People Step 5 — Obligation & Follow-through E2E', () => {
     expect(serialized).toContain(housingResponsibilityId);
     expect(serialized).not.toContain(secretAction);
     expect(serialized).not.toContain('requiredAction');
+  });
+
+  it('optimistic locking rejects one of two concurrent mutations instead of silently overwriting', async () => {
+    const conversation = await request(app.getHttpServer())
+      .post('/ai/conversations')
+      .set('Authorization', `Bearer ${otherToken}`)
+      .send({ title: 'Step 5 concurrency proof' })
+      .expect(201);
+    const need = await prisma.db.statedNeed.create({
+      data: {
+        userId: otherId,
+        conversationId: conversation.body.id,
+        content: 'I need housing help tracking a callback date.',
+      },
+    });
+    const accepted = await request(app.getHttpServer())
+      .post('/people/resolutions')
+      .set('Authorization', `Bearer ${otherToken}`)
+      .send({ statedNeedId: need.id, objective: 'Help me track this housing callback' })
+      .expect(201);
+    const responsibilityId = accepted.body.responsibility.id;
+
+    await request(app.getHttpServer())
+      .post(`/people/follow-through/${responsibilityId}/housing`)
+      .set('Authorization', `Bearer ${otherToken}`)
+      .send({
+        kind: 'CALLBACK',
+        owner: 'AUREUS',
+        requiredAction: 'Call the property office',
+        dueAt: '2026-10-10T15:00:00.000Z',
+        dueTimeZone: 'America/New_York',
+      })
+      .expect(201);
+
+    const [first, second] = await Promise.all([
+      request(app.getHttpServer())
+        .post(`/people/follow-through/${responsibilityId}/due-change`)
+        .set('Authorization', `Bearer ${otherToken}`)
+        .send({ dueAt: '2026-10-11T15:00:00.000Z', dueBasis: 'First concurrent report' }),
+      request(app.getHttpServer())
+        .post(`/people/follow-through/${responsibilityId}/due-change`)
+        .set('Authorization', `Bearer ${otherToken}`)
+        .send({ dueAt: '2026-10-12T15:00:00.000Z', dueBasis: 'Second concurrent report' }),
+    ]);
+
+    expect([first.status, second.status].sort()).toEqual([201, 409]);
+    const stored = await prisma.db.responsibility.findUniqueOrThrow({ where: { id: responsibilityId } });
+    expect(['2026-10-11T15:00:00.000Z', '2026-10-12T15:00:00.000Z']).toContain(
+      stored.dueAt?.toISOString(),
+    );
+  });
+
+  it('deduplicates the same due-soon reminder across repeated sweeps', async () => {
+    const conversation = await request(app.getHttpServer())
+      .post('/ai/conversations')
+      .set('Authorization', `Bearer ${otherToken}`)
+      .send({ title: 'Step 5 reminder dedupe proof' })
+      .expect(201);
+    const need = await prisma.db.statedNeed.create({
+      data: {
+        userId: otherId,
+        conversationId: conversation.body.id,
+        content: 'I need housing help remembering a deadline tomorrow.',
+      },
+    });
+    const accepted = await request(app.getHttpServer())
+      .post('/people/resolutions')
+      .set('Authorization', `Bearer ${otherToken}`)
+      .send({ statedNeedId: need.id, objective: 'Help me track tomorrow’s housing deadline' })
+      .expect(201);
+    const responsibilityId = accepted.body.responsibility.id;
+    const dueAt = new Date(Date.now() + 60 * 60 * 1000).toISOString();
+
+    const created = await request(app.getHttpServer())
+      .post(`/people/follow-through/${responsibilityId}/housing`)
+      .set('Authorization', `Bearer ${otherToken}`)
+      .send({
+        kind: 'DEADLINE',
+        owner: 'AUREUS',
+        requiredAction: 'Review tomorrow’s housing deadline',
+        dueAt,
+        dueTimeZone: 'America/New_York',
+      })
+      .expect(201);
+
+    const dedupeKey = `people-step5:${created.body.obligationId}:due:${dueAt}`;
+    await followThrough.runFollowThroughSweep();
+    await followThrough.runFollowThroughSweep();
+
+    expect(
+      await prisma.db.notification.count({ where: { recipientId: otherId, dedupeKey } }),
+    ).toBe(1);
   });
 
   it('records Obligation satisfaction without completing the underlying Personal Need Responsibility', async () => {
@@ -346,6 +512,14 @@ describe('People Step 5 — Obligation & Follow-through E2E', () => {
       .expect(200);
     expect(state.body.state).toBe(PeopleFollowThroughState.MISSED);
     expect(state.body.reviewRequired).toBe(true);
+
+    const adminQueue = await request(app.getHttpServer())
+      .get('/people/follow-through/assigned')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .expect(200);
+    expect(adminQueue.body.some((row: { responsibilityId: string }) => row.responsibilityId === responsibilityId)).toBe(
+      true,
+    );
 
     const responsibility = await prisma.db.responsibility.findUniqueOrThrow({
       where: { id: responsibilityId },
