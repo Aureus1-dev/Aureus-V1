@@ -248,12 +248,14 @@ export class HouseholdContinuityService {
     caller: AuthenticatedUser,
   ) {
     const rows = await this.prisma.db.$queryRaw<MembershipRow[]>(Prisma.sql`
-      SELECT "id", "householdId", "userId", "status"::text AS "status", "invitedByUserId", "joinedAt", "endedAt", "createdAt"
-      FROM "HouseholdMembership"
-      WHERE "id" = ${membershipId}::uuid
-        AND "householdId" = ${householdId}::uuid
-        AND "userId" = ${caller.id}::uuid
-        AND "status" = 'PENDING'::"HouseholdMembershipStatus"
+      SELECT hm."id", hm."householdId", hm."userId", hm."status"::text AS "status", hm."invitedByUserId", hm."joinedAt", hm."endedAt", hm."createdAt"
+      FROM "HouseholdMembership" hm
+      JOIN "Household" h ON h."id" = hm."householdId"
+      WHERE hm."id" = ${membershipId}::uuid
+        AND hm."householdId" = ${householdId}::uuid
+        AND hm."userId" = ${caller.id}::uuid
+        AND hm."status" = 'PENDING'::"HouseholdMembershipStatus"
+        AND h."status" = 'ACTIVE'::"HouseholdStatus"
       LIMIT 1
     `);
     if (!rows[0]) throw new NotFoundException('Household invitation not found');
@@ -584,15 +586,46 @@ export class HouseholdContinuityService {
         INSERT INTO "HouseholdEvent" ("id", "householdId", "actorUserId", "eventType", "subjectType", "subjectId", "occurredAt")
         VALUES (${randomUUID()}::uuid, ${householdId}::uuid, ${caller.id}::uuid, 'MEMBER_LEFT', 'MEMBERSHIP', ${membership.id}::uuid, NOW())
       `);
-      await tx.$executeRaw(Prisma.sql`
+      const archived = await tx.$executeRaw(Prisma.sql`
         UPDATE "Household" h
         SET "status" = 'ARCHIVED'::"HouseholdStatus", "updatedAt" = NOW()
         WHERE h."id" = ${householdId}::uuid
+          AND h."status" = 'ACTIVE'::"HouseholdStatus"
           AND NOT EXISTS (
             SELECT 1 FROM "HouseholdMembership" hm
             WHERE hm."householdId" = h."id" AND hm."status" = 'ACTIVE'::"HouseholdMembershipStatus"
           )
       `);
+      if (archived === 1) {
+        await tx.$executeRaw(Prisma.sql`
+          UPDATE "HouseholdMembership"
+          SET "status" = 'ENDED'::"HouseholdMembershipStatus", "endedAt" = NOW(), "updatedAt" = NOW()
+          WHERE "householdId" = ${householdId}::uuid
+            AND "status" = 'PENDING'::"HouseholdMembershipStatus"
+        `);
+        await tx.$executeRaw(Prisma.sql`
+          UPDATE "HouseholdRelationship"
+          SET "status" = 'ENDED'::"HouseholdRelationshipStatus", "endedAt" = NOW(), "updatedAt" = NOW()
+          WHERE "householdId" = ${householdId}::uuid
+            AND "status" IN ('PENDING'::"HouseholdRelationshipStatus", 'ACTIVE'::"HouseholdRelationshipStatus")
+        `);
+        await tx.$executeRaw(Prisma.sql`
+          UPDATE "HouseholdDependency"
+          SET "status" = 'ENDED'::"HouseholdDependencyStatus", "endedAt" = NOW(), "updatedAt" = NOW()
+          WHERE "householdId" = ${householdId}::uuid
+            AND "status" IN ('PENDING'::"HouseholdDependencyStatus", 'ACTIVE'::"HouseholdDependencyStatus")
+        `);
+        await tx.$executeRaw(Prisma.sql`
+          UPDATE "HouseholdResponsibilityParticipant"
+          SET "status" = 'ENDED'::"HouseholdResponsibilityShareStatus", "endedAt" = NOW(), "updatedAt" = NOW()
+          WHERE "householdId" = ${householdId}::uuid
+            AND "status" IN ('PENDING'::"HouseholdResponsibilityShareStatus", 'ACTIVE'::"HouseholdResponsibilityShareStatus")
+        `);
+        await tx.$executeRaw(Prisma.sql`
+          INSERT INTO "HouseholdEvent" ("id", "householdId", "actorUserId", "eventType", "subjectType", "subjectId", "occurredAt")
+          VALUES (${randomUUID()}::uuid, ${householdId}::uuid, ${caller.id}::uuid, 'HOUSEHOLD_ARCHIVED', 'HOUSEHOLD', ${householdId}::uuid, NOW())
+        `);
+      }
     });
 
     return { householdId, membershipId: membership.id, status: 'ENDED' };
@@ -640,6 +673,8 @@ export class HouseholdContinuityService {
   }
 
   private isUniqueViolation(error: unknown): boolean {
-    return typeof error === 'object' && error !== null && 'code' in error && (error as { code?: string }).code === '23505';
+    if (typeof error !== 'object' || error === null || !('code' in error)) return false;
+    const candidate = error as { code?: string; meta?: { code?: string } };
+    return candidate.code === '23505' || (candidate.code === 'P2010' && candidate.meta?.code === '23505');
   }
 }

@@ -266,49 +266,63 @@ model User {
   failedLoginAttempts Int       @default(0)
   lockedUntil         DateTime?
 
-  profile                     Profile?
-  goals                       Goal[]
-  refreshTokens               RefreshToken[]
-  passwordResetTokens         PasswordResetToken[]
-  emailVerificationTokens     EmailVerificationToken[]
-  organizationMemberships     OrganizationMember[]
-  stewardCapacity             StewardCapacity?
-  stewardshipAsMember         StewardshipRelationship[]  @relation("StewardshipRelationshipMember")
-  stewardshipAsSteward        StewardshipRelationship[]  @relation("StewardshipRelationshipSteward")
-  notifications               Notification[]
-  notificationPreferences     NotificationPreference[]
-  announcementsAsSteward      Announcement[]             @relation("AnnouncementSteward")
-  conversationMemberships     ConversationParticipant[]
-  sentMessages                Message[]
-  enrollments                 Enrollment[]
-  certifications              Certification[]
-  aiConversations             AiConversation[]
-  aiRequests                  AiRequest[]
-  aiRecommendations           AiRecommendation[]
-  aiVoiceSessions             AiVoiceSession[]
-  wardLeadEvents              WardLeadEvent[]            @relation("WardLeadEventActor")
-  podMemberships              PodMembership[]
-  podEventRsvps               PodEventRsvp[]
-  podRequests                 PodRequest[]
-  podInvitationsReceived      PodInvitation[]            @relation("PodInvitationInvitee")
-  connectedAccounts           ConnectedAccount[]
-  documents                   Document[]
-  stewardActivityLogs         StewardActivityLog[]
-  aiOperationalConfigUpdates  AiOperationalConfig[]
-  aiOrchestrationRuns         AiOrchestrationRun[]
-  consentRecords              ConsentRecord[]
-  authorityRequestsAsSubject  AuthorityRequest[]         @relation("AuthorityRequestSubject")
-  authorityGrantsAsSubject    AuthorityGrant[]           @relation("AuthorityGrantSubject")
-  authorityStatesAsSubject    AuthorityCapabilityState[] @relation("AuthorityCapabilityStateSubject")
-  statedNeeds                 StatedNeed[]
-  resourceOffers              ResourceOffer[]
-  needEscalations             NeedEscalation[]
-  unresolvedNeeds             UnresolvedNeed[]
-  needOutcomeReports          NeedOutcomeReport[]
-  harvestPlans                HarvestPlan[]
-  guidedApplicationSessions   GuidedApplicationSession[]
-  responsibilitiesAsPrincipal Responsibility[]           @relation("ResponsibilityPrincipalUser")
-  legalMatters                LegalMatter[]
+  profile                                Profile?
+  goals                                  Goal[]
+  refreshTokens                          RefreshToken[]
+  passwordResetTokens                    PasswordResetToken[]
+  emailVerificationTokens                EmailVerificationToken[]
+  organizationMemberships                OrganizationMember[]
+  stewardCapacity                        StewardCapacity?
+  stewardshipAsMember                    StewardshipRelationship[]            @relation("StewardshipRelationshipMember")
+  stewardshipAsSteward                   StewardshipRelationship[]            @relation("StewardshipRelationshipSteward")
+  notifications                          Notification[]
+  notificationPreferences                NotificationPreference[]
+  announcementsAsSteward                 Announcement[]                       @relation("AnnouncementSteward")
+  conversationMemberships                ConversationParticipant[]
+  sentMessages                           Message[]
+  enrollments                            Enrollment[]
+  certifications                         Certification[]
+  aiConversations                        AiConversation[]
+  aiRequests                             AiRequest[]
+  aiRecommendations                      AiRecommendation[]
+  aiVoiceSessions                        AiVoiceSession[]
+  wardLeadEvents                         WardLeadEvent[]                      @relation("WardLeadEventActor")
+  podMemberships                         PodMembership[]
+  podEventRsvps                          PodEventRsvp[]
+  podRequests                            PodRequest[]
+  podInvitationsReceived                 PodInvitation[]                      @relation("PodInvitationInvitee")
+  connectedAccounts                      ConnectedAccount[]
+  documents                              Document[]
+  stewardActivityLogs                    StewardActivityLog[]
+  aiOperationalConfigUpdates             AiOperationalConfig[]
+  aiOrchestrationRuns                    AiOrchestrationRun[]
+  consentRecords                         ConsentRecord[]
+  authorityRequestsAsSubject             AuthorityRequest[]                   @relation("AuthorityRequestSubject")
+  authorityGrantsAsSubject               AuthorityGrant[]                     @relation("AuthorityGrantSubject")
+  authorityStatesAsSubject               AuthorityCapabilityState[]           @relation("AuthorityCapabilityStateSubject")
+  statedNeeds                            StatedNeed[]
+  resourceOffers                         ResourceOffer[]
+  needEscalations                        NeedEscalation[]
+  unresolvedNeeds                        UnresolvedNeed[]
+  needOutcomeReports                     NeedOutcomeReport[]
+  harvestPlans                           HarvestPlan[]
+  guidedApplicationSessions              GuidedApplicationSession[]
+  responsibilitiesAsPrincipal            Responsibility[]                     @relation("ResponsibilityPrincipalUser")
+  legalMatters                           LegalMatter[]
+  householdsCreated                      Household[]                          @relation("HouseholdCreatedBy")
+  householdMemberships                   HouseholdMembership[]                @relation("HouseholdMembershipUser")
+  householdInvitationsSent               HouseholdMembership[]                @relation("HouseholdMembershipInviter")
+  householdRelationshipsAsSubject        HouseholdRelationship[]              @relation("HouseholdRelationshipSubject")
+  householdRelationshipsAsRelated        HouseholdRelationship[]              @relation("HouseholdRelationshipRelated")
+  householdRelationshipsProposed         HouseholdRelationship[]              @relation("HouseholdRelationshipProposer")
+  householdRelationshipsConfirmed        HouseholdRelationship[]              @relation("HouseholdRelationshipConfirmer")
+  householdDependenciesAsDependent       HouseholdDependency[]                @relation("HouseholdDependencyDependent")
+  householdDependenciesAsSupporter       HouseholdDependency[]                @relation("HouseholdDependencySupporter")
+  householdDependenciesProposed          HouseholdDependency[]                @relation("HouseholdDependencyProposer")
+  householdDependenciesConfirmed         HouseholdDependency[]                @relation("HouseholdDependencyConfirmer")
+  householdResponsibilityParticipation   HouseholdResponsibilityParticipant[] @relation("HouseholdResponsibilityParticipantUser")
+  householdResponsibilityInvitationsSent HouseholdResponsibilityParticipant[] @relation("HouseholdResponsibilityParticipantInviter")
+  householdEvents                        HouseholdEvent[]                     @relation("HouseholdEventActor")
 }
 
 // ===========================================================================
@@ -489,30 +503,30 @@ enum AuthorityDecisionResult {
 }
 
 model AuthorityRequest {
-  id                String                 @id @default(uuid()) @db.Uuid
-  contextType       AuthorityContextType
-  subjectUserId     String?                @db.Uuid
-  subjectUser       User?                  @relation("AuthorityRequestSubject", fields: [subjectUserId], references: [id], onDelete: Cascade)
-  organizationId    String?                @db.Uuid
-  organization      Organization?          @relation("AuthorityRequestOrganization", fields: [organizationId], references: [id], onDelete: Cascade)
-  capability        AuthorityCapability
+  id                 String                       @id @default(uuid()) @db.Uuid
+  contextType        AuthorityContextType
+  subjectUserId      String?                      @db.Uuid
+  subjectUser        User?                        @relation("AuthorityRequestSubject", fields: [subjectUserId], references: [id], onDelete: Cascade)
+  organizationId     String?                      @db.Uuid
+  organization       Organization?                @relation("AuthorityRequestOrganization", fields: [organizationId], references: [id], onDelete: Cascade)
+  capability         AuthorityCapability
   resourceClass      AuthorityResourceClass
   resourceRef        String?
   shareRecipientKind AuthorityShareRecipientKind?
   shareRecipientRef  String?
-  shareDataFields    String[]                @default([])
+  shareDataFields    String[]                     @default([])
   shareScopeKey      String?
   purpose            String
-  source             AuthorityRequestSource  @default(USER)
-  status             AuthorityRequestStatus  @default(PENDING)
-  policyVersion      String                  @default("people-step2-v2")
-  requestedByUserId String?                @db.Uuid
-  approvedByUserId  String?                @db.Uuid
-  deniedByUserId    String?                @db.Uuid
-  expiresAt         DateTime?
-  decidedAt         DateTime?
-  createdAt         DateTime               @default(now())
-  updatedAt         DateTime               @updatedAt
+  source             AuthorityRequestSource       @default(USER)
+  status             AuthorityRequestStatus       @default(PENDING)
+  policyVersion      String                       @default("people-step2-v2")
+  requestedByUserId  String?                      @db.Uuid
+  approvedByUserId   String?                      @db.Uuid
+  deniedByUserId     String?                      @db.Uuid
+  expiresAt          DateTime?
+  decidedAt          DateTime?
+  createdAt          DateTime                     @default(now())
+  updatedAt          DateTime                     @updatedAt
 
   grant AuthorityGrant?
 
@@ -523,29 +537,29 @@ model AuthorityRequest {
 }
 
 model AuthorityGrant {
-  id              String                 @id @default(uuid()) @db.Uuid
-  requestId       String                 @unique @db.Uuid
-  request         AuthorityRequest       @relation(fields: [requestId], references: [id], onDelete: Restrict)
-  contextType     AuthorityContextType
-  subjectUserId   String?                @db.Uuid
-  subjectUser     User?                  @relation("AuthorityGrantSubject", fields: [subjectUserId], references: [id], onDelete: Cascade)
-  organizationId  String?                @db.Uuid
-  organization    Organization?          @relation("AuthorityGrantOrganization", fields: [organizationId], references: [id], onDelete: Cascade)
-  capability      AuthorityCapability
+  id                 String                       @id @default(uuid()) @db.Uuid
+  requestId          String                       @unique @db.Uuid
+  request            AuthorityRequest             @relation(fields: [requestId], references: [id], onDelete: Restrict)
+  contextType        AuthorityContextType
+  subjectUserId      String?                      @db.Uuid
+  subjectUser        User?                        @relation("AuthorityGrantSubject", fields: [subjectUserId], references: [id], onDelete: Cascade)
+  organizationId     String?                      @db.Uuid
+  organization       Organization?                @relation("AuthorityGrantOrganization", fields: [organizationId], references: [id], onDelete: Cascade)
+  capability         AuthorityCapability
   resourceClass      AuthorityResourceClass
   resourceRef        String?
   shareRecipientKind AuthorityShareRecipientKind?
   shareRecipientRef  String?
-  shareDataFields    String[]               @default([])
+  shareDataFields    String[]                     @default([])
   shareScopeKey      String?
   purpose            String
   policyVersion      String
-  status          AuthorityGrantStatus   @default(ACTIVE)
-  expiresAt       DateTime?
-  revokedAt       DateTime?
-  revokedByUserId String?                @db.Uuid
-  createdAt       DateTime               @default(now())
-  updatedAt       DateTime               @updatedAt
+  status             AuthorityGrantStatus         @default(ACTIVE)
+  expiresAt          DateTime?
+  revokedAt          DateTime?
+  revokedByUserId    String?                      @db.Uuid
+  createdAt          DateTime                     @default(now())
+  updatedAt          DateTime                     @updatedAt
 
   @@index([subjectUserId, status, capability, resourceClass])
   @@index([organizationId, status, capability, resourceClass])
@@ -604,10 +618,10 @@ model AuthorityDecision {
   subjectUserId  String?                 @db.Uuid
   organizationId String?                 @db.Uuid
   capability     AuthorityCapability
-  resourceClass AuthorityResourceClass
-  resourceRef   String?
-  shareScopeKey String?
-  result        AuthorityDecisionResult
+  resourceClass  AuthorityResourceClass
+  resourceRef    String?
+  shareScopeKey  String?
+  result         AuthorityDecisionResult
   reason         String
   grantId        String?                 @db.Uuid
   policyVersion  String
@@ -661,6 +675,7 @@ model Responsibility {
   events                    ResponsibilityEvent[]
   guidedApplicationSessions GuidedApplicationSession[]
   legalMatter               LegalMatter?
+  householdParticipants     HouseholdResponsibilityParticipant[]
 
   @@index([contextType, principalUserId, status, updatedAt])
   @@index([principalOrganizationId, status, updatedAt])
@@ -705,13 +720,13 @@ model ResponsibilityEvent {
 // ===========================================================================
 
 model LegalMatter {
-  id               String @id @default(uuid()) @db.Uuid
-  userId           String @db.Uuid
-  user             User   @relation(fields: [userId], references: [id], onDelete: Cascade)
-  responsibilityId String @unique @db.Uuid
+  id               String         @id @default(uuid()) @db.Uuid
+  userId           String         @db.Uuid
+  user             User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  responsibilityId String         @unique @db.Uuid
   responsibility   Responsibility @relation(fields: [responsibilityId], references: [id], onDelete: Cascade)
-  statedNeedId     String @unique @db.Uuid
-  statedNeed       StatedNeed @relation(fields: [statedNeedId], references: [id], onDelete: Cascade)
+  statedNeedId     String         @unique @db.Uuid
+  statedNeed       StatedNeed     @relation(fields: [statedNeedId], references: [id], onDelete: Cascade)
 
   matterType        String
   jurisdiction      String
@@ -720,46 +735,46 @@ model LegalMatter {
   urgency           LegalMatterUrgency @default(ROUTINE)
 
   disclosureAcknowledgedAt DateTime
-  assistanceMode            String @default("SAFE_MODE")
-  legalReviewRequired       Boolean @default(true)
+  assistanceMode           String   @default("SAFE_MODE")
+  legalReviewRequired      Boolean  @default(true)
 
-  retentionBasis    String @default("LEGAL_MATTER_V1_REVIEW_90_DAYS_AFTER_CLOSURE")
+  retentionBasis    String                    @default("LEGAL_MATTER_V1_REVIEW_90_DAYS_AFTER_CLOSURE")
   retentionState    LegalMatterRetentionState @default(ACTIVE)
   retentionReviewAt DateTime?
   legalHoldBasis    String?
 
   outcomeSummary String?
   closedAt       DateTime?
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
 
-  sources          LegalMatterSource[]
-  facts            LegalMatterFact[]
-  deadlines        LegalMatterDeadline[]
-  reviewRequests   LegalMatterReviewRequest[]
-  documentLinks    LegalMatterDocumentLink[]
+  sources        LegalMatterSource[]
+  facts          LegalMatterFact[]
+  deadlines      LegalMatterDeadline[]
+  reviewRequests LegalMatterReviewRequest[]
+  documentLinks  LegalMatterDocumentLink[]
 
   @@index([userId, updatedAt])
   @@index([jurisdiction, matterType])
 }
 
 model LegalMatterSource {
-  id           String @id @default(uuid()) @db.Uuid
-  matterId     String @db.Uuid
-  matter       LegalMatter @relation(fields: [matterId], references: [id], onDelete: Cascade)
+  id       String      @id @default(uuid()) @db.Uuid
+  matterId String      @db.Uuid
+  matter   LegalMatter @relation(fields: [matterId], references: [id], onDelete: Cascade)
 
-  title        String
-  url          String
-  kind         LegalMatterSourceKind
-  jurisdiction String
-  proposition  String
-  provenance   LegalMatterProvenance @default(REPORTED)
-  verification LegalMatterSourceVerification @default(MEMBER_REPORTED)
-  checkedAt    DateTime
-  verifiedAt   DateTime?
-  verifiedByUserId String? @db.Uuid
+  title            String
+  url              String
+  kind             LegalMatterSourceKind
+  jurisdiction     String
+  proposition      String
+  provenance       LegalMatterProvenance         @default(REPORTED)
+  verification     LegalMatterSourceVerification @default(MEMBER_REPORTED)
+  checkedAt        DateTime
+  verifiedAt       DateTime?
+  verifiedByUserId String?                       @db.Uuid
   verificationNote String?
-  createdAt    DateTime @default(now())
+  createdAt        DateTime                      @default(now())
 
   facts     LegalMatterFact[]
   deadlines LegalMatterDeadline[]
@@ -769,71 +784,71 @@ model LegalMatterSource {
 }
 
 model LegalMatterFact {
-  id         String @id @default(uuid()) @db.Uuid
-  matterId   String @db.Uuid
-  matter     LegalMatter @relation(fields: [matterId], references: [id], onDelete: Cascade)
-  statement  String
-  kind       LegalMatterFactKind @default(MEMBER_REPORTED_FACT)
-  provenance LegalMatterProvenance @default(REPORTED)
-  sourceId   String? @db.Uuid
-  source     LegalMatterSource? @relation(fields: [sourceId], references: [id], onDelete: SetNull)
-  observedAt DateTime?
-  observedByUserId String? @db.Uuid
-  createdAt  DateTime @default(now())
+  id               String                @id @default(uuid()) @db.Uuid
+  matterId         String                @db.Uuid
+  matter           LegalMatter           @relation(fields: [matterId], references: [id], onDelete: Cascade)
+  statement        String
+  kind             LegalMatterFactKind   @default(MEMBER_REPORTED_FACT)
+  provenance       LegalMatterProvenance @default(REPORTED)
+  sourceId         String?               @db.Uuid
+  source           LegalMatterSource?    @relation(fields: [sourceId], references: [id], onDelete: SetNull)
+  observedAt       DateTime?
+  observedByUserId String?               @db.Uuid
+  createdAt        DateTime              @default(now())
 
   @@index([matterId, createdAt])
   @@index([sourceId])
 }
 
 model LegalMatterDeadline {
-  id               String @id @default(uuid()) @db.Uuid
-  matterId         String @db.Uuid
-  matter           LegalMatter @relation(fields: [matterId], references: [id], onDelete: Cascade)
+  id               String                    @id @default(uuid()) @db.Uuid
+  matterId         String                    @db.Uuid
+  matter           LegalMatter               @relation(fields: [matterId], references: [id], onDelete: Cascade)
   label            String
   dueAt            DateTime
   timeZone         String
   trigger          String
   calculationBasis String?
-  sourceId         String? @db.Uuid
-  source           LegalMatterSource? @relation(fields: [sourceId], references: [id], onDelete: SetNull)
+  sourceId         String?                   @db.Uuid
+  source           LegalMatterSource?        @relation(fields: [sourceId], references: [id], onDelete: SetNull)
   status           LegalMatterDeadlineStatus @default(REPORTED)
   completedAt      DateTime?
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
+  createdAt        DateTime                  @default(now())
+  updatedAt        DateTime                  @updatedAt
 
   @@index([matterId, dueAt])
   @@index([sourceId])
 }
 
 model LegalMatterReviewRequest {
-  id                String @id @default(uuid()) @db.Uuid
-  matterId          String @db.Uuid
-  matter            LegalMatter @relation(fields: [matterId], references: [id], onDelete: Cascade)
-  requestedByUserId String @db.Uuid
+  id                String                  @id @default(uuid()) @db.Uuid
+  matterId          String                  @db.Uuid
+  matter            LegalMatter             @relation(fields: [matterId], references: [id], onDelete: Cascade)
+  requestedByUserId String                  @db.Uuid
   purpose           String
   status            LegalMatterReviewStatus @default(PENDING)
-  createdAt         DateTime @default(now())
+  createdAt         DateTime                @default(now())
   completedAt       DateTime?
-  completedByUserId String? @db.Uuid
+  completedByUserId String?                 @db.Uuid
 
   @@index([matterId, status, createdAt])
 }
 
 model LegalMatterDocumentLink {
-  id         String @id @default(uuid()) @db.Uuid
-  matterId   String @db.Uuid
+  id         String      @id @default(uuid()) @db.Uuid
+  matterId   String      @db.Uuid
   matter     LegalMatter @relation(fields: [matterId], references: [id], onDelete: Cascade)
-  documentId String @db.Uuid
-  document   Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  documentId String      @db.Uuid
+  document   Document    @relation(fields: [documentId], references: [id], onDelete: Cascade)
   label      String?
-  createdAt  DateTime @default(now())
+  createdAt  DateTime    @default(now())
 
   @@unique([matterId, documentId])
   @@index([documentId])
 }
 
 model LegalJurisdictionPolicy {
-  id                 String @id @default(uuid()) @db.Uuid
+  id                 String                            @id @default(uuid()) @db.Uuid
   jurisdiction       String
   matterType         String
   assistanceCategory String
@@ -841,10 +856,10 @@ model LegalJurisdictionPolicy {
   sourceUrl          String
   checkedAt          DateTime
   effectiveAt        DateTime?
-  reviewedByUserId   String? @db.Uuid
+  reviewedByUserId   String?                           @db.Uuid
   notes              String?
-  createdAt          DateTime @default(now())
-  updatedAt          DateTime @updatedAt
+  createdAt          DateTime                          @default(now())
+  updatedAt          DateTime                          @updatedAt
 
   @@unique([jurisdiction, matterType, assistanceCategory])
   @@index([status, checkedAt])
@@ -2725,7 +2740,7 @@ model LearningPath {
 
   title            String
   shortDescription String
-  fullDescription String
+  fullDescription  String
 
   status             AcademyContentStatus @default(DRAFT)
   verificationStatus VerificationStatus   @default(DRAFT)
@@ -3982,7 +3997,7 @@ model StatedNeed {
   needEscalations NeedEscalation[]
   unresolvedNeed  UnresolvedNeed?
   outcomeReports  NeedOutcomeReport[]
-  legalMatter      LegalMatter?
+  legalMatter     LegalMatter?
 
   @@index([userId])
   @@index([conversationId])
@@ -4100,4 +4115,185 @@ model UnresolvedNeed {
   createdAt DateTime @default(now())
 
   @@index([userId])
+}
+
+// ===========================================================================
+// PEOPLE-HOUSE-001 — Household & Relationship Continuity
+// Structural coordination only. These records do not grant private-data,
+// legal, financial, sharing, or action authority; Step 2 remains authoritative.
+// ===========================================================================
+
+enum HouseholdStatus {
+  ACTIVE
+  ARCHIVED
+}
+
+enum HouseholdMembershipStatus {
+  PENDING
+  ACTIVE
+  DECLINED
+  ENDED
+}
+
+enum HouseholdRelationshipType {
+  SPOUSE_OR_PARTNER
+  PARENT_OR_GUARDIAN
+  CHILD_OR_DEPENDENT
+  CAREGIVER
+  CARE_RECIPIENT
+  SIBLING
+  RELATIVE
+  ROOMMATE
+  OTHER
+}
+
+enum HouseholdRelationshipStatus {
+  PENDING
+  ACTIVE
+  DECLINED
+  ENDED
+}
+
+enum HouseholdDependencyKind {
+  FINANCIAL
+  CARE
+  HOUSING
+  TRANSPORTATION
+  ADMINISTRATIVE
+  HEALTHCARE
+  OTHER
+}
+
+enum HouseholdDependencyStatus {
+  PENDING
+  ACTIVE
+  DECLINED
+  ENDED
+}
+
+enum HouseholdResponsibilityShareStatus {
+  PENDING
+  ACTIVE
+  DECLINED
+  ENDED
+}
+
+model Household {
+  id              String          @id @default(uuid()) @db.Uuid
+  label           String?
+  status          HouseholdStatus @default(ACTIVE)
+  createdByUserId String?         @db.Uuid
+  createdByUser   User?           @relation("HouseholdCreatedBy", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+
+  memberships                HouseholdMembership[]
+  relationships              HouseholdRelationship[]
+  dependencies               HouseholdDependency[]
+  responsibilityParticipants HouseholdResponsibilityParticipant[]
+  events                     HouseholdEvent[]
+
+  @@index([createdByUserId])
+  @@index([status])
+}
+
+model HouseholdMembership {
+  id              String                    @id @default(uuid()) @db.Uuid
+  householdId     String                    @db.Uuid
+  household       Household                 @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  userId          String                    @db.Uuid
+  user            User                      @relation("HouseholdMembershipUser", fields: [userId], references: [id], onDelete: Cascade)
+  status          HouseholdMembershipStatus @default(PENDING)
+  invitedByUserId String?                   @db.Uuid
+  invitedByUser   User?                     @relation("HouseholdMembershipInviter", fields: [invitedByUserId], references: [id], onDelete: SetNull)
+  joinedAt        DateTime?
+  endedAt         DateTime?
+  createdAt       DateTime                  @default(now())
+  updatedAt       DateTime                  @updatedAt
+
+  @@index([userId, status])
+  @@index([householdId, status])
+}
+
+model HouseholdRelationship {
+  id                String                      @id @default(uuid()) @db.Uuid
+  householdId       String                      @db.Uuid
+  household         Household                   @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  subjectUserId     String                      @db.Uuid
+  subjectUser       User                        @relation("HouseholdRelationshipSubject", fields: [subjectUserId], references: [id], onDelete: Cascade)
+  relatedUserId     String                      @db.Uuid
+  relatedUser       User                        @relation("HouseholdRelationshipRelated", fields: [relatedUserId], references: [id], onDelete: Cascade)
+  type              HouseholdRelationshipType
+  status            HouseholdRelationshipStatus @default(PENDING)
+  proposedByUserId  String                      @db.Uuid
+  proposedByUser    User                        @relation("HouseholdRelationshipProposer", fields: [proposedByUserId], references: [id], onDelete: Cascade)
+  confirmedByUserId String?                     @db.Uuid
+  confirmedByUser   User?                       @relation("HouseholdRelationshipConfirmer", fields: [confirmedByUserId], references: [id], onDelete: SetNull)
+  confirmedAt       DateTime?
+  endedAt           DateTime?
+  createdAt         DateTime                    @default(now())
+  updatedAt         DateTime                    @updatedAt
+
+  @@index([householdId, status])
+  @@index([subjectUserId])
+  @@index([relatedUserId])
+}
+
+model HouseholdDependency {
+  id                String                    @id @default(uuid()) @db.Uuid
+  householdId       String                    @db.Uuid
+  household         Household                 @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  dependentUserId   String                    @db.Uuid
+  dependentUser     User                      @relation("HouseholdDependencyDependent", fields: [dependentUserId], references: [id], onDelete: Cascade)
+  supporterUserId   String                    @db.Uuid
+  supporterUser     User                      @relation("HouseholdDependencySupporter", fields: [supporterUserId], references: [id], onDelete: Cascade)
+  kind              HouseholdDependencyKind
+  status            HouseholdDependencyStatus @default(PENDING)
+  proposedByUserId  String                    @db.Uuid
+  proposedByUser    User                      @relation("HouseholdDependencyProposer", fields: [proposedByUserId], references: [id], onDelete: Cascade)
+  confirmedByUserId String?                   @db.Uuid
+  confirmedByUser   User?                     @relation("HouseholdDependencyConfirmer", fields: [confirmedByUserId], references: [id], onDelete: SetNull)
+  confirmedAt       DateTime?
+  endedAt           DateTime?
+  createdAt         DateTime                  @default(now())
+  updatedAt         DateTime                  @updatedAt
+
+  @@index([householdId, status])
+  @@index([dependentUserId])
+  @@index([supporterUserId])
+}
+
+model HouseholdResponsibilityParticipant {
+  id                String                             @id @default(uuid()) @db.Uuid
+  householdId       String                             @db.Uuid
+  household         Household                          @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  responsibilityId  String                             @db.Uuid
+  responsibility    Responsibility                     @relation(fields: [responsibilityId], references: [id], onDelete: Cascade)
+  participantUserId String                             @db.Uuid
+  participantUser   User                               @relation("HouseholdResponsibilityParticipantUser", fields: [participantUserId], references: [id], onDelete: Cascade)
+  status            HouseholdResponsibilityShareStatus @default(PENDING)
+  invitedByUserId   String                             @db.Uuid
+  invitedByUser     User                               @relation("HouseholdResponsibilityParticipantInviter", fields: [invitedByUserId], references: [id], onDelete: Cascade)
+  acceptedAt        DateTime?
+  endedAt           DateTime?
+  createdAt         DateTime                           @default(now())
+  updatedAt         DateTime                           @updatedAt
+
+  @@index([householdId, status])
+  @@index([participantUserId, status])
+}
+
+model HouseholdEvent {
+  id          String    @id @default(uuid()) @db.Uuid
+  householdId String    @db.Uuid
+  household   Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  actorUserId String?   @db.Uuid
+  actorUser   User?     @relation("HouseholdEventActor", fields: [actorUserId], references: [id], onDelete: SetNull)
+  eventType   String
+  subjectType String
+  subjectId   String    @db.Uuid
+  occurredAt  DateTime  @default(now())
+
+  @@index([householdId, occurredAt])
+  @@index([actorUserId])
 }
