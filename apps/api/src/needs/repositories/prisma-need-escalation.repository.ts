@@ -25,6 +25,17 @@ export class PrismaNeedEscalationRepository implements IStatedNeedEscalationRepo
     });
   }
 
+  async findOpen(): Promise<NeedEscalation[]> {
+    return this.prisma.db.needEscalation.findMany({
+      where: {
+        status: {
+          in: [NeedEscalationStatus.PENDING, NeedEscalationStatus.ACKNOWLEDGED],
+        },
+      },
+      orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+    });
+  }
+
   async acknowledge(id: string, acknowledgedById: string): Promise<NeedEscalation> {
     return this.prisma.db.needEscalation.update({
       where: { id },
