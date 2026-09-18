@@ -1,0 +1,360 @@
+name: People Step 3 Finalizer
+
+on:
+  push:
+    branches: ["people-step3-household-continuity"]
+
+permissions:
+  contents: write
+
+jobs:
+  finalize:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: people-step3-household-continuity
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - uses: pnpm/action-setup@v4
+        with:
+          version: "10.32.1"
+          run_install: false
+      - run: pnpm install
+      - name: Patch canonical schema and lifecycle guards
+        shell: bash
+        run: |
+          python <<'PY'
+          from pathlib import Path
+
+          schema_path = Path('prisma/schema.prisma')
+          schema = schema_path.read_text()
+
+          if 'enum HouseholdStatus {' not in schema:
+              user_anchor = '  responsibilitiesAsPrincipal Responsibility[]           @relation("ResponsibilityPrincipalUser")\n  legalMatters                LegalMatter[]\n}'
+              user_replacement = '''  responsibilitiesAsPrincipal Responsibility[]           @relation("ResponsibilityPrincipalUser")
+  legalMatters                LegalMatter[]
+  householdsCreated                          Household[]                          @relation("HouseholdCreatedBy")
+  householdMemberships                       HouseholdMembership[]                @relation("HouseholdMembershipUser")
+  householdInvitationsSent                   HouseholdMembership[]                @relation("HouseholdMembershipInviter")
+  householdRelationshipsAsSubject            HouseholdRelationship[]              @relation("HouseholdRelationshipSubject")
+  householdRelationshipsAsRelated            HouseholdRelationship[]              @relation("HouseholdRelationshipRelated")
+  householdRelationshipsProposed             HouseholdRelationship[]              @relation("HouseholdRelationshipProposer")
+  householdRelationshipsConfirmed            HouseholdRelationship[]              @relation("HouseholdRelationshipConfirmer")
+  householdDependenciesAsDependent           HouseholdDependency[]                @relation("HouseholdDependencyDependent")
+  householdDependenciesAsSupporter           HouseholdDependency[]                @relation("HouseholdDependencySupporter")
+  householdDependenciesProposed              HouseholdDependency[]                @relation("HouseholdDependencyProposer")
+  householdDependenciesConfirmed             HouseholdDependency[]                @relation("HouseholdDependencyConfirmer")
+  householdResponsibilityParticipation       HouseholdResponsibilityParticipant[] @relation("HouseholdResponsibilityParticipantUser")
+  householdResponsibilityInvitationsSent     HouseholdResponsibilityParticipant[] @relation("HouseholdResponsibilityParticipantInviter")
+  householdEvents                            HouseholdEvent[]                     @relation("HouseholdEventActor")
+}'''
+              if user_anchor not in schema:
+                  raise SystemExit('User schema anchor not found')
+              schema = schema.replace(user_anchor, user_replacement, 1)
+
+              responsibility_anchor = '  events                    ResponsibilityEvent[]\n  guidedApplicationSessions GuidedApplicationSession[]\n  legalMatter               LegalMatter?\n'
+              responsibility_replacement = '''  events                    ResponsibilityEvent[]
+  guidedApplicationSessions GuidedApplicationSession[]
+  legalMatter               LegalMatter?
+  householdParticipants     HouseholdResponsibilityParticipant[]
+'''
+              if responsibility_anchor not in schema:
+                  raise SystemExit('Responsibility schema anchor not found')
+              schema = schema.replace(responsibility_anchor, responsibility_replacement, 1)
+
+              schema += r'''
+
+// ===========================================================================
+// PEOPLE-HOUSE-001 — Household & Relationship Continuity
+// Structural coordination only. These records do not grant private-data,
+// legal, financial, sharing, or action authority; Step 2 remains authoritative.
+// ===========================================================================
+
+enum HouseholdStatus {
+  ACTIVE
+  ARCHIVED
+}
+
+enum HouseholdMembershipStatus {
+  PENDING
+  ACTIVE
+  DECLINED
+  ENDED
+}
+
+enum HouseholdRelationshipType {
+  SPOUSE_OR_PARTNER
+  PARENT_OR_GUARDIAN
+  CHILD_OR_DEPENDENT
+  CAREGIVER
+  CARE_RECIPIENT
+  SIBLING
+  RELATIVE
+  ROOMMATE
+  OTHER
+}
+
+enum HouseholdRelationshipStatus {
+  PENDING
+  ACTIVE
+  DECLINED
+  ENDED
+}
+
+enum HouseholdDependencyKind {
+  FINANCIAL
+  CARE
+  HOUSING
+  TRANSPORTATION
+  ADMINISTRATIVE
+  HEALTHCARE
+  OTHER
+}
+
+enum HouseholdDependencyStatus {
+  PENDING
+  ACTIVE
+  DECLINED
+  ENDED
+}
+
+enum HouseholdResponsibilityShareStatus {
+  PENDING
+  ACTIVE
+  DECLINED
+  ENDED
+}
+
+model Household {
+  id              String          @id @default(uuid()) @db.Uuid
+  label           String?
+  status          HouseholdStatus @default(ACTIVE)
+  createdByUserId String?         @db.Uuid
+  createdByUser   User?           @relation("HouseholdCreatedBy", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+
+  memberships               HouseholdMembership[]
+  relationships             HouseholdRelationship[]
+  dependencies              HouseholdDependency[]
+  responsibilityParticipants HouseholdResponsibilityParticipant[]
+  events                    HouseholdEvent[]
+
+  @@index([createdByUserId])
+  @@index([status])
+}
+
+model HouseholdMembership {
+  id              String                    @id @default(uuid()) @db.Uuid
+  householdId     String                    @db.Uuid
+  household       Household                 @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  userId          String                    @db.Uuid
+  user            User                      @relation("HouseholdMembershipUser", fields: [userId], references: [id], onDelete: Cascade)
+  status          HouseholdMembershipStatus @default(PENDING)
+  invitedByUserId String?                   @db.Uuid
+  invitedByUser   User?                     @relation("HouseholdMembershipInviter", fields: [invitedByUserId], references: [id], onDelete: SetNull)
+  joinedAt        DateTime?
+  endedAt         DateTime?
+  createdAt       DateTime                  @default(now())
+  updatedAt       DateTime                  @updatedAt
+
+  @@index([userId, status])
+  @@index([householdId, status])
+}
+
+model HouseholdRelationship {
+  id                String                      @id @default(uuid()) @db.Uuid
+  householdId       String                      @db.Uuid
+  household         Household                   @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  subjectUserId     String                      @db.Uuid
+  subjectUser       User                        @relation("HouseholdRelationshipSubject", fields: [subjectUserId], references: [id], onDelete: Cascade)
+  relatedUserId     String                      @db.Uuid
+  relatedUser       User                        @relation("HouseholdRelationshipRelated", fields: [relatedUserId], references: [id], onDelete: Cascade)
+  type              HouseholdRelationshipType
+  status            HouseholdRelationshipStatus @default(PENDING)
+  proposedByUserId  String                      @db.Uuid
+  proposedByUser    User                        @relation("HouseholdRelationshipProposer", fields: [proposedByUserId], references: [id], onDelete: Cascade)
+  confirmedByUserId String?                     @db.Uuid
+  confirmedByUser   User?                       @relation("HouseholdRelationshipConfirmer", fields: [confirmedByUserId], references: [id], onDelete: SetNull)
+  confirmedAt       DateTime?
+  endedAt           DateTime?
+  createdAt         DateTime                    @default(now())
+  updatedAt         DateTime                    @updatedAt
+
+  @@index([householdId, status])
+  @@index([subjectUserId])
+  @@index([relatedUserId])
+}
+
+model HouseholdDependency {
+  id                String                    @id @default(uuid()) @db.Uuid
+  householdId       String                    @db.Uuid
+  household         Household                 @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  dependentUserId   String                    @db.Uuid
+  dependentUser     User                      @relation("HouseholdDependencyDependent", fields: [dependentUserId], references: [id], onDelete: Cascade)
+  supporterUserId   String                    @db.Uuid
+  supporterUser     User                      @relation("HouseholdDependencySupporter", fields: [supporterUserId], references: [id], onDelete: Cascade)
+  kind              HouseholdDependencyKind
+  status            HouseholdDependencyStatus @default(PENDING)
+  proposedByUserId  String                    @db.Uuid
+  proposedByUser    User                      @relation("HouseholdDependencyProposer", fields: [proposedByUserId], references: [id], onDelete: Cascade)
+  confirmedByUserId String?                   @db.Uuid
+  confirmedByUser   User?                     @relation("HouseholdDependencyConfirmer", fields: [confirmedByUserId], references: [id], onDelete: SetNull)
+  confirmedAt       DateTime?
+  endedAt           DateTime?
+  createdAt         DateTime                  @default(now())
+  updatedAt         DateTime                  @updatedAt
+
+  @@index([householdId, status])
+  @@index([dependentUserId])
+  @@index([supporterUserId])
+}
+
+model HouseholdResponsibilityParticipant {
+  id                String                             @id @default(uuid()) @db.Uuid
+  householdId       String                             @db.Uuid
+  household         Household                          @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  responsibilityId  String                             @db.Uuid
+  responsibility    Responsibility                     @relation(fields: [responsibilityId], references: [id], onDelete: Cascade)
+  participantUserId String                             @db.Uuid
+  participantUser   User                               @relation("HouseholdResponsibilityParticipantUser", fields: [participantUserId], references: [id], onDelete: Cascade)
+  status            HouseholdResponsibilityShareStatus @default(PENDING)
+  invitedByUserId   String                             @db.Uuid
+  invitedByUser     User                               @relation("HouseholdResponsibilityParticipantInviter", fields: [invitedByUserId], references: [id], onDelete: Cascade)
+  acceptedAt        DateTime?
+  endedAt           DateTime?
+  createdAt         DateTime                           @default(now())
+  updatedAt         DateTime                           @updatedAt
+
+  @@index([householdId, status])
+  @@index([participantUserId, status])
+}
+
+model HouseholdEvent {
+  id          String    @id @default(uuid()) @db.Uuid
+  householdId String    @db.Uuid
+  household   Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  actorUserId String?   @db.Uuid
+  actorUser   User?     @relation("HouseholdEventActor", fields: [actorUserId], references: [id], onDelete: SetNull)
+  eventType   String
+  subjectType String
+  subjectId   String    @db.Uuid
+  occurredAt  DateTime  @default(now())
+
+  @@index([householdId, occurredAt])
+  @@index([actorUserId])
+}
+'''
+              schema_path.write_text(schema)
+
+          service_path = Path('apps/api/src/households/household-continuity.service.ts')
+          service = service_path.read_text()
+
+          old_invite_lookup = '''    const rows = await this.prisma.db.$queryRaw<MembershipRow[]>(Prisma.sql`
+      SELECT "id", "householdId", "userId", "status"::text AS "status", "invitedByUserId", "joinedAt", "endedAt", "createdAt"
+      FROM "HouseholdMembership"
+      WHERE "id" = ${membershipId}::uuid
+        AND "householdId" = ${householdId}::uuid
+        AND "userId" = ${caller.id}::uuid
+        AND "status" = 'PENDING'::"HouseholdMembershipStatus"
+      LIMIT 1
+    `);'''
+          new_invite_lookup = '''    const rows = await this.prisma.db.$queryRaw<MembershipRow[]>(Prisma.sql`
+      SELECT hm."id", hm."householdId", hm."userId", hm."status"::text AS "status", hm."invitedByUserId", hm."joinedAt", hm."endedAt", hm."createdAt"
+      FROM "HouseholdMembership" hm
+      JOIN "Household" h ON h."id" = hm."householdId"
+      WHERE hm."id" = ${membershipId}::uuid
+        AND hm."householdId" = ${householdId}::uuid
+        AND hm."userId" = ${caller.id}::uuid
+        AND hm."status" = 'PENDING'::"HouseholdMembershipStatus"
+        AND h."status" = 'ACTIVE'::"HouseholdStatus"
+      LIMIT 1
+    `);'''
+          if old_invite_lookup not in service:
+              raise SystemExit('Invitation lookup anchor not found')
+          service = service.replace(old_invite_lookup, new_invite_lookup, 1)
+
+          old_archive = '''      await tx.$executeRaw(Prisma.sql`
+        UPDATE "Household" h
+        SET "status" = 'ARCHIVED'::"HouseholdStatus", "updatedAt" = NOW()
+        WHERE h."id" = ${householdId}::uuid
+          AND NOT EXISTS (
+            SELECT 1 FROM "HouseholdMembership" hm
+            WHERE hm."householdId" = h."id" AND hm."status" = 'ACTIVE'::"HouseholdMembershipStatus"
+          )
+      `);'''
+          new_archive = '''      const archived = await tx.$executeRaw(Prisma.sql`
+        UPDATE "Household" h
+        SET "status" = 'ARCHIVED'::"HouseholdStatus", "updatedAt" = NOW()
+        WHERE h."id" = ${householdId}::uuid
+          AND h."status" = 'ACTIVE'::"HouseholdStatus"
+          AND NOT EXISTS (
+            SELECT 1 FROM "HouseholdMembership" hm
+            WHERE hm."householdId" = h."id" AND hm."status" = 'ACTIVE'::"HouseholdMembershipStatus"
+          )
+      `);
+      if (archived === 1) {
+        // Once no active adult remains, no stale invitation or coordination edge
+        // may later resurrect an archived household.
+        await tx.$executeRaw(Prisma.sql`
+          UPDATE "HouseholdMembership"
+          SET "status" = 'ENDED'::"HouseholdMembershipStatus", "endedAt" = NOW(), "updatedAt" = NOW()
+          WHERE "householdId" = ${householdId}::uuid
+            AND "status" = 'PENDING'::"HouseholdMembershipStatus"
+        `);
+        await tx.$executeRaw(Prisma.sql`
+          UPDATE "HouseholdRelationship"
+          SET "status" = 'ENDED'::"HouseholdRelationshipStatus", "endedAt" = NOW(), "updatedAt" = NOW()
+          WHERE "householdId" = ${householdId}::uuid
+            AND "status" IN ('PENDING'::"HouseholdRelationshipStatus", 'ACTIVE'::"HouseholdRelationshipStatus")
+        `);
+        await tx.$executeRaw(Prisma.sql`
+          UPDATE "HouseholdDependency"
+          SET "status" = 'ENDED'::"HouseholdDependencyStatus", "endedAt" = NOW(), "updatedAt" = NOW()
+          WHERE "householdId" = ${householdId}::uuid
+            AND "status" IN ('PENDING'::"HouseholdDependencyStatus", 'ACTIVE'::"HouseholdDependencyStatus")
+        `);
+        await tx.$executeRaw(Prisma.sql`
+          UPDATE "HouseholdResponsibilityParticipant"
+          SET "status" = 'ENDED'::"HouseholdResponsibilityShareStatus", "endedAt" = NOW(), "updatedAt" = NOW()
+          WHERE "householdId" = ${householdId}::uuid
+            AND "status" IN ('PENDING'::"HouseholdResponsibilityShareStatus", 'ACTIVE'::"HouseholdResponsibilityShareStatus")
+        `);
+        await tx.$executeRaw(Prisma.sql`
+          INSERT INTO "HouseholdEvent" ("id", "householdId", "actorUserId", "eventType", "subjectType", "subjectId", "occurredAt")
+          VALUES (${randomUUID()}::uuid, ${householdId}::uuid, ${caller.id}::uuid, 'HOUSEHOLD_ARCHIVED', 'HOUSEHOLD', ${householdId}::uuid, NOW())
+        `);
+      }'''
+          if old_archive not in service:
+              raise SystemExit('Archive lifecycle anchor not found')
+          service = service.replace(old_archive, new_archive, 1)
+
+          old_unique = '''  private isUniqueViolation(error: unknown): boolean {
+    return typeof error === 'object' && error !== null && 'code' in error && (error as { code?: string }).code === '23505';
+  }'''
+          new_unique = '''  private isUniqueViolation(error: unknown): boolean {
+    if (typeof error !== 'object' || error === null || !('code' in error)) return false;
+    const candidate = error as { code?: string; meta?: { code?: string } };
+    return candidate.code === '23505' || (candidate.code === 'P2010' && candidate.meta?.code === '23505');
+  }'''
+          if old_unique not in service:
+              raise SystemExit('Unique violation helper anchor not found')
+          service = service.replace(old_unique, new_unique, 1)
+          service_path.write_text(service)
+          PY
+
+          npx prisma format
+          npx prisma validate
+          npx prisma generate
+          pnpm --filter @aureus-v1/api exec tsc --noEmit
+
+          rm .github/workflows/people-step3-finalize.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add prisma/schema.prisma apps/api/src/households/household-continuity.service.ts .github/workflows/people-step3-finalize.yml
+          git commit -m "fix: finalize Step 3 schema and lifecycle guards"
+          git push origin HEAD:people-step3-household-continuity
