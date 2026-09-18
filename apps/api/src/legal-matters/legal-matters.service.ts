@@ -10,6 +10,7 @@ import {
   CitySheetVerificationStatus,
   LegalActionType,
   LegalMatterDeadlineStatus,
+  LegalMatterFactKind,
   LegalMatterProvenance,
   LegalMatterRetentionState,
   LegalMatterReviewStatus,
@@ -163,6 +164,7 @@ export class LegalMattersService {
       data: {
         matterId,
         statement: dto.statement.trim(),
+        kind: LegalMatterFactKind.MEMBER_REPORTED_FACT,
         provenance: LegalMatterProvenance.REPORTED,
       },
     });
@@ -268,15 +270,17 @@ export class LegalMattersService {
           },
         );
       }
-      await this.prisma.db.legalMatter.update({
-        where: { id: matterId },
-        data: {
-          outcomeSummary: dto.note?.trim() || 'Member reported the underlying legal need resolved.',
-          closedAt: new Date(),
-          retentionState: LegalMatterRetentionState.REVIEW_REQUIRED,
-          retentionReviewAt: new Date(Date.now() + RETENTION_REVIEW_AFTER_CLOSE_MS),
-        },
-      });
+      if (!matter.closedAt) {
+        await this.prisma.db.legalMatter.update({
+          where: { id: matterId },
+          data: {
+            outcomeSummary: dto.note?.trim() || 'Member reported the underlying legal need resolved.',
+            closedAt: new Date(),
+            retentionState: LegalMatterRetentionState.REVIEW_REQUIRED,
+            retentionReviewAt: new Date(Date.now() + RETENTION_REVIEW_AFTER_CLOSE_MS),
+          },
+        });
+      }
     } else {
       await this.prisma.db.legalMatter.update({
         where: { id: matterId },
@@ -360,6 +364,7 @@ export class LegalMattersService {
         matterId,
         sourceId: source.id,
         statement: dto.statement.trim(),
+        kind: LegalMatterFactKind.SOURCE_CONTENT_OBSERVATION,
         provenance: LegalMatterProvenance.OBSERVED,
         observedAt: new Date(),
         observedByUserId: reviewerId,

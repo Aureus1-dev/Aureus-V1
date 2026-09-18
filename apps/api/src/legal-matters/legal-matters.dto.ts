@@ -152,6 +152,14 @@ export class AddLegalMatterDeadlineDto {
   sourceId?: string;
 }
 
+export class LinkLegalMatterDocumentDto {
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  @MaxLength(300)
+  label?: string;
+}
+
 export class RequestLegalReviewDto {
   @ApiProperty({ example: 'Please verify the official source and the hearing date before I rely on it.' })
   @IsString()

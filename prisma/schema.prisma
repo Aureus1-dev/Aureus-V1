@@ -164,6 +164,11 @@ enum LegalMatterProvenance {
   SIMULATED
 }
 
+enum LegalMatterFactKind {
+  MEMBER_REPORTED_FACT
+  SOURCE_CONTENT_OBSERVATION
+}
+
 enum LegalMatterDeadlineStatus {
   REPORTED
   VERIFIED
@@ -747,6 +752,7 @@ model LegalMatterFact {
   matterId   String @db.Uuid
   matter     LegalMatter @relation(fields: [matterId], references: [id], onDelete: Cascade)
   statement  String
+  kind       LegalMatterFactKind @default(MEMBER_REPORTED_FACT)
   provenance LegalMatterProvenance @default(REPORTED)
   sourceId   String? @db.Uuid
   source     LegalMatterSource? @relation(fields: [sourceId], references: [id], onDelete: SetNull)

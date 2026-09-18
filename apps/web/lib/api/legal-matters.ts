@@ -22,6 +22,7 @@ export interface LegalMatterSourceDto {
 export interface LegalMatterFactDto {
   id: string;
   statement: string;
+  kind: 'MEMBER_REPORTED_FACT' | 'SOURCE_CONTENT_OBSERVATION';
   provenance: LegalMatterProvenance;
   sourceId: string | null;
   observedAt: string | null;

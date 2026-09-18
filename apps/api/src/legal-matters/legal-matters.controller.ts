@@ -20,6 +20,7 @@ import {
   AddLegalMatterSourceDto,
   CheckLegalActionDto,
   CreateLegalMatterDto,
+  LinkLegalMatterDocumentDto,
   ObserveLegalFactDto,
   ReportLegalMatterOutcomeDto,
   RequestLegalReviewDto,
@@ -84,10 +85,10 @@ export class LegalMattersController {
   linkDocument(
     @Param('matterId') matterId: string,
     @Param('documentId') documentId: string,
-    @Body() body: { label?: string },
+    @Body() dto: LinkLegalMatterDocumentDto,
     @CurrentUser() caller: AuthenticatedUser,
   ) {
-    return this.matters.linkDocument(matterId, documentId, body.label, caller);
+    return this.matters.linkDocument(matterId, documentId, dto.label, caller);
   }
 
   @Post(':matterId/legal-review')

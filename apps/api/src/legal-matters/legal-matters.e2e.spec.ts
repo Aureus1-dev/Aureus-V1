@@ -7,6 +7,7 @@ import {
   CitySheetEntryStatus,
   CitySheetVerificationStatus,
   LegalActionType,
+  LegalMatterFactKind,
   LegalMatterProvenance,
   LegalMatterRetentionState,
   LegalMatterSourceKind,
@@ -37,6 +38,7 @@ describe('PEOPLE-LEGAL-001 Matter Stewardship E2E', () => {
   let matterId: string;
   let sourceId: string;
   let legalAidId: string;
+  let documentId: string;
 
   const marker = 'people-legal-' + randomUUID();
   const tokenFor = (id: string, email: string, roles: UserRole[]) =>
@@ -104,6 +106,18 @@ describe('PEOPLE-LEGAL-001 Matter Stewardship E2E', () => {
       },
     });
     legalAidId = legalAid.id;
+
+    const document = await prisma.db.document.create({
+      data: {
+        userId: ownerId,
+        title: 'Eviction complaint',
+        originalFilename: 'complaint.pdf',
+        mimeType: 'application/pdf',
+        sizeBytes: 1024,
+        storageRef: `test/legal/${marker}/complaint.pdf`,
+      },
+    });
+    documentId = document.id;
   });
 
   afterAll(async () => {
@@ -112,6 +126,9 @@ describe('PEOPLE-LEGAL-001 Matter Stewardship E2E', () => {
     }
     if (ownerId) {
       await prisma.db.legalMatter.deleteMany({ where: { userId: ownerId } });
+      if (documentId) {
+        await prisma.db.document.deleteMany({ where: { id: documentId } });
+      }
       await prisma.db.responsibility.deleteMany({ where: { principalUserId: ownerId } });
       await prisma.db.statedNeed.deleteMany({ where: { userId: ownerId } });
     }
@@ -205,6 +222,36 @@ describe('PEOPLE-LEGAL-001 Matter Stewardship E2E', () => {
       .send({ statement: 'The complaint says a hearing is scheduled.' })
       .expect(201);
     expect(fact.body.provenance).toBe(LegalMatterProvenance.REPORTED);
+    expect(fact.body.kind).toBe(LegalMatterFactKind.MEMBER_REPORTED_FACT);
+  });
+
+  it('validates and links only an owned Document to the Matter', async () => {
+    await request(app.getHttpServer())
+      .post(`/people/legal-matters/${matterId}/documents/${documentId}`)
+      .set('Authorization', `Bearer ${ownerToken}`)
+      .send({ label: { nested: 'not-a-string' } })
+      .expect(400);
+
+    const linked = await request(app.getHttpServer())
+      .post(`/people/legal-matters/${matterId}/documents/${documentId}`)
+      .set('Authorization', `Bearer ${ownerToken}`)
+      .send({ label: 'Complaint received from the court' })
+      .expect(201);
+
+    expect(linked.body.documentLinks).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          label: 'Complaint received from the court',
+          document: expect.objectContaining({ id: documentId }),
+        }),
+      ]),
+    );
+
+    await request(app.getHttpServer())
+      .post(`/people/legal-matters/${matterId}/documents/${documentId}`)
+      .set('Authorization', `Bearer ${otherToken}`)
+      .send({ label: 'Cross-member attempt' })
+      .expect(404);
   });
 
   it('does not expose raw Legal Matter content through the stewardship-learning projection', async () => {
@@ -307,6 +354,10 @@ describe('PEOPLE-LEGAL-001 Matter Stewardship E2E', () => {
       .send({ sourceId, statement: 'The submitted URL is an official Philadelphia Courts website.' })
       .expect(201);
     expect(observed.body.provenance).toBe(LegalMatterProvenance.OBSERVED);
+    expect(observed.body.kind).toBe(LegalMatterFactKind.SOURCE_CONTENT_OBSERVATION);
+    expect(observed.body.statement).toBe(
+      'The submitted URL is an official Philadelphia Courts website.',
+    );
   });
 
   it('permits safe surrounding work but gates filing, signing, settlement, testimony, waiver, and representation', async () => {
@@ -348,5 +399,15 @@ describe('PEOPLE-LEGAL-001 Matter Stewardship E2E', () => {
     expect(resolved.body.retention.state).toBe(LegalMatterRetentionState.REVIEW_REQUIRED);
     expect(resolved.body.retention.reviewAt).toBeTruthy();
     expect(resolved.body.closedAt).toBeTruthy();
+
+    const firstRetentionReviewAt = resolved.body.retention.reviewAt;
+    const repeated = await request(app.getHttpServer())
+      .post(`/people/legal-matters/${matterId}/outcome`)
+      .set('Authorization', `Bearer ${ownerToken}`)
+      .send({ resolved: true, note: 'Repeated confirmation that the underlying housing dispute is resolved.' })
+      .expect(201);
+
+    expect(repeated.body.retention.reviewAt).toBe(firstRetentionReviewAt);
+    expect(repeated.body.closedAt).toBe(resolved.body.closedAt);
   });
 });
