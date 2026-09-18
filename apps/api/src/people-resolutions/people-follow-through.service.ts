@@ -540,15 +540,18 @@ export class PeopleFollowThroughService {
         'Only Human Stewards or platform administrators may read assigned follow-through',
       );
     }
-    const relationships = await this.collectActiveRelationships(
-      hasRole(caller, PLATFORM_ADMIN_ROLES) ? undefined : caller.id,
-    );
-    const memberIds = [...new Set(relationships.map((row) => row.memberId))];
-    if (memberIds.length === 0) return [];
+
+    const isAdmin = hasRole(caller, PLATFORM_ADMIN_ROLES);
+    let memberIds: string[] | null = null;
+    if (!isAdmin) {
+      const relationships = await this.collectActiveRelationships(caller.id);
+      memberIds = [...new Set(relationships.map((row) => row.memberId))];
+      if (memberIds.length === 0) return [];
+    }
 
     const rows = await this.prisma.db.responsibility.findMany({
       where: {
-        principalUserId: { in: memberIds },
+        ...(memberIds ? { principalUserId: { in: memberIds } } : {}),
         kind: ResponsibilityKind.PERSONAL_NEED_RESOLUTION,
         status: { in: OPEN_RESPONSIBILITY_STATUSES },
       },
@@ -851,9 +854,7 @@ export class PeopleFollowThroughService {
   ): Promise<void> {
     if (hasRole(caller, PLATFORM_ADMIN_ROLES)) return;
     if (!hasRole(caller, [UserRole.STEWARD])) {
-      throw new ForbiddenException(
-        'Only the assigned Human Steward or platform administrator may verify this evidence',
-      );
+      throw new NotFoundException('Open Personal Need Responsibility not found');
     }
     const result = await this.relationships.findAll({
       page: 1,
@@ -863,9 +864,7 @@ export class PeopleFollowThroughService {
       status: StewardshipRelationshipStatus.ACTIVE,
     });
     if (!result.data.some((row) => row.stewardId === caller.id)) {
-      throw new ForbiddenException(
-        'Only the currently assigned Human Steward may verify this member follow-through',
-      );
+      throw new NotFoundException('Open Personal Need Responsibility not found');
     }
   }
 
