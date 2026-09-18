@@ -11,12 +11,15 @@ import { OpportunitiesModule } from '../opportunities/opportunities.module';
 import { ResourcesModule } from '../resources/resources.module';
 import { ConsentModule } from '../consent/consent.module';
 import { NeedsModule } from '../needs/needs.module';
-import { ResponsibilitiesModule } from '../responsibilities/responsibilities.module';
+import { PrismaResponsibilityRepository } from '../responsibilities/repositories/prisma-responsibility.repository';
+import { RESPONSIBILITY_REPOSITORY } from '../responsibilities/repositories/responsibility.repository.interface';
 
 import { StewardshipRelationshipsController } from './relationships/stewardship-relationships.controller';
 import { StewardshipRelationshipsService } from './relationships/stewardship-relationships.service';
 import { PrismaStewardshipRelationshipRepository } from './relationships/repositories/prisma-stewardship-relationship.repository';
 import { STEWARDSHIP_RELATIONSHIP_REPOSITORY } from './relationships/repositories/stewardship-relationship.repository.interface';
+import { PrismaStewardshipOwnershipRepository } from './relationships/repositories/prisma-stewardship-ownership.repository';
+import { STEWARDSHIP_OWNERSHIP_REPOSITORY } from './relationships/repositories/stewardship-ownership.repository.interface';
 
 import { StewardCapacityController } from './capacity/steward-capacity.controller';
 import { StewardCapacityService } from './capacity/steward-capacity.service';
@@ -62,7 +65,6 @@ import { HumanStewardOperationsService } from './operations/human-steward-operat
     ResourcesModule,
     ConsentModule,
     NeedsModule,
-    ResponsibilitiesModule,
   ],
   controllers: [
     StewardshipRelationshipsController,
@@ -77,6 +79,7 @@ import { HumanStewardOperationsService } from './operations/human-steward-operat
   providers: [
     StewardshipRelationshipsService,
     { provide: STEWARDSHIP_RELATIONSHIP_REPOSITORY, useClass: PrismaStewardshipRelationshipRepository },
+    { provide: STEWARDSHIP_OWNERSHIP_REPOSITORY, useClass: PrismaStewardshipOwnershipRepository },
     StewardCapacityService,
     { provide: STEWARD_CAPACITY_REPOSITORY, useClass: PrismaStewardCapacityRepository },
     StewardshipNotesService,
@@ -87,6 +90,7 @@ import { HumanStewardOperationsService } from './operations/human-steward-operat
     { provide: STEWARDSHIP_RECOMMENDATION_REPOSITORY, useClass: PrismaStewardshipRecommendationRepository },
     StewardshipEscalationsService,
     { provide: STEWARDSHIP_ESCALATION_REPOSITORY, useClass: PrismaStewardshipEscalationRepository },
+    { provide: RESPONSIBILITY_REPOSITORY, useClass: PrismaResponsibilityRepository },
     StewardMetricsService,
     HumanStewardOperationsService,
   ],
@@ -94,10 +98,6 @@ import { HumanStewardOperationsService } from './operations/human-steward-operat
     StewardshipRelationshipsService,
     STEWARDSHIP_RELATIONSHIP_REPOSITORY,
     StewardCapacityService,
-    // Pods (WO-030) reuses the StewardshipEscalation table directly for Pod
-    // escalations (Founder Decision #4) — exported so PodsModule can inject
-    // the repository and apply its own Pod-membership-aware authorization,
-    // without Stewardship needing to know about Pod roles.
     STEWARDSHIP_ESCALATION_REPOSITORY,
   ],
 })
