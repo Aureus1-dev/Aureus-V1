@@ -10,7 +10,6 @@ import { MatchedResourceDto } from './dto/matched-resource.dto';
 import { ResourceOfferResponseDto } from './dto/resource-offer-response.dto';
 import { RespondToOfferDto } from './dto/respond-to-offer.dto';
 import { EscalateNeedDto } from './dto/escalate-need.dto';
-import { ResolveNeedEscalationDto } from './dto/resolve-need-escalation.dto';
 import { NeedEscalationResponseDto } from './dto/need-escalation-response.dto';
 import { SafeFailureResponseDto } from './dto/safe-failure-response.dto';
 
@@ -109,33 +108,6 @@ export class NeedsController {
     @CurrentUser() caller: AuthenticatedUser,
   ): Promise<NeedEscalationResponseDto[]> {
     return this.escalations.findEscalations(id, caller.id);
-  }
-
-  @Post('escalations/:escalationId/acknowledge')
-  @ApiOperation({ summary: 'Acknowledge a member escalation (Steward / Platform Administrator only) (Gate C — C6)' })
-  @ApiParam({ name: 'escalationId', description: 'Escalation ID' })
-  @ApiResponse({ status: 201, type: NeedEscalationResponseDto })
-  @ApiResponse({ status: 403, description: 'Caller is not a Steward or Platform Administrator' })
-  @ApiResponse({ status: 404, description: 'Escalation not found' })
-  acknowledgeEscalation(
-    @Param('escalationId') escalationId: string,
-    @CurrentUser() caller: AuthenticatedUser,
-  ): Promise<NeedEscalationResponseDto> {
-    return this.escalations.acknowledge(escalationId, caller);
-  }
-
-  @Post('escalations/:escalationId/resolve')
-  @ApiOperation({ summary: 'Record the outcome of a member escalation (Steward / Platform Administrator only) (Gate C — C6)' })
-  @ApiParam({ name: 'escalationId', description: 'Escalation ID' })
-  @ApiResponse({ status: 201, type: NeedEscalationResponseDto })
-  @ApiResponse({ status: 403, description: 'Caller is not a Steward or Platform Administrator' })
-  @ApiResponse({ status: 404, description: 'Escalation not found' })
-  resolveEscalation(
-    @Param('escalationId') escalationId: string,
-    @Body() dto: ResolveNeedEscalationDto,
-    @CurrentUser() caller: AuthenticatedUser,
-  ): Promise<NeedEscalationResponseDto> {
-    return this.escalations.resolve(escalationId, dto.resolutionNotes, caller);
   }
 
   @Get(':id/safe-failure')

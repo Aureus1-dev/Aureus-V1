@@ -12,6 +12,14 @@ export interface IStatedNeedEscalationRepository {
   create(data: CreateNeedEscalationInput): Promise<NeedEscalation>;
   findById(id: string): Promise<NeedEscalation | null>;
   findAllByStatedNeed(statedNeedId: string): Promise<NeedEscalation[]>;
+  /**
+   * People Step 4 operations queue source. Open work is the existing
+   * NeedEscalation state machine; this deliberately does not create a second
+   * ticket/case table.
+   */
+  findOpen(): Promise<NeedEscalation[]>;
+  /** Minimum-necessary queue read for a steward's currently assigned members. */
+  findOpenByUserIds(userIds: string[]): Promise<NeedEscalation[]>;
   acknowledge(id: string, acknowledgedById: string): Promise<NeedEscalation>;
   resolve(id: string, resolvedById: string, resolutionNotes?: string): Promise<NeedEscalation>;
 }

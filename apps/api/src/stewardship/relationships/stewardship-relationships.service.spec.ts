@@ -9,6 +9,10 @@ import {
   IStewardshipRelationshipRepository,
   STEWARDSHIP_RELATIONSHIP_REPOSITORY,
 } from './repositories/stewardship-relationship.repository.interface';
+import {
+  IStewardshipOwnershipRepository,
+  STEWARDSHIP_OWNERSHIP_REPOSITORY,
+} from './repositories/stewardship-ownership.repository.interface';
 import { IStewardCapacityRepository, STEWARD_CAPACITY_REPOSITORY } from '../capacity/repositories/steward-capacity.repository.interface';
 import { IUserRepository, USER_REPOSITORY } from '../../users/repositories/user.repository.interface';
 import { IOrganizationRepository, ORGANIZATION_REPOSITORY } from '../../organizations/repositories/organization.repository.interface';
@@ -72,6 +76,7 @@ const makeOrgMembership = (o: Partial<OrganizationMember> = {}): OrganizationMem
 const mockRepo: jest.Mocked<IStewardshipRelationshipRepository> = {
   create: jest.fn(), findById: jest.fn(), findAll: jest.fn(), countActiveByStewardId: jest.fn(), update: jest.fn(),
 };
+const mockOwnershipRepo: jest.Mocked<IStewardshipOwnershipRepository> = { mutateActiveOwnership: jest.fn() };
 const mockCapacityRepo: jest.Mocked<IStewardCapacityRepository> = { findOrCreate: jest.fn(), update: jest.fn() };
 const mockUserRepo: jest.Mocked<IUserRepository> = {
   create: jest.fn(), findById: jest.fn(), findByEmail: jest.fn(), update: jest.fn(), softDelete: jest.fn(), findAll: jest.fn(),
@@ -105,6 +110,7 @@ describe('StewardshipRelationshipsService', () => {
       providers: [
         StewardshipRelationshipsService,
         { provide: STEWARDSHIP_RELATIONSHIP_REPOSITORY, useValue: mockRepo },
+        { provide: STEWARDSHIP_OWNERSHIP_REPOSITORY, useValue: mockOwnershipRepo },
         { provide: STEWARD_CAPACITY_REPOSITORY, useValue: mockCapacityRepo },
         { provide: USER_REPOSITORY, useValue: mockUserRepo },
         { provide: ORGANIZATION_REPOSITORY, useValue: mockOrgRepo },
@@ -165,15 +171,20 @@ describe('StewardshipRelationshipsService', () => {
       mockOrgMemberRepo.findByOrgAndUser.mockResolvedValue(makeOrgMembership());
       mockUserRepo.findById.mockResolvedValue(makeUser());
       mockCapacityRepo.findOrCreate.mockResolvedValue(makeCapacity());
-      mockRepo.countActiveByStewardId.mockResolvedValue(5);
-      mockRepo.create.mockResolvedValue(makeRelationship({
-        status: StewardshipRelationshipStatus.ACTIVE, origin: StewardshipRelationshipOrigin.ORGANIZATION_ASSIGNMENT,
-      }));
+      mockOwnershipRepo.mutateActiveOwnership.mockResolvedValue({
+        ok: true,
+        relationship: makeRelationship({
+          status: StewardshipRelationshipStatus.ACTIVE, origin: StewardshipRelationshipOrigin.ORGANIZATION_ASSIGNMENT,
+        }),
+      });
 
       const result = await service.assignByOrganization(
         { memberId: MEMBER.id, stewardId: STEWARD.id, organizationId: 'org-001' }, ORG_ADMIN,
       );
       expect(result.status).toBe(StewardshipRelationshipStatus.ACTIVE);
+      expect(mockOwnershipRepo.mutateActiveOwnership).toHaveBeenCalledWith(expect.objectContaining({
+        mode: 'ASSIGN', memberId: MEMBER.id, targetStewardId: STEWARD.id, assignedByOrganizationId: 'org-001',
+      }));
     });
 
     it('forbids a non-ADMIN org member', async () => {
@@ -198,7 +209,9 @@ describe('StewardshipRelationshipsService', () => {
       mockOrgMemberRepo.findByOrgAndUser.mockResolvedValue(makeOrgMembership());
       mockUserRepo.findById.mockResolvedValue(makeUser());
       mockCapacityRepo.findOrCreate.mockResolvedValue(makeCapacity({ maxActiveMembers: 5 }));
-      mockRepo.countActiveByStewardId.mockResolvedValue(5);
+      mockOwnershipRepo.mutateActiveOwnership.mockResolvedValue({
+        ok: false, reason: 'CAPACITY_EXCEEDED', activeCount: 5, maxActiveMembers: 5,
+      });
 
       await expect(service.assignByOrganization(
         { memberId: MEMBER.id, stewardId: STEWARD.id, organizationId: 'org-001' }, ORG_ADMIN,
@@ -211,8 +224,9 @@ describe('StewardshipRelationshipsService', () => {
     it('allows a platform administrator to create an ACTIVE relationship', async () => {
       mockUserRepo.findById.mockResolvedValue(makeUser());
       mockCapacityRepo.findOrCreate.mockResolvedValue(makeCapacity());
-      mockRepo.countActiveByStewardId.mockResolvedValue(0);
-      mockRepo.create.mockResolvedValue(makeRelationship({ status: StewardshipRelationshipStatus.ACTIVE }));
+      mockOwnershipRepo.mutateActiveOwnership.mockResolvedValue({
+        ok: true, relationship: makeRelationship({ status: StewardshipRelationshipStatus.ACTIVE }),
+      });
 
       const result = await service.assignByAdmin({ memberId: MEMBER.id, stewardId: STEWARD.id }, ADMIN);
       expect(result.status).toBe(StewardshipRelationshipStatus.ACTIVE);
@@ -229,8 +243,9 @@ describe('StewardshipRelationshipsService', () => {
       mockRepo.findById.mockResolvedValue(makeRelationship());
       mockUserRepo.findById.mockResolvedValue(makeUser());
       mockCapacityRepo.findOrCreate.mockResolvedValue(makeCapacity());
-      mockRepo.countActiveByStewardId.mockResolvedValue(0);
-      mockRepo.update.mockResolvedValue(makeRelationship({ status: StewardshipRelationshipStatus.ACTIVE }));
+      mockOwnershipRepo.mutateActiveOwnership.mockResolvedValue({
+        ok: true, relationship: makeRelationship({ status: StewardshipRelationshipStatus.ACTIVE }),
+      });
 
       const result = await service.activate('rel-001', {}, ADMIN);
       expect(result.status).toBe(StewardshipRelationshipStatus.ACTIVE);
@@ -322,19 +337,23 @@ describe('StewardshipRelationshipsService', () => {
   describe('reassign', () => {
     it('ends the current relationship and creates a new ACTIVE one via admin authority', async () => {
       mockRepo.findById.mockResolvedValue(makeRelationship({ status: StewardshipRelationshipStatus.ACTIVE }));
-      mockRepo.update.mockResolvedValue(makeRelationship({ status: StewardshipRelationshipStatus.ENDED }));
       mockUserRepo.findById.mockResolvedValue(makeUser({ id: OTHER_STEWARD.id }));
       mockCapacityRepo.findOrCreate.mockResolvedValue(makeCapacity({ stewardId: OTHER_STEWARD.id }));
-      mockRepo.countActiveByStewardId.mockResolvedValue(0);
-      mockRepo.create.mockResolvedValue(makeRelationship({
-        id: 'rel-002', stewardId: OTHER_STEWARD.id, status: StewardshipRelationshipStatus.ACTIVE,
-      }));
+      mockOwnershipRepo.mutateActiveOwnership.mockResolvedValue({
+        ok: true,
+        relationship: makeRelationship({
+          id: 'rel-002', stewardId: OTHER_STEWARD.id, status: StewardshipRelationshipStatus.ACTIVE,
+        }),
+      });
 
       const result = await service.reassign(
         'rel-001', { newStewardId: OTHER_STEWARD.id, reason: StewardshipEndReason.ADMIN_REASSIGNMENT }, ADMIN,
       );
       expect(result.id).toBe('rel-002');
       expect(result.status).toBe(StewardshipRelationshipStatus.ACTIVE);
+      expect(mockOwnershipRepo.mutateActiveOwnership).toHaveBeenCalledWith(expect.objectContaining({
+        mode: 'REASSIGN', targetStewardId: OTHER_STEWARD.id, expectedCurrentRelationshipId: 'rel-001',
+      }));
     });
 
     it('rejects a non-reassignment reason', async () => {

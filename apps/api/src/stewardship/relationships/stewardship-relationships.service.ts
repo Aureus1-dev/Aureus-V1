@@ -33,6 +33,11 @@ import {
   IStewardshipRelationshipRepository,
   STEWARDSHIP_RELATIONSHIP_REPOSITORY,
 } from './repositories/stewardship-relationship.repository.interface';
+import {
+  IStewardshipOwnershipRepository,
+  STEWARDSHIP_OWNERSHIP_REPOSITORY,
+  StewardshipOwnershipMutationResult,
+} from './repositories/stewardship-ownership.repository.interface';
 import { IStewardCapacityRepository, STEWARD_CAPACITY_REPOSITORY } from '../capacity/repositories/steward-capacity.repository.interface';
 import { IUserRepository, USER_REPOSITORY } from '../../users/repositories/user.repository.interface';
 import { IOrganizationRepository, ORGANIZATION_REPOSITORY } from '../../organizations/repositories/organization.repository.interface';
@@ -56,16 +61,13 @@ const REASSIGNMENT_REASONS: StewardshipEndReason[] = [
   StewardshipEndReason.ADMIN_REASSIGNMENT,
 ];
 
-// An organization's OWNER carries at least the same authority as an ADMIN
-// representative (Step 1 — Business Identity & Boundary): the founding
-// member is now assigned OWNER on creation, so admin-equivalent checks must
-// recognize both roles, not ADMIN alone.
 const ORG_ADMIN_ROLES: OrganizationMemberRole[] = [OrganizationMemberRole.OWNER, OrganizationMemberRole.ADMIN];
 
 @Injectable()
 export class StewardshipRelationshipsService {
   constructor(
     @Inject(STEWARDSHIP_RELATIONSHIP_REPOSITORY) private readonly repo: IStewardshipRelationshipRepository,
+    @Inject(STEWARDSHIP_OWNERSHIP_REPOSITORY) private readonly ownershipRepo: IStewardshipOwnershipRepository,
     @Inject(STEWARD_CAPACITY_REPOSITORY) private readonly capacityRepo: IStewardCapacityRepository,
     @Inject(USER_REPOSITORY) private readonly userRepo: IUserRepository,
     @Inject(ORGANIZATION_REPOSITORY) private readonly orgRepo: IOrganizationRepository,
@@ -77,8 +79,6 @@ export class StewardshipRelationshipsService {
     private readonly profileService: ProfileService,
     private readonly consentService: ConsentService,
   ) {}
-
-  // ── Creation flows ────────────────────────────────────────────────────
 
   /** A member requests a steward. Always lands PENDING — a request never self-activates. */
   async requestSteward(dto: RequestStewardDto, caller: AuthenticatedUser): Promise<RelationshipResponseDto> {
@@ -95,12 +95,7 @@ export class StewardshipRelationshipsService {
     return RelationshipResponseDto.fromEntity(created);
   }
 
-  /**
-   * AI recommends a steward for a member. Always lands PENDING — the
-   * canonical product decision is that AI may recommend but never
-   * automatically assign; only a human confirmation (activate) can make it
-   * ACTIVE.
-   */
+  /** AI may recommend but never automatically activate a Stewardship relationship. */
   async recommendSteward(dto: RecommendStewardDto, caller: AuthenticatedUser): Promise<RelationshipResponseDto> {
     if (!hasRole(caller, [UserRole.AI_SERVICE_ACCOUNT])) {
       throw new ForbiddenException('Only an AI service account may recommend a steward');
@@ -117,46 +112,41 @@ export class StewardshipRelationshipsService {
     return RelationshipResponseDto.fromEntity(created);
   }
 
-  /** An organization ADMIN representative assigns a steward, effective immediately. */
+  /** An organization OWNER/ADMIN assigns one ACTIVE steward, effective immediately. */
   async assignByOrganization(
-    dto: OrganizationAssignStewardDto, caller: AuthenticatedUser,
+    dto: OrganizationAssignStewardDto,
+    caller: AuthenticatedUser,
   ): Promise<RelationshipResponseDto> {
     await this.assertOrgAdmin(dto.organizationId, caller);
     await this.assertHoldsStewardRole(dto.stewardId);
-    await this.assertCapacityAvailable(dto.stewardId);
-
-    const now = new Date();
-    const created = await this.repo.create({
+    const capacity = await this.capacityRepo.findOrCreate(dto.stewardId, caller.id);
+    const result = await this.ownershipRepo.mutateActiveOwnership({
+      mode: 'ASSIGN',
       memberId: dto.memberId,
-      stewardId: dto.stewardId,
-      origin: StewardshipRelationshipOrigin.ORGANIZATION_ASSIGNMENT,
-      status: StewardshipRelationshipStatus.ACTIVE,
+      targetStewardId: dto.stewardId,
+      maxActiveMembers: capacity.maxActiveMembers,
       assignedById: caller.id,
       assignedByOrganizationId: dto.organizationId,
-      activatedAt: now,
+      origin: StewardshipRelationshipOrigin.ORGANIZATION_ASSIGNMENT,
     });
-    return RelationshipResponseDto.fromEntity(created);
+    return RelationshipResponseDto.fromEntity(this.unwrapOwnershipResult(result, dto.stewardId));
   }
 
-  /** A Platform/System Administrator assigns a steward, effective immediately. */
+  /** A Platform/System Administrator assigns one ACTIVE steward, effective immediately. */
   async assignByAdmin(dto: AdminAssignStewardDto, caller: AuthenticatedUser): Promise<RelationshipResponseDto> {
     this.assertPlatformAdmin(caller);
     await this.assertHoldsStewardRole(dto.stewardId);
-    await this.assertCapacityAvailable(dto.stewardId);
-
-    const now = new Date();
-    const created = await this.repo.create({
+    const capacity = await this.capacityRepo.findOrCreate(dto.stewardId, caller.id);
+    const result = await this.ownershipRepo.mutateActiveOwnership({
+      mode: 'ASSIGN',
       memberId: dto.memberId,
-      stewardId: dto.stewardId,
-      origin: StewardshipRelationshipOrigin.ADMIN_ASSIGNMENT,
-      status: StewardshipRelationshipStatus.ACTIVE,
+      targetStewardId: dto.stewardId,
+      maxActiveMembers: capacity.maxActiveMembers,
       assignedById: caller.id,
-      activatedAt: now,
+      origin: StewardshipRelationshipOrigin.ADMIN_ASSIGNMENT,
     });
-    return RelationshipResponseDto.fromEntity(created);
+    return RelationshipResponseDto.fromEntity(this.unwrapOwnershipResult(result, dto.stewardId));
   }
-
-  // ── Read ──────────────────────────────────────────────────────────────
 
   async findById(id: string, caller: AuthenticatedUser): Promise<RelationshipResponseDto> {
     const relationship = await this.getVisibleOrThrow(id, caller);
@@ -184,7 +174,9 @@ export class StewardshipRelationshipsService {
     const result = await this.repo.findAll({ page, limit, memberId, stewardId, status: query.status });
     return {
       data: result.data.map(RelationshipResponseDto.fromEntity),
-      total: result.total, page: result.page, limit: result.limit,
+      total: result.total,
+      page: result.page,
+      limit: result.limit,
       totalPages: Math.ceil(result.total / result.limit),
     };
   }
@@ -210,21 +202,17 @@ export class StewardshipRelationshipsService {
 
     const goalsResult = await this.goalRepo.findAll({ page: 1, limit: 100, userId: memberId });
     const goals = goalsResult.data;
-
     const journeys = (
       await Promise.all(goals.map((g) => this.journeyRepo.findByGoalId(g.id)))
     ).filter((j): j is NonNullable<typeof j> => j !== null);
-
     const milestonesByJourney = await Promise.all(
       journeys.map((j) => this.milestoneRepo.findAll({ page: 1, limit: 100, journeyId: j.id })),
     );
     const milestones = milestonesByJourney.flatMap((r) => r.data);
-
     const tasksByMilestone = await Promise.all(
       milestones.map((m) => this.taskRepo.findAll({ page: 1, limit: 100, milestoneId: m.id })),
     );
     const tasks = tasksByMilestone.flatMap((r) => r.data);
-
     const consentStatus = await this.consentService.getStatus(memberId);
 
     return {
@@ -242,8 +230,6 @@ export class StewardshipRelationshipsService {
     };
   }
 
-  // ── Lifecycle ─────────────────────────────────────────────────────────
-
   async activate(id: string, dto: ActivateRelationshipDto, caller: AuthenticatedUser): Promise<RelationshipResponseDto> {
     const relationship = await this.repo.findById(id);
     if (!relationship) throw new NotFoundException(`Stewardship relationship '${id}' not found`);
@@ -256,7 +242,6 @@ export class StewardshipRelationshipsService {
       throw new BadRequestException('A stewardId must be specified to activate this relationship');
     }
     await this.assertHoldsStewardRole(stewardId);
-    await this.assertCapacityAvailable(stewardId);
 
     let assignedByOrganizationId: string | undefined;
     if (dto.organizationId) {
@@ -266,14 +251,17 @@ export class StewardshipRelationshipsService {
       this.assertPlatformAdmin(caller);
     }
 
-    const updated = await this.repo.update(id, {
-      stewardId,
-      status: StewardshipRelationshipStatus.ACTIVE,
+    const capacity = await this.capacityRepo.findOrCreate(stewardId, caller.id);
+    const result = await this.ownershipRepo.mutateActiveOwnership({
+      mode: 'ACTIVATE',
+      memberId: relationship.memberId,
+      targetStewardId: stewardId,
+      maxActiveMembers: capacity.maxActiveMembers,
       assignedById: caller.id,
       assignedByOrganizationId,
-      activatedAt: new Date(),
+      pendingRelationshipId: relationship.id,
     });
-    return RelationshipResponseDto.fromEntity(updated);
+    return RelationshipResponseDto.fromEntity(this.unwrapOwnershipResult(result, stewardId));
   }
 
   async end(id: string, dto: EndRelationshipDto, caller: AuthenticatedUser): Promise<RelationshipResponseDto> {
@@ -284,7 +272,6 @@ export class StewardshipRelationshipsService {
     }
 
     await this.assertCanEnd(relationship, dto.reason, dto.organizationId, caller);
-
     const updated = await this.repo.update(id, {
       status: StewardshipRelationshipStatus.ENDED,
       endReason: dto.reason,
@@ -294,25 +281,45 @@ export class StewardshipRelationshipsService {
     return RelationshipResponseDto.fromEntity(updated);
   }
 
-  /** Ends the current relationship and immediately creates+activates a new one with the new steward. */
+  /** Atomically replaces one ACTIVE owner after target authority/capacity preflight. */
   async reassign(id: string, dto: ReassignRelationshipDto, caller: AuthenticatedUser): Promise<RelationshipResponseDto> {
     if (!REASSIGNMENT_REASONS.includes(dto.reason)) {
       throw new BadRequestException('reassign only accepts ORGANIZATION_REASSIGNMENT or ADMIN_REASSIGNMENT');
     }
 
-    const current = await this.end(id, { reason: dto.reason, organizationId: dto.organizationId }, caller);
-
-    if (dto.reason === StewardshipEndReason.ORGANIZATION_REASSIGNMENT) {
-      if (!dto.organizationId) throw new BadRequestException('organizationId is required for ORGANIZATION_REASSIGNMENT');
-      return this.assignByOrganization(
-        { memberId: current.memberId, stewardId: dto.newStewardId, organizationId: dto.organizationId },
-        caller,
-      );
+    const current = await this.repo.findById(id);
+    if (!current) throw new NotFoundException(`Stewardship relationship '${id}' not found`);
+    if (current.status !== StewardshipRelationshipStatus.ACTIVE) {
+      throw new ConflictException('Only an ACTIVE Stewardship relationship can be reassigned');
     }
-    return this.assignByAdmin({ memberId: current.memberId, stewardId: dto.newStewardId }, caller);
-  }
+    if (current.stewardId === dto.newStewardId) {
+      throw new BadRequestException('The new steward must differ from the current steward');
+    }
 
-  // ── Authorization helpers ────────────────────────────────────────────
+    await this.assertCanEnd(current, dto.reason, dto.organizationId, caller);
+    await this.assertHoldsStewardRole(dto.newStewardId);
+    const capacity = await this.capacityRepo.findOrCreate(dto.newStewardId, caller.id);
+
+    const isOrganizationReassignment = dto.reason === StewardshipEndReason.ORGANIZATION_REASSIGNMENT;
+    if (isOrganizationReassignment && !dto.organizationId) {
+      throw new BadRequestException('organizationId is required for ORGANIZATION_REASSIGNMENT');
+    }
+
+    const result = await this.ownershipRepo.mutateActiveOwnership({
+      mode: 'REASSIGN',
+      memberId: current.memberId,
+      targetStewardId: dto.newStewardId,
+      maxActiveMembers: capacity.maxActiveMembers,
+      assignedById: caller.id,
+      assignedByOrganizationId: isOrganizationReassignment ? dto.organizationId : undefined,
+      origin: isOrganizationReassignment
+        ? StewardshipRelationshipOrigin.ORGANIZATION_ASSIGNMENT
+        : StewardshipRelationshipOrigin.ADMIN_ASSIGNMENT,
+      expectedCurrentRelationshipId: current.id,
+      endReason: dto.reason,
+    });
+    return RelationshipResponseDto.fromEntity(this.unwrapOwnershipResult(result, dto.newStewardId));
+  }
 
   private assertPlatformAdmin(caller: AuthenticatedUser): void {
     if (!hasRole(caller, PLATFORM_ADMIN_ROLES)) {
@@ -340,13 +347,26 @@ export class StewardshipRelationshipsService {
     }
   }
 
-  private async assertCapacityAvailable(stewardId: string): Promise<void> {
-    const capacity = await this.capacityRepo.findOrCreate(stewardId, stewardId);
-    const activeCount = await this.repo.countActiveByStewardId(stewardId);
-    if (activeCount >= capacity.maxActiveMembers) {
-      throw new ConflictException(
-        `Steward '${stewardId}' is at capacity (${activeCount}/${capacity.maxActiveMembers} active members)`,
-      );
+  private unwrapOwnershipResult(
+    result: StewardshipOwnershipMutationResult,
+    stewardId: string,
+  ): StewardshipRelationship {
+    if (result.ok) return result.relationship;
+
+    switch (result.reason) {
+      case 'TARGET_NOT_FOUND':
+        throw new NotFoundException(`User '${stewardId}' not found`);
+      case 'CAPACITY_EXCEEDED':
+        throw new ConflictException(
+          `Steward '${stewardId}' is at capacity (${result.activeCount ?? 0}/${result.maxActiveMembers ?? 0} active members)`,
+        );
+      case 'OWNERSHIP_CHANGED':
+        throw new ConflictException('Stewardship ownership changed during assignment; retry from the current state');
+      case 'PENDING_RELATIONSHIP_INVALID':
+        throw new ConflictException('Pending Stewardship relationship changed before activation; retry from the current state');
+      case 'OWNERSHIP_CONFLICT':
+      default:
+        throw new ConflictException('Member already has an ACTIVE Stewardship relationship or has conflicting ACTIVE ownership');
     }
   }
 
@@ -373,7 +393,7 @@ export class StewardshipRelationshipsService {
         break;
       case StewardshipEndReason.ADMIN_REASSIGNMENT:
       case StewardshipEndReason.STEWARD_INACTIVITY:
-        break; // admin-only, already excluded above
+        break;
       default:
         break;
     }

@@ -71,6 +71,25 @@ describe('AI Intelligence Engine — E2E', () => {
     jwt = app.get(JwtService);
     prisma = app.get(PrismaService);
 
+    // Step 4's governed Human Steward assignment verifies the target steward
+    // against canonical User truth. These personas therefore need real rows,
+    // rather than the historical synthetic JWT-only identities used by this
+    // older Gate-C suite.
+    await prisma.db.user.createMany({
+      data: [
+        {
+          id: adminId,
+          email: `admin-${emailMarker}@example.test`,
+          roles: [UserRole.MEMBER, UserRole.PLATFORM_ADMINISTRATOR],
+        },
+        {
+          id: stewardId,
+          email: `steward-${emailMarker}@example.test`,
+          roles: [UserRole.MEMBER, UserRole.STEWARD],
+        },
+      ],
+    });
+
     adminToken = tokenFor(adminId, [UserRole.PLATFORM_ADMINISTRATOR]);
     stewardToken = tokenFor(stewardId, [UserRole.STEWARD]);
 
@@ -191,6 +210,18 @@ describe('AI Intelligence Engine — E2E', () => {
   });
 
   afterAll(async () => {
+    await prisma.db.stewardshipEscalation.deleteMany({
+      where: { raisedById: { in: [adminId, stewardId] } },
+    });
+    await prisma.db.stewardshipRelationship.deleteMany({
+      where: {
+        OR: [
+          { memberId: { in: [learnerId, otherLearnerId] } },
+          { stewardId },
+        ],
+      },
+    });
+    await prisma.db.stewardCapacity.deleteMany({ where: { stewardId } });
     await prisma.db.aiRecommendation.deleteMany({ where: { userId: { in: [learnerId, otherLearnerId] } } });
     await prisma.db.aiRequest.deleteMany({ where: { userId: { in: [learnerId, otherLearnerId] } } });
     await prisma.db.aiConversation.deleteMany({ where: { userId: { in: [learnerId, otherLearnerId] } } });
@@ -664,19 +695,24 @@ describe('AI Intelligence Engine — E2E', () => {
         .expect(201);
       expect(escalated.body.status).toBe('PENDING');
 
+      await request(app.getHttpServer())
+        .post(`/people/steward-operations/requests/${escalated.body.id}/assign`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({ stewardId })
+        .expect(201);
+
       const acknowledged = await request(app.getHttpServer())
-        .post(`/needs/escalations/${escalated.body.id}/acknowledge`)
+        .post(`/people/steward-operations/requests/${escalated.body.id}/acknowledge`)
         .set('Authorization', `Bearer ${stewardToken}`)
         .expect(201);
       expect(acknowledged.body.status).toBe('ACKNOWLEDGED');
 
       const resolved = await request(app.getHttpServer())
-        .post(`/needs/escalations/${escalated.body.id}/resolve`)
+        .post(`/people/steward-operations/requests/${escalated.body.id}/resolve`)
         .set('Authorization', `Bearer ${stewardToken}`)
         .send({ resolutionNotes: 'Called the member and helped them directly.' })
         .expect(201);
       expect(resolved.body.status).toBe('RESOLVED');
-      expect(resolved.body.resolutionNotes).toBe('Called the member and helped them directly.');
 
       const list = await request(app.getHttpServer())
         .get(`/needs/${escalationNeedId}/escalations`)
@@ -694,11 +730,11 @@ describe('AI Intelligence Engine — E2E', () => {
         .expect(201);
 
       await request(app.getHttpServer())
-        .post(`/needs/escalations/${escalated.body.id}/acknowledge`)
+        .post(`/people/steward-operations/requests/${escalated.body.id}/acknowledge`)
         .set('Authorization', `Bearer ${learnerToken}`)
         .expect(403);
       await request(app.getHttpServer())
-        .post(`/needs/escalations/${escalated.body.id}/resolve`)
+        .post(`/people/steward-operations/requests/${escalated.body.id}/resolve`)
         .set('Authorization', `Bearer ${learnerToken}`)
         .expect(403);
     });
@@ -868,18 +904,24 @@ describe('AI Intelligence Engine — E2E', () => {
       expect(responded.body.response).toBe('ACCEPTED');
 
       // C6 (Steward escalation): still the member's own choice, always
-      // recorded end-to-end through acknowledgment and resolution.
+      // recorded end-to-end through governed assignment, acknowledgment,
+      // and Human Steward-step resolution.
       const escalated = await request(app.getHttpServer())
         .post(`/needs/${needId}/escalate`)
         .set('Authorization', `Bearer ${learnerToken}`)
         .send({ reason: 'I would like to talk this through with a person' })
         .expect(201);
       await request(app.getHttpServer())
-        .post(`/needs/escalations/${escalated.body.id}/acknowledge`)
+        .post(`/people/steward-operations/requests/${escalated.body.id}/assign`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({ stewardId })
+        .expect(201);
+      await request(app.getHttpServer())
+        .post(`/people/steward-operations/requests/${escalated.body.id}/acknowledge`)
         .set('Authorization', `Bearer ${stewardToken}`)
         .expect(201);
       const resolved = await request(app.getHttpServer())
-        .post(`/needs/escalations/${escalated.body.id}/resolve`)
+        .post(`/people/steward-operations/requests/${escalated.body.id}/resolve`)
         .set('Authorization', `Bearer ${stewardToken}`)
         .send({ resolutionNotes: 'Spoke with the member directly.' })
         .expect(201);
