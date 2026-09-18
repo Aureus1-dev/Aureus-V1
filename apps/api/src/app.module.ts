@@ -40,6 +40,7 @@ import { PeopleResolutionsModule } from './people-resolutions/people-resolutions
 import { StewardshipLearningModule } from './stewardship-learning/stewardship-learning.module';
 import { LegalMattersModule } from './legal-matters/legal-matters.module';
 import { HouseholdContinuityModule } from './households/household-continuity.module';
+import { EvidenceModule } from './evidence/evidence.module';
 
 @Module({
   imports: [
@@ -78,14 +79,14 @@ import { HouseholdContinuityModule } from './households/household-continuity.mod
         if (!redisUrl && config.get<string>('NODE_ENV') === 'production') {
           new Logger('AppModule').warn(
             'REDIS_URL is not set in production — rate limiting will use per-instance in-memory storage. ' +
-            'This is only correct for a single API replica; set REDIS_URL once running more than one.',
+              'This is only correct for a single API replica; set REDIS_URL once running more than one.',
           );
         }
         return {
           throttlers: [
             {
-              name:  'default',
-              ttl:   60_000,
+              name: 'default',
+              ttl: 60_000,
               limit: 100,
             },
           ],
@@ -130,6 +131,7 @@ import { HouseholdContinuityModule } from './households/household-continuity.mod
     StewardshipLearningModule,
     LegalMattersModule,
     HouseholdContinuityModule,
+    EvidenceModule,
   ],
 
   providers: [
