@@ -3,6 +3,7 @@ import { INestApplication, ValidationPipe } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { Test, TestingModule } from '@nestjs/testing';
 import {
+  Prisma,
   ResponsibilityAuthorityClass,
   ResponsibilityContextType,
   ResponsibilityKind,
@@ -21,11 +22,14 @@ describe('People Step 3 — Household & Relationship Continuity E2E', () => {
   let ownerId: string;
   let memberId: string;
   let outsiderId: string;
+  let thirdMemberId: string;
   let ownerToken: string;
   let memberToken: string;
   let outsiderToken: string;
+  let thirdMemberToken: string;
   let householdId: string;
   let archivedHouseholdId: string;
+  let concurrentHouseholdId: string;
   let membershipId: string;
   let responsibilityId: string;
 
@@ -45,15 +49,19 @@ describe('People Step 3 — Household & Relationship Continuity E2E', () => {
     const ownerEmail = `owner-${marker}@example.test`;
     const memberEmail = `member-${marker}@example.test`;
     const outsiderEmail = `outsider-${marker}@example.test`;
+    const thirdMemberEmail = `third-${marker}@example.test`;
     const owner = await prisma.db.user.create({ data: { email: ownerEmail } });
     const member = await prisma.db.user.create({ data: { email: memberEmail } });
     const outsider = await prisma.db.user.create({ data: { email: outsiderEmail } });
+    const thirdMember = await prisma.db.user.create({ data: { email: thirdMemberEmail } });
     ownerId = owner.id;
     memberId = member.id;
     outsiderId = outsider.id;
+    thirdMemberId = thirdMember.id;
     ownerToken = tokenFor(ownerId, ownerEmail);
     memberToken = tokenFor(memberId, memberEmail);
     outsiderToken = tokenFor(outsiderId, outsiderEmail);
+    thirdMemberToken = tokenFor(thirdMemberId, thirdMemberEmail);
 
     const responsibility = await prisma.db.responsibility.create({
       data: {
@@ -74,15 +82,19 @@ describe('People Step 3 — Household & Relationship Continuity E2E', () => {
 
   afterAll(async () => {
     if (prisma) {
-      await prisma.db.$executeRawUnsafe(`DELETE FROM "HouseholdEvent" WHERE "actorUserId" IN ('${ownerId}', '${memberId}', '${outsiderId}')`);
-      await prisma.db.$executeRawUnsafe(`DELETE FROM "HouseholdResponsibilityParticipant" WHERE "participantUserId" IN ('${ownerId}', '${memberId}', '${outsiderId}') OR "invitedByUserId" IN ('${ownerId}', '${memberId}', '${outsiderId}')`);
-      await prisma.db.$executeRawUnsafe(`DELETE FROM "HouseholdDependency" WHERE "dependentUserId" IN ('${ownerId}', '${memberId}', '${outsiderId}') OR "supporterUserId" IN ('${ownerId}', '${memberId}', '${outsiderId}')`);
-      await prisma.db.$executeRawUnsafe(`DELETE FROM "HouseholdRelationship" WHERE "subjectUserId" IN ('${ownerId}', '${memberId}', '${outsiderId}') OR "relatedUserId" IN ('${ownerId}', '${memberId}', '${outsiderId}')`);
-      await prisma.db.$executeRawUnsafe(`DELETE FROM "HouseholdMembership" WHERE "userId" IN ('${ownerId}', '${memberId}', '${outsiderId}')`);
-      if (householdId) await prisma.db.$executeRawUnsafe(`DELETE FROM "Household" WHERE "id" = '${householdId}'`);
-      if (archivedHouseholdId) await prisma.db.$executeRawUnsafe(`DELETE FROM "Household" WHERE "id" = '${archivedHouseholdId}'`);
+      const householdIds = [householdId, archivedHouseholdId, concurrentHouseholdId].filter(
+        (id): id is string => Boolean(id),
+      );
+      if (householdIds.length > 0) {
+        await prisma.db.householdEvent.deleteMany({ where: { householdId: { in: householdIds } } });
+        await prisma.db.householdResponsibilityParticipant.deleteMany({ where: { householdId: { in: householdIds } } });
+        await prisma.db.householdDependency.deleteMany({ where: { householdId: { in: householdIds } } });
+        await prisma.db.householdRelationship.deleteMany({ where: { householdId: { in: householdIds } } });
+        await prisma.db.householdMembership.deleteMany({ where: { householdId: { in: householdIds } } });
+        await prisma.db.household.deleteMany({ where: { id: { in: householdIds } } });
+      }
       await prisma.db.responsibility.deleteMany({ where: { id: responsibilityId } });
-      await prisma.db.user.deleteMany({ where: { id: { in: [ownerId, memberId, outsiderId] } } });
+      await prisma.db.user.deleteMany({ where: { id: { in: [ownerId, memberId, outsiderId, thirdMemberId] } } });
       await app.close();
     }
   });
@@ -174,6 +186,31 @@ describe('People Step 3 — Household & Relationship Continuity E2E', () => {
     expect(accepted.body.status).toBe('ACTIVE');
   });
 
+  it('does not expose another active pair relationship or dependency to a third confirmed household member', async () => {
+    const invited = await request(app.getHttpServer())
+      .post(`/people/households/${householdId}/invitations`)
+      .set('Authorization', `Bearer ${ownerToken}`)
+      .send({ userId: thirdMemberId })
+      .expect(201);
+
+    await request(app.getHttpServer())
+      .post(`/people/households/${householdId}/invitations/${invited.body.id}/respond`)
+      .set('Authorization', `Bearer ${thirdMemberToken}`)
+      .send({ accept: true })
+      .expect(201);
+
+    const state = await request(app.getHttpServer())
+      .get(`/people/households/${householdId}`)
+      .set('Authorization', `Bearer ${thirdMemberToken}`)
+      .expect(200);
+
+    expect(state.body.members.map((m: { userId: string }) => m.userId).sort()).toEqual(
+      [ownerId, memberId, thirdMemberId].sort(),
+    );
+    expect(state.body.relationships).toEqual([]);
+    expect(state.body.dependencies).toEqual([]);
+  });
+
   it('shares coordination on an exact owner Responsibility without sharing its private payload', async () => {
     const share = await request(app.getHttpServer())
       .post(`/people/households/${householdId}/responsibilities`)
@@ -226,6 +263,50 @@ describe('People Step 3 — Household & Relationship Continuity E2E', () => {
       .expect(404);
   });
 
+  it('serializes simultaneous final departures so an empty household is archived', async () => {
+    const created = await request(app.getHttpServer())
+      .post('/people/households')
+      .set('Authorization', `Bearer ${ownerToken}`)
+      .send({ label: 'Concurrent Leave Test' })
+      .expect(201);
+    concurrentHouseholdId = created.body.id;
+
+    const invited = await request(app.getHttpServer())
+      .post(`/people/households/${concurrentHouseholdId}/invitations`)
+      .set('Authorization', `Bearer ${ownerToken}`)
+      .send({ userId: thirdMemberId })
+      .expect(201);
+
+    await request(app.getHttpServer())
+      .post(`/people/households/${concurrentHouseholdId}/invitations/${invited.body.id}/respond`)
+      .set('Authorization', `Bearer ${thirdMemberToken}`)
+      .send({ accept: true })
+      .expect(201);
+
+    await Promise.all([
+      request(app.getHttpServer())
+        .post(`/people/households/${concurrentHouseholdId}/leave`)
+        .set('Authorization', `Bearer ${ownerToken}`)
+        .send({})
+        .expect(201),
+      request(app.getHttpServer())
+        .post(`/people/households/${concurrentHouseholdId}/leave`)
+        .set('Authorization', `Bearer ${thirdMemberToken}`)
+        .send({})
+        .expect(201),
+    ]);
+
+    const household = await prisma.db.household.findUnique({
+      where: { id: concurrentHouseholdId },
+      select: { status: true },
+    });
+    const activeMemberships = await prisma.db.householdMembership.count({
+      where: { householdId: concurrentHouseholdId, status: 'ACTIVE' },
+    });
+    expect(household?.status).toBe('ARCHIVED');
+    expect(activeMemberships).toBe(0);
+  });
+
   it('archives a household when the last active member leaves and invalidates pending invitations', async () => {
     const created = await request(app.getHttpServer())
       .post('/people/households')
@@ -252,13 +333,15 @@ describe('People Step 3 — Household & Relationship Continuity E2E', () => {
       .send({ accept: true })
       .expect(404);
 
-    const householdRows = await prisma.db.$queryRawUnsafe<Array<{ status: string }>>(
-      `SELECT "status"::text AS "status" FROM "Household" WHERE "id" = '${archivedHouseholdId}'`,
-    );
-    const invitationRows = await prisma.db.$queryRawUnsafe<Array<{ status: string }>>(
-      `SELECT "status"::text AS "status" FROM "HouseholdMembership" WHERE "id" = '${invited.body.id}'`,
-    );
-    expect(householdRows[0]?.status).toBe('ARCHIVED');
-    expect(invitationRows[0]?.status).toBe('ENDED');
+    const household = await prisma.db.household.findUnique({
+      where: { id: archivedHouseholdId },
+      select: { status: true },
+    });
+    const invitation = await prisma.db.householdMembership.findUnique({
+      where: { id: invited.body.id },
+      select: { status: true },
+    });
+    expect(household?.status).toBe('ARCHIVED');
+    expect(invitation?.status).toBe('ENDED');
   });
 });
