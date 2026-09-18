@@ -1,6 +1,6 @@
 # PEOPLE-HOUSE-001 — Household & Relationship Continuity
 
-Status: implementation candidate for independent review
+Status: implementation candidate for independent re-review
 Program: PEOPLE-000 Step 3
 Frozen base: `7572ecf59b182c888a620216c73e14185cf66e1d`
 
@@ -95,7 +95,14 @@ Only the current Personal Responsibility principal may invite a participant. The
 - at most one current dependency per dependent+supporter+kind;
 - at most one current participant edge per Responsibility+participant;
 - foreign keys preserve household/user/Responsibility referential integrity;
-- HouseholdEvent is append-only by application contract.
+- HouseholdEvent is append-only by application contract;
+- departures serialize on the Household row before membership state changes so concurrent final departures cannot leave an ACTIVE household with zero ACTIVE members.
+
+## Implementation boundary
+
+This domain intentionally uses parameterized `Prisma.sql` queries inside `HouseholdContinuityService` rather than introducing a new household repository abstraction in this slice. The reason is narrow and explicit: privacy-safe reads require exact column projection, the relationship uniqueness model depends on PostgreSQL expressions such as `LEAST`/`GREATEST`, and departure lifecycle hardening uses a row lock. This is a bounded exception, not a new general repository pattern. Dynamic string SQL and `$queryRawUnsafe`/`$executeRawUnsafe` are not part of the production implementation or its Step 3 e2e coverage.
+
+If this query surface grows materially, move it behind the repository interface pattern rather than copying this exception into other domains.
 
 ## Acceptance tests
 
@@ -110,7 +117,9 @@ Only the current Personal Responsibility principal may invite a participant. The
 9. only Responsibility principal can create a household participation invite;
 10. participant acceptance does not expose Responsibility payload;
 11. shared-participation response says data authority is false;
-12. leaving ends the caller's household relationship/dependency/participation edges and removes household read access.
+12. leaving ends the caller's household relationship/dependency/participation edges and removes household read access;
+13. a third confirmed household member cannot see a relationship or dependency solely between two other active members;
+14. simultaneous final departures serialize and leave the empty household ARCHIVED.
 
 ## Deliberate exclusions
 
