@@ -379,19 +379,24 @@ describe('Authority, Consent & Trust — E2E', () => {
     ).toBe('PERMIT');
   });
 
-  it('requires the employee and an exact conversation reference for private transcript sharing', async () => {
+  it('requires the employee, exact conversation, exact recipient, and minimum data for private conversation sharing', async () => {
+    const boundedShare = {
+      contextType: AuthorityContextType.BUSINESS_TENANT,
+      organizationId: orgId,
+      subjectUserId: employeeId,
+      capability: AuthorityCapability.SHARE,
+      resourceClass: AuthorityResourceClass.CONVERSATION,
+      resourceRef: privateConversationId,
+      purpose: 'Share the minimum approved facts from this conversation with the company',
+      shareRecipientKind: AuthorityShareRecipientKind.ORGANIZATION,
+      shareRecipientRef: orgId,
+      shareDataFields: ['case_number', 'requested_follow_up'],
+    };
+
     const created = await request(app.getHttpServer())
       .post('/authority/requests')
       .set(auth(ownerToken))
-      .send({
-        contextType: AuthorityContextType.BUSINESS_TENANT,
-        organizationId: orgId,
-        subjectUserId: employeeId,
-        capability: AuthorityCapability.SHARE,
-        resourceClass: AuthorityResourceClass.CONVERSATION,
-        resourceRef: privateConversationId,
-        purpose: 'Share this exact conversation with the company',
-      })
+      .send(boundedShare)
       .expect(201);
     await request(app.getHttpServer())
       .post(`/authority/requests/${created.body.id}/approve`)
@@ -404,16 +409,27 @@ describe('Authority, Consent & Trust — E2E', () => {
       .send({})
       .expect(201);
 
+    const exactEvaluation = await request(app.getHttpServer())
+      .post('/authority/evaluate')
+      .set(auth(employeeToken))
+      .send(boundedShare)
+      .expect(201);
+    expect(exactEvaluation.body.result).toBe('PERMIT');
+
+    const changedRecipient = await request(app.getHttpServer())
+      .post('/authority/evaluate')
+      .set(auth(employeeToken))
+      .send({ ...boundedShare, shareRecipientRef: outsiderOrgId })
+      .expect(201);
+    expect(changedRecipient.body.result).not.toBe('PERMIT');
+
     await request(app.getHttpServer())
       .post('/authority/requests')
       .set(auth(ownerToken))
       .send({
-        contextType: AuthorityContextType.BUSINESS_TENANT,
-        organizationId: orgId,
-        subjectUserId: employeeId,
-        capability: AuthorityCapability.SHARE,
-        resourceClass: AuthorityResourceClass.CONVERSATION,
-        purpose: 'Blanket transcript sharing',
+        ...boundedShare,
+        resourceRef: undefined,
+        purpose: 'Share bounded facts but without an exact conversation',
       })
       .expect(400);
   });
