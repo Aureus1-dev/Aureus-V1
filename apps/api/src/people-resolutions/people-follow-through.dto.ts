@@ -130,10 +130,10 @@ export class VerifyFollowThroughDueDto {
   @MaxLength(500)
   dueBasis?: string;
 
-  @ApiProperty() @IsString() @MinLength(1) @MaxLength(100) sourceSystem!: string;
-  @ApiProperty() @IsString() @MinLength(1) @MaxLength(100) sourceRecordType!: string;
+  @ApiProperty() @IsString() @MinLength(1) @MaxLength(80) sourceSystem!: string;
+  @ApiProperty() @IsString() @MinLength(1) @MaxLength(80) sourceRecordType!: string;
   @ApiProperty() @IsString() @MinLength(1) @MaxLength(200) sourceRecordId!: string;
-  @ApiProperty() @IsString() @MinLength(1) @MaxLength(200) sourceState!: string;
+  @ApiProperty() @IsString() @MinLength(1) @MaxLength(120) sourceState!: string;
 }
 
 export class ReportFollowThroughSatisfactionDto {
@@ -145,10 +145,10 @@ export class ReportFollowThroughSatisfactionDto {
 }
 
 export class VerifyFollowThroughSatisfactionDto {
-  @ApiProperty() @IsString() @MinLength(1) @MaxLength(100) sourceSystem!: string;
-  @ApiProperty() @IsString() @MinLength(1) @MaxLength(100) sourceRecordType!: string;
+  @ApiProperty() @IsString() @MinLength(1) @MaxLength(80) sourceSystem!: string;
+  @ApiProperty() @IsString() @MinLength(1) @MaxLength(80) sourceRecordType!: string;
   @ApiProperty() @IsString() @MinLength(1) @MaxLength(200) sourceRecordId!: string;
-  @ApiProperty() @IsString() @MinLength(1) @MaxLength(200) sourceState!: string;
+  @ApiProperty() @IsString() @MinLength(1) @MaxLength(120) sourceState!: string;
 }
 
 export class PeopleFollowThroughResponseDto {
