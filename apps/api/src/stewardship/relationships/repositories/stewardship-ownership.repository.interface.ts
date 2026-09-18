@@ -29,7 +29,13 @@ export type StewardshipOwnershipFailureReason =
   | 'PENDING_RELATIONSHIP_INVALID';
 
 export type StewardshipOwnershipMutationResult =
-  | { ok: true; relationship: StewardshipRelationship }
+  | {
+      ok: true;
+      relationship: StewardshipRelationship;
+      reason?: never;
+      activeCount?: never;
+      maxActiveMembers?: never;
+    }
   | {
       ok: false;
       reason: StewardshipOwnershipFailureReason;
