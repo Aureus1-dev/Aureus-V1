@@ -25,6 +25,7 @@ describe('People Step 3 — Household & Relationship Continuity E2E', () => {
   let memberToken: string;
   let outsiderToken: string;
   let householdId: string;
+  let archivedHouseholdId: string;
   let membershipId: string;
   let responsibilityId: string;
 
@@ -60,6 +61,7 @@ describe('People Step 3 — Household & Relationship Continuity E2E', () => {
         objective: 'Coordinate a household task without leaking the underlying case',
         contextType: ResponsibilityContextType.PERSONAL,
         principalUserId: ownerId,
+        originConversationId: randomUUID(),
         successCriteria: { type: 'MEMBER_REPORTED_RESOLUTION' },
         authorityClass: ResponsibilityAuthorityClass.GUIDANCE_ONLY,
         authorityPolicyVersion: 'people-step3-test',
@@ -78,6 +80,7 @@ describe('People Step 3 — Household & Relationship Continuity E2E', () => {
       await prisma.db.$executeRawUnsafe(`DELETE FROM "HouseholdRelationship" WHERE "subjectUserId" IN ('${ownerId}', '${memberId}', '${outsiderId}') OR "relatedUserId" IN ('${ownerId}', '${memberId}', '${outsiderId}')`);
       await prisma.db.$executeRawUnsafe(`DELETE FROM "HouseholdMembership" WHERE "userId" IN ('${ownerId}', '${memberId}', '${outsiderId}')`);
       if (householdId) await prisma.db.$executeRawUnsafe(`DELETE FROM "Household" WHERE "id" = '${householdId}'`);
+      if (archivedHouseholdId) await prisma.db.$executeRawUnsafe(`DELETE FROM "Household" WHERE "id" = '${archivedHouseholdId}'`);
       await prisma.db.responsibility.deleteMany({ where: { id: responsibilityId } });
       await prisma.db.user.deleteMany({ where: { id: { in: [ownerId, memberId, outsiderId] } } });
       await app.close();
@@ -221,5 +224,41 @@ describe('People Step 3 — Household & Relationship Continuity E2E', () => {
       .get(`/people/households/${householdId}`)
       .set('Authorization', `Bearer ${memberToken}`)
       .expect(404);
+  });
+
+  it('archives a household when the last active member leaves and invalidates pending invitations', async () => {
+    const created = await request(app.getHttpServer())
+      .post('/people/households')
+      .set('Authorization', `Bearer ${ownerToken}`)
+      .send({ label: 'Archive Test' })
+      .expect(201);
+    archivedHouseholdId = created.body.id;
+
+    const invited = await request(app.getHttpServer())
+      .post(`/people/households/${archivedHouseholdId}/invitations`)
+      .set('Authorization', `Bearer ${ownerToken}`)
+      .send({ userId: outsiderId })
+      .expect(201);
+
+    await request(app.getHttpServer())
+      .post(`/people/households/${archivedHouseholdId}/leave`)
+      .set('Authorization', `Bearer ${ownerToken}`)
+      .send({})
+      .expect(201);
+
+    await request(app.getHttpServer())
+      .post(`/people/households/${archivedHouseholdId}/invitations/${invited.body.id}/respond`)
+      .set('Authorization', `Bearer ${outsiderToken}`)
+      .send({ accept: true })
+      .expect(404);
+
+    const householdRows = await prisma.db.$queryRawUnsafe<Array<{ status: string }>>(
+      `SELECT "status"::text AS "status" FROM "Household" WHERE "id" = '${archivedHouseholdId}'`,
+    );
+    const invitationRows = await prisma.db.$queryRawUnsafe<Array<{ status: string }>>(
+      `SELECT "status"::text AS "status" FROM "HouseholdMembership" WHERE "id" = '${invited.body.id}'`,
+    );
+    expect(householdRows[0]?.status).toBe('ARCHIVED');
+    expect(invitationRows[0]?.status).toBe('ENDED');
   });
 });
