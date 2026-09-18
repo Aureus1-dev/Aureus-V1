@@ -36,6 +36,19 @@ export class PrismaNeedEscalationRepository implements IStatedNeedEscalationRepo
     });
   }
 
+  async findOpenByUserIds(userIds: string[]): Promise<NeedEscalation[]> {
+    if (userIds.length === 0) return [];
+    return this.prisma.db.needEscalation.findMany({
+      where: {
+        userId: { in: userIds },
+        status: {
+          in: [NeedEscalationStatus.PENDING, NeedEscalationStatus.ACKNOWLEDGED],
+        },
+      },
+      orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+    });
+  }
+
   async acknowledge(id: string, acknowledgedById: string): Promise<NeedEscalation> {
     return this.prisma.db.needEscalation.update({
       where: { id },
@@ -47,7 +60,10 @@ export class PrismaNeedEscalationRepository implements IStatedNeedEscalationRepo
     return this.prisma.db.needEscalation.update({
       where: { id },
       data: {
-        status: NeedEscalationStatus.RESOLVED, resolvedById, resolutionNotes, resolvedAt: new Date(),
+        status: NeedEscalationStatus.RESOLVED,
+        resolvedById,
+        resolutionNotes,
+        resolvedAt: new Date(),
       },
     });
   }
