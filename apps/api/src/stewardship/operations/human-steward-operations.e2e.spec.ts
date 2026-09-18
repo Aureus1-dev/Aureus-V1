@@ -36,6 +36,7 @@ describe('People Step 4 — Human Steward Operations E2E', () => {
   let secondRelationshipId: string;
   let fillerRelationshipId: string;
 
+  let memberToken: string;
   let stewardOneToken: string;
   let stewardTwoToken: string;
   let unrelatedStewardToken: string;
@@ -78,11 +79,11 @@ describe('People Step 4 — Human Steward Operations E2E', () => {
     adminId = admin.id;
     fillerMemberId = filler.id;
 
+    memberToken = tokenFor(memberId, memberEmail, [UserRole.MEMBER]);
     stewardOneToken = tokenFor(stewardOneId, stewardOneEmail, [UserRole.MEMBER, UserRole.STEWARD]);
     stewardTwoToken = tokenFor(stewardTwoId, stewardTwoEmail, [UserRole.MEMBER, UserRole.STEWARD]);
     unrelatedStewardToken = tokenFor(unrelatedStewardId, unrelatedEmail, [UserRole.MEMBER, UserRole.STEWARD]);
     adminToken = tokenFor(adminId, adminEmail, [UserRole.MEMBER, UserRole.PLATFORM_ADMINISTRATOR]);
-    const memberToken = tokenFor(memberId, memberEmail, [UserRole.MEMBER]);
 
     const conversation = await request(app.getHttpServer())
       .post('/ai/conversations')
@@ -188,6 +189,37 @@ describe('People Step 4 — Human Steward Operations E2E', () => {
       .get(`/people/steward-operations/requests/${escalationId}`)
       .set('Authorization', `Bearer ${unrelatedStewardToken}`)
       .expect(404);
+
+    await request(app.getHttpServer())
+      .post(`/people/steward-operations/requests/${escalationId}/acknowledge`)
+      .set('Authorization', `Bearer ${memberToken}`)
+      .send({})
+      .expect(403);
+  });
+
+  it('serializes mixed legacy and Step-4 assignment paths so only one ACTIVE owner can win', async () => {
+    const [legacyAssignment, step4Assignment] = await Promise.all([
+      request(app.getHttpServer())
+        .post('/stewardship/relationships/assign')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({ memberId, stewardId: unrelatedStewardId }),
+      request(app.getHttpServer())
+        .post(`/people/steward-operations/requests/${escalationId}/assign`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({ stewardId: stewardOneId }),
+    ]);
+
+    const statuses = [legacyAssignment.status, step4Assignment.status].sort();
+    expect(statuses).toEqual([201, 409]);
+
+    const active = await prisma.db.stewardshipRelationship.findMany({
+      where: { memberId, status: StewardshipRelationshipStatus.ACTIVE },
+    });
+    expect(active).toHaveLength(1);
+
+    // Reset this adversarial probe so the ordered lifecycle assertions below
+    // start from the intended unassigned state.
+    await prisma.db.stewardshipRelationship.deleteMany({ where: { memberId } });
   });
 
   it('assigns through the existing Stewardship relationship and restricts queue visibility to the current steward', async () => {
@@ -212,6 +244,20 @@ describe('People Step 4 — Human Steward Operations E2E', () => {
       .set('Authorization', `Bearer ${stewardTwoToken}`)
       .expect(200);
     expect(otherQueue.body.some((row: { escalationId: string }) => row.escalationId === escalationId)).toBe(false);
+
+    await request(app.getHttpServer())
+      .post(`/people/steward-operations/requests/${escalationId}/acknowledge`)
+      .set('Authorization', `Bearer ${unrelatedStewardToken}`)
+      .send({})
+      .expect(404);
+
+    // The old coarse-grained mutation surface is gone; ownership enforcement
+    // cannot be bypassed by calling the pre-Step-4 Need route directly.
+    await request(app.getHttpServer())
+      .post(`/needs/escalations/${escalationId}/acknowledge`)
+      .set('Authorization', `Bearer ${unrelatedStewardToken}`)
+      .send({})
+      .expect(404);
   });
 
   it('lets the current steward acknowledge and records T2 triage without creating authority', async () => {
@@ -231,6 +277,7 @@ describe('People Step 4 — Human Steward Operations E2E', () => {
       .send({ level: 'T2_FOUNDATION_RISK', reason: 'Housing foundation may fail soon; prioritize human follow-through.' })
       .expect(201);
     expect(triaged.body.triageLevel).toBe('T2_FOUNDATION_RISK');
+    expect(triaged.body.triageSource).toBe('HUMAN_RECORDED');
     expect(triaged.body.triageSeverity).toBe('HIGH');
 
     const triageRecord = await prisma.db.stewardshipEscalation.findFirst({
@@ -319,7 +366,7 @@ describe('People Step 4 — Human Steward Operations E2E', () => {
       .expect(200);
   });
 
-  it('resolves only the Human Steward step and leaves the underlying Responsibility unresolved', async () => {
+  it('resolves only the Human Steward step, keeps status opaque to unrelated stewards, and leaves the Responsibility unresolved', async () => {
     const resolved = await request(app.getHttpServer())
       .post(`/people/steward-operations/requests/${escalationId}/resolve`)
       .set('Authorization', `Bearer ${stewardTwoToken}`)
@@ -327,6 +374,19 @@ describe('People Step 4 — Human Steward Operations E2E', () => {
       .expect(201);
 
     expect(resolved.body.status).toBe('RESOLVED');
+
+    await request(app.getHttpServer())
+      .post(`/people/steward-operations/requests/${escalationId}/resolve`)
+      .set('Authorization', `Bearer ${unrelatedStewardToken}`)
+      .send({ resolutionNotes: 'Should remain opaque.' })
+      .expect(404);
+
+    await request(app.getHttpServer())
+      .post(`/needs/escalations/${escalationId}/resolve`)
+      .set('Authorization', `Bearer ${unrelatedStewardToken}`)
+      .send({ resolutionNotes: 'Legacy bypass must stay closed.' })
+      .expect(404);
+
     const responsibility = await prisma.db.responsibility.findUnique({ where: { id: responsibilityId } });
     expect(responsibility?.status).toBe(ResponsibilityStatus.ACTIVE);
   });
