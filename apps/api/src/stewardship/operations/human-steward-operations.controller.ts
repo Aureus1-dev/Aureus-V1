@@ -1,7 +1,8 @@
-import { Body, Controller, Get, Param, Post, Req, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Param, Post, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { CurrentUser } from '../../auth/decorators/current-user.decorator';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
-import { AuthenticatedRequest } from '../../auth/strategies/jwt.strategy';
+import { AuthenticatedUser } from '../../auth/strategies/jwt.strategy';
 import {
   AssignHumanStewardDto,
   HumanStewardQueueItemDto,
@@ -20,17 +21,17 @@ export class HumanStewardOperationsController {
 
   @Get('queue')
   @ApiOperation({ summary: 'List open Human Steward work visible to the current operator' })
-  queue(@Req() req: AuthenticatedRequest): Promise<HumanStewardQueueItemDto[]> {
-    return this.service.queue(req.user);
+  queue(@CurrentUser() caller: AuthenticatedUser): Promise<HumanStewardQueueItemDto[]> {
+    return this.service.queue(caller);
   }
 
   @Get('requests/:id')
   @ApiOperation({ summary: 'Read one Human Steward request within the operator privacy boundary' })
   findOne(
     @Param('id') id: string,
-    @Req() req: AuthenticatedRequest,
+    @CurrentUser() caller: AuthenticatedUser,
   ): Promise<HumanStewardQueueItemDto> {
-    return this.service.findOne(id, req.user);
+    return this.service.findOne(id, caller);
   }
 
   @Post('requests/:id/assign')
@@ -38,18 +39,18 @@ export class HumanStewardOperationsController {
   assign(
     @Param('id') id: string,
     @Body() dto: AssignHumanStewardDto,
-    @Req() req: AuthenticatedRequest,
+    @CurrentUser() caller: AuthenticatedUser,
   ): Promise<HumanStewardQueueItemDto> {
-    return this.service.assign(id, dto, req.user);
+    return this.service.assign(id, dto, caller);
   }
 
   @Post('requests/:id/acknowledge')
   @ApiOperation({ summary: 'Current Human Steward acknowledges the member request' })
   acknowledge(
     @Param('id') id: string,
-    @Req() req: AuthenticatedRequest,
+    @CurrentUser() caller: AuthenticatedUser,
   ): Promise<HumanStewardQueueItemDto> {
-    return this.service.acknowledge(id, req.user);
+    return this.service.acknowledge(id, caller);
   }
 
   @Post('requests/:id/triage')
@@ -57,9 +58,9 @@ export class HumanStewardOperationsController {
   triage(
     @Param('id') id: string,
     @Body() dto: TriageHumanStewardRequestDto,
-    @Req() req: AuthenticatedRequest,
+    @CurrentUser() caller: AuthenticatedUser,
   ): Promise<HumanStewardQueueItemDto> {
-    return this.service.triage(id, dto, req.user);
+    return this.service.triage(id, dto, caller);
   }
 
   @Post('requests/:id/handoff-request')
@@ -67,9 +68,9 @@ export class HumanStewardOperationsController {
   requestHandoff(
     @Param('id') id: string,
     @Body() dto: RequestHumanStewardHandoffDto,
-    @Req() req: AuthenticatedRequest,
+    @CurrentUser() caller: AuthenticatedUser,
   ): Promise<HumanStewardQueueItemDto> {
-    return this.service.requestHandoff(id, dto, req.user);
+    return this.service.requestHandoff(id, dto, caller);
   }
 
   @Post('requests/:id/resolve')
@@ -77,8 +78,8 @@ export class HumanStewardOperationsController {
   resolve(
     @Param('id') id: string,
     @Body() dto: ResolveHumanStewardRequestDto,
-    @Req() req: AuthenticatedRequest,
+    @CurrentUser() caller: AuthenticatedUser,
   ): Promise<HumanStewardQueueItemDto> {
-    return this.service.resolve(id, dto, req.user);
+    return this.service.resolve(id, dto, caller);
   }
 }
