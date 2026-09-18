@@ -9,14 +9,15 @@ import {
 import {
   NeedEscalation,
   NeedEscalationStatus,
+  Prisma,
   Responsibility,
   ResponsibilityKind,
   ResponsibilityStatus,
   StewardshipEndReason,
-  StewardshipEscalation,
   StewardshipEscalationSeverity,
   StewardshipEscalationStatus,
   StewardshipRelationship,
+  StewardshipRelationshipOrigin,
   StewardshipRelationshipStatus,
   UserRole,
 } from '@prisma/client';
@@ -32,22 +33,22 @@ import {
   IStatedNeedRepository,
   STATED_NEED_REPOSITORY,
 } from '../../needs/repositories/stated-need.repository.interface';
+import { PrismaService } from '../../prisma/prisma.service';
 import {
   IResponsibilityRepository,
   RESPONSIBILITY_REPOSITORY,
 } from '../../responsibilities/repositories/responsibility.repository.interface';
-import {
-  IStewardshipRelationshipRepository,
-  STEWARDSHIP_RELATIONSHIP_REPOSITORY,
-} from '../relationships/repositories/stewardship-relationship.repository.interface';
-import { StewardshipRelationshipsService } from '../relationships/stewardship-relationships.service';
+import { IUserRepository, USER_REPOSITORY } from '../../users/repositories/user.repository.interface';
+import { StewardCapacityService } from '../capacity/steward-capacity.service';
+import { PLATFORM_ADMIN_ROLES } from '../common/stewardship-roles.util';
 import {
   IStewardshipEscalationRepository,
   STEWARDSHIP_ESCALATION_REPOSITORY,
 } from '../escalations/repositories/stewardship-escalation.repository.interface';
-import { StewardCapacityService } from '../capacity/steward-capacity.service';
-import { PLATFORM_ADMIN_ROLES } from '../common/stewardship-roles.util';
-import { IUserRepository, USER_REPOSITORY } from '../../users/repositories/user.repository.interface';
+import {
+  IStewardshipRelationshipRepository,
+  STEWARDSHIP_RELATIONSHIP_REPOSITORY,
+} from '../relationships/repositories/stewardship-relationship.repository.interface';
 import {
   AssignHumanStewardDto,
   HumanStewardOwnershipState,
@@ -90,8 +91,8 @@ export class HumanStewardOperationsService {
     private readonly oversight: IStewardshipEscalationRepository,
     @Inject(USER_REPOSITORY)
     private readonly users: IUserRepository,
-    private readonly relationshipService: StewardshipRelationshipsService,
     private readonly capacityService: StewardCapacityService,
+    private readonly prisma: PrismaService,
   ) {}
 
   async queue(caller: AuthenticatedUser): Promise<HumanStewardQueueItemDto[]> {
@@ -132,23 +133,14 @@ export class HumanStewardOperationsService {
       await this.preflightAssignmentTarget(dto.stewardId, caller);
     }
 
-    let nextRelationship: { id: string; stewardId: string | null };
-    if (!current) {
-      nextRelationship = await this.relationshipService.assignByAdmin(
-        { memberId: escalation.userId, stewardId: dto.stewardId },
-        caller,
-      );
-    } else if (current.stewardId === dto.stewardId) {
-      nextRelationship = current;
-    } else {
-      nextRelationship = await this.relationshipService.reassign(
-        current.id,
-        {
-          newStewardId: dto.stewardId,
-          reason: StewardshipEndReason.ADMIN_REASSIGNMENT,
-        },
-        caller,
-      );
+    const nextRelationship = await this.assignCurrentOwnerAtomically(
+      escalation.userId,
+      current,
+      dto.stewardId,
+      caller,
+    );
+
+    if (current && current.id !== nextRelationship.id) {
       await this.closeHandoffRequests(current.id, escalationId);
     }
 
@@ -202,8 +194,6 @@ export class HumanStewardOperationsService {
       raisedById: caller.id,
     });
 
-    // T0/T1 are attributable triage history, not unresolved supervisory alarms.
-    // T2/T3 stay open so the existing oversight dashboard can surface them.
     if (dto.level === PeopleTriageLevel.T0_EXPLORE || dto.level === PeopleTriageLevel.T1_IMPORTANT) {
       await this.oversight.update(created.id, {
         status: StewardshipEscalationStatus.CLOSED,
@@ -233,8 +223,6 @@ export class HumanStewardOperationsService {
       raisedById: caller.id,
     });
 
-    // Deliberately do not end or alter the relationship here. The current
-    // steward remains the owner until an administrator successfully reassigns.
     return this.project(await this.getEscalationOrThrow(escalationId));
   }
 
@@ -253,9 +241,87 @@ export class HumanStewardOperationsService {
       dto.resolutionNotes ? sanitizePlainText(dto.resolutionNotes) : undefined,
     );
 
-    // This only resolves the Human Steward step. People Step 1 remains the
-    // authority for source-domain outcome evidence and Responsibility closure.
     return this.project(await this.getEscalationOrThrow(escalationId));
+  }
+
+  private async assignCurrentOwnerAtomically(
+    memberId: string,
+    expectedCurrent: StewardshipRelationship | null,
+    targetStewardId: string,
+    caller: AuthenticatedUser,
+  ): Promise<StewardshipRelationship> {
+    return this.prisma.db.$transaction(async (tx) => {
+      // Serialize Step 4 ownership changes for both this member and target
+      // steward. Ordering the locks avoids deadlock when two transfers cross.
+      await tx.$queryRaw(
+        Prisma.sql`SELECT "id" FROM "User" WHERE "id" IN (${memberId}::uuid, ${targetStewardId}::uuid) ORDER BY "id" FOR UPDATE`,
+      );
+
+      const [target, activeRelationships] = await Promise.all([
+        tx.user.findUnique({ where: { id: targetStewardId }, select: { id: true, roles: true } }),
+        tx.stewardshipRelationship.findMany({
+          where: { memberId, status: StewardshipRelationshipStatus.ACTIVE },
+          orderBy: { createdAt: 'asc' },
+        }),
+      ]);
+
+      if (!target) throw new NotFoundException(`User '${targetStewardId}' not found`);
+      if (!target.roles.includes(UserRole.STEWARD)) {
+        throw new BadRequestException(`User '${targetStewardId}' does not hold the STEWARD role`);
+      }
+      if (activeRelationships.length > 1) {
+        throw new ConflictException('Member has multiple ACTIVE Stewardship relationships; resolve ownership conflict before assignment');
+      }
+
+      const actualCurrent = activeRelationships[0] ?? null;
+      if (expectedCurrent) {
+        if (!actualCurrent || actualCurrent.id !== expectedCurrent.id) {
+          throw new ConflictException('Human Steward ownership changed during assignment; retry from the current queue state');
+        }
+      } else if (actualCurrent) {
+        throw new ConflictException('Human Steward ownership changed during assignment; retry from the current queue state');
+      }
+
+      if (actualCurrent?.stewardId === targetStewardId) return actualCurrent;
+
+      const capacity = await tx.stewardCapacity.upsert({
+        where: { stewardId: targetStewardId },
+        update: {},
+        create: { stewardId: targetStewardId, updatedById: caller.id },
+      });
+      const activeCount = await tx.stewardshipRelationship.count({
+        where: { stewardId: targetStewardId, status: StewardshipRelationshipStatus.ACTIVE },
+      });
+      if (activeCount >= capacity.maxActiveMembers) {
+        throw new ConflictException(
+          `Steward '${targetStewardId}' is at capacity (${activeCount}/${capacity.maxActiveMembers} active members)`,
+        );
+      }
+
+      const now = new Date();
+      if (actualCurrent) {
+        await tx.stewardshipRelationship.update({
+          where: { id: actualCurrent.id },
+          data: {
+            status: StewardshipRelationshipStatus.ENDED,
+            endReason: StewardshipEndReason.ADMIN_REASSIGNMENT,
+            endedById: caller.id,
+            endedAt: now,
+          },
+        });
+      }
+
+      return tx.stewardshipRelationship.create({
+        data: {
+          memberId,
+          stewardId: targetStewardId,
+          origin: StewardshipRelationshipOrigin.ADMIN_ASSIGNMENT,
+          status: StewardshipRelationshipStatus.ACTIVE,
+          assignedById: caller.id,
+          activatedAt: now,
+        },
+      });
+    });
   }
 
   private async project(escalation: NeedEscalation): Promise<HumanStewardQueueItemDto> {
@@ -276,10 +342,7 @@ export class HumanStewardOperationsService {
       ownershipState = HumanStewardOwnershipState.CONFLICT;
     }
 
-    const triage = relationship
-      ? await this.findCurrentTriage(relationship.id, escalation.id)
-      : null;
-
+    const triage = relationship ? await this.findCurrentTriage(relationship.id, escalation.id) : null;
     const crisisSignal = Boolean(need && isCrisisLanguage(need.content));
     const triageLevel = triage?.level ?? (crisisSignal ? PeopleTriageLevel.T3_IMMEDIATE_SAFETY : null);
     const triageSeverity = triage?.severity ?? (crisisSignal ? StewardshipEscalationSeverity.CRITICAL : null);
@@ -442,8 +505,6 @@ export class HumanStewardOperationsService {
       item.ownershipState === HumanStewardOwnershipState.ASSIGNED &&
       item.assignedStewardId === caller.id
     ) return;
-    // Opaque boundary: unrelated stewards should not learn whether another
-    // member has an open Human Steward request.
     throw new NotFoundException('Human Steward request not found');
   }
 
