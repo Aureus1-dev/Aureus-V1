@@ -39,6 +39,7 @@ import { PeopleHelpModule } from './people-help/people-help.module';
 import { PeopleResolutionsModule } from './people-resolutions/people-resolutions.module';
 import { StewardshipLearningModule } from './stewardship-learning/stewardship-learning.module';
 import { LegalMattersModule } from './legal-matters/legal-matters.module';
+import { HouseholdContinuityModule } from './households/household-continuity.module';
 
 @Module({
   imports: [
@@ -128,6 +129,7 @@ import { LegalMattersModule } from './legal-matters/legal-matters.module';
     PeopleResolutionsModule,
     StewardshipLearningModule,
     LegalMattersModule,
+    HouseholdContinuityModule,
   ],
 
   providers: [
