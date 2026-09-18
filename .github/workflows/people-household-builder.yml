@@ -1,0 +1,35 @@
+name: People Household One-Shot Builder
+
+on:
+  push:
+    branches:
+      - people/household-001-continuity
+    paths:
+      - .household-builder-trigger
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout exact branch
+        uses: actions/checkout@v4
+        with:
+          ref: people/household-001-continuity
+          fetch-depth: 0
+
+      - name: Apply bounded PEOPLE-HOUSEHOLD-001 patch
+        run: python3 scripts/people_household_builder.py
+
+      - name: Reject malformed patch whitespace
+        run: git diff --check
+
+      - name: Commit candidate and remove builder machinery
+        run: |
+          git config user.name "Aureus1-dev"
+          git config user.email "aureus.quatise@gmail.com"
+          git add -A
+          git commit -m "feat(people): implement household relationship continuity"
+          git push origin HEAD:people/household-001-continuity
