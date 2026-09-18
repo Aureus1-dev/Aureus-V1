@@ -572,6 +572,33 @@ describe('Authority, Consent & Trust — E2E', () => {
   });
 
 
+
+  it('refuses approval of a legacy unscoped SHARE request even if one reaches runtime', async () => {
+    const legacy = await prisma.db.authorityRequest.create({
+      data: {
+        contextType: AuthorityContextType.PERSONAL,
+        subjectUserId: employeeId,
+        capability: AuthorityCapability.SHARE,
+        resourceClass: AuthorityResourceClass.CONVERSATION,
+        resourceRef: privateConversationId,
+        purpose: 'Legacy unscoped conversation sharing',
+        source: AuthorityRequestSource.USER,
+        requestedByUserId: employeeId,
+        policyVersion: 'step2-v1',
+      },
+    });
+
+    await request(app.getHttpServer())
+      .post(`/authority/requests/${legacy.id}/approve`)
+      .set(auth(employeeToken))
+      .send({})
+      .expect(400);
+
+    expect(
+      await prisma.db.authorityGrant.count({ where: { requestId: legacy.id } }),
+    ).toBe(0);
+  });
+
   it('requires exact owned Document scope for Personal read/write/share/act authority', async () => {
     await request(app.getHttpServer())
       .post('/authority/requests')

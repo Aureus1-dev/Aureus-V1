@@ -31,3 +31,21 @@ ALTER TABLE "AuthorityRequest"
 CREATE INDEX "AuthorityRequest_shareScopeKey_idx" ON "AuthorityRequest"("shareScopeKey");
 CREATE INDEX "AuthorityGrant_shareScopeKey_idx" ON "AuthorityGrant"("shareScopeKey");
 CREATE INDEX "AuthorityDecision_shareScopeKey_idx" ON "AuthorityDecision"("shareScopeKey");
+
+
+-- Fail closed on pre-v2 sharing authority. Older SHARE rows had no recipient
+-- or minimum-data scope, so they cannot survive as runtime authority under
+-- the new contract.
+UPDATE "AuthorityRequest"
+SET
+  "status" = 'CANCELLED',
+  "decidedAt" = COALESCE("decidedAt", CURRENT_TIMESTAMP),
+  "updatedAt" = CURRENT_TIMESTAMP
+WHERE "capability" = 'SHARE' AND "status" = 'PENDING';
+
+UPDATE "AuthorityGrant"
+SET
+  "status" = 'REVOKED',
+  "revokedAt" = COALESCE("revokedAt", CURRENT_TIMESTAMP),
+  "updatedAt" = CURRENT_TIMESTAMP
+WHERE "capability" = 'SHARE' AND "status" = 'ACTIVE';

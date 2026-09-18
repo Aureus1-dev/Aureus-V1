@@ -112,6 +112,19 @@ export class AuthorityService {
     if (request.expiresAt && request.expiresAt <= new Date()) {
       throw new BadRequestException('This permission request has expired');
     }
+    if (
+      request.capability === AuthorityCapability.SHARE &&
+      (
+        !request.shareScopeKey ||
+        !request.shareRecipientKind ||
+        !request.shareRecipientRef ||
+        request.shareDataFields.length === 0
+      )
+    ) {
+      throw new BadRequestException(
+        'This legacy SHARE request is not recipient/data scoped and must be replaced with a new bounded request',
+      );
+    }
 
     return this.prisma.db.$transaction(async (tx) => {
       // Authority must still belong to this approver at the exact moment the
