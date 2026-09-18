@@ -18,6 +18,8 @@ export interface IStatedNeedEscalationRepository {
    * ticket/case table.
    */
   findOpen(): Promise<NeedEscalation[]>;
+  /** Minimum-necessary queue read for a steward's currently assigned members. */
+  findOpenByUserIds(userIds: string[]): Promise<NeedEscalation[]>;
   acknowledge(id: string, acknowledgedById: string): Promise<NeedEscalation>;
   resolve(id: string, resolvedById: string, resolutionNotes?: string): Promise<NeedEscalation>;
 }
