@@ -10,6 +10,8 @@ import { OrganizationsModule } from '../organizations/organizations.module';
 import { OpportunitiesModule } from '../opportunities/opportunities.module';
 import { ResourcesModule } from '../resources/resources.module';
 import { ConsentModule } from '../consent/consent.module';
+import { NeedsModule } from '../needs/needs.module';
+import { ResponsibilitiesModule } from '../responsibilities/responsibilities.module';
 
 import { StewardshipRelationshipsController } from './relationships/stewardship-relationships.controller';
 import { StewardshipRelationshipsService } from './relationships/stewardship-relationships.service';
@@ -43,6 +45,8 @@ import { STEWARDSHIP_ESCALATION_REPOSITORY } from './escalations/repositories/st
 
 import { StewardMetricsController } from './metrics/steward-metrics.controller';
 import { StewardMetricsService } from './metrics/steward-metrics.service';
+import { HumanStewardOperationsController } from './operations/human-steward-operations.controller';
+import { HumanStewardOperationsService } from './operations/human-steward-operations.service';
 
 @Module({
   imports: [
@@ -57,6 +61,8 @@ import { StewardMetricsService } from './metrics/steward-metrics.service';
     OpportunitiesModule,
     ResourcesModule,
     ConsentModule,
+    NeedsModule,
+    ResponsibilitiesModule,
   ],
   controllers: [
     StewardshipRelationshipsController,
@@ -66,6 +72,7 @@ import { StewardMetricsService } from './metrics/steward-metrics.service';
     StewardshipRecommendationsController,
     StewardshipEscalationsController,
     StewardMetricsController,
+    HumanStewardOperationsController,
   ],
   providers: [
     StewardshipRelationshipsService,
@@ -81,6 +88,7 @@ import { StewardMetricsService } from './metrics/steward-metrics.service';
     StewardshipEscalationsService,
     { provide: STEWARDSHIP_ESCALATION_REPOSITORY, useClass: PrismaStewardshipEscalationRepository },
     StewardMetricsService,
+    HumanStewardOperationsService,
   ],
   exports: [
     StewardshipRelationshipsService,
