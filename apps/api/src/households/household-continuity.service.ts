@@ -554,11 +554,25 @@ export class HouseholdContinuityService {
   async leave(householdId: string, caller: AuthenticatedUser) {
     const membership = await this.assertActiveMember(householdId, caller.id);
     await this.prisma.db.$transaction(async (tx) => {
-      await tx.$executeRaw(Prisma.sql`
+      // Serialize departures on the household row. Without this lock, two final
+      // members leaving concurrently can each observe the other as ACTIVE and
+      // both skip archival, leaving an ACTIVE household with zero members.
+      const lockedHousehold = await tx.$queryRaw<Array<{ id: string }>>(Prisma.sql`
+        SELECT "id"
+        FROM "Household"
+        WHERE "id" = ${householdId}::uuid
+          AND "status" = 'ACTIVE'::"HouseholdStatus"
+        FOR UPDATE
+      `);
+      if (!lockedHousehold[0]) throw new NotFoundException('Household not found');
+
+      const endedMembership = await tx.$executeRaw(Prisma.sql`
         UPDATE "HouseholdMembership"
         SET "status" = 'ENDED'::"HouseholdMembershipStatus", "endedAt" = NOW(), "updatedAt" = NOW()
         WHERE "id" = ${membership.id}::uuid AND "status" = 'ACTIVE'::"HouseholdMembershipStatus"
       `);
+      if (endedMembership !== 1) throw new NotFoundException('Household not found');
+
       await tx.$executeRaw(Prisma.sql`
         UPDATE "HouseholdRelationship"
         SET "status" = 'ENDED'::"HouseholdRelationshipStatus", "endedAt" = NOW(), "updatedAt" = NOW()
