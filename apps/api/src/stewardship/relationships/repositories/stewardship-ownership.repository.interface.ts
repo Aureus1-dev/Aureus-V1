@@ -32,9 +32,9 @@ export type StewardshipOwnershipMutationResult =
   | {
       ok: true;
       relationship: StewardshipRelationship;
-      reason?: never;
-      activeCount?: never;
-      maxActiveMembers?: never;
+      reason?: undefined;
+      activeCount?: undefined;
+      maxActiveMembers?: undefined;
     }
   | {
       ok: false;
