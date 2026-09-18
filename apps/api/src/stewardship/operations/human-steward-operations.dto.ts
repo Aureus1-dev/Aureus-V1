@@ -12,6 +12,11 @@ export enum PeopleTriageLevel {
   T3_IMMEDIATE_SAFETY = 'T3_IMMEDIATE_SAFETY',
 }
 
+export enum PeopleTriageSource {
+  HUMAN_RECORDED = 'HUMAN_RECORDED',
+  SYSTEM_CRISIS_SIGNAL = 'SYSTEM_CRISIS_SIGNAL',
+}
+
 export enum HumanStewardOwnershipState {
   UNASSIGNED = 'UNASSIGNED',
   ASSIGNED = 'ASSIGNED',
@@ -73,6 +78,7 @@ export class HumanStewardQueueItemDto {
   @ApiPropertyOptional({ nullable: true }) assignedStewardId!: string | null;
 
   @ApiPropertyOptional({ enum: PeopleTriageLevel, nullable: true }) triageLevel!: PeopleTriageLevel | null;
+  @ApiPropertyOptional({ enum: PeopleTriageSource, nullable: true }) triageSource!: PeopleTriageSource | null;
   @ApiPropertyOptional({ nullable: true }) triageReason!: string | null;
   @ApiPropertyOptional({ enum: StewardshipEscalationSeverity, nullable: true }) triageSeverity!: StewardshipEscalationSeverity | null;
   @ApiPropertyOptional({ nullable: true }) triagedAt!: Date | null;
