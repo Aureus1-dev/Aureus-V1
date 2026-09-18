@@ -38,6 +38,7 @@ import { ResponsibilitiesModule } from './responsibilities/responsibilities.modu
 import { PeopleHelpModule } from './people-help/people-help.module';
 import { PeopleResolutionsModule } from './people-resolutions/people-resolutions.module';
 import { StewardshipLearningModule } from './stewardship-learning/stewardship-learning.module';
+import { LegalMattersModule } from './legal-matters/legal-matters.module';
 
 @Module({
   imports: [
@@ -126,6 +127,7 @@ import { StewardshipLearningModule } from './stewardship-learning/stewardship-le
     PeopleHelpModule,
     PeopleResolutionsModule,
     StewardshipLearningModule,
+    LegalMattersModule,
   ],
 
   providers: [

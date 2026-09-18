@@ -137,6 +137,81 @@ enum ResponsibilityEvidenceLevel {
   VERIFIED
 }
 
+enum LegalMatterUrgency {
+  ROUTINE
+  TIME_SENSITIVE
+  URGENT
+  EMERGENCY
+}
+
+enum LegalMatterSourceKind {
+  OFFICIAL_PRIMARY
+  OFFICIAL_PROCEDURE
+  SECONDARY_EXPLANATORY
+  MEMBER_RECORD
+  OTHER
+}
+
+enum LegalMatterSourceVerification {
+  MEMBER_REPORTED
+  IDENTITY_VERIFIED
+}
+
+enum LegalMatterProvenance {
+  OBSERVED
+  REPORTED
+  INFERRED
+  SIMULATED
+}
+
+enum LegalMatterFactKind {
+  MEMBER_REPORTED_FACT
+  SOURCE_CONTENT_OBSERVATION
+}
+
+enum LegalMatterDeadlineStatus {
+  REPORTED
+  VERIFIED
+  COMPLETED
+  REVIEW_REQUIRED
+}
+
+enum LegalMatterReviewStatus {
+  PENDING
+  COMPLETED
+  CANCELLED
+}
+
+enum LegalMatterRetentionState {
+  ACTIVE
+  REVIEW_REQUIRED
+  PRESERVED
+  ELIGIBLE_FOR_DELETION
+}
+
+enum LegalJurisdictionEnablementStatus {
+  SAFE_MODE_ONLY
+  ENABLED
+  DISABLED
+}
+
+enum LegalActionType {
+  ORGANIZE_RECORDS
+  RETRIEVE_OFFICIAL_SOURCE
+  TRACK_REPORTED_DEADLINE
+  PREPARE_QUESTIONS
+  FILE
+  SERVE
+  SIGN
+  CERTIFY
+  TESTIFY
+  SETTLE
+  PLEAD
+  APPEAL
+  WAIVE
+  REPRESENT
+}
+
 // ===========================================================================
 // User
 // ===========================================================================
@@ -233,6 +308,7 @@ model User {
   harvestPlans                HarvestPlan[]
   guidedApplicationSessions   GuidedApplicationSession[]
   responsibilitiesAsPrincipal Responsibility[]           @relation("ResponsibilityPrincipalUser")
+  legalMatters                LegalMatter[]
 }
 
 // ===========================================================================
@@ -563,6 +639,7 @@ model Responsibility {
 
   events                    ResponsibilityEvent[]
   guidedApplicationSessions GuidedApplicationSession[]
+  legalMatter               LegalMatter?
 
   @@index([contextType, principalUserId, status, updatedAt])
   @@index([principalOrganizationId, status, updatedAt])
@@ -596,6 +673,160 @@ model ResponsibilityEvent {
   @@index([responsibilityId, occurredAt])
   @@index([actorUserId])
   @@index([sourceRecordType, sourceRecordId])
+}
+
+// ===========================================================================
+// PEOPLE-LEGAL-001 — Legal / Matter Stewardship
+//
+// LegalMatter is a thin legal-specific truth layer attached 1:1 to the
+// canonical Personal Need Responsibility. It does not replace Responsibility,
+// Documents, Authority, provider/resource data, or NeedOutcomeReport.
+// ===========================================================================
+
+model LegalMatter {
+  id               String @id @default(uuid()) @db.Uuid
+  userId           String @db.Uuid
+  user             User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  responsibilityId String @unique @db.Uuid
+  responsibility   Responsibility @relation(fields: [responsibilityId], references: [id], onDelete: Cascade)
+  statedNeedId     String @unique @db.Uuid
+  statedNeed       StatedNeed @relation(fields: [statedNeedId], references: [id], onDelete: Cascade)
+
+  matterType        String
+  jurisdiction      String
+  forum             String?
+  proceduralPosture String
+  urgency           LegalMatterUrgency @default(ROUTINE)
+
+  disclosureAcknowledgedAt DateTime
+  assistanceMode            String @default("SAFE_MODE")
+  legalReviewRequired       Boolean @default(true)
+
+  retentionBasis    String @default("LEGAL_MATTER_V1_REVIEW_90_DAYS_AFTER_CLOSURE")
+  retentionState    LegalMatterRetentionState @default(ACTIVE)
+  retentionReviewAt DateTime?
+  legalHoldBasis    String?
+
+  outcomeSummary String?
+  closedAt       DateTime?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  sources          LegalMatterSource[]
+  facts            LegalMatterFact[]
+  deadlines        LegalMatterDeadline[]
+  reviewRequests   LegalMatterReviewRequest[]
+  documentLinks    LegalMatterDocumentLink[]
+
+  @@index([userId, updatedAt])
+  @@index([jurisdiction, matterType])
+}
+
+model LegalMatterSource {
+  id           String @id @default(uuid()) @db.Uuid
+  matterId     String @db.Uuid
+  matter       LegalMatter @relation(fields: [matterId], references: [id], onDelete: Cascade)
+
+  title        String
+  url          String
+  kind         LegalMatterSourceKind
+  jurisdiction String
+  proposition  String
+  provenance   LegalMatterProvenance @default(REPORTED)
+  verification LegalMatterSourceVerification @default(MEMBER_REPORTED)
+  checkedAt    DateTime
+  verifiedAt   DateTime?
+  verifiedByUserId String? @db.Uuid
+  verificationNote String?
+  createdAt    DateTime @default(now())
+
+  facts     LegalMatterFact[]
+  deadlines LegalMatterDeadline[]
+
+  @@index([matterId, createdAt])
+  @@index([verification, checkedAt])
+}
+
+model LegalMatterFact {
+  id         String @id @default(uuid()) @db.Uuid
+  matterId   String @db.Uuid
+  matter     LegalMatter @relation(fields: [matterId], references: [id], onDelete: Cascade)
+  statement  String
+  kind       LegalMatterFactKind @default(MEMBER_REPORTED_FACT)
+  provenance LegalMatterProvenance @default(REPORTED)
+  sourceId   String? @db.Uuid
+  source     LegalMatterSource? @relation(fields: [sourceId], references: [id], onDelete: SetNull)
+  observedAt DateTime?
+  observedByUserId String? @db.Uuid
+  createdAt  DateTime @default(now())
+
+  @@index([matterId, createdAt])
+  @@index([sourceId])
+}
+
+model LegalMatterDeadline {
+  id               String @id @default(uuid()) @db.Uuid
+  matterId         String @db.Uuid
+  matter           LegalMatter @relation(fields: [matterId], references: [id], onDelete: Cascade)
+  label            String
+  dueAt            DateTime
+  timeZone         String
+  trigger          String
+  calculationBasis String?
+  sourceId         String? @db.Uuid
+  source           LegalMatterSource? @relation(fields: [sourceId], references: [id], onDelete: SetNull)
+  status           LegalMatterDeadlineStatus @default(REPORTED)
+  completedAt      DateTime?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@index([matterId, dueAt])
+  @@index([sourceId])
+}
+
+model LegalMatterReviewRequest {
+  id                String @id @default(uuid()) @db.Uuid
+  matterId          String @db.Uuid
+  matter            LegalMatter @relation(fields: [matterId], references: [id], onDelete: Cascade)
+  requestedByUserId String @db.Uuid
+  purpose           String
+  status            LegalMatterReviewStatus @default(PENDING)
+  createdAt         DateTime @default(now())
+  completedAt       DateTime?
+  completedByUserId String? @db.Uuid
+
+  @@index([matterId, status, createdAt])
+}
+
+model LegalMatterDocumentLink {
+  id         String @id @default(uuid()) @db.Uuid
+  matterId   String @db.Uuid
+  matter     LegalMatter @relation(fields: [matterId], references: [id], onDelete: Cascade)
+  documentId String @db.Uuid
+  document   Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  label      String?
+  createdAt  DateTime @default(now())
+
+  @@unique([matterId, documentId])
+  @@index([documentId])
+}
+
+model LegalJurisdictionPolicy {
+  id                 String @id @default(uuid()) @db.Uuid
+  jurisdiction       String
+  matterType         String
+  assistanceCategory String
+  status             LegalJurisdictionEnablementStatus
+  sourceUrl          String
+  checkedAt          DateTime
+  effectiveAt        DateTime?
+  reviewedByUserId   String? @db.Uuid
+  notes              String?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  @@unique([jurisdiction, matterType, assistanceCategory])
+  @@index([status, checkedAt])
 }
 
 // ===========================================================================
@@ -3464,7 +3695,8 @@ model Document {
   updatedAt  DateTime  @updatedAt
   deletedAt  DateTime?
 
-  activity StewardActivityLog[]
+  activity         StewardActivityLog[]
+  legalMatterLinks LegalMatterDocumentLink[]
 
   @@index([userId])
   @@index([category])
@@ -3729,6 +3961,7 @@ model StatedNeed {
   needEscalations NeedEscalation[]
   unresolvedNeed  UnresolvedNeed?
   outcomeReports  NeedOutcomeReport[]
+  legalMatter      LegalMatter?
 
   @@index([userId])
   @@index([conversationId])

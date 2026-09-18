@@ -33,6 +33,7 @@ import { ConversationHistory } from './ConversationHistory';
 import { ConversationTimeline } from './ConversationTimeline';
 import { ApplicationGuidePanel } from './ApplicationGuidePanel';
 import { ResponsibilityProgressCard } from './ResponsibilityProgressCard';
+import { LegalMatterPanel } from './LegalMatterPanel';
 import { MessageComposer } from './MessageComposer';
 import { conversationErrorCopy } from './conversation-error-copy';
 import { buildVirtualTimeline, type BuiltPlan } from './build-virtual-timeline';
@@ -86,6 +87,7 @@ export function ConversationSurface({ initialMode = 'text' }: ConversationSurfac
   const [applicationGuideStarting, setApplicationGuideStarting] = useState(false);
 
   const [needId, setNeedId] = useState<string | undefined>(undefined);
+  const [needContent, setNeedContent] = useState<string | undefined>(undefined);
   const [planBuiltAt, setPlanBuiltAt] = useState<string | null>(null);
   const previousPlanRef = useRef(plan.state.plan);
   const [decidingKeys, setDecidingKeys] = useState<string[]>([]);
@@ -109,14 +111,18 @@ export function ConversationSurface({ initialMode = 'text' }: ConversationSurfac
   useEffect(() => {
     if (!session.accessToken || !state.activeConversationId) {
       setNeedId(undefined);
+      setNeedContent(undefined);
       return;
     }
     let cancelled = false;
     void (async () => {
       try {
         const needs = await getMyNeeds(session.accessToken!);
-        const match = needs.find((n) => n.conversationId === state.activeConversationId)?.id;
-        if (!cancelled) setNeedId(match);
+        const match = needs.find((n) => n.conversationId === state.activeConversationId);
+        if (!cancelled) {
+          setNeedId(match?.id);
+          setNeedContent(match?.content);
+        }
       } catch {
         // Best-effort lookup — a plan with no matching StatedNeed simply has no CITY_RESOURCE items to auto-offer.
       }
@@ -353,6 +359,15 @@ export function ConversationSurface({ initialMode = 'text' }: ConversationSurfac
                       )
                   : undefined
               }
+            />
+          ) : null}
+
+          {needId && needContent && state.activeConversationId && session.accessToken ? (
+            <LegalMatterPanel
+              accessToken={session.accessToken}
+              conversationId={state.activeConversationId}
+              statedNeedId={needId}
+              statedNeedContent={needContent}
             />
           ) : null}
 
