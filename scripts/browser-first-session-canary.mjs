@@ -7,6 +7,9 @@ const chromeBin = process.env.RELEASE_CHROME_BIN || 'google-chrome';
 const timeoutMs = Number(process.env.RELEASE_BROWSER_TIMEOUT_MS ?? 60_000);
 const testEmail = process.env.RELEASE_TEST_EMAIL?.trim() || '';
 const testPassword = process.env.RELEASE_TEST_PASSWORD || '';
+const canonicalTestAccountOrigin = 'https://aureus-v1.onrender.com';
+const useAuthenticatedTestAccount =
+  webOrigin === canonicalTestAccountOrigin && Boolean(testEmail && testPassword);
 const evidence = [];
 let chrome;
 let cdp;
@@ -146,7 +149,7 @@ async function setInput(selector, value) {
 }
 
 async function establishEntrySession() {
-  if (testEmail && testPassword) {
+  if (useAuthenticatedTestAccount) {
     await navigate(`${webOrigin}/login`);
     await poll('login form visible', async () => (await bodyText()).includes('Sign in'));
     await setInput('input[type="email"]', testEmail);
@@ -155,7 +158,9 @@ async function establishEntrySession() {
     evidence.push({ label: 'authenticated test account submitted' });
   } else {
     await navigate(webOrigin);
-    evidence.push({ label: 'guest entry requested' });
+    evidence.push({
+      label: testEmail && testPassword ? 'guest entry requested; test credentials withheld from non-canonical origin' : 'guest entry requested',
+    });
   }
 
   await poll('Living Hall conversation ready', async () => {
@@ -221,7 +226,7 @@ async function main() {
     console.log(JSON.stringify({
       result: 'BROWSER_FIRST_SESSION_PASSED',
       webOrigin,
-      accountMode: testEmail && testPassword ? 'authenticated-test-account' : 'guest',
+      accountMode: useAuthenticatedTestAccount ? 'authenticated-test-account' : 'guest',
       evidence,
     }, null, 2));
   } catch (error) {
@@ -229,7 +234,7 @@ async function main() {
     console.error(JSON.stringify({
       result: 'HOLD',
       webOrigin,
-      accountMode: testEmail && testPassword ? 'authenticated-test-account' : 'guest',
+      accountMode: useAuthenticatedTestAccount ? 'authenticated-test-account' : 'guest',
       evidence,
       failure: message,
       chromeError: chromeError.slice(-1500),
