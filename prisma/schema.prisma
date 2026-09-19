@@ -3768,9 +3768,14 @@ model StewardActivityLog {
 //
 // Reuses Responsibility (outcome/ownership/privacy), Document (artifact
 // storage/upload metadata), AuthorityGrant (steward/third-party access
-// gateway), StewardshipRelationship (current human ownership), and
-// HouseholdResponsibilityParticipant (shared read visibility) rather than
-// inventing a second case, permission, or document system. EvidenceRequirement
+// gateway, evaluated per Responsibility for read/manage and per Document for
+// verification), and StewardshipRelationship (current human ownership)
+// rather than inventing a second case, permission, or document system.
+// Deliberately NOT reused as an evidence-authorization bypass:
+// HouseholdResponsibilityParticipant (coordination consent only — Step 3) and
+// an ACTIVE StewardshipRelationship alone (assignment only — Step 4). Both
+// require an explicit Step-2 AuthorityGrant before any private evidence
+// payload is exposed or mutated. EvidenceRequirement
 // / EvidenceItem / EvidenceVerification are new because no existing model
 // represents a generic, cross-domain "what proof is required, what was
 // supplied, and who independently verified it" contract — LegalMatterSource
@@ -3788,6 +3793,12 @@ model StewardActivityLog {
 enum EvidenceRequirementStatus {
   OPEN
   SATISFIED
+  // A member/principal request to waive is recorded here, not as WAIVED —
+  // the principal cannot unilaterally remove a proof requirement from
+  // aggregate sufficiency (see EvidenceService.waiveRequirement). It remains
+  // "active" for sufficiency purposes until an administrator authoritatively
+  // decides it.
+  WAIVER_REQUESTED
   WAIVED
   CANCELLED
 }
@@ -3844,7 +3855,15 @@ model EvidenceRequirement {
   // Null means no expiration rule applies to items satisfying this requirement.
   requiredValidityDays Int?
 
-  status             EvidenceRequirementStatus @default(OPEN)
+  status EvidenceRequirementStatus @default(OPEN)
+
+  // Recomputed-on-write only. Time-based expiry (validUntil passing) changes
+  // truth without a write, so this column can read ADEQUATE after the
+  // underlying evidence has actually expired. Never exposed under this name
+  // to API consumers — see EvidenceService.view(), which exposes it as
+  // `cachedSufficiencyAtLastWrite` alongside the always-live `liveSufficiency`
+  // — and never consulted by any completion/satisfaction decision, which must
+  // always call the live computeSufficiency()/aggregateSufficiency() path.
   currentSufficiency EvidenceSufficiencyStatus @default(MISSING)
 
   createdByUserId String @db.Uuid // soft reference to User, no enforced relation (matches CitySheetEntry.verifiedById convention)

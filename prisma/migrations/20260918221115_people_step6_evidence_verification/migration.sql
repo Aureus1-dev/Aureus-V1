@@ -1,5 +1,5 @@
 -- CreateEnum
-CREATE TYPE "EvidenceRequirementStatus" AS ENUM ('OPEN', 'SATISFIED', 'WAIVED', 'CANCELLED');
+CREATE TYPE "EvidenceRequirementStatus" AS ENUM ('OPEN', 'SATISFIED', 'WAIVER_REQUESTED', 'WAIVED', 'CANCELLED');
 
 -- CreateEnum
 CREATE TYPE "EvidenceSufficiencyStatus" AS ENUM ('MISSING', 'PRESENT_UNVERIFIED', 'INSUFFICIENT', 'ADEQUATE');

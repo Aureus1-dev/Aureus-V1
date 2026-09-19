@@ -79,14 +79,14 @@ import { EvidenceModule } from './evidence/evidence.module';
         if (!redisUrl && config.get<string>('NODE_ENV') === 'production') {
           new Logger('AppModule').warn(
             'REDIS_URL is not set in production — rate limiting will use per-instance in-memory storage. ' +
-              'This is only correct for a single API replica; set REDIS_URL once running more than one.',
+            'This is only correct for a single API replica; set REDIS_URL once running more than one.',
           );
         }
         return {
           throttlers: [
             {
-              name: 'default',
-              ttl: 60_000,
+              name:  'default',
+              ttl:   60_000,
               limit: 100,
             },
           ],

@@ -8,6 +8,7 @@ import {
   EvidenceVerificationResult,
   HouseholdMembershipStatus,
   HouseholdResponsibilityShareStatus,
+  ResponsibilityActorClass,
   ResponsibilityAuthorityClass,
   ResponsibilityContextType,
   ResponsibilityEventType,
@@ -73,17 +74,23 @@ describe('PEOPLE-STEP6 Documents, Evidence & Verification E2E', () => {
     return doc.id;
   }
 
-  async function grantStewardDocumentRead(memberToken_: string, documentId: string) {
+  async function grantAuthority(
+    memberToken_: string,
+    resourceClass: string,
+    resourceRef: string,
+    capability: string,
+    purpose: string,
+  ) {
     const created = await request(app.getHttpServer())
       .post('/authority/requests')
       .set('Authorization', `Bearer ${memberToken_}`)
       .send({
         contextType: 'PERSONAL',
         subjectUserId: memberId,
-        capability: 'READ',
-        resourceClass: 'DOCUMENT',
-        resourceRef: documentId,
-        purpose: 'people-step6-evidence-verification',
+        capability,
+        resourceClass,
+        resourceRef,
+        purpose,
       })
       .expect(201);
     await request(app.getHttpServer())
@@ -91,6 +98,13 @@ describe('PEOPLE-STEP6 Documents, Evidence & Verification E2E', () => {
       .set('Authorization', `Bearer ${memberToken_}`)
       .expect(201);
   }
+
+  const grantStewardDocumentRead = (memberToken_: string, documentId: string) =>
+    grantAuthority(memberToken_, 'DOCUMENT', documentId, 'READ', 'people-step6-evidence-verification');
+  const grantStewardEvidenceRead = (memberToken_: string, responsibilityId_: string) =>
+    grantAuthority(memberToken_, 'OTHER', responsibilityId_, 'READ', 'people-step6-evidence-read');
+  const grantStewardEvidenceManage = (memberToken_: string, responsibilityId_: string) =>
+    grantAuthority(memberToken_, 'OTHER', responsibilityId_, 'WRITE', 'people-step6-evidence-manage');
 
   beforeAll(async () => {
     const moduleRef = await Test.createTestingModule({ imports: [AppModule] }).compile();
@@ -165,7 +179,9 @@ describe('PEOPLE-STEP6 Documents, Evidence & Verification E2E', () => {
 
     // Household sharing: householdParticipant is an ACTIVE participant on
     // THIS Responsibility; crossHouseholdParticipant belongs to an unrelated
-    // household/Responsibility and must never see this one.
+    // household/Responsibility and must never see this one. Both must now
+    // receive the not-found boundary from Step 6 regardless (BLOCKER 3):
+    // coordination consent is not evidence authority.
     const household = await prisma.db.household.create({ data: { createdByUserId: memberId } });
     await prisma.db.householdMembership.create({
       data: {
@@ -228,11 +244,9 @@ describe('PEOPLE-STEP6 Documents, Evidence & Verification E2E', () => {
   });
 
   afterAll(async () => {
-    if (responsibilityId) {
-      await prisma.db.responsibility.deleteMany({
-        where: { principalUserId: { in: createdUserIds } },
-      });
-    }
+    await prisma.db.responsibility.deleteMany({
+      where: { principalUserId: { in: [...createdUserIds] } },
+    });
     await prisma.db.document.deleteMany({ where: { userId: { in: createdUserIds } } });
     await prisma.db.household.deleteMany({ where: { createdByUserId: { in: createdUserIds } } });
     await prisma.db.user.deleteMany({ where: { id: { in: createdUserIds } } });
@@ -241,14 +255,14 @@ describe('PEOPLE-STEP6 Documents, Evidence & Verification E2E', () => {
 
   // -------------------------------------------------------------------
   // Golden path: requirement -> submission -> rejection -> supersession ->
-  // verification -> completion
+  // verification -> ADEQUATE (no completion path exists in Step 6)
   // -------------------------------------------------------------------
 
   let requirementId: string;
   let firstItemId: string;
   let secondItemId: string;
 
-  it('a member cannot open their own evidence requirement', async () => {
+  it('a member cannot open their own evidence requirement (403 — they already know it exists)', async () => {
     await request(app.getHttpServer())
       .post(`/people/evidence/responsibilities/${responsibilityId}/requirements`)
       .set('Authorization', `Bearer ${memberToken}`)
@@ -256,7 +270,25 @@ describe('PEOPLE-STEP6 Documents, Evidence & Verification E2E', () => {
       .expect(403);
   });
 
-  it('an authorized Steward opens an evidence requirement', async () => {
+  it('MEDIUM 1 — a genuinely unrelated member gets 404, not 403, for a known-valid Responsibility', async () => {
+    await request(app.getHttpServer())
+      .post(`/people/evidence/responsibilities/${responsibilityId}/requirements`)
+      .set('Authorization', `Bearer ${otherMemberToken}`)
+      .send({ label: 'Proof of current address', description: 'Probing attempt' })
+      .expect(404);
+  });
+
+  it('HIGH 2 — an ACTIVE Steward relationship alone does not permit opening a requirement', async () => {
+    await request(app.getHttpServer())
+      .post(`/people/evidence/responsibilities/${responsibilityId}/requirements`)
+      .set('Authorization', `Bearer ${stewardToken}`)
+      .send({ label: 'Proof of current address', description: 'Relationship-only attempt' })
+      .expect(403);
+  });
+
+  it('an authorized Steward (relationship + Step-2 manage grant) opens an evidence requirement', async () => {
+    await grantStewardEvidenceManage(memberToken, responsibilityId);
+
     const res = await request(app.getHttpServer())
       .post(`/people/evidence/responsibilities/${responsibilityId}/requirements`)
       .set('Authorization', `Bearer ${stewardToken}`)
@@ -268,21 +300,23 @@ describe('PEOPLE-STEP6 Documents, Evidence & Verification E2E', () => {
       .expect(201);
     requirementId = res.body.id;
     expect(res.body.status).toBe(EvidenceRequirementStatus.OPEN);
-    expect(res.body.currentSufficiency).toBe(EvidenceSufficiencyStatus.MISSING);
+    expect(res.body.cachedSufficiencyAtLastWrite).toBe(EvidenceSufficiencyStatus.MISSING);
     expect(res.body.memberMessage).toMatch(/we still need/i);
   });
 
-  it('reports MISSING before anything is submitted, and blocks completion', async () => {
+  it('reports MISSING before anything is submitted, and there is no completion route left to attempt', async () => {
     const summary = await request(app.getHttpServer())
       .get(`/people/evidence/responsibilities/${responsibilityId}/summary`)
       .set('Authorization', `Bearer ${memberToken}`)
       .expect(200);
     expect(summary.body.aggregateSufficiency).toBe(EvidenceSufficiencyStatus.MISSING);
+    expect(summary.body.requirements).toBeDefined();
 
+    // BLOCKER 2 — the prior attempt-completion route no longer exists at all.
     await request(app.getHttpServer())
       .post(`/people/evidence/responsibilities/${responsibilityId}/attempt-completion`)
       .set('Authorization', `Bearer ${memberToken}`)
-      .expect(409);
+      .expect(404);
   });
 
   it('the member submits evidence and it reads as received-but-unverified, never done', async () => {
@@ -293,16 +327,53 @@ describe('PEOPLE-STEP6 Documents, Evidence & Verification E2E', () => {
       .send({ documentId })
       .expect(201);
     firstItemId = res.body.items[res.body.items.length - 1].id;
-    expect(res.body.currentSufficiency).toBe(EvidenceSufficiencyStatus.PRESENT_UNVERIFIED);
+    expect(res.body.cachedSufficiencyAtLastWrite).toBe(EvidenceSufficiencyStatus.PRESENT_UNVERIFIED);
     expect(res.body.memberMessage).toBe('We received it. This has not been verified yet.');
-
-    await request(app.getHttpServer())
-      .post(`/people/evidence/responsibilities/${responsibilityId}/attempt-completion`)
-      .set('Authorization', `Bearer ${memberToken}`)
-      .expect(409);
   });
 
-  it('an ACTIVE Steward relationship alone does not permit verification', async () => {
+  it('HIGH 3 — rejects a submission with a future validFrom', async () => {
+    const documentId = await createOwnedDocument(memberId, 'Future-dated document');
+    await request(app.getHttpServer())
+      .post(`/people/evidence/requirements/${requirementId}/items`)
+      .set('Authorization', `Bearer ${memberToken}`)
+      .send({
+        documentId,
+        supersedesItemId: firstItemId,
+        validFrom: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+      })
+      .expect(400);
+  });
+
+  it('HIGH 3 — rejects a reversed validity window (validUntil before validFrom)', async () => {
+    const documentId = await createOwnedDocument(memberId, 'Reversed window document');
+    const validFrom = new Date();
+    await request(app.getHttpServer())
+      .post(`/people/evidence/requirements/${requirementId}/items`)
+      .set('Authorization', `Bearer ${memberToken}`)
+      .send({
+        documentId,
+        supersedesItemId: firstItemId,
+        validFrom: validFrom.toISOString(),
+        validUntil: new Date(validFrom.getTime() - 60_000).toISOString(),
+      })
+      .expect(400);
+  });
+
+  it('HIGH 3 — a caller-supplied validUntil cannot exceed the requirement\'s requiredValidityDays window', async () => {
+    const documentId = await createOwnedDocument(memberId, 'Over-long validity document');
+    await request(app.getHttpServer())
+      .post(`/people/evidence/requirements/${requirementId}/items`)
+      .set('Authorization', `Bearer ${memberToken}`)
+      .send({
+        documentId,
+        supersedesItemId: firstItemId,
+        // requiredValidityDays is 90 on this requirement; ~2 years exceeds it.
+        validUntil: new Date(Date.now() + 730 * 24 * 60 * 60 * 1000).toISOString(),
+      })
+      .expect(400);
+  });
+
+  it('HIGH 2 — an ACTIVE Steward relationship alone does not permit verification', async () => {
     await request(app.getHttpServer())
       .post(`/people/evidence/items/${firstItemId}/verify`)
       .set('Authorization', `Bearer ${stewardToken}`)
@@ -310,12 +381,20 @@ describe('PEOPLE-STEP6 Documents, Evidence & Verification E2E', () => {
       .expect(403);
   });
 
-  it('a Steward without an ACTIVE relationship is also rejected', async () => {
+  it('MEDIUM 1 — a Steward with no relationship at all gets 404, not 403, for a known-valid item', async () => {
     await request(app.getHttpServer())
       .post(`/people/evidence/items/${firstItemId}/verify`)
       .set('Authorization', `Bearer ${unauthorizedStewardToken}`)
       .send({ result: EvidenceVerificationResult.VERIFIED })
-      .expect(403);
+      .expect(404);
+  });
+
+  it('MEDIUM 1 — a genuinely unrelated member gets 404, not 403, for a known-valid item', async () => {
+    await request(app.getHttpServer())
+      .post(`/people/evidence/items/${firstItemId}/verify`)
+      .set('Authorization', `Bearer ${otherMemberToken}`)
+      .send({ result: EvidenceVerificationResult.VERIFIED })
+      .expect(404);
   });
 
   it('the member cannot verify their own evidence, even with a document grant', async () => {
@@ -340,8 +419,16 @@ describe('PEOPLE-STEP6 Documents, Evidence & Verification E2E', () => {
         reason: 'This is a lease, not a current proof of address.',
       })
       .expect(201);
-    expect(res.body.currentSufficiency).toBe(EvidenceSufficiencyStatus.INSUFFICIENT);
+    expect(res.body.cachedSufficiencyAtLastWrite).toBe(EvidenceSufficiencyStatus.INSUFFICIENT);
     expect(res.body.memberMessage).toMatch(/doesn.t meet the requirement because/i);
+  });
+
+  it('HIGH 5 — a REJECTED verification still emits a truthful ResponsibilityEvent', async () => {
+    const events = await prisma.db.responsibilityEvent.findMany({
+      where: { responsibilityId, sourceRecordId: firstItemId, sourceState: 'REJECTED' },
+    });
+    expect(events).toHaveLength(1);
+    expect(events[0].evidenceLevel).toBe(ResponsibilityEvidenceLevel.REPORTED);
   });
 
   it('a rejection reason is required', async () => {
@@ -365,7 +452,7 @@ describe('PEOPLE-STEP6 Documents, Evidence & Verification E2E', () => {
     const oldItem = items.find((item: { id: string }) => item.id === firstItemId);
     expect(oldItem.status).toBe('SUPERSEDED');
     expect(oldItem.verifications).toHaveLength(1); // prior rejection preserved, never deleted
-    expect(res.body.currentSufficiency).toBe(EvidenceSufficiencyStatus.PRESENT_UNVERIFIED);
+    expect(res.body.cachedSufficiencyAtLastWrite).toBe(EvidenceSufficiencyStatus.PRESENT_UNVERIFIED);
   });
 
   it('rejects a second concurrent-style submission that does not name what it supersedes', async () => {
@@ -397,8 +484,25 @@ describe('PEOPLE-STEP6 Documents, Evidence & Verification E2E', () => {
       .set('Authorization', `Bearer ${stewardToken}`)
       .send({ result: EvidenceVerificationResult.VERIFIED })
       .expect(201);
-    expect(res.body.currentSufficiency).toBe(EvidenceSufficiencyStatus.ADEQUATE);
+    expect(res.body.cachedSufficiencyAtLastWrite).toBe(EvidenceSufficiencyStatus.ADEQUATE);
     expect(res.body.memberMessage).toMatch(/was checked/i);
+  });
+
+  it('MEDIUM 2 — the full view truthfully attributes who supplied and who verified, without mislabeling SYSTEM', async () => {
+    const view = await request(app.getHttpServer())
+      .get(`/people/evidence/requirements/${requirementId}`)
+      .set('Authorization', `Bearer ${memberToken}`)
+      .expect(200);
+    const current = view.body.items.find((item: { id: string }) => item.id === secondItemId);
+    expect(current.providedByUserId).toBe(memberId);
+    expect(current.providedByActorClass).toBe(ResponsibilityActorClass.MEMBER);
+    const verification = current.verifications[current.verifications.length - 1];
+    expect(verification.performedByUserId).toBe(stewardId);
+    // actorClass remains the shared ledger's SYSTEM convention for a
+    // staff-mediated action, but performedByUserId now truthfully names the
+    // human — the view is never required to claim SYSTEM performed the act,
+    // only that the shared actorClass vocabulary is unchanged.
+    expect(verification.actorClass).toBe(ResponsibilityActorClass.SYSTEM);
   });
 
   it('the summary endpoint agrees with the requirement-level state (UI/API agreement)', async () => {
@@ -410,36 +514,17 @@ describe('PEOPLE-STEP6 Documents, Evidence & Verification E2E', () => {
     expect(summary.body.message).toBe('We now have the evidence required for this step.');
   });
 
-  it('the completion guard: only now does completion succeed, with genuinely VERIFIED evidence', async () => {
-    const res = await request(app.getHttpServer())
+  it('BLOCKER 2 — full ADEQUATE evidence does not itself complete or terminalize the Responsibility, and no attempt-completion route exists', async () => {
+    await request(app.getHttpServer())
       .post(`/people/evidence/responsibilities/${responsibilityId}/attempt-completion`)
       .set('Authorization', `Bearer ${memberToken}`)
-      .expect(201);
-    expect(res.body.status).toBe(ResponsibilityStatus.COMPLETED);
+      .expect(404);
 
-    const events = await prisma.db.responsibilityEvent.findMany({
-      where: { responsibilityId, sourceSystem: 'AUREUS_EVIDENCE' },
-      orderBy: { occurredAt: 'asc' },
+    const stored = await prisma.db.responsibility.findUniqueOrThrow({
+      where: { id: responsibilityId },
     });
-    const verifiedEvidenceEvents = events.filter(
-      (event) =>
-        event.type === ResponsibilityEventType.ACTION_EVIDENCED &&
-        event.evidenceLevel === ResponsibilityEvidenceLevel.VERIFIED,
-    );
-    expect(verifiedEvidenceEvents.length).toBeGreaterThan(0);
-    const completedEvent = await prisma.db.responsibilityEvent.findFirst({
-      where: { responsibilityId, type: ResponsibilityEventType.COMPLETED },
-    });
-    expect(completedEvent).not.toBeNull();
-  });
-
-  it('terminal responsibility: the satisfied requirement no longer accepts new evidence', async () => {
-    const documentId = await createOwnedDocument(memberId, 'Late document after completion');
-    await request(app.getHttpServer())
-      .post(`/people/evidence/requirements/${requirementId}/items`)
-      .set('Authorization', `Bearer ${memberToken}`)
-      .send({ documentId, supersedesItemId: secondItemId })
-      .expect(409);
+    expect(stored.status).toBe(ResponsibilityStatus.ACTIVE);
+    expect(stored.completedAt).toBeNull();
   });
 
   // -------------------------------------------------------------------
@@ -460,18 +545,22 @@ describe('PEOPLE-STEP6 Documents, Evidence & Verification E2E', () => {
       .expect(404);
   });
 
-  it('an ACTIVE household participant of this exact Responsibility can read, read-only', async () => {
-    const res = await request(app.getHttpServer())
+  it('BLOCKER 3 — an ACTIVE household participant of this exact Responsibility gets the not-found boundary, never the evidence view', async () => {
+    await request(app.getHttpServer())
       .get(`/people/evidence/requirements/${requirementId}`)
       .set('Authorization', `Bearer ${householdParticipantToken}`)
-      .expect(200);
-    expect(res.body.id).toBe(requirementId);
+      .expect(404);
+
+    await request(app.getHttpServer())
+      .get(`/people/evidence/responsibilities/${responsibilityId}/summary`)
+      .set('Authorization', `Bearer ${householdParticipantToken}`)
+      .expect(404);
 
     await request(app.getHttpServer())
       .post(`/people/evidence/items/${secondItemId}/verify`)
       .set('Authorization', `Bearer ${householdParticipantToken}`)
       .send({ result: EvidenceVerificationResult.VERIFIED })
-      .expect(403);
+      .expect(404);
   });
 
   it('a cross-household participant (different household entirely) cannot read', async () => {
@@ -479,6 +568,44 @@ describe('PEOPLE-STEP6 Documents, Evidence & Verification E2E', () => {
       .get(`/people/evidence/requirements/${requirementId}`)
       .set('Authorization', `Bearer ${crossHouseholdParticipantToken}`)
       .expect(404);
+  });
+
+  it('BLOCKER 4 — the assigned Steward, relationship only, gets a deliberately minimal coordination projection, never full detail', async () => {
+    // The Steward has an ACTIVE relationship but only ever received a
+    // per-document verification grant and a manage grant above — never a
+    // Step-2 evidence-READ grant for this Responsibility.
+    await request(app.getHttpServer())
+      .get(`/people/evidence/requirements/${requirementId}`)
+      .set('Authorization', `Bearer ${stewardToken}`)
+      .expect(404);
+    await request(app.getHttpServer())
+      .get(`/people/evidence/responsibilities/${responsibilityId}/requirements`)
+      .set('Authorization', `Bearer ${stewardToken}`)
+      .expect(404);
+
+    const summary = await request(app.getHttpServer())
+      .get(`/people/evidence/responsibilities/${responsibilityId}/summary`)
+      .set('Authorization', `Bearer ${stewardToken}`)
+      .expect(200);
+    expect(summary.body.aggregateSufficiency).toBe(EvidenceSufficiencyStatus.ADEQUATE);
+    expect(summary.body.requirements).toBeUndefined();
+    expect(JSON.stringify(summary.body)).not.toMatch(/Proof of current address/);
+  });
+
+  it('BLOCKER 4 — once the member grants an explicit Step-2 evidence-read authority, the Steward receives full detail', async () => {
+    await grantStewardEvidenceRead(memberToken, responsibilityId);
+
+    const full = await request(app.getHttpServer())
+      .get(`/people/evidence/requirements/${requirementId}`)
+      .set('Authorization', `Bearer ${stewardToken}`)
+      .expect(200);
+    expect(full.body.id).toBe(requirementId);
+
+    const summary = await request(app.getHttpServer())
+      .get(`/people/evidence/responsibilities/${responsibilityId}/summary`)
+      .set('Authorization', `Bearer ${stewardToken}`)
+      .expect(200);
+    expect(summary.body.requirements).toBeDefined();
   });
 
   it('an administrator can read requirement metadata but never raw document identity', async () => {
@@ -505,7 +632,120 @@ describe('PEOPLE-STEP6 Documents, Evidence & Verification E2E', () => {
   });
 
   // -------------------------------------------------------------------
-  // Expiry, waiver, second requirement
+  // HIGH 4 — independent verification is not independent of the provider
+  // -------------------------------------------------------------------
+
+  it('HIGH 4 — an administrator cannot submit evidence and then verify their own submission', async () => {
+    const requirement = await request(app.getHttpServer())
+      .post(`/people/evidence/responsibilities/${responsibilityId}/requirements`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({ label: 'Proof of Social Security eligibility', description: 'Admin self-verify probe' })
+      .expect(201);
+
+    const documentId = await createOwnedDocument(adminId, "Admin's own submitted document");
+    const submitted = await request(app.getHttpServer())
+      .post(`/people/evidence/requirements/${requirement.body.id}/items`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({ documentId })
+      .expect(201);
+    const itemId = submitted.body.items[submitted.body.items.length - 1].id;
+    expect(submitted.body.items[submitted.body.items.length - 1].providedByUserId).toBe(adminId);
+
+    await request(app.getHttpServer())
+      .post(`/people/evidence/items/${itemId}/verify`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({ result: EvidenceVerificationResult.VERIFIED })
+      .expect(403);
+
+    // A different administrator (or the assigned Steward, once independent)
+    // can still verify it — the block is specifically self-provided, not
+    // "no admin can ever verify this item."
+    const otherAdmin = await createUser('admin-second', [UserRole.PLATFORM_ADMINISTRATOR]);
+    const verified = await request(app.getHttpServer())
+      .post(`/people/evidence/items/${itemId}/verify`)
+      .set('Authorization', `Bearer ${otherAdmin.token}`)
+      .send({ result: EvidenceVerificationResult.VERIFIED })
+      .expect(201);
+    expect(verified.body.cachedSufficiencyAtLastWrite).toBe(EvidenceSufficiencyStatus.ADEQUATE);
+  });
+
+  // -------------------------------------------------------------------
+  // HIGH 1 — waiver authority: request vs. authoritative decision
+  // -------------------------------------------------------------------
+
+  it('HIGH 1 — a member can only request a waiver; it stays active in the aggregate until an administrator decides', async () => {
+    const requirement = await request(app.getHttpServer())
+      .post(`/people/evidence/responsibilities/${responsibilityId}/requirements`)
+      .set('Authorization', `Bearer ${stewardToken}`)
+      .send({ label: 'Proof of household composition', description: 'Not applicable to this case' })
+      .expect(201);
+
+    const requested = await request(app.getHttpServer())
+      .post(`/people/evidence/requirements/${requirement.body.id}/waive`)
+      .set('Authorization', `Bearer ${memberToken}`)
+      .send({ reason: 'Member lives alone; this requirement does not apply.' })
+      .expect(201);
+    expect(requested.body.status).toBe(EvidenceRequirementStatus.WAIVER_REQUESTED);
+    expect(requested.body.waivedByUserId).toBe(memberId);
+    expect(requested.body.memberMessage).toMatch(/pending administrator review/i);
+
+    // A mere request must not remove the requirement from aggregate
+    // sufficiency (prior HIGH finding) — it is still MISSING, so the
+    // aggregate for this Responsibility must reflect that.
+    const summary = await request(app.getHttpServer())
+      .get(`/people/evidence/responsibilities/${responsibilityId}/summary`)
+      .set('Authorization', `Bearer ${memberToken}`)
+      .expect(200);
+    const stillActive = summary.body.requirements.find(
+      (r: { id: string }) => r.id === requirement.body.id,
+    );
+    expect(stillActive.liveSufficiency).toBe(EvidenceSufficiencyStatus.MISSING);
+    expect(summary.body.aggregateSufficiency).not.toBe(EvidenceSufficiencyStatus.ADEQUATE);
+
+    // The member cannot request a second time or otherwise re-waive it.
+    await request(app.getHttpServer())
+      .post(`/people/evidence/requirements/${requirement.body.id}/waive`)
+      .set('Authorization', `Bearer ${memberToken}`)
+      .send({ reason: 'Trying again.' })
+      .expect(409);
+
+    // Only an administrator can turn the request into an authoritative
+    // waiver, and only then is it excluded from the aggregate.
+    const decided = await request(app.getHttpServer())
+      .post(`/people/evidence/requirements/${requirement.body.id}/waive`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({ reason: 'Confirmed: member has no household to document.' })
+      .expect(201);
+    expect(decided.body.status).toBe(EvidenceRequirementStatus.WAIVED);
+    expect(decided.body.waivedByUserId).toBe(adminId);
+
+    const events = await prisma.db.responsibilityEvent.findMany({
+      where: {
+        responsibilityId,
+        sourceRecordId: requirement.body.id,
+        sourceState: { in: ['WAIVER_REQUESTED', 'WAIVED'] },
+      },
+    });
+    expect(events.map((e) => e.sourceState).sort()).toEqual(['WAIVED', 'WAIVER_REQUESTED']);
+  });
+
+  it('an administrator can waive an OPEN requirement directly, with no prior request', async () => {
+    const requirement = await request(app.getHttpServer())
+      .post(`/people/evidence/responsibilities/${responsibilityId}/requirements`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({ label: 'Proof of citizenship status', description: 'Admin-direct waiver fixture' })
+      .expect(201);
+
+    const decided = await request(app.getHttpServer())
+      .post(`/people/evidence/requirements/${requirement.body.id}/waive`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({ reason: 'Not applicable to this housing program.' })
+      .expect(201);
+    expect(decided.body.status).toBe(EvidenceRequirementStatus.WAIVED);
+  });
+
+  // -------------------------------------------------------------------
+  // Expiry & time-based truth (MEDIUM 3)
   // -------------------------------------------------------------------
 
   it('expired evidence cannot satisfy current sufficiency, even with a historical VERIFIED row', async () => {
@@ -517,10 +757,15 @@ describe('PEOPLE-STEP6 Documents, Evidence & Verification E2E', () => {
     const secondRequirementId = secondRequirement.body.id;
 
     const documentId = await createOwnedDocument(memberId, 'Pay stub, already stale');
+    const validFrom = new Date(Date.now() - 100 * 24 * 60 * 60 * 1000);
     const submitted = await request(app.getHttpServer())
       .post(`/people/evidence/requirements/${secondRequirementId}/items`)
       .set('Authorization', `Bearer ${memberToken}`)
-      .send({ documentId, validUntil: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString() })
+      .send({
+        documentId,
+        validFrom: validFrom.toISOString(),
+        validUntil: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
+      })
       .expect(201);
     const expiredItemId = submitted.body.items[submitted.body.items.length - 1].id;
 
@@ -531,7 +776,8 @@ describe('PEOPLE-STEP6 Documents, Evidence & Verification E2E', () => {
       .send({ result: EvidenceVerificationResult.VERIFIED })
       .expect(201);
 
-    expect(verified.body.currentSufficiency).toBe(EvidenceSufficiencyStatus.INSUFFICIENT);
+    expect(verified.body.cachedSufficiencyAtLastWrite).toBe(EvidenceSufficiencyStatus.INSUFFICIENT);
+    expect(verified.body.liveSufficiency).toBe(EvidenceSufficiencyStatus.INSUFFICIENT);
     expect(verified.body.memberMessage).toMatch(/expired on/i);
 
     const verifications = await prisma.db.evidenceVerification.findMany({
@@ -541,25 +787,271 @@ describe('PEOPLE-STEP6 Documents, Evidence & Verification E2E', () => {
     expect(verifications[0].result).toBe(EvidenceVerificationResult.VERIFIED); // history is honest: it WAS verified, it is just no longer current
   });
 
-  it('a requirement can be waived by the member, removing it from the aggregate', async () => {
+  it('MEDIUM 3 — cachedSufficiencyAtLastWrite can lag liveSufficiency after time-based expiry with no new write', async () => {
     const requirement = await request(app.getHttpServer())
       .post(`/people/evidence/responsibilities/${responsibilityId}/requirements`)
       .set('Authorization', `Bearer ${stewardToken}`)
-      .send({ label: 'Proof of household composition', description: 'Not applicable to this case' })
+      .send({ label: 'Proof expiring imminently', description: 'Time-staleness fixture' })
       .expect(201);
 
-    await request(app.getHttpServer())
-      .post(`/people/evidence/requirements/${requirement.body.id}/waive`)
+    const documentId = await createOwnedDocument(memberId, 'Soon-to-expire document');
+    const submitted = await request(app.getHttpServer())
+      .post(`/people/evidence/requirements/${requirement.body.id}/items`)
       .set('Authorization', `Bearer ${memberToken}`)
-      .send({ reason: 'Member lives alone; this requirement does not apply.' })
+      .send({ documentId, validUntil: new Date(Date.now() + 1200).toISOString() })
       .expect(201);
+    const itemId = submitted.body.items[submitted.body.items.length - 1].id;
 
-    const view = await request(app.getHttpServer())
+    await grantStewardDocumentRead(memberToken, documentId);
+    const verified = await request(app.getHttpServer())
+      .post(`/people/evidence/items/${itemId}/verify`)
+      .set('Authorization', `Bearer ${stewardToken}`)
+      .send({ result: EvidenceVerificationResult.VERIFIED })
+      .expect(201);
+    // At the moment of the write, both are ADEQUATE.
+    expect(verified.body.cachedSufficiencyAtLastWrite).toBe(EvidenceSufficiencyStatus.ADEQUATE);
+    expect(verified.body.liveSufficiency).toBe(EvidenceSufficiencyStatus.ADEQUATE);
+
+    await new Promise((resolve) => setTimeout(resolve, 1800));
+
+    const stale = await request(app.getHttpServer())
       .get(`/people/evidence/requirements/${requirement.body.id}`)
       .set('Authorization', `Bearer ${memberToken}`)
       .expect(200);
-    expect(view.body.status).toBe(EvidenceRequirementStatus.WAIVED);
-    expect(view.body.memberMessage).toMatch(/waived/i);
+    // Time passed with no write: the cache still reads ADEQUATE, but live
+    // truth has moved on. No consumer may mistake the cache for current
+    // truth — the Step-5 seam (responsibilitySummary) always uses live.
+    expect(stale.body.cachedSufficiencyAtLastWrite).toBe(EvidenceSufficiencyStatus.ADEQUATE);
+    expect(stale.body.liveSufficiency).toBe(EvidenceSufficiencyStatus.INSUFFICIENT);
+
+    const summary = await request(app.getHttpServer())
+      .get(`/people/evidence/responsibilities/${responsibilityId}/summary`)
+      .set('Authorization', `Bearer ${memberToken}`)
+      .expect(200);
+    expect(summary.body.aggregateSufficiency).not.toBe(EvidenceSufficiencyStatus.ADEQUATE);
+  });
+
+  // -------------------------------------------------------------------
+  // BLOCKER 5 — terminal Responsibilities are no longer evidence-mutable
+  // -------------------------------------------------------------------
+
+  describe('BLOCKER 5 — terminal Responsibility guard', () => {
+    it.each([
+      ResponsibilityStatus.COMPLETED,
+      ResponsibilityStatus.CANCELLED,
+      ResponsibilityStatus.RESPONSIBLY_EXHAUSTED,
+    ])('rejects every evidence-truth mutation once the Responsibility is %s', async (terminalStatus) => {
+      const terminal = await prisma.db.responsibility.create({
+        data: {
+          kind: ResponsibilityKind.PERSONAL_NEED_RESOLUTION,
+          objective: `Terminal fixture for ${terminalStatus}`,
+          status: ResponsibilityStatus.ACTIVE,
+          contextType: ResponsibilityContextType.PERSONAL,
+          principalUserId: memberId,
+          originConversationId: randomUUID(),
+          successCriteria: { type: 'PERSONAL_NEED_RESOLUTION', statedNeedId: randomUUID() },
+          authorityClass: ResponsibilityAuthorityClass.GUIDANCE_ONLY,
+          authorityPolicyVersion: 'people-step6-test',
+          privacyScope: ResponsibilityPrivacyScope.PERSONAL_PRIVATE,
+          privacyPolicyVersion: 'people-step6-test',
+        },
+      });
+
+      // Open a requirement and submit+verify evidence WHILE still ACTIVE, so
+      // there is a real item to attempt (and fail) to re-verify/re-waive
+      // once terminal.
+      const requirement = await prisma.db.evidenceRequirement.create({
+        data: {
+          responsibilityId: terminal.id,
+          subjectUserId: memberId,
+          label: 'Pre-terminal requirement',
+          description: 'Exists before the Responsibility becomes terminal',
+          createdByUserId: adminId,
+        },
+      });
+      const documentId = await createOwnedDocument(memberId, `Pre-terminal doc ${terminalStatus}`);
+      const item = await prisma.db.evidenceItem.create({
+        data: {
+          requirementId: requirement.id,
+          documentId,
+          origin: 'MEMBER_PROVIDED',
+          providedByUserId: memberId,
+          providedByActorClass: 'MEMBER',
+        },
+      });
+
+      await prisma.db.responsibility.update({
+        where: { id: terminal.id },
+        data: {
+          status: terminalStatus,
+          completedAt: terminalStatus === ResponsibilityStatus.COMPLETED ? new Date() : null,
+        },
+      });
+
+      const requirementCountBefore = await prisma.db.evidenceRequirement.count({
+        where: { responsibilityId: terminal.id },
+      });
+      const eventCountBefore = await prisma.db.responsibilityEvent.count({
+        where: { responsibilityId: terminal.id },
+      });
+
+      await request(app.getHttpServer())
+        .post(`/people/evidence/responsibilities/${terminal.id}/requirements`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({ label: 'Too late', description: 'Should be rejected' })
+        .expect(409);
+
+      await grantStewardDocumentRead(memberToken, documentId);
+      await request(app.getHttpServer())
+        .post(`/people/evidence/requirements/${requirement.id}/items`)
+        .set('Authorization', `Bearer ${memberToken}`)
+        .send({ documentId: await createOwnedDocument(memberId, 'Too-late submission'), supersedesItemId: item.id })
+        .expect(409);
+
+      await request(app.getHttpServer())
+        .post(`/people/evidence/items/${item.id}/verify`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({ result: EvidenceVerificationResult.VERIFIED })
+        .expect(409);
+
+      await request(app.getHttpServer())
+        .post(`/people/evidence/requirements/${requirement.id}/waive`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({ reason: 'Too late' })
+        .expect(409);
+
+      // Reads still work.
+      await request(app.getHttpServer())
+        .get(`/people/evidence/requirements/${requirement.id}`)
+        .set('Authorization', `Bearer ${memberToken}`)
+        .expect(200);
+
+      const requirementCountAfter = await prisma.db.evidenceRequirement.count({
+        where: { responsibilityId: terminal.id },
+      });
+      const eventCountAfter = await prisma.db.responsibilityEvent.count({
+        where: { responsibilityId: terminal.id },
+      });
+      expect(requirementCountAfter).toBe(requirementCountBefore);
+      expect(eventCountAfter).toBe(eventCountBefore);
+      const unchangedItem = await prisma.db.evidenceItem.findUniqueOrThrow({
+        where: { id: item.id },
+      });
+      expect(unchangedItem.status).toBe('SUBMITTED');
+      const verificationCount = await prisma.db.evidenceVerification.count({
+        where: { evidenceItemId: item.id },
+      });
+      expect(verificationCount).toBe(0);
+    });
+  });
+
+  // -------------------------------------------------------------------
+  // Step 5 / Step 6 integration seam (post-Step-5-merge reconciliation)
+  // -------------------------------------------------------------------
+
+  describe('Step 5 / Step 6 boundary — evidence adequacy never completes the life need', () => {
+    it('ADEQUATE Step-6 evidence plus a SATISFIED_VERIFIED Step-5 Obligation still leaves the Personal Need Responsibility open', async () => {
+      const conversation = await request(app.getHttpServer())
+        .post('/ai/conversations')
+        .set('Authorization', `Bearer ${memberToken}`)
+        .send({ title: 'Step 5/6 boundary proof' })
+        .expect(201);
+      const need = await prisma.db.statedNeed.create({
+        data: {
+          userId: memberId,
+          conversationId: conversation.body.id,
+          content: 'I need housing help finding an apartment and keeping the paperwork straight.',
+        },
+      });
+      const accepted = await request(app.getHttpServer())
+        .post('/people/resolutions')
+        .set('Authorization', `Bearer ${memberToken}`)
+        .send({ statedNeedId: need.id, objective: 'Help me get into appropriate housing' })
+        .expect(201);
+      const boundaryResponsibilityId = accepted.body.responsibility.id;
+
+      // Step 5: record and independently verify a housing Obligation through
+      // to SATISFIED_VERIFIED, using the real merged Step-5 implementation.
+      const obligation = await request(app.getHttpServer())
+        .post(`/people/follow-through/${boundaryResponsibilityId}/housing`)
+        .set('Authorization', `Bearer ${memberToken}`)
+        .send({
+          kind: 'DEADLINE',
+          owner: 'AUREUS',
+          requiredAction: 'Submit the housing application packet',
+          dueAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+          dueTimeZone: 'America/New_York',
+        })
+        .expect(201);
+
+      const reported = await request(app.getHttpServer())
+        .post(`/people/follow-through/${boundaryResponsibilityId}/satisfaction-report`)
+        .set('Authorization', `Bearer ${memberToken}`)
+        .send({ expectedRevision: obligation.body.revision, note: 'Submitted the packet.' })
+        .expect(201);
+
+      const obligationVerified = await request(app.getHttpServer())
+        .post(`/people/follow-through/${boundaryResponsibilityId}/satisfaction-verification`)
+        .set('Authorization', `Bearer ${stewardToken}`)
+        .send({
+          expectedRevision: reported.body.revision,
+          sourceSystem: 'HOUSING_PROVIDER',
+          sourceRecordType: 'ApplicationReceipt',
+          sourceRecordId: `receipt-${randomUUID()}`,
+          sourceState: 'RECEIVED',
+        })
+        .expect(201);
+      expect(obligationVerified.body.state).toBe('SATISFIED_VERIFIED');
+
+      // Step 6: independently bring every evidence requirement on the SAME
+      // Responsibility to ADEQUATE.
+      await grantStewardEvidenceManage(memberToken, boundaryResponsibilityId);
+      const requirement = await request(app.getHttpServer())
+        .post(`/people/evidence/responsibilities/${boundaryResponsibilityId}/requirements`)
+        .set('Authorization', `Bearer ${stewardToken}`)
+        .send({ label: 'Proof of housing application submission', description: 'Boundary proof' })
+        .expect(201);
+      const documentId = await createOwnedDocument(memberId, 'Application confirmation');
+      const submitted = await request(app.getHttpServer())
+        .post(`/people/evidence/requirements/${requirement.body.id}/items`)
+        .set('Authorization', `Bearer ${memberToken}`)
+        .send({ documentId })
+        .expect(201);
+      const itemId = submitted.body.items[submitted.body.items.length - 1].id;
+      await grantStewardDocumentRead(memberToken, documentId);
+      const verifiedEvidence = await request(app.getHttpServer())
+        .post(`/people/evidence/items/${itemId}/verify`)
+        .set('Authorization', `Bearer ${stewardToken}`)
+        .send({ result: EvidenceVerificationResult.VERIFIED })
+        .expect(201);
+      expect(verifiedEvidence.body.cachedSufficiencyAtLastWrite).toBe(
+        EvidenceSufficiencyStatus.ADEQUATE,
+      );
+
+      const evidenceSummary = await request(app.getHttpServer())
+        .get(`/people/evidence/responsibilities/${boundaryResponsibilityId}/summary`)
+        .set('Authorization', `Bearer ${memberToken}`)
+        .expect(200);
+      expect(evidenceSummary.body.aggregateSufficiency).toBe(EvidenceSufficiencyStatus.ADEQUATE);
+
+      // The underlying Personal Need Responsibility remains open. Neither
+      // Step 5's SATISFIED_VERIFIED Obligation nor Step 6's ADEQUATE
+      // evidence — separately or together — completes it. Only the existing
+      // source-domain outcome boundary Step 1 owns could ever do that, and
+      // this test deliberately never calls it.
+      const stored = await prisma.db.responsibility.findUniqueOrThrow({
+        where: { id: boundaryResponsibilityId },
+      });
+      expect(stored.status).not.toBe(ResponsibilityStatus.COMPLETED);
+      expect(stored.status).not.toBe(ResponsibilityStatus.RESPONSIBLY_EXHAUSTED);
+      expect(stored.completedAt).toBeNull();
+
+      // There is no attempt-completion route left for Step 6 to expose.
+      await request(app.getHttpServer())
+        .post(`/people/evidence/responsibilities/${boundaryResponsibilityId}/attempt-completion`)
+        .set('Authorization', `Bearer ${memberToken}`)
+        .expect(404);
+    });
   });
 
   // -------------------------------------------------------------------
@@ -601,5 +1093,17 @@ describe('PEOPLE-STEP6 Documents, Evidence & Verification E2E', () => {
       where: { evidenceItemId: itemId },
     });
     expect(verifications).toHaveLength(2); // both persist; neither is lost
+
+    const events = await prisma.db.responsibilityEvent.findMany({
+      where: {
+        responsibilityId,
+        sourceRecordId: itemId,
+        sourceState: { in: ['VERIFIED', 'FLAGGED_FOR_REVIEW'] },
+      },
+    });
+    // HIGH 5 — both VERIFIED and FLAGGED_FOR_REVIEW are meaningful,
+    // separately emitted transitions on the shared ledger (in addition to
+    // the earlier SUBMITTED event from creating the item itself).
+    expect(events.map((e) => e.sourceState).sort()).toEqual(['FLAGGED_FOR_REVIEW', 'VERIFIED']);
   });
 });

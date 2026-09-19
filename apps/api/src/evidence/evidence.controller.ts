@@ -43,25 +43,13 @@ export class EvidenceController {
   @Get('responsibilities/:responsibilityId/summary')
   @ApiOperation({
     summary:
-      'Truthful aggregate evidence sufficiency for a Responsibility — the Step 5 integration seam',
+      'Truthful, always-live aggregate evidence sufficiency for a Responsibility — the read-only Step 5 integration seam. Never completes or terminalizes the underlying Responsibility; an assigned Steward without an explicit Step-2 read grant receives a deliberately minimal coordination-only projection.',
   })
   summary(
     @Param('responsibilityId') responsibilityId: string,
     @CurrentUser() caller: AuthenticatedUser,
   ) {
     return this.evidence.responsibilitySummary(responsibilityId, caller);
-  }
-
-  @Post('responsibilities/:responsibilityId/attempt-completion')
-  @ApiOperation({
-    summary:
-      'Complete the Responsibility only if every active evidence requirement is currently ADEQUATE (principal only)',
-  })
-  attemptCompletion(
-    @Param('responsibilityId') responsibilityId: string,
-    @CurrentUser() caller: AuthenticatedUser,
-  ) {
-    return this.evidence.attemptResponsibilityCompletion(responsibilityId, caller);
   }
 
   @Get('requirements/:requirementId')
