@@ -37,6 +37,11 @@ function redactDiagnosticText(value) {
     .slice(0, 2000);
 }
 
+function decodeDiagnosticBody(body, base64Encoded) {
+  if (!base64Encoded) return String(body ?? '');
+  return Buffer.from(String(body ?? ''), 'base64').toString('utf8');
+}
+
 function trackDiagnosticTask(task) {
   pendingDiagnosticTasks.add(task);
   task.finally(() => pendingDiagnosticTasks.delete(task));
@@ -48,7 +53,8 @@ async function flushDiagnostics() {
   // short bounded window to register the body-capture task before closing the
   // debugger, otherwise the exact provider error that this gate exists to
   // preserve can be lost in a race.
-  const deadline = Date.now() + 3_000;
+  const captureTimeoutMs = 3_000;
+  const deadline = Date.now() + captureTimeoutMs;
   while (Date.now() < deadline) {
     if (pendingDiagnosticTasks.size > 0) {
       await Promise.allSettled([...pendingDiagnosticTasks]);
@@ -61,6 +67,21 @@ async function flushDiagnostics() {
 
   if (pendingDiagnosticTasks.size > 0) {
     await Promise.allSettled([...pendingDiagnosticTasks]);
+  }
+
+  // Never emit apparently complete evidence while a failed provider response
+  // is still waiting for a body event. If Chrome never delivers a terminal
+  // network event, record that gap explicitly rather than silently dropping it.
+  for (const requestId of [...failedResponseBodiesPending]) {
+    const tracked = trackedRequests.get(requestId);
+    browserDiagnostics.push({
+      type: 'voice-provider-error-body-timeout',
+      method: tracked?.method ?? null,
+      status: tracked?.status ?? null,
+      url: tracked?.url ?? null,
+      timeoutMs: captureTimeoutMs,
+    });
+    failedResponseBodiesPending.delete(requestId);
   }
 }
 
@@ -175,13 +196,14 @@ function installBrowserDiagnostics() {
 
     const task = cdp
       .send('Network.getResponseBody', { requestId })
-      .then(({ body }) => {
+      .then(({ body, base64Encoded }) => {
         browserDiagnostics.push({
           type: 'voice-provider-error-body',
           method: tracked.method,
           status: tracked.status,
           url: tracked.url,
-          body: redactDiagnosticText(body),
+          base64Encoded: Boolean(base64Encoded),
+          body: redactDiagnosticText(decodeDiagnosticBody(body, base64Encoded)),
         });
       })
       .catch((error) => {
