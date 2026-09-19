@@ -26,7 +26,7 @@ export function VoiceSurface({ conversationId, onClose }: VoiceSurfaceProps) {
   const { session } = useSession();
   const { state, remoteStream, startSession, endSession, setMuted, interrupt, clearError } =
     useVoice();
-  const { refreshMessages } = useConversation();
+  const { refreshMessages, selectConversation } = useConversation();
   const audioRef = useRef<HTMLAudioElement>(null);
   const [retrying, setRetrying] = useState(false);
 
@@ -40,6 +40,15 @@ export function VoiceSurface({ conversationId, onClose }: VoiceSurfaceProps) {
       });
     }
   }, [remoteStream]);
+
+  useEffect(() => {
+    if (!state.conversationId) return;
+    // A voice-first member may not have an active text conversation yet. As
+    // soon as the brokered voice session tells us which canonical conversation
+    // it created/continued, make that same conversation active in the shared
+    // ConversationContext so returning to Type cannot look like a fresh start.
+    void selectConversation(state.conversationId);
+  }, [state.conversationId, selectConversation]);
 
   async function handleEnd() {
     await endSession();
@@ -55,8 +64,9 @@ export function VoiceSurface({ conversationId, onClose }: VoiceSurfaceProps) {
     // local guard the Done/exit control can flash during the retry round trip.
     setRetrying(true);
     try {
+      const canonicalConversationId = state.conversationId ?? conversationId;
       await endSession();
-      await startSession(conversationId);
+      await startSession(canonicalConversationId);
     } finally {
       setRetrying(false);
     }
