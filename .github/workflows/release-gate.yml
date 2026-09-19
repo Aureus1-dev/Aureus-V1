@@ -54,6 +54,17 @@ jobs:
             exit 1
           fi
           RELEASE_CHROME_BIN="$CHROME_BIN" node scripts/browser-first-session-canary.mjs 2>&1 | tee browser-first-session-evidence.json
+      - name: Verify required release evidence exists
+        if: always()
+        shell: bash
+        env:
+          RELEASE_REQUIRE_VOICE: ${{ inputs.require_voice }}
+        run: |
+          set -euo pipefail
+          test -s steward-release-evidence.json
+          if [ "$RELEASE_REQUIRE_VOICE" = "true" ]; then
+            test -s browser-first-session-evidence.json
+          fi
       - name: Preserve release evidence
         if: always()
         uses: actions/upload-artifact@v4
@@ -62,4 +73,4 @@ jobs:
           path: |
             steward-release-evidence.json
             browser-first-session-evidence.json
-          if-no-files-found: warn
+          if-no-files-found: error
