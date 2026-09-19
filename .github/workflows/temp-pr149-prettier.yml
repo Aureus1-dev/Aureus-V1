@@ -1,0 +1,60 @@
+name: Temporary PR 149 Prettier
+
+on:
+  push:
+    branches:
+      - fix/first-successful-member-session
+    paths:
+      - .github/workflows/temp-pr149-prettier.yml
+
+permissions:
+  contents: write
+
+jobs:
+  format:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/first-successful-member-session
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: pnpm/action-setup@v4
+        with:
+          run_install: false
+      - run: pnpm install --frozen-lockfile
+      - name: Format PR 149 files exactly
+        run: |
+          pnpm exec prettier --write \
+            .github/workflows/release-gate.yml \
+            apps/api/src/ai/voice/providers/openai-voice.provider.spec.ts \
+            apps/api/src/ai/voice/providers/openai-voice.provider.ts \
+            apps/web/design-system/components/voice/VoiceSurface.module.css \
+            apps/web/design-system/components/voice/VoiceSurface.test.tsx \
+            apps/web/design-system/components/voice/VoiceSurface.tsx \
+            apps/web/design-system/components/voice/voice-error-copy.ts \
+            apps/web/lib/voice/realtime-event-mapper.test.ts \
+            apps/web/lib/voice/realtime-event-mapper.ts \
+            apps/web/lib/voice/webrtc-client.test.ts \
+            apps/web/lib/voice/webrtc-client.ts \
+            scripts/browser-first-session-canary.mjs
+          pnpm exec prettier --check \
+            .github/workflows/release-gate.yml \
+            apps/api/src/ai/voice/providers/openai-voice.provider.spec.ts \
+            apps/api/src/ai/voice/providers/openai-voice.provider.ts \
+            apps/web/design-system/components/voice/VoiceSurface.module.css \
+            apps/web/design-system/components/voice/VoiceSurface.test.tsx \
+            apps/web/design-system/components/voice/VoiceSurface.tsx \
+            apps/web/design-system/components/voice/voice-error-copy.ts \
+            apps/web/lib/voice/realtime-event-mapper.test.ts \
+            apps/web/lib/voice/realtime-event-mapper.ts \
+            apps/web/lib/voice/webrtc-client.test.ts \
+            apps/web/lib/voice/webrtc-client.ts \
+            scripts/browser-first-session-canary.mjs
+          git rm .github/workflows/temp-pr149-prettier.yml
+          git config user.name 'Aureus Constructor'
+          git config user.email 'aureus.quatise@gmail.com'
+          git add .
+          git diff --cached --quiet || git commit -m 'style(voice): apply repository prettier'
+          git push origin HEAD:fix/first-successful-member-session
