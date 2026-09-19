@@ -43,15 +43,26 @@ class CdpClient {
   static async connect(url) {
     const socket = new WebSocket(url);
     await new Promise((resolve, reject) => {
-      const timer = setTimeout(() => reject(new Error('Chrome DevTools socket timed out')), 10_000);
-      socket.addEventListener('open', () => {
-        clearTimeout(timer);
-        resolve();
-      }, { once: true });
-      socket.addEventListener('error', () => {
-        clearTimeout(timer);
-        reject(new Error('Chrome DevTools socket failed to open'));
-      }, { once: true });
+      const timer = setTimeout(
+        () => reject(new Error('Chrome DevTools socket timed out')),
+        10_000,
+      );
+      socket.addEventListener(
+        'open',
+        () => {
+          clearTimeout(timer);
+          resolve();
+        },
+        { once: true },
+      );
+      socket.addEventListener(
+        'error',
+        () => {
+          clearTimeout(timer);
+          reject(new Error('Chrome DevTools socket failed to open'));
+        },
+        { once: true },
+      );
     });
     return new CdpClient(socket);
   }
@@ -76,7 +87,9 @@ async function waitForChromeDebugger() {
       const response = await fetch('http://127.0.0.1:9222/json/list');
       if (response.ok) {
         const targets = await response.json();
-        const page = targets.find((target) => target.type === 'page' && target.webSocketDebuggerUrl);
+        const page = targets.find(
+          (target) => target.type === 'page' && target.webSocketDebuggerUrl,
+        );
         if (page) return page.webSocketDebuggerUrl;
       }
     } catch {
@@ -119,7 +132,11 @@ async function poll(label, predicate, limitMs = timeoutMs) {
 
 async function navigate(url) {
   await cdp.send('Page.navigate', { url });
-  await poll('page ready', async () => (await evaluate('document.readyState')) === 'complete', 30_000);
+  await poll(
+    'page ready',
+    async () => (await evaluate('document.readyState')) === 'complete',
+    30_000,
+  );
 }
 
 async function clickButton(label) {
@@ -159,7 +176,10 @@ async function establishEntrySession() {
   } else {
     await navigate(webOrigin);
     evidence.push({
-      label: testEmail && testPassword ? 'guest entry requested; test credentials withheld from non-canonical origin' : 'guest entry requested',
+      label:
+        testEmail && testPassword
+          ? 'guest entry requested; test credentials withheld from non-canonical origin'
+          : 'guest entry requested',
     });
   }
 
@@ -171,43 +191,57 @@ async function establishEntrySession() {
 
 async function runVoiceJourney() {
   await clickButton('Talk');
-  await poll('voice start control visible', async () => (await bodyText()).includes('Start voice conversation'));
+  await poll('voice start control visible', async () =>
+    (await bodyText()).includes('Start voice conversation'),
+  );
   await clickButton('Start voice conversation');
 
-  await poll('voice reaches real ready state', async () => {
-    const text = await bodyText();
-    const failure = [
-      'The voice connection was interrupted',
-      'Voice is temporarily unavailable',
-      'Connection interrupted',
-      'Voice could not start',
-      'Microphone access is needed',
-    ].find((candidate) => text.includes(candidate));
-    if (failure) throw new Error(`Voice failed before Listening: ${failure}`);
-    return text.includes('Listening…');
-  }, 45_000);
+  await poll(
+    'voice reaches real ready state',
+    async () => {
+      const text = await bodyText();
+      const failure = [
+        'The voice connection was interrupted',
+        'Voice is temporarily unavailable',
+        'Connection interrupted',
+        'Voice could not start',
+        'Microphone access is needed',
+      ].find((candidate) => text.includes(candidate));
+      if (failure) throw new Error(`Voice failed before Listening: ${failure}`);
+      return text.includes('Listening…');
+    },
+    45_000,
+  );
 
   await clickButton('End conversation');
-  await poll('voice end is acknowledged', async () => (await bodyText()).includes('Conversation ended'));
+  await poll('voice end is acknowledged', async () =>
+    (await bodyText()).includes('Conversation ended'),
+  );
   await clickButton('Done');
   await poll('same session returns to text', async () => {
     const text = await bodyText();
-    const composerPresent = Boolean(await evaluate('Boolean(document.querySelector("#conversation-composer"))'));
+    const composerPresent = Boolean(
+      await evaluate('Boolean(document.querySelector("#conversation-composer"))'),
+    );
     return text.includes('How can we help?') && composerPresent;
   });
 }
 
 async function main() {
-  chrome = spawn(chromeBin, [
-    '--headless=new',
-    '--no-sandbox',
-    '--disable-dev-shm-usage',
-    '--remote-debugging-port=9222',
-    '--use-fake-ui-for-media-stream',
-    '--use-fake-device-for-media-stream',
-    '--autoplay-policy=no-user-gesture-required',
-    'about:blank',
-  ], { stdio: ['ignore', 'ignore', 'pipe'] });
+  chrome = spawn(
+    chromeBin,
+    [
+      '--headless=new',
+      '--no-sandbox',
+      '--disable-dev-shm-usage',
+      '--remote-debugging-port=9222',
+      '--use-fake-ui-for-media-stream',
+      '--use-fake-device-for-media-stream',
+      '--autoplay-policy=no-user-gesture-required',
+      'about:blank',
+    ],
+    { stdio: ['ignore', 'ignore', 'pipe'] },
+  );
 
   let chromeError = '';
   chrome.stderr.on('data', (chunk) => {
@@ -223,22 +257,34 @@ async function main() {
     await establishEntrySession();
     await runVoiceJourney();
 
-    console.log(JSON.stringify({
-      result: 'BROWSER_FIRST_SESSION_PASSED',
-      webOrigin,
-      accountMode: useAuthenticatedTestAccount ? 'authenticated-test-account' : 'guest',
-      evidence,
-    }, null, 2));
+    console.log(
+      JSON.stringify(
+        {
+          result: 'BROWSER_FIRST_SESSION_PASSED',
+          webOrigin,
+          accountMode: useAuthenticatedTestAccount ? 'authenticated-test-account' : 'guest',
+          evidence,
+        },
+        null,
+        2,
+      ),
+    );
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    console.error(JSON.stringify({
-      result: 'HOLD',
-      webOrigin,
-      accountMode: useAuthenticatedTestAccount ? 'authenticated-test-account' : 'guest',
-      evidence,
-      failure: message,
-      chromeError: chromeError.slice(-1500),
-    }, null, 2));
+    console.error(
+      JSON.stringify(
+        {
+          result: 'HOLD',
+          webOrigin,
+          accountMode: useAuthenticatedTestAccount ? 'authenticated-test-account' : 'guest',
+          evidence,
+          failure: message,
+          chromeError: chromeError.slice(-1500),
+        },
+        null,
+        2,
+      ),
+    );
     process.exitCode = 1;
   } finally {
     cdp?.close();
