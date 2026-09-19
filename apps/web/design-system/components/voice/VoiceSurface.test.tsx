@@ -27,17 +27,19 @@ function SignedInAs({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
-function renderSurface({ signedIn = true }: { signedIn?: boolean } = {}) {
+function renderSurface(
+  { signedIn = true, onClose }: { signedIn?: boolean; onClose?: () => void } = {},
+) {
   return render(
     <SessionProvider>
       <ConversationProvider>
         <VoiceProvider>
           {signedIn ? (
             <SignedInAs>
-              <VoiceSurface />
+              <VoiceSurface onClose={onClose} />
             </SignedInAs>
           ) : (
-            <VoiceSurface />
+            <VoiceSurface onClose={onClose} />
           )}
         </VoiceProvider>
       </ConversationProvider>
@@ -55,7 +57,7 @@ describe('VoiceSurface', () => {
     jest.clearAllMocks();
     mockedVoiceApi.startVoiceSession.mockResolvedValue({
       id: 'vs-1', conversationId: 'conv-1', clientSecret: 'secret', expiresAt: 'x',
-      model: 'gpt-4o-realtime-preview', voice: 'alloy', turnDetectionMode: 'semantic_vad', startedAt: 'x', endedAt: null,
+      model: 'gpt-realtime', voice: 'marin', turnDetectionMode: 'semantic_vad', startedAt: 'x', endedAt: null,
     });
     mockedVoiceApi.syncVoiceEvents.mockResolvedValue({ messages: [], turnEvents: [] });
     mockedVoiceApi.endVoiceSession.mockResolvedValue({ id: 'vs-1', conversationId: 'conv-1', startedAt: 'x', endedAt: 'y', endReason: 'MEMBER_ENDED' });
@@ -118,13 +120,32 @@ describe('VoiceSurface', () => {
     expect(screen.getByRole('button', { name: 'Done' })).toBeInTheDocument();
   });
 
-  it('shows a calm, retryable error when the voice service is unavailable', async () => {
+  it('shows calm recovery choices when the voice service is unavailable', async () => {
+    const onClose = jest.fn();
     mockedVoiceApi.startVoiceSession.mockRejectedValue(new ApiError(503, 'unavailable'));
-    renderSurface();
+    renderSurface({ onClose });
     await userEvent.click(screen.getByRole('button', { name: 'Start voice conversation' }));
 
     expect(await screen.findByText('Voice is temporarily unavailable')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Try again' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Try voice again' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Continue by typing' })).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Continue by typing' }));
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it('ends the failed live attempt before retrying voice', async () => {
+    renderSurface();
+    await userEvent.click(screen.getByRole('button', { name: 'Start voice conversation' }));
+    await screen.findByRole('button', { name: 'End conversation' });
+
+    lastCallbacks().onConnectionStateChange('failed');
+    expect(await screen.findByText('The voice connection was interrupted')).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Try voice again' }));
+
+    await waitFor(() => expect(mockedVoiceApi.endVoiceSession).toHaveBeenCalledWith('token-123', 'vs-1'));
+    await waitFor(() => expect(mockedVoiceApi.startVoiceSession).toHaveBeenCalledTimes(2));
   });
 
   it('has no accessibility violations before a session starts', async () => {
