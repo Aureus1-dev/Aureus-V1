@@ -1,6 +1,7 @@
 import type { OpportunityActionDto } from '../../../lib/api/conversations';
 import { VisuallyHidden } from '../../accessibility';
 import { OpportunityActionCard } from './OpportunityActionCard';
+import { renderMessageMarkdown } from './render-message-markdown';
 import styles from './Message.module.css';
 
 export interface StewardMessageProps {
@@ -25,7 +26,7 @@ export function StewardMessage({
     return (
       <div className={`${styles.message} ${styles.steward}`}>
         <VisuallyHidden>Your steward said</VisuallyHidden>
-        <p className={styles.bubble}>{content}</p>
+        <div className={styles.bubble}>{renderMessageMarkdown(content)}</div>
       </div>
     );
   }
@@ -34,11 +35,8 @@ export function StewardMessage({
     <div className={`${styles.message} ${styles.steward}`}>
       <div className={styles.actionStack}>
         <VisuallyHidden>Your steward said</VisuallyHidden>
-        <p className={styles.bubble}>{content}</p>
-        <OpportunityActionCard
-          action={opportunityAction}
-          onStartGuide={onStartApplicationGuide}
-        />
+        <div className={styles.bubble}>{renderMessageMarkdown(content)}</div>
+        <OpportunityActionCard action={opportunityAction} onStartGuide={onStartApplicationGuide} />
       </div>
     </div>
   );

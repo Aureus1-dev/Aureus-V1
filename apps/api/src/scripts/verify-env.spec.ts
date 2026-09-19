@@ -22,7 +22,7 @@ describe('verifyEnv (PD-002)', () => {
     expect(errors.some((e) => e.includes('JWT_ACCESS_SECRET'))).toBe(true);
   });
 
-  it('requires CORS_ORIGIN, SMTP, and the OpenAI voice key once NODE_ENV=production', () => {
+  it('requires CORS_ORIGIN, SMTP, FRONTEND_URL, and the OpenAI voice key once NODE_ENV=production', () => {
     const { ok, errors } = verifyEnv({
       ...validBaseEnv,
       NODE_ENV: 'production',
@@ -32,7 +32,23 @@ describe('verifyEnv (PD-002)', () => {
     expect(ok).toBe(false);
     expect(errors.some((e) => e.includes('CORS_ORIGIN'))).toBe(true);
     expect(errors.some((e) => e.includes('SMTP_HOST'))).toBe(true);
+    expect(errors.some((e) => e.includes('FRONTEND_URL'))).toBe(true);
     expect(errors.some((e) => e.includes('OPENAI_API_KEY'))).toBe(true);
+  });
+
+  it('rejects FRONTEND_URL left at its localhost default in production', () => {
+    const { ok, errors } = verifyEnv({
+      ...validBaseEnv,
+      NODE_ENV: 'production',
+      CORS_ORIGIN: 'https://app.aureus.example',
+      SMTP_HOST: 'smtp.example.com',
+      AI_PROVIDER: 'openai',
+      OPENAI_API_KEY: 'test-key',
+      FRONTEND_URL: 'http://localhost:3001',
+    });
+
+    expect(ok).toBe(false);
+    expect(errors.some((e) => e.includes('FRONTEND_URL'))).toBe(true);
   });
 
   it('rejects the stub AI provider in production', () => {
@@ -43,6 +59,7 @@ describe('verifyEnv (PD-002)', () => {
       SMTP_HOST: 'smtp.example.com',
       AI_PROVIDER: 'stub',
       OPENAI_API_KEY: 'voice-key',
+      FRONTEND_URL: 'https://app.aureus.example',
     });
 
     expect(ok).toBe(false);
@@ -57,6 +74,7 @@ describe('verifyEnv (PD-002)', () => {
       SMTP_HOST: 'smtp.example.com',
       AI_PROVIDER: 'anthropic',
       ANTHROPIC_API_KEY: 'anthropic-key',
+      FRONTEND_URL: 'https://app.aureus.example',
     });
 
     expect(ok).toBe(false);
@@ -71,6 +89,7 @@ describe('verifyEnv (PD-002)', () => {
       SMTP_HOST: 'smtp.example.com',
       AI_PROVIDER: 'openai',
       OPENAI_API_KEY: 'test-key',
+      FRONTEND_URL: 'https://app.aureus.example',
     });
 
     expect(errors).toEqual([]);
@@ -86,6 +105,7 @@ describe('verifyEnv (PD-002)', () => {
       AI_PROVIDER: 'anthropic',
       ANTHROPIC_API_KEY: 'anthropic-key',
       OPENAI_API_KEY: 'voice-key',
+      FRONTEND_URL: 'https://app.aureus.example',
     });
 
     expect(errors).toEqual([]);
