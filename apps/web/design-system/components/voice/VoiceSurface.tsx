@@ -46,6 +46,20 @@ export function VoiceSurface({ conversationId, onClose }: VoiceSurfaceProps) {
     }
   }
 
+  async function handleRetry() {
+    // A retry is a new governed attempt, never a second connection layered on
+    // top of a failed one. Ending first releases the microphone, peer
+    // connection, pending session state, and backend voice session before a
+    // replacement is brokered.
+    await endSession();
+    await startSession(conversationId);
+  }
+
+  async function handleContinueByTyping() {
+    await handleEnd();
+    onClose?.();
+  }
+
   if (!session.isAuthenticated) {
     return (
       <EmptyState
@@ -66,15 +80,22 @@ export function VoiceSurface({ conversationId, onClose }: VoiceSurfaceProps) {
           title={errorCopy.title}
           description={errorCopy.description}
           action={
-            state.error?.retryable ? (
-              <Button variant="secondary" onClick={() => void startSession(conversationId)}>
-                Try again
-              </Button>
-            ) : (
-              <Button variant="secondary" onClick={clearError}>
-                Dismiss
-              </Button>
-            )
+            <div className={styles.recoveryActions}>
+              {state.error?.retryable ? (
+                <Button variant="secondary" onClick={() => void handleRetry()}>
+                  Try voice again
+                </Button>
+              ) : (
+                <Button variant="secondary" onClick={clearError}>
+                  Dismiss
+                </Button>
+              )}
+              {onClose ? (
+                <Button variant="secondary" onClick={() => void handleContinueByTyping()}>
+                  Continue by typing
+                </Button>
+              ) : null}
+            </div>
           }
         />
       ) : state.turnState === 'idle' ? (
