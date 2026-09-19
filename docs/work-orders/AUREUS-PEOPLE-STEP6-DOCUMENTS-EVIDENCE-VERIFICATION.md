@@ -238,12 +238,16 @@ because the route no longer exists.
   requires an explicit `AuthorityGrant` `PERMIT` from the existing Step-2
   gateway, scoped narrowly by purpose (HIGH 2 repair closes the
   create/submit gap the relationship alone previously allowed):
-  - **Full read** (`listRequirements`/`getRequirement`, and the detailed
-    `requirements` array in `summary`): `{capability: READ, resourceClass:
-    OTHER, resourceRef: <responsibilityId>, purpose:
+  - **Full read** (`listRequirements`/`getRequirement`/`summary`, including
+    the aggregate sufficiency judgment and its message): `{capability: READ,
+    resourceClass: OTHER, resourceRef: <responsibilityId>, purpose:
     'people-step6-evidence-read'}`. Without it, the Steward receives the
-    not-found boundary on the detail endpoints and only the minimal
-    aggregate+message projection from `summary` (BLOCKER 4 repair).
+    not-found boundary on **all three** endpoints — an aggregate sufficiency
+    judgment is itself private Responsibility evidence, not a lesser
+    coordination fact, so there is no minimal or aggregate-only projection of
+    any kind for a relationship-only Steward (§14, third-round BLOCKER 1
+    repair; corrected from this document's own earlier, now-superseded
+    claim that `summary` alone yielded such a projection).
   - **Manage** (open a requirement; submit `STEWARD_PROVIDED` evidence on the
     member's behalf): `{capability: WRITE, resourceClass: OTHER, resourceRef:
     <responsibilityId>, purpose: 'people-step6-evidence-manage'}`.
@@ -375,42 +379,50 @@ because the route no longer exists.
 
 ## 11. Constructor gates (this repair pass, exact head recorded in the PR)
 
-This is the **second** repair pass on this branch. The first repair pass
-(head `8ee8ea00d26db3fad52100b8276e323379d3dbd7`) had its own gate run
-recorded in PR history; that head's GitHub Actions run
-(`35422904033`/`35422902305`) confirmed both `Build & Test` and `Docker
-Build Verification` green, closing the Docker-unconfirmed line this section
-previously carried. This section now records the second repair pass's own
-fresh local gate run:
+This is the **third** repair pass on this branch. The first repair pass
+(head `8ee8ea00d26db3fad52100b8276e323379d3dbd7`) had its GitHub Actions run
+(`35422904033`/`35422902305`) confirm both `Build & Test` and `Docker Build
+Verification` green. The second repair pass (head
+`e934ac18f75d9d6b3ff4fdeb444df9a1de1316ad`) had its own GitHub Actions run
+confirm both checks green as well (jobs `105850788332`/`105850783678` and
+`105851471462`/`105851444160`). This section now records the third repair
+pass's own fresh local gate run:
 
 - [x] Real `git rebase` remains intact from the first pass — no re-rebase was
       needed (this pass only adds commits on top; Step 5's merge base is
       unchanged)
-- [x] `prisma migrate deploy` / `prisma generate` clean (includes the three
-      new `EvidenceRequirement.waiverRequested*` columns)
+- [x] `prisma migrate deploy` / `prisma generate` clean (no new schema/
+      migration change this pass — the fix is entirely in-transaction
+      re-reads, not new columns)
 - [x] `pnpm run check-types` clean
 - [x] `pnpm run lint` clean (0 errors; pre-existing warnings only, none newly
       introduced in `evidence/`)
 - [x] `node contracts/product-v1/v1/validate-product-contracts.mjs` clean
 - [x] `pnpm audit --audit-level high --ignore GHSA-ggr8-5vv4-36mx` clean
-- [x] e2e tests green (`evidence.e2e.spec.ts` — 42 cases, including the
-      genuine-concurrency BLOCKER 2 race regression and the corrected
-      BLOCKER 1/4 relationship-only-summary regression)
+- [x] e2e tests green (`evidence.e2e.spec.ts` — 45 cases, including the three
+      new deterministic-barrier concurrency races (A/B/C, §14 fourth round)
+      and the hardened terminal-race regression, now using an explicit
+      lock-acquisition signal instead of a fixed sleep)
+- [x] Sanity-checked the three new race regressions against the pre-repair
+      `evidence.service.ts` (temporarily reverted, tests unchanged): all
+      three fail as expected (`201` instead of the required `409`),
+      confirming they genuinely exercise the fixed defect rather than
+      passing vacuously
 - [x] full `pnpm --filter @aureus-v1/api run test:ci` green (exact CI
-      command: 194 suites / 1963 tests, serial, with coverage, on a fresh
-      migrated — not pre-seeded — database)
-- [x] `pnpm --filter @aureus-v1/web run test` green (159 suites / 895 tests;
-      no web changes; proves no regression)
-- [x] `pnpm run build` (monorepo — shared + api + web) clean
+      command: **194 suites / 1966 tests**, serial, with coverage, on a
+      fresh migrated — not pre-seeded — database)
+- [x] `pnpm --filter @aureus-v1/web run test` green (**159 suites / 895
+      tests**; no web changes; proves no regression)
+- [x] `pnpm run build` (monorepo — shared + api + web) clean, 3/3 packages
 - [x] `npx prisma db seed` (Founder Pilot seed synchronization) clean, run
       after tests as CI orders it
 - [ ] Docker Build Verification — **could not run in this construction
       sandbox** for this exact new head (same unchanged registry-egress
       limitation); must be confirmed green in real GitHub Actions CI on the
-      pushed exact head, as it already was for the immediately prior head.
+      pushed exact head, as it already was for both prior heads.
 - [x] no accidental unrelated diff — confirmed via `git status`: exactly the
-      evidence module, schema/migration (three new waiver-provenance
-      columns), controller OpenAPI text, and this work order
+      evidence module, controller OpenAPI text, and this work order (no
+      schema/migration change this pass)
 - [x] this work order agrees with the implementation
 - [x] exact base/head SHAs recorded in the PR
 - [ ] branch pushed (this repair pass)
@@ -547,3 +559,84 @@ introduced to close any of these — the fixes are exclusively: removing a
 projection that shouldn't have existed, moving an existing check inside an
 existing transaction with a standard row lock, adding three columns to
 preserve already-computed provenance, and correcting stale prose.
+
+### Fourth round — independent re-review of the second repair (against head `e934ac18f75d9d6b3ff4fdeb444df9a1de1316ad`)
+
+The independent re-reviewer confirmed the Responsibility-level `SELECT ...
+FOR UPDATE` repair (third round, BLOCKER 2) is directionally correct and
+closes the terminal-Responsibility TOCTOU race, but found one remaining
+blocking invariant: the subordinate `EvidenceRequirement`/`EvidenceItem`
+state-machine checks in `waiveRequirement`, `submitItem`, and `verifyItem`
+still read their mutable state *before* opening the transaction, then
+continued to act on that pre-lock snapshot even after the Responsibility row
+lock was acquired inside it.
+
+| Finding | Disposition |
+|---|---|
+| BLOCKER — subordinate Requirement/Item state-machine checks remain outside the serialization boundary | **Fixed.** All three mutations already call `lockNonTerminalResponsibility(tx, responsibilityId)` as the first statement inside their transaction — this already fully serializes every Step-6 evidence-truth mutation on a given Responsibility (whichever transaction arrives second simply blocks on that row lock until the first commits). The defect was never a missing lock; it was that each method still decided its write using the `EvidenceRequirement`/`EvidenceItem` snapshot loaded *before* the transaction opened, rather than re-reading fresh state *after* the lock succeeded. `waiveRequirement` and `submitItem` now re-read the requirement's `status` with a plain `tx.evidenceRequirement.findUniqueOrThrow` immediately after `lockNonTerminalResponsibility` returns, and re-check the transition/acceptance rule against that fresh value before writing anything; `verifyItem` does the same for the target item's `status` via `tx.evidenceItem.findUniqueOrThrow`. Because the Responsibility lock already guarantees no concurrent Step-6 mutation is in flight past that point, a plain (non-`FOR-UPDATE`) re-read inside the same transaction is already race-free — no second lock level, lock subsystem, or workflow engine was added. The pre-transaction checks are kept only as non-authoritative fast-fails; a comment at each now says so explicitly. |
+
+**Deterministic concurrency regressions (Race A/B/C, `evidence.e2e.spec.ts`,
+new `describe` block "Fourth re-review — Requirement/Item state races behind
+the Responsibility lock"):**
+
+- **Race A** (administrative `WAIVED` vs. a stale member `WAIVER_REQUESTED`):
+  a locked holder transaction commits an authoritative `WAIVED` decision
+  while a real member waiver-request HTTP call is deliberately released to
+  race behind it. Asserts the final status can never regress back to
+  `WAIVER_REQUESTED`, the authoritative `waivedBy*` provenance triple
+  survives untouched, the stale request receives `409`, its
+  `waiverRequestedBy*` triple is never written, and exactly one
+  `ResponsibilityEvent` (the admin's `WAIVED`) exists — no invalid
+  `WAIVER_REQUESTED` event from the rejected stale request.
+- **Race B** (administrative `WAIVED` vs. a real evidence submission): a
+  locked holder transaction commits `WAIVED` while a real `submitItem` HTTP
+  call races behind it. Asserts the requirement stays `WAIVED`, zero
+  `EvidenceItem` rows exist for it, the submission receives `409`, and no
+  `SUBMITTED` `ResponsibilityEvent` was ever appended.
+- **Race C** (item supersession vs. verification of the now-stale item): a
+  locked holder transaction supersedes the target item (mirroring
+  `submitItem`'s own conditional-`updateMany` supersession) while a real
+  admin `verifyItem` HTTP call races behind it, targeting the item being
+  superseded. Asserts the old item stays `SUPERSEDED`, zero
+  `EvidenceVerification` rows are attached to it, the verification call
+  receives `409`, and no `VERIFIED` `ResponsibilityEvent` was appended for
+  it.
+
+Each of the three races was run against the pre-repair `evidence.service.ts`
+(temporarily reverted, tests unchanged) and confirmed to fail as expected
+(`201` instead of the required `409`) before the fix was restored — proving
+the regressions genuinely exercise the defect rather than passing
+vacuously.
+
+**Hardened terminal-race regression (BLOCKER 2, third round):** the existing
+regression's fixed ~500ms sleep and same-tick-dispatch-order assumption is
+replaced by a shared `raceAgainstLockedMutation()` test harness. The holder
+transaction signals a promise the instant its `SELECT ... FOR UPDATE` query
+returns; the test `await`s that signal — proving, not assuming, the holder
+already owns the lock — before ever dispatching the competing HTTP mutation.
+Only after that is a short, explicitly non-safety-critical grace period
+given (to let the competing request travel through HTTP/Nest/its own
+pre-transaction reads and reach its own lock attempt, which then genuinely
+blocks on the holder's lock) before the holder is released. This harness is
+now shared by all four races (the original terminal-race regression plus
+A/B/C above).
+
+**Documentation/API truth repair:** §7's "Full read" bullet above is
+corrected — it previously stated (incorrectly, carried over from an earlier,
+already-superseded draft) that a relationship-only Steward without a Step-2
+read grant still received "the minimal aggregate+message projection from
+`summary`". The third round's BLOCKER 1 repair (disposition table above)
+already removed that projection entirely; only this document's own §7 prose
+had not been corrected to match. It now states plainly that such a Steward
+receives the not-found boundary on all three read endpoints, with no
+projection of any kind. The `summary` controller endpoint's OpenAPI
+`@ApiOperation` description carried the identical stale claim
+("...receives a deliberately minimal coordination-only projection") and is
+corrected the same way.
+
+No new authority universe, lock subsystem, or workflow engine was
+introduced to close this round's finding — the fix is exclusively: moving
+each mutation's decisive state read from before its transaction to
+immediately after the Responsibility lock already taken inside it, and
+correcting the two remaining stale prose statements the third round's
+BLOCKER 1 fix had not yet propagated to.

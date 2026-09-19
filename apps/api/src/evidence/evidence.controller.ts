@@ -43,7 +43,7 @@ export class EvidenceController {
   @Get('responsibilities/:responsibilityId/summary')
   @ApiOperation({
     summary:
-      'Truthful, always-live aggregate evidence sufficiency for a Responsibility — the read-only Step 5 integration seam. Never completes or terminalizes the underlying Responsibility; an assigned Steward without an explicit Step-2 read grant receives a deliberately minimal coordination-only projection.',
+      'Truthful, always-live aggregate evidence sufficiency for a Responsibility — the read-only Step 5 integration seam. Never completes or terminalizes the underlying Responsibility. An aggregate sufficiency judgment is itself private Responsibility evidence: an assigned Steward without an explicit Step-2 read grant receives the not-found boundary, the same as the detail endpoints — no coordination-only or aggregate-only projection exists.',
   })
   summary(
     @Param('responsibilityId') responsibilityId: string,

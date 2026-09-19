@@ -235,12 +235,35 @@ export class EvidenceService {
     const allowedFrom: EvidenceRequirementStatus[] = isAdmin
       ? [EvidenceRequirementStatus.OPEN, EvidenceRequirementStatus.WAIVER_REQUESTED]
       : [EvidenceRequirementStatus.OPEN];
+    // Fast-fail only, from the pre-transaction snapshot — never authoritative.
+    // The real gate is the fresh, in-transaction re-read below, after the
+    // Responsibility lock is held.
     if (!allowedFrom.includes(requirement.status)) {
       throw new ConflictException(`This requirement is already ${requirement.status}`);
     }
 
     await this.prisma.db.$transaction(async (tx) => {
       await this.lockNonTerminalResponsibility(tx, requirement.responsibilityId);
+      // Re-read the requirement's status fresh, inside this transaction,
+      // after the Responsibility lock above has been acquired. Every
+      // evidence-truth-mutating transaction for this Responsibility
+      // (createRequirement/waiveRequirement/submitItem/verifyItem) takes
+      // that same row lock as its first statement, so by the time we reach
+      // this line no other such transaction can still be in flight — this
+      // plain read is therefore already race-free. The `requirement.status`
+      // snapshot loaded before this transaction opened is not: relying on
+      // it here let a stale, non-authoritative member waiver *request*
+      // silently overwrite a committed administrative WAIVED decision once
+      // it finally got the lock (work order §14, fourth re-review BLOCKER —
+      // "subordinate Requirement/Item state-machine checks remain outside
+      // the serialization boundary").
+      const current = await tx.evidenceRequirement.findUniqueOrThrow({
+        where: { id: requirementId },
+        select: { status: true },
+      });
+      if (!allowedFrom.includes(current.status)) {
+        throw new ConflictException(`This requirement is already ${current.status}`);
+      }
       await tx.evidenceRequirement.update({
         where: { id: requirementId },
         data: isAdmin
@@ -301,6 +324,9 @@ export class EvidenceService {
       requirement.subjectUserId,
       caller,
     );
+    // Fast-fail only, from the pre-transaction snapshot — never authoritative.
+    // The real gate is the fresh, in-transaction re-read inside the
+    // transaction below, after the Responsibility lock is held.
     if (requirement.status !== EvidenceRequirementStatus.OPEN) {
       throw new ConflictException(
         `This requirement is ${requirement.status} and no longer accepts evidence`,
@@ -353,6 +379,22 @@ export class EvidenceService {
     try {
       await this.prisma.db.$transaction(async (tx) => {
         await this.lockNonTerminalResponsibility(tx, requirement.responsibilityId);
+        // Re-read the requirement's status fresh, inside this transaction,
+        // for the same reason as waiveRequirement's in-transaction re-read
+        // above. Without this, a requirement that became WAIVED/CANCELLED
+        // while this submission was waiting on the Responsibility lock
+        // would still silently accept a new EvidenceItem, using the stale
+        // pre-transaction OPEN snapshot (work order §14, fourth re-review
+        // BLOCKER).
+        const currentRequirement = await tx.evidenceRequirement.findUniqueOrThrow({
+          where: { id: requirementId },
+          select: { status: true },
+        });
+        if (currentRequirement.status !== EvidenceRequirementStatus.OPEN) {
+          throw new ConflictException(
+            `This requirement is ${currentRequirement.status} and no longer accepts evidence`,
+          );
+        }
         if (previous) {
           const claimed = await tx.evidenceItem.updateMany({
             where: { id: previous!.id, status: EvidenceItemStatus.SUBMITTED },
@@ -432,6 +474,9 @@ export class EvidenceService {
       caller,
     );
 
+    // Fast-fail only, from the pre-transaction snapshot — never authoritative.
+    // The real gate is the fresh, in-transaction re-read inside the
+    // transaction below, after the Responsibility lock is held.
     if (item.status !== EvidenceItemStatus.SUBMITTED) {
       throw new ConflictException(
         'Only the current (non-superseded) evidence item may be verified',
@@ -447,6 +492,23 @@ export class EvidenceService {
 
     await this.prisma.db.$transaction(async (tx) => {
       await this.lockNonTerminalResponsibility(tx, item.requirement.responsibilityId);
+      // Re-read the item's status fresh, inside this transaction, for the
+      // same reason as submitItem's in-transaction re-read above. Without
+      // this, a concurrent supersession that committed while this
+      // verification was waiting on the Responsibility lock would still be
+      // verified using the stale pre-transaction SUBMITTED snapshot — an
+      // EvidenceVerification and ResponsibilityEvent could be appended to an
+      // item that is no longer current (work order §14, fourth re-review
+      // BLOCKER).
+      const currentItem = await tx.evidenceItem.findUniqueOrThrow({
+        where: { id: item.id },
+        select: { status: true },
+      });
+      if (currentItem.status !== EvidenceItemStatus.SUBMITTED) {
+        throw new ConflictException(
+          'Only the current (non-superseded) evidence item may be verified',
+        );
+      }
       await tx.evidenceVerification.create({
         data: {
           evidenceItemId: item.id,
@@ -928,6 +990,22 @@ export class EvidenceService {
    * normal row-level UPDATE for a status change, which the lock blocks
    * until this transaction finishes, and vice versa) — see work order §14,
    * second re-review BLOCKER 2.
+   *
+   * This is the single serialization point for every Step 6 evidence-truth
+   * mutation on a given Responsibility: createRequirement, waiveRequirement,
+   * submitItem, and verifyItem each call this as the first statement inside
+   * their transaction, so no two such transactions for the same
+   * Responsibility ever run concurrently past this line — whichever arrives
+   * second simply blocks here until the first commits or rolls back. That
+   * guarantee is necessary but not sufficient: it only protects a caller
+   * that RE-READS subordinate EvidenceRequirement/EvidenceItem state AFTER
+   * this call succeeds, inside the same transaction (Responsibility →
+   * Requirement → Item ordering). A caller that decides its write using a
+   * requirement/item snapshot loaded BEFORE the transaction opened is not
+   * protected merely by holding this lock — it will still act on
+   * pre-lock, possibly-stale values (the fourth re-review BLOCKER;
+   * see waiveRequirement/submitItem/verifyItem's own in-transaction re-reads
+   * for the fix).
    */
   private async lockNonTerminalResponsibility(
     tx: Prisma.TransactionClient,

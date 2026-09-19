@@ -107,6 +107,68 @@ describe('PEOPLE-STEP6 Documents, Evidence & Verification E2E', () => {
   const grantStewardEvidenceManage = (memberToken_: string, responsibilityId_: string) =>
     grantAuthority(memberToken_, 'OTHER', responsibilityId_, 'WRITE', 'people-step6-evidence-manage');
 
+  /**
+   * Deterministic concurrency-race harness (fourth re-review — replaces the
+   * fixed-sleep/dispatch-order-assumption approach previously used for the
+   * terminal-Responsibility race).
+   *
+   * `holderMutate` runs inside a real transaction that first takes the same
+   * `SELECT ... FOR UPDATE` row lock on the Responsibility that
+   * `lockNonTerminalResponsibility()` takes, then WAITS on an explicit
+   * release gate before applying its write and committing. The instant the
+   * lock query returns, a signal resolves and the test `await`s it before
+   * ever issuing the competing HTTP mutation — so the holder is PROVEN to
+   * already own the row lock before the competing request is even
+   * dispatched. This is the "explicit synchronization barrier" the prior
+   * approach lacked: it no longer matters which of two operations "reaches
+   * Postgres first" from same-tick dispatch order, because the holder's
+   * lock acquisition is confirmed, not assumed, before anything else
+   * happens.
+   *
+   * The competing request is then fired, and a short, generous, explicitly
+   * non-safety-critical grace period is given for it to travel through
+   * HTTP/Nest/its own pre-transaction reads and reach its own
+   * `SELECT ... FOR UPDATE` attempt on the same row — which then genuinely
+   * blocks in Postgres (not a timing assumption: the holder has not
+   * released yet, guaranteed by the gate) until the holder is released
+   * below. If this grace period were too short, the test would merely
+   * become less aggressive (the competing request would see already-committed
+   * data with no blocking involved) — never incorrect, unlike the previous
+   * design's core ambiguity over which side reached Postgres first.
+   */
+  async function raceAgainstLockedMutation<T>(
+    responsibilityId_: string,
+    holderMutate: (tx: Prisma.TransactionClient) => Promise<void>,
+    fireCompeting: () => Promise<T>,
+  ): Promise<T> {
+    let signalLockAcquired!: () => void;
+    const lockAcquired = new Promise<void>((resolve) => {
+      signalLockAcquired = resolve;
+    });
+    let signalRelease!: () => void;
+    const releaseGate = new Promise<void>((resolve) => {
+      signalRelease = resolve;
+    });
+
+    const holderPromise = prisma.db.$transaction(async (tx) => {
+      await tx.$queryRaw(Prisma.sql`
+        SELECT "status" FROM "Responsibility" WHERE "id" = ${responsibilityId_}::uuid FOR UPDATE
+      `);
+      signalLockAcquired();
+      await releaseGate;
+      await holderMutate(tx);
+    });
+
+    // Proven, not assumed: the holder transaction now owns the row lock.
+    await lockAcquired;
+    const competingPromise = fireCompeting();
+    await new Promise((resolve) => setTimeout(resolve, 300));
+    signalRelease();
+
+    const [, competingResult] = await Promise.all([holderPromise, competingPromise]);
+    return competingResult;
+  }
+
   beforeAll(async () => {
     const moduleRef = await Test.createTestingModule({ imports: [AppModule] }).compile();
     app = moduleRef.createNestApplication();
@@ -988,30 +1050,23 @@ describe('PEOPLE-STEP6 Documents, Evidence & Verification E2E', () => {
       const documentId = await createOwnedDocument(memberId, 'Race document');
 
       // Directly simulate "another governed path" terminalizing this exact
-      // Responsibility: acquire the same FOR UPDATE row lock
-      // lockNonTerminalResponsibility() takes, hold it for a fixed window
-      // (long enough to guarantee it overlaps the concurrent submitItem call
-      // below), then commit the terminal transition. Issued strictly before
-      // the HTTP call in the same synchronous tick, so its lock-acquisition
-      // query reaches Postgres first in practice.
-      const lockHoldMs = 500;
-      const terminalizePromise = prisma.db.$transaction(async (tx) => {
-        await tx.$queryRaw(Prisma.sql`
-          SELECT "status" FROM "Responsibility" WHERE "id" = ${raceResponsibility.id}::uuid FOR UPDATE
-        `);
-        await new Promise((resolve) => setTimeout(resolve, lockHoldMs));
-        await tx.responsibility.update({
-          where: { id: raceResponsibility.id },
-          data: { status: ResponsibilityStatus.COMPLETED, completedAt: new Date() },
-        });
-      });
-
-      const submitPromise = request(app.getHttpServer())
-        .post(`/people/evidence/requirements/${raceRequirement.id}/items`)
-        .set('Authorization', `Bearer ${memberToken}`)
-        .send({ documentId });
-
-      const [, submitResponse] = await Promise.all([terminalizePromise, submitPromise]);
+      // Responsibility, using the deterministic barrier harness (fourth
+      // re-review — replaces the fixed ~500ms sleep and same-tick dispatch
+      // assumption previously used here).
+      const submitResponse = await raceAgainstLockedMutation(
+        raceResponsibility.id,
+        async (tx) => {
+          await tx.responsibility.update({
+            where: { id: raceResponsibility.id },
+            data: { status: ResponsibilityStatus.COMPLETED, completedAt: new Date() },
+          });
+        },
+        () =>
+          request(app.getHttpServer())
+            .post(`/people/evidence/requirements/${raceRequirement.id}/items`)
+            .set('Authorization', `Bearer ${memberToken}`)
+            .send({ documentId }),
+      );
 
       // lockNonTerminalResponsibility() must have blocked on the same row
       // lock until the terminalizing transaction committed, then observed
@@ -1031,6 +1086,247 @@ describe('PEOPLE-STEP6 Documents, Evidence & Verification E2E', () => {
         select: { status: true },
       });
       expect(finalStatus.status).toBe(ResponsibilityStatus.COMPLETED);
+    });
+  });
+
+  // -------------------------------------------------------------------
+  // Fourth re-review — subordinate Requirement/Item state-machine checks
+  // must also live inside the serialization boundary, not just the
+  // Responsibility-level terminal guard above.
+  // -------------------------------------------------------------------
+
+  describe('Fourth re-review — Requirement/Item state races behind the Responsibility lock', () => {
+    async function createRaceFixture(objective: string) {
+      const raceResponsibility = await prisma.db.responsibility.create({
+        data: {
+          kind: ResponsibilityKind.PERSONAL_NEED_RESOLUTION,
+          objective,
+          status: ResponsibilityStatus.ACTIVE,
+          contextType: ResponsibilityContextType.PERSONAL,
+          principalUserId: memberId,
+          originConversationId: randomUUID(),
+          successCriteria: { type: 'PERSONAL_NEED_RESOLUTION', statedNeedId: randomUUID() },
+          authorityClass: ResponsibilityAuthorityClass.GUIDANCE_ONLY,
+          authorityPolicyVersion: 'people-step6-test',
+          privacyScope: ResponsibilityPrivacyScope.PERSONAL_PRIVATE,
+          privacyPolicyVersion: 'people-step6-test',
+        },
+      });
+      const raceRequirement = await prisma.db.evidenceRequirement.create({
+        data: {
+          responsibilityId: raceResponsibility.id,
+          subjectUserId: memberId,
+          label: 'Race requirement',
+          description: 'Fourth re-review state-machine race fixture',
+          createdByUserId: adminId,
+        },
+      });
+      return { raceResponsibility, raceRequirement };
+    }
+
+    it('Race A — an administrative waiver racing a member waiver request can never be reverted back to WAIVER_REQUESTED', async () => {
+      const { raceResponsibility, raceRequirement } = await createRaceFixture(
+        'Race fixture — admin WAIVED vs. member WAIVER_REQUESTED',
+      );
+
+      const memberResponse = await raceAgainstLockedMutation(
+        raceResponsibility.id,
+        async (tx) => {
+          await tx.evidenceRequirement.update({
+            where: { id: raceRequirement.id },
+            data: {
+              status: EvidenceRequirementStatus.WAIVED,
+              waivedByUserId: adminId,
+              waivedReason: 'Administrator decided first (race fixture)',
+              waivedAt: new Date(),
+            },
+          });
+          await tx.responsibilityEvent.create({
+            data: {
+              responsibilityId: raceResponsibility.id,
+              type: ResponsibilityEventType.ACTION_EVIDENCED,
+              actorClass: ResponsibilityActorClass.SYSTEM,
+              sourceSystem: 'AUREUS_EVIDENCE',
+              sourceRecordType: 'EvidenceRequirement',
+              sourceRecordId: raceRequirement.id,
+              sourceState: EvidenceRequirementStatus.WAIVED,
+              evidenceLevel: ResponsibilityEvidenceLevel.REPORTED,
+            },
+          });
+        },
+        () =>
+          request(app.getHttpServer())
+            .post(`/people/evidence/requirements/${raceRequirement.id}/waive`)
+            .set('Authorization', `Bearer ${memberToken}`)
+            .send({ reason: 'Member request racing the admin decision (race fixture)' }),
+      );
+
+      // The stale member request — reading OPEN before the admin's decision
+      // committed — must fail once it finally gets the lock and re-reads
+      // the now-WAIVED truth, not silently revert it to WAIVER_REQUESTED.
+      expect(memberResponse.status).toBe(409);
+
+      const finalRequirement = await prisma.db.evidenceRequirement.findUniqueOrThrow({
+        where: { id: raceRequirement.id },
+      });
+      expect(finalRequirement.status).toBe(EvidenceRequirementStatus.WAIVED);
+      // Authoritative decision provenance survives untouched.
+      expect(finalRequirement.waivedByUserId).toBe(adminId);
+      expect(finalRequirement.waivedReason).toBe('Administrator decided first (race fixture)');
+      expect(finalRequirement.waivedAt).not.toBeNull();
+      // The rejected, stale member request must never have written anything.
+      expect(finalRequirement.waiverRequestedByUserId).toBeNull();
+      expect(finalRequirement.waiverRequestedReason).toBeNull();
+      expect(finalRequirement.waiverRequestedAt).toBeNull();
+
+      const events = await prisma.db.responsibilityEvent.findMany({
+        where: { responsibilityId: raceResponsibility.id, sourceRecordId: raceRequirement.id },
+      });
+      // Exactly the admin's WAIVED event — no invalid WAIVER_REQUESTED event
+      // from the stale, rejected member request.
+      expect(events).toHaveLength(1);
+      expect(events[0].sourceState).toBe(EvidenceRequirementStatus.WAIVED);
+    });
+
+    it('Race B — an administrative waiver racing a real evidence submission leaves no new EvidenceItem', async () => {
+      const { raceResponsibility, raceRequirement } = await createRaceFixture(
+        'Race fixture — admin WAIVED vs. submitItem',
+      );
+      const documentId = await createOwnedDocument(memberId, 'Race B document');
+
+      const submitResponse = await raceAgainstLockedMutation(
+        raceResponsibility.id,
+        async (tx) => {
+          await tx.evidenceRequirement.update({
+            where: { id: raceRequirement.id },
+            data: {
+              status: EvidenceRequirementStatus.WAIVED,
+              waivedByUserId: adminId,
+              waivedReason: 'Administrator waived while a submission was in flight (race fixture)',
+              waivedAt: new Date(),
+            },
+          });
+          await tx.responsibilityEvent.create({
+            data: {
+              responsibilityId: raceResponsibility.id,
+              type: ResponsibilityEventType.ACTION_EVIDENCED,
+              actorClass: ResponsibilityActorClass.SYSTEM,
+              sourceSystem: 'AUREUS_EVIDENCE',
+              sourceRecordType: 'EvidenceRequirement',
+              sourceRecordId: raceRequirement.id,
+              sourceState: EvidenceRequirementStatus.WAIVED,
+              evidenceLevel: ResponsibilityEvidenceLevel.REPORTED,
+            },
+          });
+        },
+        () =>
+          request(app.getHttpServer())
+            .post(`/people/evidence/requirements/${raceRequirement.id}/items`)
+            .set('Authorization', `Bearer ${memberToken}`)
+            .send({ documentId }),
+      );
+
+      // Stale pre-lock OPEN read must not survive the wait for the lock.
+      expect(submitResponse.status).toBe(409);
+
+      const finalRequirement = await prisma.db.evidenceRequirement.findUniqueOrThrow({
+        where: { id: raceRequirement.id },
+      });
+      expect(finalRequirement.status).toBe(EvidenceRequirementStatus.WAIVED);
+
+      const itemCount = await prisma.db.evidenceItem.count({
+        where: { requirementId: raceRequirement.id },
+      });
+      expect(itemCount).toBe(0);
+
+      const submittedEventCount = await prisma.db.responsibilityEvent.count({
+        where: {
+          responsibilityId: raceResponsibility.id,
+          sourceRecordType: 'EvidenceItem',
+          sourceState: 'SUBMITTED',
+        },
+      });
+      expect(submittedEventCount).toBe(0);
+    });
+
+    it('Race C — verifying an item racing its own supersession cannot attach a verification to the superseded item', async () => {
+      const { raceResponsibility, raceRequirement } = await createRaceFixture(
+        'Race fixture — item SUPERSEDED vs. verifyItem',
+      );
+      const oldDocumentId = await createOwnedDocument(memberId, 'Race C old document');
+      const oldItem = await prisma.db.evidenceItem.create({
+        data: {
+          requirementId: raceRequirement.id,
+          documentId: oldDocumentId,
+          origin: 'MEMBER_PROVIDED',
+          providedByUserId: memberId,
+          providedByActorClass: 'MEMBER',
+        },
+      });
+      const replacementDocumentId = await createOwnedDocument(memberId, 'Race C replacement document');
+
+      const verifyResponse = await raceAgainstLockedMutation(
+        raceResponsibility.id,
+        async (tx) => {
+          const claimed = await tx.evidenceItem.updateMany({
+            where: { id: oldItem.id, status: 'SUBMITTED' },
+            data: { status: 'SUPERSEDED' },
+          });
+          if (claimed.count !== 1) {
+            throw new Error('race fixture setup invariant violated: old item was not SUBMITTED');
+          }
+          const replacement = await tx.evidenceItem.create({
+            data: {
+              requirementId: raceRequirement.id,
+              documentId: replacementDocumentId,
+              origin: 'MEMBER_PROVIDED',
+              providedByUserId: memberId,
+              providedByActorClass: 'MEMBER',
+              supersedesItemId: oldItem.id,
+            },
+          });
+          await tx.responsibilityEvent.create({
+            data: {
+              responsibilityId: raceResponsibility.id,
+              type: ResponsibilityEventType.ACTION_EVIDENCED,
+              actorClass: ResponsibilityActorClass.SYSTEM,
+              sourceSystem: 'AUREUS_EVIDENCE',
+              sourceRecordType: 'EvidenceItem',
+              sourceRecordId: replacement.id,
+              sourceState: 'SUBMITTED',
+              evidenceLevel: ResponsibilityEvidenceLevel.REPORTED,
+            },
+          });
+        },
+        () =>
+          request(app.getHttpServer())
+            .post(`/people/evidence/items/${oldItem.id}/verify`)
+            .set('Authorization', `Bearer ${adminToken}`)
+            .send({ result: EvidenceVerificationResult.VERIFIED }),
+      );
+
+      // The stale pre-lock SUBMITTED read must not survive the wait for the
+      // lock the real supersession transaction took first.
+      expect(verifyResponse.status).toBe(409);
+
+      const finalOldItem = await prisma.db.evidenceItem.findUniqueOrThrow({
+        where: { id: oldItem.id },
+      });
+      expect(finalOldItem.status).toBe('SUPERSEDED');
+
+      const verificationCount = await prisma.db.evidenceVerification.count({
+        where: { evidenceItemId: oldItem.id },
+      });
+      expect(verificationCount).toBe(0);
+
+      const invalidVerifiedEventCount = await prisma.db.responsibilityEvent.count({
+        where: {
+          responsibilityId: raceResponsibility.id,
+          sourceRecordId: oldItem.id,
+          sourceState: 'VERIFIED',
+        },
+      });
+      expect(invalidVerifiedEventCount).toBe(0);
     });
   });
 
