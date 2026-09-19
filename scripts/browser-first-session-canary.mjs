@@ -16,6 +16,7 @@ const evidence = [];
 const browserDiagnostics = [];
 const trackedRequests = new Map();
 const pendingDiagnosticTasks = new Set();
+const failedResponseBodiesPending = new Set();
 let chrome;
 let cdp;
 
@@ -42,8 +43,25 @@ function trackDiagnosticTask(task) {
 }
 
 async function flushDiagnostics() {
-  if (pendingDiagnosticTasks.size === 0) return;
-  await Promise.allSettled([...pendingDiagnosticTasks]);
+  // A failed fetch() resolves as soon as response headers arrive, while CDP's
+  // Network.loadingFinished event can arrive a beat later. Give that event a
+  // short bounded window to register the body-capture task before closing the
+  // debugger, otherwise the exact provider error that this gate exists to
+  // preserve can be lost in a race.
+  const deadline = Date.now() + 3_000;
+  while (Date.now() < deadline) {
+    if (pendingDiagnosticTasks.size > 0) {
+      await Promise.allSettled([...pendingDiagnosticTasks]);
+    }
+    if (pendingDiagnosticTasks.size === 0 && failedResponseBodiesPending.size === 0) {
+      return;
+    }
+    await sleep(25);
+  }
+
+  if (pendingDiagnosticTasks.size > 0) {
+    await Promise.allSettled([...pendingDiagnosticTasks]);
+  }
 }
 
 class CdpClient {
@@ -136,6 +154,9 @@ function installBrowserDiagnostics() {
     const tracked = trackedRequests.get(requestId);
     if (!tracked) return;
     tracked.status = response.status;
+    if (tracked.method === 'POST' && response.status >= 400) {
+      failedResponseBodiesPending.add(requestId);
+    }
     browserDiagnostics.push({
       type: 'voice-provider-response',
       method: tracked.method,
@@ -171,6 +192,9 @@ function installBrowserDiagnostics() {
           url: tracked.url,
           error: redactDiagnosticText(error instanceof Error ? error.message : String(error)),
         });
+      })
+      .finally(() => {
+        failedResponseBodiesPending.delete(requestId);
       });
     trackDiagnosticTask(task);
   });
@@ -178,6 +202,7 @@ function installBrowserDiagnostics() {
   cdp.on('Network.loadingFailed', ({ requestId, errorText, blockedReason, corsErrorStatus }) => {
     const tracked = trackedRequests.get(requestId);
     if (!tracked) return;
+    failedResponseBodiesPending.delete(requestId);
     browserDiagnostics.push({
       type: 'voice-provider-loading-failed',
       method: tracked.method,
