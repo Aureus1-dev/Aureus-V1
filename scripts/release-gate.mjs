@@ -3,7 +3,10 @@
 const apiOrigin = requiredOrigin('RELEASE_API_ORIGIN');
 const webOrigin = requiredOrigin('RELEASE_WEB_ORIGIN');
 const requireVoice = process.env.RELEASE_REQUIRE_VOICE !== 'false';
-const timeoutMs = Number(process.env.RELEASE_TIMEOUT_MS ?? 45_000);
+// Render free services can take 50 seconds or more to wake. The gate should
+// prove the deployed application after a legitimate cold start, not fail just
+// before the platform finishes waking it.
+const timeoutMs = Number(process.env.RELEASE_TIMEOUT_MS ?? 90_000);
 const failures = [];
 const evidence = [];
 

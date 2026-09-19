@@ -5,6 +5,8 @@ import { spawn } from 'node:child_process';
 const webOrigin = requiredOrigin('RELEASE_WEB_ORIGIN');
 const chromeBin = process.env.RELEASE_CHROME_BIN || 'google-chrome';
 const timeoutMs = Number(process.env.RELEASE_BROWSER_TIMEOUT_MS ?? 60_000);
+const chromeDebuggerTimeoutMs = Number(process.env.RELEASE_CHROME_DEBUGGER_TIMEOUT_MS ?? 30_000);
+const chromeUserDataDir = `/tmp/aureus-release-gate-chrome-${process.pid}`;
 const testEmail = process.env.RELEASE_TEST_EMAIL?.trim() || '';
 const testPassword = process.env.RELEASE_TEST_PASSWORD || '';
 const canonicalTestAccountOrigin = 'https://aureus-v1.onrender.com';
@@ -134,13 +136,14 @@ function installBrowserDiagnostics() {
   cdp.on('Runtime.exceptionThrown', ({ exceptionDetails }) => {
     browserDiagnostics.push({
       type: 'browser-exception',
-      text: exceptionDetails?.exception?.description ?? exceptionDetails?.text ?? 'unknown exception',
+      text:
+        exceptionDetails?.exception?.description ?? exceptionDetails?.text ?? 'unknown exception',
     });
   });
 }
 
 async function waitForChromeDebugger() {
-  const deadline = Date.now() + 15_000;
+  const deadline = Date.now() + chromeDebuggerTimeoutMs;
   while (Date.now() < deadline) {
     try {
       const response = await fetch('http://127.0.0.1:9222/json/list');
@@ -202,12 +205,27 @@ async function clickButton(label) {
   const clicked = await evaluate(`(() => {
     const wanted = ${JSON.stringify(label)};
     const button = [...document.querySelectorAll('button')]
-      .find((candidate) => candidate.textContent?.trim() === wanted);
+      .find((candidate) =>
+        !candidate.disabled &&
+        (candidate.textContent?.trim() === wanted || candidate.getAttribute('aria-label') === wanted)
+      );
     if (!button) return false;
     button.click();
     return true;
   })()`);
   if (!clicked) throw new Error(`Button not found: ${label}`);
+}
+
+async function buttonExists(label) {
+  return Boolean(
+    await evaluate(`(() => {
+      const wanted = ${JSON.stringify(label)};
+      return [...document.querySelectorAll('button')].some((candidate) =>
+        !candidate.disabled &&
+        (candidate.textContent?.trim() === wanted || candidate.getAttribute('aria-label') === wanted)
+      );
+    })()`),
+  );
 }
 
 async function setInput(selector, value) {
@@ -244,12 +262,12 @@ async function establishEntrySession() {
 
   await poll('Living Hall conversation ready', async () => {
     const text = await bodyText();
-    return text.includes('How can we help?') && text.includes('Talk');
+    return text.includes('How can we help?') && (await buttonExists('Talk to your steward'));
   });
 }
 
 async function runVoiceJourney() {
-  await clickButton('Talk');
+  await clickButton('Talk to your steward');
   await poll('voice start control visible', async () =>
     (await bodyText()).includes('Start voice conversation'),
   );
@@ -294,6 +312,7 @@ async function main() {
       '--no-sandbox',
       '--disable-dev-shm-usage',
       '--remote-debugging-port=9222',
+      `--user-data-dir=${chromeUserDataDir}`,
       '--use-fake-ui-for-media-stream',
       '--use-fake-device-for-media-stream',
       '--autoplay-policy=no-user-gesture-required',
