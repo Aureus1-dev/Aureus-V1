@@ -1,0 +1,240 @@
+.composer {
+  width: 100%;
+  max-width: 100%;
+}
+
+.form {
+  width: 100%;
+}
+
+.inputShell {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--space-2);
+  padding: 0.4rem 0.4rem 0.4rem var(--space-4);
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  background: var(--color-surface-primary);
+  box-shadow: var(--elevation-2);
+}
+
+.textarea {
+  flex: 1;
+  min-width: 0;
+  min-height: 2.75rem;
+  max-height: 12rem;
+  resize: none;
+  padding: 0.7rem 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--color-text-primary);
+  font-family: var(--font-family-base);
+  font-size: var(--font-size-base);
+  line-height: var(--line-height-normal);
+}
+
+.textarea::placeholder {
+  color: var(--color-text-tertiary);
+}
+
+.textarea:disabled {
+  opacity: 0.55;
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  gap: 0.2rem;
+  flex-shrink: 0;
+}
+
+.iconButton,
+.sendButton {
+  display: grid;
+  min-width: 2.75rem;
+  min-height: 2.75rem;
+  place-items: center;
+  border-radius: 999px;
+  border: 0;
+  cursor: pointer;
+  transition: background-color var(--motion-duration-fast) var(--motion-easing-standard);
+}
+
+.iconButton {
+  background: transparent;
+  color: var(--color-text-secondary);
+}
+
+.iconButton:hover,
+.iconButton:focus-visible {
+  background: var(--color-surface-tertiary);
+  color: var(--color-text-primary);
+}
+
+.iconButton[aria-pressed='true'] {
+  background: color-mix(in srgb, var(--color-action-primary) 14%, transparent);
+  color: var(--color-action-primary);
+}
+
+.sendButton {
+  background: var(--color-action-primary);
+  color: var(--color-surface-primary);
+  font-size: 1.15rem;
+  font-weight: var(--font-weight-medium);
+}
+
+.sendButton:hover:not(:disabled) {
+  background: var(--color-action-primary-hover);
+}
+
+.sendButton:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+/* Small, low-noise glyphs drawn from borders rather than an icon font/library. */
+.glyphAttach {
+  width: 0.85rem;
+  height: 1.1rem;
+  border: 1.5px solid currentColor;
+  border-radius: 0.35rem 0.35rem 0.9rem 0.9rem;
+}
+
+.glyphCamera {
+  width: 1.05rem;
+  height: 0.8rem;
+  border: 1.5px solid currentColor;
+  border-radius: 0.2rem;
+  position: relative;
+}
+
+.glyphCamera::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 0.4rem;
+  height: 0.4rem;
+  border: 1.5px solid currentColor;
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+}
+
+.glyphMic {
+  width: 0.65rem;
+  height: 0.9rem;
+  border: 1.5px solid currentColor;
+  border-radius: 0.45rem;
+}
+
+.hiddenInput {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+}
+
+.attachments {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  list-style: none;
+  margin: 0 0 var(--space-2);
+  padding: 0 var(--space-2);
+}
+
+.attachmentChip {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: var(--space-1) var(--space-3);
+  border-radius: 999px;
+  background: var(--color-surface-tertiary);
+  color: var(--color-text-primary);
+  font-size: var(--font-size-sm);
+  max-width: 16rem;
+}
+
+.attachmentName {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.attachmentRemove {
+  border: 0;
+  background: transparent;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  font-size: 1rem;
+  line-height: 1;
+  min-width: 1.5rem;
+  min-height: 1.5rem;
+}
+
+.voicePreview {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  margin: 0 var(--space-2) var(--space-2);
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-lg);
+  background: color-mix(in srgb, var(--color-steward) 10%, var(--color-surface-primary));
+  border: 1px solid var(--color-border-subtle);
+}
+
+.voicePreview p {
+  flex: 1;
+  margin: 0;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
+}
+
+.voiceIndicator {
+  flex-shrink: 0;
+  width: 0.85rem;
+  height: 0.85rem;
+  border-radius: 50%;
+  background: radial-gradient(circle, var(--color-ember-core), var(--color-ember-mid));
+  animation: voice-breathe var(--motion-duration-slow) ease-in-out infinite alternate;
+}
+
+@keyframes voice-breathe {
+  from {
+    opacity: 0.55;
+    transform: scale(0.85);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1.05);
+  }
+}
+
+.voiceClose {
+  flex-shrink: 0;
+  border: 0;
+  background: transparent;
+  color: var(--color-text-secondary);
+  text-decoration: underline;
+  cursor: pointer;
+  min-height: 44px;
+  padding: 0 var(--space-2);
+}
+
+@media (max-width: 640px) {
+  .textarea {
+    /* The mandated placeholder copy ("Tell us what you need, what
+       happened...") wraps to two lines at this width — a taller resting
+       height keeps it fully visible instead of clipped, without changing
+       the desktop composer's more compact resting height. */
+    min-height: 4.75rem;
+    max-height: 8rem;
+  }
+
+  .attachmentChip {
+    max-width: 10rem;
+  }
+}

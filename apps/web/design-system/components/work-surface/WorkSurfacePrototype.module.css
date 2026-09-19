@@ -1,0 +1,13 @@
+.root {
+  min-height: 100dvh;
+  background: var(--color-surface-secondary);
+}
+
+.continuitySlot {
+  position: fixed;
+  top: var(--space-3);
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: var(--z-overlay);
+  width: min(calc(100% - var(--space-6)), 40rem);
+}

@@ -1,0 +1,18 @@
+export { WorkSurfacePrototype } from './WorkSurfacePrototype';
+export { ArrivalView } from './ArrivalView';
+export { Composer } from './Composer';
+export { StoryRail } from './StoryRail';
+export { UrgentSafetyNotice } from './UrgentSafetyNotice';
+export { UnderstandingView } from './UnderstandingView';
+export { WorkSurfaceView } from './WorkSurfaceView';
+export { ResultArtifactCard } from './ResultArtifactCard';
+export { CarryBoundaryPrompt } from './CarryBoundaryPrompt';
+export { CarryBoundaryPanel } from './CarryBoundaryPanel';
+export { GuestContinuityWarning } from './GuestContinuityWarning';
+export { ReturningOneMatter } from './ReturningOneMatter';
+export { ReturningSeveralMatters } from './ReturningSeveralMatters';
+export { ErrorRecoveryView } from './ErrorRecoveryView';
+export { ScenarioSwitcher } from './ScenarioSwitcher';
+export { useWorkSurfaceEngine } from './engine/useWorkSurfaceEngine';
+export { detectCarryBoundarySignal, detectUrgentSignal } from './engine/signals';
+export * from './engine/types';

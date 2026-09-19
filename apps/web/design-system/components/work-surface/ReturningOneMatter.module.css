@@ -1,0 +1,62 @@
+.wrap {
+  width: min(100%, 40rem);
+  margin: var(--space-8) auto;
+  padding: var(--space-6) var(--space-4);
+}
+
+.greeting {
+  margin: 0 0 var(--space-2);
+  color: var(--color-text-tertiary);
+  font-size: var(--font-size-sm);
+}
+
+.matterName {
+  margin: 0 0 var(--space-6);
+  color: var(--color-text-primary);
+  font-size: var(--font-size-2xl);
+  font-weight: var(--font-weight-semibold);
+}
+
+.fields {
+  margin: 0 0 var(--space-6);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.field dt {
+  margin: 0 0 var(--space-1);
+  color: var(--color-text-tertiary);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  text-transform: uppercase;
+  letter-spacing: var(--letter-spacing-wide);
+}
+
+.field dd {
+  margin: 0;
+  color: var(--color-text-primary);
+  font-size: var(--font-size-base);
+}
+
+.field[data-emphasis='true'] {
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--color-warning) 8%, var(--color-surface-primary));
+  border: 1px solid color-mix(in srgb, var(--color-warning) 45%, var(--color-border));
+}
+
+.continueButton {
+  min-height: 2.75rem;
+  padding: 0 var(--space-5);
+  border: 0;
+  border-radius: var(--radius-md);
+  background: var(--color-action-primary);
+  color: var(--color-surface-primary);
+  font-weight: var(--font-weight-medium);
+  cursor: pointer;
+}
+
+.continueButton:hover {
+  background: var(--color-action-primary-hover);
+}
