@@ -187,7 +187,8 @@ async function runVoiceJourney() {
   await clickButton('Done');
   await poll('same session returns to text', async () => {
     const text = await bodyText();
-    return text.includes('How can we help?') && Boolean(await evaluate('document.querySelector("#conversation-composer")'));
+    const composerPresent = Boolean(await evaluate('Boolean(document.querySelector("#conversation-composer"))'));
+    return text.includes('How can we help?') && composerPresent;
   });
 }
 
