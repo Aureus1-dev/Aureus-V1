@@ -2,9 +2,11 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import {
   IsDateString,
   IsEnum,
+  IsInt,
   IsOptional,
   IsString,
   MaxLength,
+  Min,
   MinLength,
   ValidateIf,
 } from 'class-validator';
@@ -47,6 +49,17 @@ export enum PeopleFollowThroughAttemptResult {
   BLOCKED = 'BLOCKED',
 }
 
+export class FollowThroughMutationDto {
+  @ApiProperty({
+    minimum: 1,
+    description:
+      'The current follow-through revision returned by the latest read. Stale mutations fail with 409 instead of overwriting newer truth.',
+  })
+  @IsInt()
+  @Min(1)
+  expectedRevision!: number;
+}
+
 export class CreateHousingFollowThroughDto {
   @ApiProperty({ enum: PeopleFollowThroughKind })
   @IsEnum(PeopleFollowThroughKind)
@@ -62,7 +75,9 @@ export class CreateHousingFollowThroughDto {
   @MaxLength(1000)
   requiredAction!: string;
 
-  @ApiProperty({ description: 'Current operational due time. Member-created dates begin as REPORTED.' })
+  @ApiProperty({
+    description: 'Current operational due time. Member-created dates begin as REPORTED.',
+  })
   @IsDateString()
   dueAt!: string;
 
@@ -72,7 +87,10 @@ export class CreateHousingFollowThroughDto {
   @MaxLength(64)
   dueTimeZone!: string;
 
-  @ApiPropertyOptional({ description: 'Why this date currently applies. It remains reported until independently verified.' })
+  @ApiPropertyOptional({
+    description:
+      'Why this date currently applies. It remains reported until independently verified.',
+  })
   @IsOptional()
   @IsString()
   @MaxLength(500)
@@ -84,14 +102,16 @@ export class CreateHousingFollowThroughDto {
   @MaxLength(500)
   consequenceIfMissed?: string;
 
-  @ApiPropertyOptional({ description: 'What evidence would prove this obligation was actually satisfied.' })
+  @ApiPropertyOptional({
+    description: 'What evidence would prove this obligation was actually satisfied.',
+  })
   @IsOptional()
   @IsString()
   @MaxLength(500)
   completionEvidenceRequirement?: string;
 }
 
-export class RecordFollowThroughAttemptDto {
+export class RecordFollowThroughAttemptDto extends FollowThroughMutationDto {
   @ApiProperty({ enum: PeopleFollowThroughAttemptResult })
   @IsEnum(PeopleFollowThroughAttemptResult)
   result!: PeopleFollowThroughAttemptResult;
@@ -103,7 +123,8 @@ export class RecordFollowThroughAttemptDto {
   note?: string;
 
   @ApiPropertyOptional({
-    description: 'Required after NO_RESPONSE or RESCHEDULED so follow-through cannot silently stop; otherwise optional.',
+    description:
+      'Required after NO_RESPONSE or RESCHEDULED so follow-through cannot silently stop; otherwise optional.',
   })
   @ValidateIf(
     (dto: RecordFollowThroughAttemptDto) =>
@@ -115,7 +136,7 @@ export class RecordFollowThroughAttemptDto {
   nextAttemptAt?: string;
 }
 
-export class ReportFollowThroughDueChangeDto {
+export class ReportFollowThroughDueChangeDto extends FollowThroughMutationDto {
   @ApiProperty()
   @IsDateString()
   dueAt!: string;
@@ -127,7 +148,7 @@ export class ReportFollowThroughDueChangeDto {
   dueBasis?: string;
 }
 
-export class VerifyFollowThroughDueDto {
+export class VerifyFollowThroughDueDto extends FollowThroughMutationDto {
   @ApiProperty()
   @IsDateString()
   dueAt!: string;
@@ -144,7 +165,7 @@ export class VerifyFollowThroughDueDto {
   @ApiProperty() @IsString() @MinLength(1) @MaxLength(120) sourceState!: string;
 }
 
-export class ReportFollowThroughSatisfactionDto {
+export class ReportFollowThroughSatisfactionDto extends FollowThroughMutationDto {
   @ApiPropertyOptional()
   @IsOptional()
   @IsString()
@@ -152,7 +173,7 @@ export class ReportFollowThroughSatisfactionDto {
   note?: string;
 }
 
-export class VerifyFollowThroughSatisfactionDto {
+export class VerifyFollowThroughSatisfactionDto extends FollowThroughMutationDto {
   @ApiProperty() @IsString() @MinLength(1) @MaxLength(80) sourceSystem!: string;
   @ApiProperty() @IsString() @MinLength(1) @MaxLength(80) sourceRecordType!: string;
   @ApiProperty() @IsString() @MinLength(1) @MaxLength(200) sourceRecordId!: string;
@@ -162,13 +183,19 @@ export class VerifyFollowThroughSatisfactionDto {
 export class PeopleFollowThroughResponseDto {
   @ApiProperty() responsibilityId!: string;
   @ApiProperty() obligationId!: string;
+  @ApiProperty({
+    minimum: 1,
+    description: 'Optimistic-concurrency revision required by the next mutation.',
+  })
+  revision!: number;
   @ApiProperty({ example: 'HOUSING' }) domain!: 'HOUSING';
   @ApiProperty({ enum: PeopleFollowThroughKind }) kind!: PeopleFollowThroughKind;
   @ApiProperty({ enum: PeopleFollowThroughOwner }) owner!: PeopleFollowThroughOwner;
   @ApiProperty() requiredAction!: string;
   @ApiProperty() dueAt!: string;
   @ApiProperty() dueTimeZone!: string;
-  @ApiProperty({ enum: PeopleFollowThroughDueProvenance }) dueProvenance!: PeopleFollowThroughDueProvenance;
+  @ApiProperty({ enum: PeopleFollowThroughDueProvenance })
+  dueProvenance!: PeopleFollowThroughDueProvenance;
   @ApiProperty({ enum: PeopleFollowThroughState }) state!: PeopleFollowThroughState;
   @ApiProperty() attemptCount!: number;
   @ApiPropertyOptional({ nullable: true }) nextAttemptAt!: string | null;
@@ -181,6 +208,11 @@ export class AssignedFollowThroughResponseDto {
   @ApiProperty() responsibilityId!: string;
   @ApiProperty() memberId!: string;
   @ApiProperty() obligationId!: string;
+  @ApiProperty({
+    minimum: 1,
+    description: 'Optimistic-concurrency revision required by a staff verification mutation.',
+  })
+  revision!: number;
   @ApiProperty({ enum: PeopleFollowThroughKind }) kind!: PeopleFollowThroughKind;
   @ApiProperty({ enum: PeopleFollowThroughOwner }) owner!: PeopleFollowThroughOwner;
   @ApiProperty() dueAt!: string;

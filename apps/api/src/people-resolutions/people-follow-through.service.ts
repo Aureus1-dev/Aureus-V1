@@ -97,6 +97,7 @@ interface FollowThroughHistoryEntry {
 interface FollowThroughContract {
   version: typeof STEP5_VERSION;
   obligationId: string;
+  revision: number;
   domain: 'HOUSING';
   source: EvidencePointer;
   kind: PeopleFollowThroughKind;
@@ -188,6 +189,7 @@ export class PeopleFollowThroughService {
     const contract: FollowThroughContract = {
       version: STEP5_VERSION,
       obligationId: randomUUID(),
+      revision: 1,
       domain: 'HOUSING',
       source: {
         sourceSystem: 'NEEDS',
@@ -267,35 +269,42 @@ export class PeopleFollowThroughService {
     const now = new Date().toISOString();
     const nextAttemptAt = dto.nextAttemptAt ? new Date(dto.nextAttemptAt).toISOString() : null;
     const note = dto.note ? this.cleanRequired(dto.note, 'note') : null;
-    const next = await this.mutateContract(responsibilityId, caller.id, (current) => {
-      if (SATISFIED_STATES.has(current.state)) return current;
-      return {
-        ...current,
-        state:
-          dto.result === PeopleFollowThroughAttemptResult.BLOCKED
-            ? PeopleFollowThroughState.BLOCKED
-            : PeopleFollowThroughState.WAITING,
-        attemptCount: current.attemptCount + 1,
-        lastAttemptAt: now,
-        nextAttemptAt,
-        reviewRequired: dto.result === PeopleFollowThroughAttemptResult.BLOCKED,
-        reviewReason:
-          dto.result === PeopleFollowThroughAttemptResult.BLOCKED
+    const next = await this.mutateContract(
+      responsibilityId,
+      caller.id,
+      (current) => {
+        if (SATISFIED_STATES.has(current.state)) return current;
+        const blocked = dto.result === PeopleFollowThroughAttemptResult.BLOCKED;
+        return {
+          ...current,
+          state:
+            current.state === PeopleFollowThroughState.DISPUTED
+              ? PeopleFollowThroughState.DISPUTED
+              : blocked
+                ? PeopleFollowThroughState.BLOCKED
+                : PeopleFollowThroughState.WAITING,
+          attemptCount: current.attemptCount + 1,
+          lastAttemptAt: now,
+          nextAttemptAt,
+          reviewRequired: current.reviewRequired || blocked,
+          reviewReason: blocked
             ? 'A recorded follow-through attempt is blocked and needs a responsible continuation route.'
             : current.reviewReason,
-        history: [
-          ...current.history,
-          {
-            event: 'ATTEMPT_RECORDED',
-            knownAt: now,
-            actor: 'MEMBER',
-            actorUserId: caller.id,
-            result: dto.result,
-            ...(note ? { note } : {}),
-          },
-        ],
-      };
-    });
+          history: [
+            ...current.history,
+            {
+              event: 'ATTEMPT_RECORDED',
+              knownAt: now,
+              actor: 'MEMBER',
+              actorUserId: caller.id,
+              result: dto.result,
+              ...(note ? { note } : {}),
+            },
+          ],
+        };
+      },
+      dto.expectedRevision,
+    );
     return this.toResponse(responsibilityId, next);
   }
 
@@ -321,9 +330,10 @@ export class PeopleFollowThroughService {
       if (!row) throw new NotFoundException('Open Personal Need Responsibility not found');
       const criteria = this.asRecord(row.successCriteria);
       const current = this.contractFromCriteria(criteria);
+      this.assertExpectedRevision(current, dto.expectedRevision);
 
       const verified = current.dueProvenance === PeopleFollowThroughDueProvenance.VERIFIED;
-      const updatedContract: FollowThroughContract = verified
+      const changedContract: FollowThroughContract = verified
         ? {
             ...current,
             state: PeopleFollowThroughState.DISPUTED,
@@ -367,8 +377,20 @@ export class PeopleFollowThroughService {
             ],
           };
 
+      const updatedContract: FollowThroughContract = {
+        ...changedContract,
+        revision: current.revision + 1,
+      };
       const result = await tx.responsibility.updateMany({
-        where: { id: row.id, principalUserId: caller.id, updatedAt: row.updatedAt },
+        where: {
+          id: row.id,
+          principalUserId: caller.id,
+          updatedAt: row.updatedAt,
+          successCriteria: {
+            path: ['step5FollowThrough', 'revision'],
+            equals: current.revision,
+          },
+        },
         data: {
           successCriteria: {
             ...criteria,
@@ -378,7 +400,9 @@ export class PeopleFollowThroughService {
         },
       });
       if (result.count !== 1) {
-        throw new ConflictException('Follow-through state changed concurrently; retry from the current truth');
+        throw new ConflictException(
+          'Follow-through state changed concurrently; retry from the current truth',
+        );
       }
       return updatedContract;
     });
@@ -444,6 +468,7 @@ export class PeopleFollowThroughService {
       },
       new Date(dueAt),
       source,
+      dto.expectedRevision,
     );
     return this.toResponse(responsibilityId, next);
   }
@@ -488,6 +513,7 @@ export class PeopleFollowThroughService {
         sourceState: PeopleFollowThroughState.SATISFIED_REPORTED,
         evidenceLevel: 'REPORTED',
       },
+      dto.expectedRevision,
     );
 
     // Satisfaction of this sourced must is not evidence that the member's
@@ -530,6 +556,7 @@ export class PeopleFollowThroughService {
       },
       undefined,
       source,
+      dto.expectedRevision,
     );
     return this.toResponse(responsibilityId, next);
   }
@@ -561,10 +588,7 @@ export class PeopleFollowThroughService {
     return rows.flatMap((row) => {
       const contract = this.tryContract(row.successCriteria);
       if (!contract) return [];
-      if (
-        contract.owner !== PeopleFollowThroughOwner.HUMAN_STEWARD &&
-        !contract.reviewRequired
-      ) {
+      if (contract.owner !== PeopleFollowThroughOwner.HUMAN_STEWARD && !contract.reviewRequired) {
         return [];
       }
       return [
@@ -572,6 +596,7 @@ export class PeopleFollowThroughService {
           responsibilityId: row.id,
           memberId: row.principalUserId!,
           obligationId: contract.obligationId,
+          revision: contract.revision,
           kind: contract.kind,
           owner: contract.owner,
           dueAt: contract.dueAt,
@@ -627,36 +652,50 @@ export class PeopleFollowThroughService {
         });
       }
 
-      if (due < now && contract.state !== PeopleFollowThroughState.MISSED) {
+      if (due < now) {
+        let missed = contract;
         try {
-          const missed = await this.mutateContract(row.id, row.principalUserId, (current) => {
-            if (SATISFIED_STATES.has(current.state) || new Date(current.dueAt) >= now) return current;
-            return {
-              ...current,
-              state: PeopleFollowThroughState.MISSED,
-              reviewRequired: true,
-              reviewReason:
-                'The current due time passed without evidence that the sourced obligation was satisfied.',
-              history: [
-                ...current.history,
-                {
-                  event: 'DUE_TIME_PASSED_WITHOUT_SATISFACTION_EVIDENCE',
-                  knownAt: now.toISOString(),
-                  actor: 'SYSTEM',
-                  dueAt: current.dueAt,
-                  dueProvenance: current.dueProvenance,
-                },
-              ],
-            };
-          });
+          if (contract.state !== PeopleFollowThroughState.MISSED) {
+            missed = await this.mutateContract(row.id, row.principalUserId, (current) => {
+              if (SATISFIED_STATES.has(current.state) || new Date(current.dueAt) >= now) {
+                return current;
+              }
+              return {
+                ...current,
+                state: PeopleFollowThroughState.MISSED,
+                reviewRequired: true,
+                reviewReason:
+                  'The current due time passed without evidence that the sourced obligation was satisfied.',
+                history: [
+                  ...current.history,
+                  {
+                    event: 'DUE_TIME_PASSED_WITHOUT_SATISFACTION_EVIDENCE',
+                    knownAt: now.toISOString(),
+                    actor: 'SYSTEM',
+                    dueAt: current.dueAt,
+                    dueProvenance: current.dueProvenance,
+                  },
+                ],
+              };
+            });
+          }
+
+          // The row may have been satisfied or rescheduled after the sweep's
+          // initial read. Never send a stale "missed" notice in that case.
+          if (missed.state !== PeopleFollowThroughState.MISSED) continue;
+
+          // Notifications are deliberately retried on later sweeps even when
+          // MISSED is already persisted. Dedupe keys keep this idempotent, and
+          // a transient notification failure cannot permanently silence the
+          // responsible-continuation signal.
           await this.notifications.notify({
             recipientId: row.principalUserId,
             category: NotificationCategory.STEWARDSHIP,
             type: 'people_follow_through_missed',
             title: 'A housing follow-through item needs attention',
             body: 'The current due time passed without completion evidence. Aureus kept the underlying Responsibility open and marked the item for responsible continuation.',
-            data: { responsibilityId: row.id, obligationId: contract.obligationId },
-            dedupeKey: `people-step5:${contract.obligationId}:missed:${contract.dueAt}`,
+            data: { responsibilityId: row.id, obligationId: missed.obligationId },
+            dedupeKey: `people-step5:${missed.obligationId}:missed:${missed.dueAt}`,
           });
           await this.notifyAssignedStewardForReview(row.principalUserId, row.id, missed);
         } catch (error) {
@@ -696,7 +735,9 @@ export class PeopleFollowThroughService {
         },
       });
       if (result.count !== 1) {
-        throw new ConflictException('Responsibility changed while the Obligation was being recorded; retry');
+        throw new ConflictException(
+          'Responsibility changed while the Obligation was being recorded; retry',
+        );
       }
     });
   }
@@ -705,6 +746,7 @@ export class PeopleFollowThroughService {
     responsibilityId: string,
     principalUserId: string,
     mutate: (current: FollowThroughContract) => FollowThroughContract,
+    expectedRevision?: number,
   ): Promise<FollowThroughContract> {
     return this.prisma.db.$transaction(async (tx) => {
       const row = await tx.responsibility.findFirst({
@@ -720,19 +762,36 @@ export class PeopleFollowThroughService {
       const current = this.contractFromCriteria(criteria);
       const next = mutate(current);
       if (next === current) return current;
+      if (expectedRevision !== undefined) {
+        this.assertExpectedRevision(current, expectedRevision);
+      }
+      const revised: FollowThroughContract = {
+        ...next,
+        revision: current.revision + 1,
+      };
       const result = await tx.responsibility.updateMany({
-        where: { id: row.id, principalUserId, updatedAt: row.updatedAt },
+        where: {
+          id: row.id,
+          principalUserId,
+          updatedAt: row.updatedAt,
+          successCriteria: {
+            path: ['step5FollowThrough', 'revision'],
+            equals: current.revision,
+          },
+        },
         data: {
           successCriteria: {
             ...criteria,
-            step5FollowThrough: next,
+            step5FollowThrough: revised,
           } as unknown as Prisma.InputJsonValue,
         },
       });
       if (result.count !== 1) {
-        throw new ConflictException('Follow-through state changed concurrently; retry from the current truth');
+        throw new ConflictException(
+          'Follow-through state changed concurrently; retry from the current truth',
+        );
       }
-      return next;
+      return revised;
     });
   }
 
@@ -742,6 +801,7 @@ export class PeopleFollowThroughService {
     mutate: (current: FollowThroughContract) => FollowThroughContract,
     dueAt: Date | undefined,
     evidence: EvidencePointer,
+    expectedRevision: number,
   ): Promise<FollowThroughContract> {
     return this.prisma.db.$transaction(async (tx) => {
       const row = await tx.responsibility.findFirst({
@@ -757,19 +817,34 @@ export class PeopleFollowThroughService {
       const current = this.contractFromCriteria(criteria);
       const next = mutate(current);
       if (next === current) return current;
+      this.assertExpectedRevision(current, expectedRevision);
+      const revised: FollowThroughContract = {
+        ...next,
+        revision: current.revision + 1,
+      };
 
       const result = await tx.responsibility.updateMany({
-        where: { id: row.id, principalUserId, updatedAt: row.updatedAt },
+        where: {
+          id: row.id,
+          principalUserId,
+          updatedAt: row.updatedAt,
+          successCriteria: {
+            path: ['step5FollowThrough', 'revision'],
+            equals: current.revision,
+          },
+        },
         data: {
           successCriteria: {
             ...criteria,
-            step5FollowThrough: next,
+            step5FollowThrough: revised,
           } as unknown as Prisma.InputJsonValue,
           ...(dueAt ? { dueAt } : {}),
         },
       });
       if (result.count !== 1) {
-        throw new ConflictException('Follow-through state changed concurrently; retry from the current truth');
+        throw new ConflictException(
+          'Follow-through state changed concurrently; retry from the current truth',
+        );
       }
 
       // OR-001's database contract intentionally defines ACTION_EVIDENCED as
@@ -785,7 +860,7 @@ export class PeopleFollowThroughService {
           sourceSystem: evidence.sourceSystem,
           sourceRecordType: evidence.sourceRecordType,
           sourceRecordId:
-            evidence.sourceRecordId === 'SELF' ? next.obligationId : evidence.sourceRecordId,
+            evidence.sourceRecordId === 'SELF' ? revised.obligationId : evidence.sourceRecordId,
           sourceState: evidence.sourceState,
           evidenceLevel:
             evidence.evidenceLevel === 'VERIFIED'
@@ -793,7 +868,7 @@ export class PeopleFollowThroughService {
               : ResponsibilityEvidenceLevel.REPORTED,
         },
       });
-      return next;
+      return revised;
     });
   }
 
@@ -829,10 +904,7 @@ export class PeopleFollowThroughService {
     }
   }
 
-  private async getOpenResponsibilityForStaff(
-    responsibilityId: string,
-    caller: AuthenticatedUser,
-  ) {
+  private async getOpenResponsibilityForStaff(responsibilityId: string, caller: AuthenticatedUser) {
     const row = await this.prisma.db.responsibility.findFirst({
       where: {
         id: responsibilityId,
@@ -848,10 +920,7 @@ export class PeopleFollowThroughService {
     return row;
   }
 
-  private async assertStaffForMember(
-    memberId: string,
-    caller: AuthenticatedUser,
-  ): Promise<void> {
+  private async assertStaffForMember(memberId: string, caller: AuthenticatedUser): Promise<void> {
     if (hasRole(caller, PLATFORM_ADMIN_ROLES)) return;
     if (!hasRole(caller, [UserRole.STEWARD])) {
       throw new NotFoundException('Open Personal Need Responsibility not found');
@@ -955,6 +1024,8 @@ export class PeopleFollowThroughService {
       candidate.version !== STEP5_VERSION ||
       candidate.domain !== 'HOUSING' ||
       typeof candidate.obligationId !== 'string' ||
+      !Number.isInteger(candidate.revision) ||
+      candidate.revision < 1 ||
       typeof candidate.dueAt !== 'string' ||
       !Array.isArray(candidate.history)
     ) {
@@ -974,6 +1045,14 @@ export class PeopleFollowThroughService {
     return cleaned;
   }
 
+  private assertExpectedRevision(current: FollowThroughContract, expectedRevision: number): void {
+    if (current.revision !== expectedRevision) {
+      throw new ConflictException(
+        'Follow-through state changed since it was read; refresh the current truth before retrying',
+      );
+    }
+  }
+
   private assertValidTimeZone(timeZone: string): void {
     try {
       new Intl.DateTimeFormat('en-US', { timeZone }).format(new Date());
@@ -989,6 +1068,7 @@ export class PeopleFollowThroughService {
     return {
       responsibilityId,
       obligationId: contract.obligationId,
+      revision: contract.revision,
       domain: contract.domain,
       kind: contract.kind,
       owner: contract.owner,

@@ -12,6 +12,7 @@ This candidate implements People Step 5 as the first PA-023 / RME-001 sourced Ob
 - canonical `PERSONAL_NEED_RESOLUTION` Responsibility remains the accepted-work root;
 - `Responsibility.dueAt` is reused as the current due projection for the deliberately one-obligation proof;
 - `Responsibility.successCriteria.step5FollowThrough` carries the bounded typed contract until repeated domains justify generalized persistence;
+- the contract exposes a monotonic revision and every external mutation requires the caller's last-read revision, while the database compare-and-set also checks that JSON revision so concurrent writers cannot silently overwrite one another;
 - `ResponsibilityEvent.ACTION_EVIDENCED` carries append-only source references for reported/verified satisfaction and staff verification;
 - existing `StewardshipRelationship` remains Human Steward ownership truth;
 - existing `NotificationsService` provides dedupe-keyed reminder/retry/review communication;

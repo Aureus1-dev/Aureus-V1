@@ -37,12 +37,15 @@ describe('People Step 5 — Obligation & Follow-through E2E', () => {
   let nonHousingNeedId: string;
   let housingResponsibilityId: string;
   let nonHousingResponsibilityId: string;
+  let housingRevision: number;
 
   const marker = `people-step5-${randomUUID()}`;
   const secretAction = `private-housing-action-${randomUUID()}`;
 
   beforeAll(async () => {
-    const moduleRef: TestingModule = await Test.createTestingModule({ imports: [AppModule] }).compile();
+    const moduleRef: TestingModule = await Test.createTestingModule({
+      imports: [AppModule],
+    }).compile();
     app = moduleRef.createNestApplication();
     app.useGlobalPipes(
       new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true, transform: true }),
@@ -97,7 +100,8 @@ describe('People Step 5 — Obligation & Follow-through E2E', () => {
         data: {
           userId: ownerId,
           conversationId: housingConversation.body.id,
-          content: 'I need housing help finding a studio and keeping up with the application deadline.',
+          content:
+            'I need housing help finding a studio and keeping up with the application deadline.',
         },
       }),
       prisma.db.statedNeed.create({
@@ -121,7 +125,10 @@ describe('People Step 5 — Obligation & Follow-through E2E', () => {
     const nonHousingAccepted = await request(app.getHttpServer())
       .post('/people/resolutions')
       .set('Authorization', `Bearer ${ownerToken}`)
-      .send({ statedNeedId: nonHousingNeedId, objective: 'Help me improve my employment situation' })
+      .send({
+        statedNeedId: nonHousingNeedId,
+        objective: 'Help me improve my employment situation',
+      })
       .expect(201);
     nonHousingResponsibilityId = nonHousingAccepted.body.responsibility.id;
   });
@@ -222,6 +229,8 @@ describe('People Step 5 — Obligation & Follow-through E2E', () => {
 
     expect(created.body.dueProvenance).toBe(PeopleFollowThroughDueProvenance.REPORTED);
     expect(created.body.state).toBe(PeopleFollowThroughState.PENDING);
+    expect(created.body.revision).toBe(1);
+    housingRevision = created.body.revision;
 
     const stored = await prisma.db.responsibility.findUniqueOrThrow({
       where: { id: housingResponsibilityId },
@@ -235,6 +244,16 @@ describe('People Step 5 — Obligation & Follow-through E2E', () => {
       .get(`/people/follow-through/${housingResponsibilityId}`)
       .set('Authorization', `Bearer ${otherToken}`)
       .expect(404);
+
+    await request(app.getHttpServer())
+      .post(`/people/follow-through/${housingResponsibilityId}/due-change`)
+      .set('Authorization', `Bearer ${otherToken}`)
+      .send({
+        expectedRevision: housingRevision,
+        dueAt: '2026-10-09T15:00:00.000Z',
+        dueBasis: 'Unauthorized cross-member mutation attempt',
+      })
+      .expect(404);
   });
 
   it('does not reveal staff-verification target existence before authorization', async () => {
@@ -242,6 +261,7 @@ describe('People Step 5 — Obligation & Follow-through E2E', () => {
       .post(`/people/follow-through/${housingResponsibilityId}/due-verification`)
       .set('Authorization', `Bearer ${otherToken}`)
       .send({
+        expectedRevision: housingRevision,
         dueAt: '2026-10-02T16:00:00.000Z',
         sourceSystem: 'PROPERTY_PROVIDER',
         sourceRecordType: 'AppointmentConfirmation',
@@ -254,6 +274,7 @@ describe('People Step 5 — Obligation & Follow-through E2E', () => {
       .post(`/people/follow-through/${randomUUID()}/due-verification`)
       .set('Authorization', `Bearer ${otherToken}`)
       .send({
+        expectedRevision: 1,
         dueAt: '2026-10-02T16:00:00.000Z',
         sourceSystem: 'PROPERTY_PROVIDER',
         sourceRecordType: 'AppointmentConfirmation',
@@ -268,6 +289,7 @@ describe('People Step 5 — Obligation & Follow-through E2E', () => {
       .post(`/people/follow-through/${housingResponsibilityId}/due-verification`)
       .set('Authorization', `Bearer ${stewardToken}`)
       .send({
+        expectedRevision: housingRevision,
         dueAt: '2026-10-02T16:00:00.000Z',
         sourceSystem: 'PROPERTY_PROVIDER',
         sourceRecordType: 'AppointmentConfirmation',
@@ -291,6 +313,7 @@ describe('People Step 5 — Obligation & Follow-through E2E', () => {
       .post(`/people/follow-through/${housingResponsibilityId}/due-verification`)
       .set('Authorization', `Bearer ${stewardToken}`)
       .send({
+        expectedRevision: housingRevision,
         dueAt: '2026-10-02T16:00:00.000Z',
         dueBasis: 'Provider confirmation',
         sourceSystem: 'PROPERTY_PROVIDER',
@@ -302,6 +325,7 @@ describe('People Step 5 — Obligation & Follow-through E2E', () => {
 
     expect(verified.body.dueProvenance).toBe(PeopleFollowThroughDueProvenance.VERIFIED);
     expect(verified.body.dueAt).toBe('2026-10-02T16:00:00.000Z');
+    housingRevision = verified.body.revision;
 
     const evidence = await prisma.db.responsibilityEvent.findFirst({
       where: {
@@ -319,6 +343,7 @@ describe('People Step 5 — Obligation & Follow-through E2E', () => {
       .post(`/people/follow-through/${housingResponsibilityId}/due-change`)
       .set('Authorization', `Bearer ${ownerToken}`)
       .send({
+        expectedRevision: housingRevision,
         dueAt: '2026-10-05T18:00:00.000Z',
         dueBasis: 'I heard the date may have changed.',
       })
@@ -327,6 +352,7 @@ describe('People Step 5 — Obligation & Follow-through E2E', () => {
     expect(response.body.state).toBe(PeopleFollowThroughState.DISPUTED);
     expect(response.body.dueAt).toBe('2026-10-02T16:00:00.000Z');
     expect(response.body.reviewRequired).toBe(true);
+    housingRevision = response.body.revision;
 
     const stored = await prisma.db.responsibility.findUniqueOrThrow({
       where: { id: housingResponsibilityId },
@@ -344,6 +370,48 @@ describe('People Step 5 — Obligation & Follow-through E2E', () => {
     expect(serialized).toContain(housingResponsibilityId);
     expect(serialized).not.toContain(secretAction);
     expect(serialized).not.toContain('requiredAction');
+    expect(
+      response.body.find(
+        (row: { responsibilityId: string }) => row.responsibilityId === housingResponsibilityId,
+      ).revision,
+    ).toBe(housingRevision);
+  });
+
+  it('requires responsible retry after no response and never treats an attempt as outcome evidence', async () => {
+    await request(app.getHttpServer())
+      .post(`/people/follow-through/${housingResponsibilityId}/attempts`)
+      .set('Authorization', `Bearer ${ownerToken}`)
+      .send({ expectedRevision: housingRevision, result: 'NO_RESPONSE' })
+      .expect(400);
+
+    const nextAttemptAt = new Date(Date.now() - 60_000).toISOString();
+    const attempted = await request(app.getHttpServer())
+      .post(`/people/follow-through/${housingResponsibilityId}/attempts`)
+      .set('Authorization', `Bearer ${ownerToken}`)
+      .send({
+        expectedRevision: housingRevision,
+        result: 'NO_RESPONSE',
+        nextAttemptAt,
+        note: 'The property office did not answer.',
+      })
+      .expect(201);
+
+    expect(attempted.body.state).toBe(PeopleFollowThroughState.DISPUTED);
+    expect(attempted.body.reviewRequired).toBe(true);
+    expect(attempted.body.attemptCount).toBe(1);
+    housingRevision = attempted.body.revision;
+
+    await followThrough.runFollowThroughSweep();
+    await followThrough.runFollowThroughSweep();
+    const dedupeKey = `people-step5:${attempted.body.obligationId}:retry:${nextAttemptAt}`;
+    expect(await prisma.db.notification.count({ where: { recipientId: ownerId, dedupeKey } })).toBe(
+      1,
+    );
+
+    const responsibility = await prisma.db.responsibility.findUniqueOrThrow({
+      where: { id: housingResponsibilityId },
+    });
+    expect(responsibility.status).not.toBe(ResponsibilityStatus.COMPLETED);
   });
 
   it('optimistic locking rejects one of two concurrent mutations instead of silently overwriting', async () => {
@@ -366,7 +434,7 @@ describe('People Step 5 — Obligation & Follow-through E2E', () => {
       .expect(201);
     const responsibilityId = accepted.body.responsibility.id;
 
-    await request(app.getHttpServer())
+    const created = await request(app.getHttpServer())
       .post(`/people/follow-through/${responsibilityId}/housing`)
       .set('Authorization', `Bearer ${otherToken}`)
       .send({
@@ -378,19 +446,31 @@ describe('People Step 5 — Obligation & Follow-through E2E', () => {
       })
       .expect(201);
 
+    const expectedRevision = created.body.revision;
+
     const [first, second] = await Promise.all([
       request(app.getHttpServer())
         .post(`/people/follow-through/${responsibilityId}/due-change`)
         .set('Authorization', `Bearer ${otherToken}`)
-        .send({ dueAt: '2026-10-11T15:00:00.000Z', dueBasis: 'First concurrent report' }),
+        .send({
+          expectedRevision,
+          dueAt: '2026-10-11T15:00:00.000Z',
+          dueBasis: 'First concurrent report',
+        }),
       request(app.getHttpServer())
         .post(`/people/follow-through/${responsibilityId}/due-change`)
         .set('Authorization', `Bearer ${otherToken}`)
-        .send({ dueAt: '2026-10-12T15:00:00.000Z', dueBasis: 'Second concurrent report' }),
+        .send({
+          expectedRevision,
+          dueAt: '2026-10-12T15:00:00.000Z',
+          dueBasis: 'Second concurrent report',
+        }),
     ]);
 
     expect([first.status, second.status].sort()).toEqual([201, 409]);
-    const stored = await prisma.db.responsibility.findUniqueOrThrow({ where: { id: responsibilityId } });
+    const stored = await prisma.db.responsibility.findUniqueOrThrow({
+      where: { id: responsibilityId },
+    });
     expect(['2026-10-11T15:00:00.000Z', '2026-10-12T15:00:00.000Z']).toContain(
       stored.dueAt?.toISOString(),
     );
@@ -433,18 +513,19 @@ describe('People Step 5 — Obligation & Follow-through E2E', () => {
     await followThrough.runFollowThroughSweep();
     await followThrough.runFollowThroughSweep();
 
-    expect(
-      await prisma.db.notification.count({ where: { recipientId: otherId, dedupeKey } }),
-    ).toBe(1);
+    expect(await prisma.db.notification.count({ where: { recipientId: otherId, dedupeKey } })).toBe(
+      1,
+    );
   });
 
   it('records Obligation satisfaction without completing the underlying Personal Need Responsibility', async () => {
     const reported = await request(app.getHttpServer())
       .post(`/people/follow-through/${housingResponsibilityId}/satisfaction-report`)
       .set('Authorization', `Bearer ${ownerToken}`)
-      .send({ note: 'The callback happened.' })
+      .send({ expectedRevision: housingRevision, note: 'The callback happened.' })
       .expect(201);
     expect(reported.body.state).toBe(PeopleFollowThroughState.SATISFIED_REPORTED);
+    housingRevision = reported.body.revision;
 
     let responsibility = await prisma.db.responsibility.findUniqueOrThrow({
       where: { id: housingResponsibilityId },
@@ -455,6 +536,7 @@ describe('People Step 5 — Obligation & Follow-through E2E', () => {
       .post(`/people/follow-through/${housingResponsibilityId}/satisfaction-verification`)
       .set('Authorization', `Bearer ${stewardToken}`)
       .send({
+        expectedRevision: housingRevision,
         sourceSystem: 'PROPERTY_PROVIDER',
         sourceRecordType: 'CallbackReceipt',
         sourceRecordId: 'callback-001',
@@ -462,6 +544,7 @@ describe('People Step 5 — Obligation & Follow-through E2E', () => {
       })
       .expect(201);
     expect(verified.body.state).toBe(PeopleFollowThroughState.SATISFIED_VERIFIED);
+    housingRevision = verified.body.revision;
 
     responsibility = await prisma.db.responsibility.findUniqueOrThrow({
       where: { id: housingResponsibilityId },
@@ -502,8 +585,11 @@ describe('People Step 5 — Obligation & Follow-through E2E', () => {
       })
       .expect(201);
 
-    const beforeNeedEscalations = await prisma.db.needEscalation.count({ where: { userId: otherId } });
+    const beforeNeedEscalations = await prisma.db.needEscalation.count({
+      where: { userId: otherId },
+    });
     const beforeStewardEscalations = await prisma.db.stewardshipEscalation.count();
+    await followThrough.runFollowThroughSweep();
     await followThrough.runFollowThroughSweep();
 
     const state = await request(app.getHttpServer())
@@ -517,16 +603,38 @@ describe('People Step 5 — Obligation & Follow-through E2E', () => {
       .get('/people/follow-through/assigned')
       .set('Authorization', `Bearer ${adminToken}`)
       .expect(200);
-    expect(adminQueue.body.some((row: { responsibilityId: string }) => row.responsibilityId === responsibilityId)).toBe(
-      true,
-    );
+    expect(
+      adminQueue.body.some(
+        (row: { responsibilityId: string }) => row.responsibilityId === responsibilityId,
+      ),
+    ).toBe(true);
 
     const responsibility = await prisma.db.responsibility.findUniqueOrThrow({
       where: { id: responsibilityId },
     });
     expect(responsibility.status).not.toBe(ResponsibilityStatus.COMPLETED);
     expect(responsibility.status).not.toBe(ResponsibilityStatus.RESPONSIBLY_EXHAUSTED);
-    expect(await prisma.db.needEscalation.count({ where: { userId: otherId } })).toBe(beforeNeedEscalations);
+    const contract = (
+      responsibility.successCriteria as {
+        step5FollowThrough: { obligationId: string; dueAt: string; history: { event: string }[] };
+      }
+    ).step5FollowThrough;
+    expect(
+      contract.history.filter(
+        (entry) => entry.event === 'DUE_TIME_PASSED_WITHOUT_SATISFACTION_EVIDENCE',
+      ),
+    ).toHaveLength(1);
+    expect(
+      await prisma.db.notification.count({
+        where: {
+          recipientId: otherId,
+          dedupeKey: `people-step5:${contract.obligationId}:missed:${contract.dueAt}`,
+        },
+      }),
+    ).toBe(1);
+    expect(await prisma.db.needEscalation.count({ where: { userId: otherId } })).toBe(
+      beforeNeedEscalations,
+    );
     expect(await prisma.db.stewardshipEscalation.count()).toBe(beforeStewardEscalations);
   });
 });

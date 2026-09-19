@@ -49,6 +49,7 @@ This PR does **not** build the complete Housing Steward. It builds the cross-dom
 Exactly one `step5FollowThrough` contract may exist on this first-proof Responsibility. It preserves:
 
 - stable obligation id and contract version;
+- monotonic mutation revision so stale concurrent writers fail closed instead of overwriting newer truth;
 - domain = `HOUSING`;
 - source pointer to the canonical `StatedNeed`;
 - kind: callback / appointment / document request / deadline / waiting / retry;
@@ -113,6 +114,7 @@ The assigned Human Steward queue exposes only:
 - member id;
 - Responsibility id;
 - Obligation id;
+- mutation revision required for a bounded staff verification write;
 - kind;
 - owner;
 - due / next-attempt time;
