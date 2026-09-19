@@ -112,6 +112,19 @@ export function verifyEmail(token: string): Promise<void> {
   });
 }
 
+/**
+ * Non-enumerating recovery path. The API deliberately returns the same empty
+ * success response whether the address is unknown, already verified, or was
+ * sent a new verification message.
+ */
+export function resendVerification(email: string): Promise<void> {
+  return apiRequest<void>('/auth/resend-verification', {
+    method: 'POST',
+    body: { email },
+    retryOn401: false,
+  });
+}
+
 export function me(accessToken: string): Promise<UserDto> {
   return apiRequest<UserDto>('/auth/me', { accessToken, retryOn401: false });
 }
