@@ -3,6 +3,50 @@ import type { KitchenBathReadyProject } from './kitchen-bath';
 
 export type WardLeadStatus = 'SUBMITTED' | 'ACCEPTED' | 'CONTACTED' | 'CLOSED' | 'LOST';
 
+export type RevenueCompletionStage =
+  | 'READY_PROJECT_VALIDATED'
+  | 'PROPOSAL_RECORDED'
+  | 'FOLLOW_UP_RECORDED'
+  | 'DECISION_RECORDED'
+  | 'CONTRACT_RECORDED'
+  | 'DEPOSIT_RECORDED'
+  | 'OPERATIONS_HANDOFF_RECORDED';
+
+export type RevenueDecision = 'ACCEPTED' | 'DECLINED' | 'REVISION_REQUESTED';
+
+export interface RevenueCompletionProjection {
+  contractVersion: 'or004-revenue-completion-v1';
+  responsibilityId: string | null;
+  responsibilityStatus: string | null;
+  currentStage: RevenueCompletionStage | null;
+  leadStatus: WardLeadStatus;
+  milestones: Array<{
+    eventId: string;
+    stage: RevenueCompletionStage;
+    evidenceReference: string;
+    decision: RevenueDecision | null;
+    evidenceLevel: 'REPORTED';
+    reportedByUserId: string | null;
+    requestKey: string | null;
+    occurredAt: string;
+  }>;
+  latestDecision: RevenueDecision | null;
+  availableActions: RevenueCompletionStage[];
+  nextRequiredAction: string;
+  evidenceNotice: string;
+  economicStewardship: {
+    earn: { status: 'UNKNOWN'; basis: string };
+    convert: {
+      status: 'REPORTED';
+      stage: RevenueCompletionStage | null;
+      leadStatus: WardLeadStatus;
+      basis: string;
+    };
+    keep: { status: 'UNKNOWN'; basis: string };
+    compound: { status: 'UNKNOWN'; basis: string };
+  };
+}
+
 export interface BusinessOperationsSummary {
   generatedAt: string;
   pipeline: {
@@ -76,6 +120,9 @@ export interface BusinessLeadSummary {
 export interface BusinessLeadDetail extends BusinessLeadSummary {
   outcomeReason: string | null;
   readyProject: KitchenBathReadyProject | null;
+  // Older fixtures and non-OR-004-compatible callers may omit this optional
+  // projection. The live Step 6 endpoint supplies it for retained Ready Projects.
+  revenueCompletion?: RevenueCompletionProjection | null;
   events: Array<{
     id: string;
     type: string;
@@ -159,5 +206,23 @@ export function transitionBusinessLead(
     method: 'PATCH',
     accessToken,
     body: { status, ...(reason ? { reason } : {}) },
+  });
+}
+
+export function recordRevenueMilestone(
+  accessToken: string,
+  tenantId: string,
+  leadId: string,
+  input: {
+    stage: RevenueCompletionStage;
+    requestKey: string;
+    evidenceReference: string;
+    decision?: RevenueDecision;
+  },
+): Promise<RevenueCompletionProjection> {
+  return apiRequest(`${leadsBase(tenantId)}/${leadId}/revenue-milestones`, {
+    method: 'POST',
+    accessToken,
+    body: input,
   });
 }

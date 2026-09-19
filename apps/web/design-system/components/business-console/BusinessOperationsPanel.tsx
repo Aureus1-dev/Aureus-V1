@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   assignBusinessLead,
   exportBusinessOperations,
@@ -16,6 +16,7 @@ import {
 } from '../../../lib/api/business-operations';
 import { useBusiness, useSession } from '../../../state';
 import { KitchenBathReadyProjectCard } from '../public-ward/KitchenBathReadyProjectCard';
+import { RevenueCompletionPanel } from './RevenueCompletionPanel';
 import styles from './BusinessOperationsPanel.module.css';
 
 const NEXT_STATUS: Partial<Record<WardLeadStatus, WardLeadStatus[]>> = {
@@ -24,94 +25,143 @@ const NEXT_STATUS: Partial<Record<WardLeadStatus, WardLeadStatus[]>> = {
   CONTACTED: ['CLOSED', 'LOST'],
 };
 
+const TERMINAL_LEAD_STATUSES = new Set<WardLeadStatus>(['CLOSED', 'LOST']);
+
+type LoadState = 'loading' | 'ready' | 'working' | 'empty' | 'error';
+
 export function BusinessOperationsPanel() {
   const { session } = useSession();
   const { activeTenant, state: businessState } = useBusiness();
   const tenantId = activeTenant?.id ?? '';
+  const loadGeneration = useRef(0);
+  const [loadedTenantId, setLoadedTenantId] = useState<string | null>(null);
   const [summary, setSummary] = useState<BusinessOperationsSummary | null>(null);
   const [leads, setLeads] = useState<BusinessLeadSummary[]>([]);
   const [selected, setSelected] = useState<BusinessLeadDetail | null>(null);
-  const [state, setState] = useState<'loading' | 'ready' | 'working' | 'empty' | 'error'>(
-    'loading',
-  );
+  const [state, setState] = useState<LoadState>('loading');
   const [message, setMessage] = useState('');
   const [outcomeReason, setOutcomeReason] = useState('');
 
-  const refresh = async (accessToken: string, id: string, selectedId?: string) => {
-    const [nextSummary, nextLeads] = await Promise.all([
+  const refresh = async (
+    accessToken: string,
+    id: string,
+    selectedId: string | undefined,
+    generation: number,
+  ): Promise<boolean> => {
+    if (generation !== loadGeneration.current) return false;
+
+    const [nextSummary, nextLeads, nextSelected] = await Promise.all([
       getBusinessOperationsSummary(accessToken, id),
       listBusinessLeads(accessToken, id),
+      selectedId ? getBusinessLead(accessToken, id, selectedId) : Promise.resolve(null),
     ]);
+
+    if (generation !== loadGeneration.current) return false;
     setSummary(nextSummary);
     setLeads(nextLeads);
-    if (selectedId) {
-      setSelected(await getBusinessLead(accessToken, id, selectedId));
-    }
+    if (selectedId) setSelected(nextSelected);
+    setLoadedTenantId(id);
+    return true;
   };
 
   useEffect(() => {
-    if (!session.accessToken) return;
-    if (businessState.isLoading) return;
-    if (!activeTenant) {
-      setState('empty');
+    const generation = ++loadGeneration.current;
+
+    if (!session.accessToken || businessState.isLoading) {
+      setState('loading');
+      setLoadedTenantId(null);
       setSummary(null);
       setLeads([]);
       setSelected(null);
+      setMessage('');
       return;
     }
 
-    // Reset immediately, before the fetch resolves, so no stale handoff or
-    // summary from a previously active company remains visible or
-    // actionable while the newly selected one loads (Step 1 repair).
-    let active = true;
+    if (!activeTenant) {
+      setState('empty');
+      setLoadedTenantId(null);
+      setSummary(null);
+      setLeads([]);
+      setSelected(null);
+      setMessage('');
+      return;
+    }
+
+    // Clear immediately, and bind the next committed payload to the generation
+    // that requested it. A late response from another tenant can never commit.
     setState('loading');
+    setLoadedTenantId(null);
     setSummary(null);
     setLeads([]);
     setSelected(null);
+    setMessage('');
 
-    void refresh(session.accessToken, activeTenant.id)
-      .then(() => {
-        if (active) setState('ready');
+    void refresh(session.accessToken, activeTenant.id, undefined, generation)
+      .then((committed) => {
+        if (committed && generation === loadGeneration.current) setState('ready');
       })
       .catch(() => {
-        if (active) {
-          setMessage('We could not load observed business operations.');
-          setState('error');
-        }
+        if (generation !== loadGeneration.current) return;
+        setSummary(null);
+        setLeads([]);
+        setSelected(null);
+        setLoadedTenantId(activeTenant.id);
+        setMessage('We could not load observed business operations.');
+        setState('error');
       });
-    return () => {
-      active = false;
-    };
   }, [session.accessToken, businessState.isLoading, activeTenant]);
 
+  // Render-time binding closes the one-frame window before the tenant-change
+  // effect runs. Private rows/actions are visible only with the tenant that
+  // produced them.
+  const contextMatches = Boolean(
+    activeTenant && !businessState.isLoading && loadedTenantId === tenantId,
+  );
+  const visibleSummary = contextMatches ? summary : null;
+  const visibleLeads = contextMatches ? leads : [];
+  const visibleSelected = contextMatches ? selected : null;
+  const visibleGeneration = loadGeneration.current;
+
   const selectedOwner = useMemo(
-    () => summary?.owners.find((owner) => owner.userId === selected?.assignedToId) ?? null,
-    [selected, summary],
+    () =>
+      visibleSummary?.owners.find((owner) => owner.userId === visibleSelected?.assignedToId) ?? null,
+    [visibleSelected, visibleSummary],
   );
 
   const chooseLead = async (leadId: string) => {
-    if (!session.accessToken || !tenantId) return;
+    if (!session.accessToken || !tenantId || !contextMatches) return;
+    const id = tenantId;
+    const generation = loadGeneration.current;
     setState('working');
     setMessage('');
     try {
-      setSelected(await getBusinessLead(session.accessToken, tenantId, leadId));
+      const nextSelected = await getBusinessLead(session.accessToken, id, leadId);
+      if (generation !== loadGeneration.current) return;
+      setSelected(nextSelected);
       setOutcomeReason('');
       setState('ready');
     } catch {
+      if (generation !== loadGeneration.current) return;
       setMessage('That handoff could not be opened. Refresh the inbox and try again.');
       setState('error');
     }
   };
 
   const assign = async (assignedToId: string) => {
-    if (!session.accessToken || !tenantId || !selected) return;
+    if (!session.accessToken || !tenantId || !visibleSelected) return;
+    const id = tenantId;
+    const leadId = visibleSelected.id;
+    const generation = loadGeneration.current;
     setState('working');
     try {
-      await assignBusinessLead(session.accessToken, tenantId, selected.id, assignedToId);
-      await refresh(session.accessToken, tenantId, selected.id);
+      await assignBusinessLead(session.accessToken, id, leadId, assignedToId);
+      if (generation !== loadGeneration.current) return;
+      const committed = await refresh(session.accessToken, id, leadId, generation);
+      if (!committed) return;
       setMessage('Owner updated with tenant-scoped accountability.');
       setState('ready');
     } catch {
+      if (generation !== loadGeneration.current) return;
       setMessage(
         'The owner was not changed. Only eligible members of this tenant can receive the handoff.',
       );
@@ -120,27 +170,34 @@ export function BusinessOperationsPanel() {
   };
 
   const transition = async (status: WardLeadStatus) => {
-    if (!session.accessToken || !tenantId || !selected) return;
-    const terminal = status === 'CLOSED' || status === 'LOST';
+    if (!session.accessToken || !tenantId || !visibleSelected) return;
+    const terminal = TERMINAL_LEAD_STATUSES.has(status);
     if (terminal && outcomeReason.trim().length < 3) {
       setMessage('Add a factual outcome reason before closing or losing a handoff.');
       setState('error');
       return;
     }
+
+    const id = tenantId;
+    const leadId = visibleSelected.id;
+    const generation = loadGeneration.current;
     setState('working');
     try {
       await transitionBusinessLead(
         session.accessToken,
-        tenantId,
-        selected.id,
+        id,
+        leadId,
         status,
         terminal ? outcomeReason.trim() : undefined,
       );
-      await refresh(session.accessToken, tenantId, selected.id);
+      if (generation !== loadGeneration.current) return;
+      const committed = await refresh(session.accessToken, id, leadId, generation);
+      if (!committed) return;
       setMessage(`Handoff moved to ${status.toLowerCase()}.`);
       setOutcomeReason('');
       setState('ready');
     } catch {
+      if (generation !== loadGeneration.current) return;
       setMessage(
         'The handoff state changed or that transition is not allowed. Refresh before trying again.',
       );
@@ -149,10 +206,13 @@ export function BusinessOperationsPanel() {
   };
 
   const exportSnapshot = async () => {
-    if (!session.accessToken || !tenantId) return;
+    if (!session.accessToken || !tenantId || !contextMatches) return;
+    const id = tenantId;
+    const generation = loadGeneration.current;
     setState('working');
     try {
-      const snapshot = await exportBusinessOperations(session.accessToken, tenantId);
+      const snapshot = await exportBusinessOperations(session.accessToken, id);
+      if (generation !== loadGeneration.current) return;
       const blob = new Blob([JSON.stringify(snapshot, null, 2)], { type: 'application/json' });
       const url = URL.createObjectURL(blob);
       const anchor = document.createElement('a');
@@ -163,24 +223,41 @@ export function BusinessOperationsPanel() {
       setMessage('Tenant-scoped operational export prepared.');
       setState('ready');
     } catch {
+      if (generation !== loadGeneration.current) return;
       setMessage('The export was not created. Owner, admin, or manager permission is required.');
       setState('error');
     }
   };
 
-  if (state === 'loading')
+  if (state === 'empty') return null;
+  if (!contextMatches && state !== 'error') {
     return (
       <section className={styles.surface} aria-busy="true">
         <p>Opening business operations…</p>
       </section>
     );
-  if (state === 'empty') return null;
-  if (!summary)
+  }
+  if (state === 'loading') {
+    return (
+      <section className={styles.surface} aria-busy="true">
+        <p>Opening business operations…</p>
+      </section>
+    );
+  }
+  if (!visibleSummary) {
     return (
       <section className={styles.surface} role="alert">
         <p>{message || 'Business operations unavailable.'}</p>
       </section>
     );
+  }
+
+  const revenueStarted = Boolean(visibleSelected?.revenueCompletion?.responsibilityId);
+  const nextLeadStatuses = visibleSelected
+    ? (NEXT_STATUS[visibleSelected.status] ?? []).filter(
+        (status) => !(revenueStarted && TERMINAL_LEAD_STATUSES.has(status)),
+      )
+    : [];
 
   return (
     <section className={styles.surface} aria-labelledby="business-operations-title">
@@ -196,11 +273,7 @@ export function BusinessOperationsPanel() {
           </p>
         </div>
         <div className={styles.toolbar}>
-          <button
-            type="button"
-            onClick={() => void exportSnapshot()}
-            disabled={state === 'working'}
-          >
+          <button type="button" onClick={() => void exportSnapshot()} disabled={state === 'working'}>
             Export snapshot
           </button>
           <Link href="/business/knowledge">Review knowledge</Link>
@@ -221,26 +294,26 @@ export function BusinessOperationsPanel() {
           <h3>Handoff pipeline</h3>
           <div className={styles.metricGrid}>
             <div className={styles.metric}>
-              <strong>{summary.pipeline.total}</strong>
+              <strong>{visibleSummary.pipeline.total}</strong>
               <span>retained handoffs</span>
             </div>
             <div className={styles.metric}>
-              <strong>{summary.pipeline.counts.SUBMITTED ?? 0}</strong>
+              <strong>{visibleSummary.pipeline.counts.SUBMITTED ?? 0}</strong>
               <span>submitted</span>
             </div>
             <div className={styles.metric}>
-              <strong>{summary.pipeline.awaitingNotification}</strong>
+              <strong>{visibleSummary.pipeline.awaitingNotification}</strong>
               <span>notification not confirmed</span>
             </div>
           </div>
           <div className={styles.inbox} aria-label="Handoff inbox">
-            {leads.length === 0 ? <p>No current handoffs.</p> : null}
-            {leads.map((lead) => (
+            {visibleLeads.length === 0 ? <p>No current handoffs.</p> : null}
+            {visibleLeads.map((lead) => (
               <button
                 key={lead.id}
                 type="button"
                 className={styles.leadButton}
-                aria-pressed={selected?.id === lead.id}
+                aria-pressed={visibleSelected?.id === lead.id}
                 onClick={() => void chooseLead(lead.id)}
               >
                 <strong>{lead.displayName}</strong> ·{' '}
@@ -263,58 +336,58 @@ export function BusinessOperationsPanel() {
           <h3>Provider health & spend</h3>
           <div className={styles.metricGrid}>
             <div className={styles.metric}>
-              <strong>{summary.provider.status.replaceAll('_', ' ')}</strong>
+              <strong>{visibleSummary.provider.status.replaceAll('_', ' ')}</strong>
               <span>observed status</span>
             </div>
             <div className={styles.metric}>
-              <strong>{summary.provider.requests}</strong>
+              <strong>{visibleSummary.provider.requests}</strong>
               <span>requests / 24h</span>
             </div>
             <div className={styles.metric}>
-              <strong>${summary.provider.spendUsd.toFixed(4)}</strong>
+              <strong>${visibleSummary.provider.spendUsd.toFixed(4)}</strong>
               <span>recorded spend / 24h</span>
             </div>
           </div>
-          <p className={styles.basis}>{summary.provider.basis}</p>
+          <p className={styles.basis}>{visibleSummary.provider.basis}</p>
           <p className={styles.subtle}>
-            Success {summary.provider.successes} · Failed {summary.provider.failures} · Moderation{' '}
-            {summary.provider.moderationBlocks} · Avg latency{' '}
-            {summary.provider.averageLatencyMs ?? '—'} ms
+            Success {visibleSummary.provider.successes} · Failed {visibleSummary.provider.failures}{' '}
+            · Moderation {visibleSummary.provider.moderationBlocks} · Avg latency{' '}
+            {visibleSummary.provider.averageLatencyMs ?? '—'} ms
           </p>
         </article>
 
         <article className={styles.card}>
           <h3>Business routing & fallback</h3>
           <p>
-            <span className={styles.status}>{summary.routing.publicStatus}</span>
+            <span className={styles.status}>{visibleSummary.routing.publicStatus}</span>
           </p>
           <p>
-            <strong>Hours:</strong> {JSON.stringify(summary.routing.businessHours)}
+            <strong>Hours:</strong> {JSON.stringify(visibleSummary.routing.businessHours)}
           </p>
           <p>
-            <strong>Human routes:</strong> {JSON.stringify(summary.routing.contactRoutes)}
+            <strong>Human routes:</strong> {JSON.stringify(visibleSummary.routing.contactRoutes)}
           </p>
-          <p className={styles.subtle}>{summary.routing.fallbackRule}</p>
+          <p className={styles.subtle}>{visibleSummary.routing.fallbackRule}</p>
         </article>
 
         <article className={styles.card}>
           <h3>Knowledge freshness</h3>
           <div className={styles.metricGrid}>
             <div className={styles.metric}>
-              <strong>{summary.knowledge.currentApproved}</strong>
+              <strong>{visibleSummary.knowledge.currentApproved}</strong>
               <span>current approved</span>
             </div>
             <div className={styles.metric}>
-              <strong>{summary.knowledge.dueOrReviewing}</strong>
+              <strong>{visibleSummary.knowledge.dueOrReviewing}</strong>
               <span>due / reviewing</span>
             </div>
             <div className={styles.metric}>
-              <strong>{summary.knowledge.total}</strong>
+              <strong>{visibleSummary.knowledge.total}</strong>
               <span>total records</span>
             </div>
           </div>
           <ul className={styles.queue}>
-            {summary.knowledge.queue.slice(0, 8).map((record) => (
+            {visibleSummary.knowledge.queue.slice(0, 8).map((record) => (
               <li key={record.id}>
                 {record.title} — {record.status.replaceAll('_', ' ')} — review{' '}
                 {new Date(record.nextReviewAt).toLocaleDateString()}
@@ -324,30 +397,30 @@ export function BusinessOperationsPanel() {
         </article>
       </div>
 
-      {selected ? (
+      {visibleSelected ? (
         <article className={styles.detail} aria-labelledby="handoff-detail-title">
           <div className={styles.header}>
             <div>
               <p className={styles.eyebrow}>Accountable handoff</p>
               <h3 id="handoff-detail-title">
-                {selected.displayName}: {selected.projectSummary}
+                {visibleSelected.displayName}: {visibleSelected.projectSummary}
               </h3>
               <p>
-                {selected.contactMethod}: {selected.contactValue}
+                {visibleSelected.contactMethod}: {visibleSelected.contactValue}
               </p>
             </div>
-            <span className={styles.status}>{selected.status}</span>
+            <span className={styles.status}>{visibleSelected.status}</span>
           </div>
 
           <div className={styles.actions}>
             <label>
               Owner{' '}
               <select
-                value={selected.assignedToId}
+                value={visibleSelected.assignedToId}
                 onChange={(event) => void assign(event.target.value)}
                 disabled={state === 'working'}
               >
-                {summary.owners.map((owner) => (
+                {visibleSummary.owners.map((owner) => (
                   <option value={owner.userId} key={owner.userId}>
                     {owner.displayName || owner.email} — {owner.role}
                   </option>
@@ -355,13 +428,12 @@ export function BusinessOperationsPanel() {
               </select>
             </label>
             <span>
-              Current: {selectedOwner?.displayName || selectedOwner?.email || selected.assignedToId}
+              Current:{' '}
+              {selectedOwner?.displayName || selectedOwner?.email || visibleSelected.assignedToId}
             </span>
           </div>
 
-          {NEXT_STATUS[selected.status]?.some(
-            (status) => status === 'CLOSED' || status === 'LOST',
-          ) ? (
+          {nextLeadStatuses.some((status) => TERMINAL_LEAD_STATUSES.has(status)) ? (
             <div className={styles.actions}>
               <label>
                 Factual outcome reason{' '}
@@ -375,7 +447,7 @@ export function BusinessOperationsPanel() {
           ) : null}
 
           <div className={styles.actions} aria-label="Next handoff actions">
-            {(NEXT_STATUS[selected.status] ?? []).map((status) => (
+            {nextLeadStatuses.map((status) => (
               <button
                 key={status}
                 type="button"
@@ -387,15 +459,35 @@ export function BusinessOperationsPanel() {
             ))}
           </div>
 
-          {selected.readyProject ? (
+          {visibleSelected.readyProject ? (
             <>
               <h4>Ready Project</h4>
-              <KitchenBathReadyProjectCard project={selected.readyProject} audience="business" />
+              <KitchenBathReadyProjectCard project={visibleSelected.readyProject} audience="business" />
             </>
           ) : null}
 
+          {visibleSelected.revenueCompletion && session.accessToken && tenantId ? (
+            <RevenueCompletionPanel
+              key={`${tenantId}:${visibleSelected.id}:${visibleSelected.revenueCompletion.currentStage ?? 'start'}`}
+              accessToken={session.accessToken}
+              tenantId={tenantId}
+              leadId={visibleSelected.id}
+              projection={visibleSelected.revenueCompletion}
+              onChanged={async () => {
+                if (visibleGeneration !== loadGeneration.current) return;
+                const committed = await refresh(
+                  session.accessToken!,
+                  tenantId,
+                  visibleSelected.id,
+                  visibleGeneration,
+                );
+                if (committed) setState('ready');
+              }}
+            />
+          ) : null}
+
           <h4>Source conversation evidence</h4>
-          {selected.conversation.messages.map((item) => (
+          {visibleSelected.conversation.messages.map((item) => (
             <div key={item.id} className={styles.message}>
               <strong>{item.role === 'WARD' ? 'Ward' : 'Visitor'}</strong>
               <p>{item.content}</p>

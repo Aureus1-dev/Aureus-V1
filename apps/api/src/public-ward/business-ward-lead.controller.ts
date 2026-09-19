@@ -1,11 +1,14 @@
-import { Body, Controller, Get, Param, Patch, Query, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Param, Patch, Post, Query, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiParam, ApiTags } from '@nestjs/swagger';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { AuthenticatedUser } from '../auth/strategies/jwt.strategy';
 import { BusinessTenantMembershipGuard } from '../organizations/guards/business-tenant-membership.guard';
+import { BusinessLeadTransitionService } from './business-lead-transition.service';
+import { BusinessRevenueCompletionService } from './business-revenue-completion.service';
 import { AssignWardLeadDto } from './dto/assign-ward-lead.dto';
 import { ListWardLeadsQueryDto } from './dto/list-ward-leads-query.dto';
+import { RecordRevenueMilestoneDto } from './dto/record-revenue-milestone.dto';
 import { TransitionWardLeadDto } from './dto/transition-ward-lead.dto';
 import { WardLeadService } from './ward-lead.service';
 
@@ -14,7 +17,11 @@ import { WardLeadService } from './ward-lead.service';
 @UseGuards(JwtAuthGuard, BusinessTenantMembershipGuard)
 @Controller('organizations/:organizationId/business-leads')
 export class BusinessWardLeadController {
-  constructor(private readonly leads: WardLeadService) {}
+  constructor(
+    private readonly leads: WardLeadService,
+    private readonly leadTransitions: BusinessLeadTransitionService,
+    private readonly revenueCompletion: BusinessRevenueCompletionService,
+  ) {}
 
   @Get()
   @ApiOperation({ summary: 'List the current consented handoffs for this tenant' })
@@ -56,6 +63,20 @@ export class BusinessWardLeadController {
     @Body() dto: TransitionWardLeadDto,
     @CurrentUser() caller: AuthenticatedUser,
   ) {
-    return this.leads.transitionBusinessLead(organizationId, leadId, dto, caller);
+    return this.leadTransitions.transition(organizationId, leadId, dto, caller);
+  }
+
+  @Post(':leadId/revenue-milestones')
+  @ApiOperation({
+    summary:
+      'Record one tenant-scoped reported revenue milestone without executing signatures, payments, or autonomous closing',
+  })
+  recordRevenueMilestone(
+    @Param('organizationId') organizationId: string,
+    @Param('leadId') leadId: string,
+    @Body() dto: RecordRevenueMilestoneDto,
+    @CurrentUser() caller: AuthenticatedUser,
+  ) {
+    return this.revenueCompletion.record(organizationId, leadId, dto, caller);
   }
 }

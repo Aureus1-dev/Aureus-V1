@@ -4,6 +4,9 @@ import { AuthGuardsModule } from '../auth/auth-guards.module';
 import { CommunicationModule } from '../communication/communication.module';
 import { BusinessTenantMembershipGuard } from '../organizations/guards/business-tenant-membership.guard';
 import { OrganizationsModule } from '../organizations/organizations.module';
+import { ResponsibilitiesModule } from '../responsibilities/responsibilities.module';
+import { BusinessLeadTransitionService } from './business-lead-transition.service';
+import { BusinessRevenueCompletionService } from './business-revenue-completion.service';
 import { BusinessWardLeadController } from './business-ward-lead.controller';
 import { KitchenBathPublicController } from './kitchen-bath-public.controller';
 import { KitchenBathPublicService } from './kitchen-bath-public.service';
@@ -14,7 +17,13 @@ import { TelephonyContinuityService } from './telephony-continuity.service';
 import { WardLeadService } from './ward-lead.service';
 
 @Module({
-  imports: [AiModule, AuthGuardsModule, CommunicationModule, OrganizationsModule],
+  imports: [
+    AiModule,
+    AuthGuardsModule,
+    CommunicationModule,
+    OrganizationsModule,
+    ResponsibilitiesModule,
+  ],
   controllers: [
     PublicWardController,
     KitchenBathPublicController,
@@ -24,6 +33,8 @@ import { WardLeadService } from './ward-lead.service';
   providers: [
     PublicWardService,
     WardLeadService,
+    BusinessLeadTransitionService,
+    BusinessRevenueCompletionService,
     KitchenBathPublicService,
     TelephonyContinuityService,
     BusinessTenantMembershipGuard,
@@ -31,6 +42,8 @@ import { WardLeadService } from './ward-lead.service';
   exports: [
     PublicWardService,
     WardLeadService,
+    BusinessLeadTransitionService,
+    BusinessRevenueCompletionService,
     KitchenBathPublicService,
     TelephonyContinuityService,
   ],

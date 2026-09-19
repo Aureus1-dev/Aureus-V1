@@ -30,6 +30,7 @@ import { hasRole } from '../auth/utils/has-role.util';
 import { sanitizePlainText } from '../common/utils/sanitize-text';
 import { NotificationsService } from '../communication/notifications/notifications.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { BusinessRevenueCompletionService } from './business-revenue-completion.service';
 import { AssignWardLeadDto } from './dto/assign-ward-lead.dto';
 import { CreateWardLeadDto } from './dto/create-ward-lead.dto';
 import { ListWardLeadsQueryDto } from './dto/list-ward-leads-query.dto';
@@ -98,6 +99,7 @@ export class WardLeadService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly notifications: NotificationsService,
+    private readonly revenueCompletion: BusinessRevenueCompletionService,
   ) {}
 
   async submitPublicHandoff(
@@ -286,7 +288,7 @@ export class WardLeadService {
   }
 
   async getBusinessLead(organizationId: string, leadId: string, caller: AuthenticatedUser) {
-    await this.requireTenantAccess(organizationId, caller);
+    const access = await this.requireTenantAccess(organizationId, caller);
     const lead = await this.prisma.db.wardLead.findFirst({
       where: { id: leadId, organizationId, retentionExpiresAt: { gt: new Date() } },
       include: {
@@ -313,9 +315,16 @@ export class WardLeadService {
     });
     if (!lead) throw new NotFoundException(`Lead '${leadId}' not found`);
     const readyProject = buildKitchenBathReadyProject(lead);
+    const revenueCompletion = readyProject
+      ? await this.revenueCompletion.projectForLead({
+          organizationId,
+          lead,
+          role: access.membership?.role ?? null,
+        })
+      : null;
     const safeLead: Partial<typeof lead> = { ...lead };
     delete safeLead.submissionFingerprint;
-    return { ...safeLead, readyProject };
+    return { ...safeLead, readyProject, revenueCompletion };
   }
 
   async assignBusinessLead(
@@ -414,8 +423,12 @@ export class WardLeadService {
 
   @Cron(CronExpression.EVERY_HOUR)
   async purgeExpiredLeads(): Promise<void> {
+    const now = new Date();
+    // OR-004 revenue Responsibilities deliberately share the lead's retention
+    // deadline; purge their private evidence before deleting the source lead.
+    await this.revenueCompletion.purgeExpiredRevenueResponsibilities(now);
     await this.prisma.db.wardConversation.deleteMany({
-      where: { lead: { is: { retentionExpiresAt: { lte: new Date() } } } },
+      where: { lead: { is: { retentionExpiresAt: { lte: now } } } },
     });
   }
 
