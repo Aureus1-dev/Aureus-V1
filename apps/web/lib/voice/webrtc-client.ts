@@ -1,7 +1,7 @@
 import type { RawRealtimeEvent } from './realtime-event-mapper';
 
 const REALTIME_API_URL = 'https://api.openai.com/v1/realtime/calls';
-const ICE_GATHERING_TIMEOUT_MS = 5_000;
+const ICE_GATHERING_TIMEOUT_MS = 15_000;
 const SIGNALING_TIMEOUT_MS = 20_000;
 const CONNECTION_READY_TIMEOUT_MS = 15_000;
 const CONNECTION_READY_POLL_MS = 50;
@@ -40,7 +40,9 @@ async function waitForConnectionReady(
 
   while (Date.now() < deadline) {
     if (pc.connectionState === 'failed' || pc.connectionState === 'closed') {
-      throw new Error('The voice peer connection failed before it became ready.');
+      throw new Error(
+        `Voice WebRTC failed before ready (peer=${pc.connectionState}, data=${dataChannel.readyState}).`,
+      );
     }
     if (pc.connectionState === 'connected' && dataChannel.readyState === 'open') {
       return;
@@ -48,7 +50,9 @@ async function waitForConnectionReady(
     await new Promise((resolve) => setTimeout(resolve, CONNECTION_READY_POLL_MS));
   }
 
-  throw new Error('The voice connection did not become ready in time.');
+  throw new Error(
+    `Voice WebRTC readiness timed out (peer=${pc.connectionState}, data=${dataChannel.readyState}).`,
+  );
 }
 
 export class VoiceWebRtcClient {
@@ -59,6 +63,10 @@ export class VoiceWebRtcClient {
   constructor(private readonly callbacks: VoiceWebRtcClientCallbacks) {}
 
   async connect(clientSecret: string, _model: string): Promise<void> {
+    if (!navigator.mediaDevices?.getUserMedia) {
+      throw new Error('Voice microphone capture is not supported in this browser.');
+    }
+
     this.micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
 
     const pc = new RTCPeerConnection();
@@ -100,21 +108,30 @@ export class VoiceWebRtcClient {
     const localSdp = pc.localDescription?.sdp ?? offer.sdp;
     if (!localSdp) throw new Error('Unable to create the voice connection offer.');
 
-    const formData = new FormData();
-    formData.append('sdp', new Blob([localSdp], { type: 'application/sdp' }), 'offer.sdp');
-
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), SIGNALING_TIMEOUT_MS);
     let response: Response;
     try {
+      // Follow OpenAI's browser WebRTC contract exactly: the ephemeral key is
+      // used directly by the browser and the SDP offer is the raw request body.
+      // The REST endpoint also supports multipart requests, but raw
+      // application/sdp is the documented browser path and avoids an extra
+      // multipart serialization layer on mobile browsers/custom tabs.
       response = await fetch(REALTIME_API_URL, {
         method: 'POST',
-        body: formData,
-        headers: { Authorization: `Bearer ${clientSecret}` },
+        body: localSdp,
+        headers: {
+          Authorization: `Bearer ${clientSecret}`,
+          'Content-Type': 'application/sdp',
+        },
         signal: controller.signal,
       });
-    } catch {
-      throw new Error('The voice provider did not finish connecting in time. Please try again.');
+    } catch (error) {
+      if (controller.signal.aborted) {
+        throw new Error('Voice signaling timed out before OpenAI returned an SDP answer.');
+      }
+      const detail = error instanceof Error ? error.message : String(error);
+      throw new Error(`Voice signaling request failed before an SDP answer was received: ${detail}`);
     } finally {
       clearTimeout(timeout);
     }
@@ -126,7 +143,12 @@ export class VoiceWebRtcClient {
     }
 
     const answerSdp = await response.text();
-    await pc.setRemoteDescription({ type: 'answer', sdp: answerSdp });
+    try {
+      await pc.setRemoteDescription({ type: 'answer', sdp: answerSdp });
+    } catch (error) {
+      const detail = error instanceof Error ? error.message : String(error);
+      throw new Error(`Voice SDP answer could not be applied: ${detail}`);
+    }
 
     // setRemoteDescription() only proves signaling succeeded. A member must
     // not be told Aureus is listening until ICE/DTLS is actually connected
