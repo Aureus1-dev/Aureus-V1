@@ -24,7 +24,7 @@ describe('OpenAiVoiceProvider', () => {
     jest.restoreAllMocks();
   });
 
-  it('posts to the GA client_secrets endpoint with governed Member Steward instructions', async () => {
+  it('posts to the GA client_secrets endpoint with governed instructions and member transcription enabled', async () => {
     const fetchMock = jest.fn().mockResolvedValue({
       ok: true,
       json: async () => ({ value: 'ek_123', expires_at: 1735689600, session: { id: 'sess_abc' } }),
@@ -45,7 +45,10 @@ describe('OpenAiVoiceProvider', () => {
         model: INPUT.model,
         instructions: MEMBER_STEWARD_VOICE_SYSTEM_PROMPT,
         audio: {
-          input: { turn_detection: INPUT.turnDetectionConfig },
+          input: {
+            transcription: { model: 'gpt-4o-mini-transcribe' },
+            turn_detection: INPUT.turnDetectionConfig,
+          },
           output: { voice: INPUT.voice },
         },
         tools: INPUT.tools,
