@@ -7,11 +7,14 @@
  * contained to this file alone (mirrors the backend's IVoiceProvider
  * abstraction, ADR-017 Decision 8).
  *
- * The event names below (`response.done` status `cancelled`/`incomplete`,
- * etc.) map directly onto the backend's Conversation Timing Layer
- * vocabulary (`AiTurnEventType`, DOMAIN-002) — a member turn is only ever
- * reported as finalized once, from `conversation.item.input_audio_transcription.completed`,
- * never from a speech-stopped pause alone.
+ * The event names below map directly onto the backend's Conversation Timing
+ * Layer vocabulary (`AiTurnEventType`, DOMAIN-002). OpenAI's GA Realtime API
+ * renamed assistant-audio transcript events from `response.audio_transcript.*`
+ * to `response.output_audio_transcript.*`; both are accepted here so an older
+ * in-flight session cannot break during a provider migration. A member turn is
+ * only ever reported as finalized once, from
+ * `conversation.item.input_audio_transcription.completed`, never from a
+ * speech-stopped pause alone.
  */
 
 /**
@@ -85,6 +88,9 @@ export class RealtimeEventMapper {
         return [{ kind: 'steward-response-started', responseId, occurredAt: this.nowIso() }];
       }
 
+      // Current GA name first; legacy alias retained for a bounded migration
+      // window so provider rollout cannot strand an already-open session.
+      case 'response.output_audio_transcript.delta':
       case 'response.audio_transcript.delta': {
         const responseId = String(raw.response_id ?? '');
         const delta = String(raw.delta ?? '');
@@ -94,6 +100,7 @@ export class RealtimeEventMapper {
         return [{ kind: 'steward-transcript-delta', responseId, delta }];
       }
 
+      case 'response.output_audio_transcript.done':
       case 'response.audio_transcript.done': {
         const responseId = String(raw.response_id ?? '');
         const transcript = String(raw.transcript ?? '');
