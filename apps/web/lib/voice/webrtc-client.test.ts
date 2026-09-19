@@ -14,6 +14,7 @@ class FakeDataChannel {
 
 class FakeRTCPeerConnection {
   static instances: FakeRTCPeerConnection[] = [];
+  static autoConnect = true;
   onconnectionstatechange: (() => void) | null = null;
   ontrack: ((event: { streams: MediaStream[] }) => void) | null = null;
   onicegatheringstatechange: (() => void) | null = null;
@@ -44,7 +45,13 @@ class FakeRTCPeerConnection {
   async setLocalDescription(description: RTCSessionDescriptionInit) {
     this.localDescription = { type: description.type, sdp: `${description.sdp}-with-ice` } as RTCSessionDescription;
   }
-  async setRemoteDescription() {}
+
+  async setRemoteDescription() {
+    if (FakeRTCPeerConnection.autoConnect) {
+      this.connectionState = 'connected';
+      this.onconnectionstatechange?.();
+    }
+  }
 
   close() {
     this.closed = true;
@@ -66,6 +73,7 @@ describe('VoiceWebRtcClient', () => {
 
   beforeEach(() => {
     FakeRTCPeerConnection.instances = [];
+    FakeRTCPeerConnection.autoConnect = true;
     micTrack = makeFakeTrack();
     getUserMediaMock = jest.fn().mockResolvedValue(makeFakeStream([micTrack]));
 
@@ -112,6 +120,26 @@ describe('VoiceWebRtcClient', () => {
     // jsdom's Blob does not implement Blob.text(); size still proves the
     // complete gathered SDP string was serialized into the multipart part.
     expect((sdpPart as Blob).size).toBe('fake-offer-sdp-with-ice'.length);
+  });
+
+  it('does not resolve connect until the peer connection itself is ready', async () => {
+    FakeRTCPeerConnection.autoConnect = false;
+    const client = makeClient();
+    let resolved = false;
+    const connecting = client.connect('secret', 'model').then(() => {
+      resolved = true;
+    });
+
+    // Let microphone acquisition, signaling, and setRemoteDescription finish.
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(resolved).toBe(false);
+
+    const pc = FakeRTCPeerConnection.instances[0];
+    pc.connectionState = 'connected';
+    pc.onconnectionstatechange?.();
+
+    await connecting;
+    expect(resolved).toBe(true);
   });
 
   it('throws with provider status when the provider rejects the offer', async () => {
