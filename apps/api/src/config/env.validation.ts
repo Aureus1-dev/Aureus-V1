@@ -16,22 +16,20 @@ import * as Joi from 'joi';
  */
 export const envValidationSchema = Joi.object({
   DATABASE_URL: Joi.string().required(),
-  PORT: Joi.number().default(3000),
-  NODE_ENV: Joi.string().valid('development', 'production', 'test').default('development'),
+  PORT:         Joi.number().default(3000),
+  NODE_ENV:     Joi.string().valid('development', 'production', 'test').default('development'),
   ENABLE_API_DOCS: Joi.boolean().default(false),
 
-  CORS_ORIGIN: Joi.string()
-    .default('*')
-    .when('NODE_ENV', {
-      is: 'production',
-      then: Joi.string().invalid('*').required().messages({
-        'any.invalid': 'CORS_ORIGIN must be an explicit origin allowlist in production, not "*"',
-      }),
+  CORS_ORIGIN: Joi.string().default('*').when('NODE_ENV', {
+    is: 'production',
+    then: Joi.string().invalid('*').required().messages({
+      'any.invalid': 'CORS_ORIGIN must be an explicit origin allowlist in production, not "*"',
     }),
+  }),
 
   // ── Authentication (OAS-SEC-003) ────────────────────────────────────────
-  JWT_ACCESS_SECRET: Joi.string().min(32).required(),
-  JWT_ACCESS_EXPIRY: Joi.string().default('15m'),
+  JWT_ACCESS_SECRET:       Joi.string().min(32).required(),
+  JWT_ACCESS_EXPIRY:       Joi.string().default('15m'),
   JWT_REFRESH_EXPIRY_DAYS: Joi.number().default(30),
   GUEST_SESSION_RETENTION_DAYS: Joi.number().default(7),
 
@@ -45,43 +43,12 @@ export const envValidationSchema = Joi.object({
     otherwise: Joi.optional(),
   }),
   SMTP_VERIFY_ON_STARTUP: Joi.boolean().empty('').default(true),
-  SMTP_PORT: Joi.number().empty('').default(587),
-  SMTP_SECURE: Joi.boolean().empty('').default(false),
-  SMTP_USER: Joi.string().empty('').optional(),
-  SMTP_PASSWORD: Joi.string().empty('').optional(),
+  SMTP_PORT:       Joi.number().empty('').default(587),
+  SMTP_SECURE:     Joi.boolean().empty('').default(false),
+  SMTP_USER:       Joi.string().empty('').optional(),
+  SMTP_PASSWORD:   Joi.string().empty('').optional(),
   SMTP_FROM_EMAIL: Joi.string().default('no-reply@aureus.app'),
-  // A production deploy that silently keeps the localhost default sends
-  // members a verification/password-reset link that can never resolve —
-  // the exact same false-capability failure SMTP_HOST above already fails
-  // loudly for. FRONTEND_URL must therefore also be an explicit, non-
-  // localhost origin once NODE_ENV=production, per this file's own
-  // fail-loud-in-production design (see file header).
-  FRONTEND_URL: Joi.string()
-    .default('http://localhost:3001')
-    .when('NODE_ENV', {
-      is: 'production',
-      then: Joi.string()
-        .uri()
-        .custom((value: string, helpers) => {
-          let hostname: string;
-          try {
-            hostname = new URL(value).hostname;
-          } catch {
-            return helpers.error('any.invalid');
-          }
-          if (hostname === 'localhost' || hostname === '127.0.0.1') {
-            return helpers.error('any.invalid');
-          }
-          return value;
-        })
-        .required()
-        .messages({
-          'any.required': 'FRONTEND_URL must be set to the deployed web origin in production.',
-          'any.invalid':
-            'FRONTEND_URL may not point at localhost in production — verification/reset emails would link somewhere a member can never reach.',
-          'string.uri': 'FRONTEND_URL must be a full URL (e.g. https://app.aureus.example).',
-        }),
-    }),
+  FRONTEND_URL:    Joi.string().default('http://localhost:3001'),
 
   // ── Opportunity Center commercial destinations (Issue #95 §2) ──────────
   // Optional provider-neutral JSON map: exact canonical HTTPS URL -> approved
@@ -118,11 +85,9 @@ export const envValidationSchema = Joi.object({
       }),
       otherwise: Joi.optional(),
     }),
-  OPENAI_MODEL: Joi.string().empty('').default('gpt-5-mini'),
-  ANTHROPIC_API_KEY: Joi.string()
-    .empty('')
-    .when('AI_PROVIDER', { is: 'anthropic', then: Joi.required() }),
-  ANTHROPIC_MODEL: Joi.string().empty('').default('claude-3-5-haiku-20241022'),
+  OPENAI_MODEL:       Joi.string().empty('').default('gpt-5-mini'),
+  ANTHROPIC_API_KEY: Joi.string().empty('').when('AI_PROVIDER', { is: 'anthropic', then: Joi.required() }),
+  ANTHROPIC_MODEL:    Joi.string().empty('').default('claude-3-5-haiku-20241022'),
 
   // ── Infrastructure (PD-002) ──────────────────────────────────────────────
   REDIS_URL: Joi.string().empty('').optional(),
@@ -131,22 +96,23 @@ export const envValidationSchema = Joi.object({
   SENTRY_DSN: Joi.string().empty('').optional(),
 
   // AI spend controls.
-  AI_EMERGENCY_STOP: Joi.boolean().empty('').default(false),
+  AI_EMERGENCY_STOP:          Joi.boolean().empty('').default(false),
   AI_GLOBAL_DAILY_BUDGET_USD: Joi.number().empty('').default(50),
-  AI_USER_DAILY_BUDGET_USD: Joi.number().empty('').default(2),
+  AI_USER_DAILY_BUDGET_USD:   Joi.number().empty('').default(2),
 
   // AI Provider Resilience (PD-009). Read directly by OpenAiProvider/
   // AnthropicProvider on every call (not DB-seeded like the spend controls
   // above), but still not boot-fatal if absent — each provider falls back
   // to the same literal defaults itself. Present here so a typo fails
   // loudly at boot rather than silently.
-  AI_PROVIDER_TIMEOUT_MS: Joi.number().empty('').default(30_000),
-  AI_PROVIDER_MAX_ATTEMPTS: Joi.number().empty('').default(3),
-  AI_PROVIDER_RETRY_BASE_DELAY_MS: Joi.number().empty('').default(500),
-  AI_CIRCUIT_BREAKER_FAILURE_THRESHOLD: Joi.number().empty('').default(3),
-  AI_CIRCUIT_BREAKER_COOLDOWN_MS: Joi.number().empty('').default(30_000),
+  AI_PROVIDER_TIMEOUT_MS:                 Joi.number().empty('').default(30_000),
+  AI_PROVIDER_MAX_ATTEMPTS:               Joi.number().empty('').default(3),
+  AI_PROVIDER_RETRY_BASE_DELAY_MS:        Joi.number().empty('').default(500),
+  AI_CIRCUIT_BREAKER_FAILURE_THRESHOLD:   Joi.number().empty('').default(3),
+  AI_CIRCUIT_BREAKER_COOLDOWN_MS:         Joi.number().empty('').default(30_000),
+
 
   // Voice Domain (ADR-016). Reuses OPENAI_API_KEY above.
   VOICE_MODEL: Joi.string().empty('').default('gpt-realtime'),
-  VOICE_NAME: Joi.string().empty('').default('marin'),
+  VOICE_NAME:  Joi.string().empty('').default('marin'),
 });

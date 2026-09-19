@@ -36,7 +36,10 @@ export function StewardMessage({
       <div className={styles.actionStack}>
         <VisuallyHidden>Your steward said</VisuallyHidden>
         <div className={styles.bubble}>{renderMessageMarkdown(content)}</div>
-        <OpportunityActionCard action={opportunityAction} onStartGuide={onStartApplicationGuide} />
+        <OpportunityActionCard
+          action={opportunityAction}
+          onStartGuide={onStartApplicationGuide}
+        />
       </div>
     </div>
   );
