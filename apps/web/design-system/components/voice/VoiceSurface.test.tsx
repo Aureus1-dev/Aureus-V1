@@ -47,9 +47,10 @@ function SignedInAs({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
-function renderSurface(
-  { signedIn = true, onClose }: { signedIn?: boolean; onClose?: () => void } = {},
-) {
+function renderSurface({
+  signedIn = true,
+  onClose,
+}: { signedIn?: boolean; onClose?: () => void } = {}) {
   return render(
     <SessionProvider>
       <ConversationProvider>

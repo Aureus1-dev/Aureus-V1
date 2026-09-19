@@ -31,9 +31,7 @@ export class OpenAiVoiceProvider implements IVoiceProvider {
 
   constructor(private readonly config: ConfigService) {}
 
-  async brokerSession(
-    input: VoiceSessionBrokerInput,
-  ): Promise<VoiceSessionBrokerOutput> {
+  async brokerSession(input: VoiceSessionBrokerInput): Promise<VoiceSessionBrokerOutput> {
     const apiKey = this.config.get<string>('OPENAI_API_KEY');
 
     const res = await fetch('https://api.openai.com/v1/realtime/client_secrets', {

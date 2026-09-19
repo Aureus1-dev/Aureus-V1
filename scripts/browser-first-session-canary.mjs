@@ -43,10 +43,7 @@ class CdpClient {
   static async connect(url) {
     const socket = new WebSocket(url);
     await new Promise((resolve, reject) => {
-      const timer = setTimeout(
-        () => reject(new Error('Chrome DevTools socket timed out')),
-        10_000,
-      );
+      const timer = setTimeout(() => reject(new Error('Chrome DevTools socket timed out')), 10_000);
       socket.addEventListener(
         'open',
         () => {
