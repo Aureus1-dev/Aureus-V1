@@ -15,6 +15,7 @@ const useAuthenticatedTestAccount =
 const evidence = [];
 const browserDiagnostics = [];
 const trackedRequests = new Map();
+const pendingDiagnosticTasks = new Set();
 let chrome;
 let cdp;
 
@@ -26,6 +27,23 @@ function requiredOrigin(name) {
 
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function redactDiagnosticText(value) {
+  return String(value ?? '')
+    .replace(/Bearer\s+[A-Za-z0-9._-]+/gi, 'Bearer [redacted]')
+    .replace(/\b(?:ek|sk)[_-][A-Za-z0-9._-]+\b/g, '[redacted-token]')
+    .slice(0, 2000);
+}
+
+function trackDiagnosticTask(task) {
+  pendingDiagnosticTasks.add(task);
+  task.finally(() => pendingDiagnosticTasks.delete(task));
+}
+
+async function flushDiagnostics() {
+  if (pendingDiagnosticTasks.size === 0) return;
+  await Promise.allSettled([...pendingDiagnosticTasks]);
 }
 
 class CdpClient {
@@ -102,7 +120,11 @@ function isVoiceProviderUrl(url) {
 function installBrowserDiagnostics() {
   cdp.on('Network.requestWillBeSent', ({ requestId, request }) => {
     if (!isVoiceProviderUrl(request?.url)) return;
-    trackedRequests.set(requestId, request.url);
+    trackedRequests.set(requestId, {
+      url: request.url,
+      method: request.method,
+      status: null,
+    });
     browserDiagnostics.push({
       type: 'voice-provider-request',
       method: request.method,
@@ -111,22 +133,55 @@ function installBrowserDiagnostics() {
   });
 
   cdp.on('Network.responseReceived', ({ requestId, response }) => {
-    if (!trackedRequests.has(requestId)) return;
+    const tracked = trackedRequests.get(requestId);
+    if (!tracked) return;
+    tracked.status = response.status;
     browserDiagnostics.push({
       type: 'voice-provider-response',
+      method: tracked.method,
       status: response.status,
       statusText: response.statusText,
       protocol: response.protocol,
       url: response.url,
+      openaiRequestId:
+        response.headers?.['x-request-id'] ?? response.headers?.['X-Request-Id'] ?? null,
     });
   });
 
+  cdp.on('Network.loadingFinished', ({ requestId }) => {
+    const tracked = trackedRequests.get(requestId);
+    if (!tracked || tracked.method !== 'POST' || (tracked.status ?? 0) < 400) return;
+
+    const task = cdp
+      .send('Network.getResponseBody', { requestId })
+      .then(({ body }) => {
+        browserDiagnostics.push({
+          type: 'voice-provider-error-body',
+          method: tracked.method,
+          status: tracked.status,
+          url: tracked.url,
+          body: redactDiagnosticText(body),
+        });
+      })
+      .catch((error) => {
+        browserDiagnostics.push({
+          type: 'voice-provider-error-body-unavailable',
+          method: tracked.method,
+          status: tracked.status,
+          url: tracked.url,
+          error: redactDiagnosticText(error instanceof Error ? error.message : String(error)),
+        });
+      });
+    trackDiagnosticTask(task);
+  });
+
   cdp.on('Network.loadingFailed', ({ requestId, errorText, blockedReason, corsErrorStatus }) => {
-    const url = trackedRequests.get(requestId);
-    if (!url) return;
+    const tracked = trackedRequests.get(requestId);
+    if (!tracked) return;
     browserDiagnostics.push({
       type: 'voice-provider-loading-failed',
-      url,
+      method: tracked.method,
+      url: tracked.url,
       errorText,
       blockedReason: blockedReason ?? null,
       corsErrorStatus: corsErrorStatus ?? null,
@@ -336,6 +391,7 @@ async function main() {
 
     await establishEntrySession();
     await runVoiceJourney();
+    await flushDiagnostics();
 
     console.log(
       JSON.stringify(
@@ -351,6 +407,7 @@ async function main() {
       ),
     );
   } catch (error) {
+    await flushDiagnostics();
     const message = error instanceof Error ? error.message : String(error);
     console.error(
       JSON.stringify(
