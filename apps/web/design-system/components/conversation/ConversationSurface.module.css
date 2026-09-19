@@ -2,6 +2,13 @@
 .surface {
   display: flex;
   flex-direction: column;
+  /* ConversationHistory's New/History controls have no bottom padding of
+     their own (they also sit above the fixed `dialog` history drawer,
+     which is out of flow and unaffected by this gap). Without it, those
+     pills render flush against whatever comes next — the EmptyState card
+     or the timeline — clipping into its top edge and the Hall image
+     behind it. */
+  gap: var(--space-4);
   height: 100%;
   min-height: 60vh;
   background: transparent;
