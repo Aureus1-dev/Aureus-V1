@@ -82,6 +82,54 @@ describe('AiRequestsService', () => {
       expect(mockRepo.create).toHaveBeenCalledWith(expect.objectContaining({
         userId: USER.id, capability: AiCapability.QUESTION_ANSWERING, status: AiRequestStatus.SUCCESS,
       }));
+      expect(mockProvider.complete).toHaveBeenCalledWith(
+        expect.objectContaining({
+          messages: expect.arrayContaining([
+            expect.objectContaining({ role: 'system', content: expect.stringContaining('You are Aureus, an AI Steward') }),
+          ]),
+        }),
+      );
+    });
+
+    it('adds the shared Aureus character to non-conversation facets with no system prompt', async () => {
+      mockProvider.complete.mockResolvedValue({
+        content: 'A short lesson', provider: AiProvider.STUB, model: 'stub', promptTokens: 10, completionTokens: 5,
+      });
+      mockRepo.create.mockResolvedValue(makeRequest({ capability: AiCapability.ACADEMY_GUIDANCE }));
+
+      await service.runCompletion({
+        userId: USER.id,
+        capability: AiCapability.ACADEMY_GUIDANCE,
+        messages: [{ role: 'user', content: 'Teach this lesson.' }],
+      });
+
+      const [[callArgs]] = mockProvider.complete.mock.calls;
+      expect(callArgs.messages[0]).toMatchObject({
+        role: 'system',
+        content: expect.stringContaining('One character, many expressions'),
+      });
+      expect(callArgs.messages[1]).toMatchObject({ role: 'user' });
+    });
+
+    it('composes the shared character with specialized system rules exactly once', async () => {
+      mockProvider.complete.mockResolvedValue({
+        content: '{}', provider: AiProvider.STUB, model: 'stub', promptTokens: 10, completionTokens: 5,
+      });
+      mockRepo.create.mockResolvedValue(makeRequest({ capability: AiCapability.APPLICATION_GUIDANCE }));
+
+      await service.runCompletion({
+        userId: USER.id,
+        capability: AiCapability.APPLICATION_GUIDANCE,
+        messages: [
+          { role: 'system', content: 'Return only JSON. Never submit the form.' },
+          { role: 'user', content: 'Guide this page.' },
+        ],
+      });
+
+      const [[callArgs]] = mockProvider.complete.mock.calls;
+      expect(callArgs.messages[0].content).toContain('You are Aureus, an AI Steward');
+      expect(callArgs.messages[0].content).toContain('Return only JSON. Never submit the form.');
+      expect(callArgs.messages[0].content.match(/You are Aureus, an AI Steward/g)).toHaveLength(1);
     });
 
     it('passes an explicit no-fallback boundary to the provider', async () => {

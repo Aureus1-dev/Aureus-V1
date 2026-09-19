@@ -1,4 +1,5 @@
 import type { ToolCallResponseDto } from './dto/message-response.dto';
+import { AUREUS_RELATIONAL_CLOSING } from '../prompts/aureus-steward-character';
 
 const GREETING_PATTERNS = [
   /^(?:hi|hello|hey|hiya|howdy)[.!?]*$/i,
@@ -8,6 +9,9 @@ const GREETING_PATTERNS = [
 const QUESTION_PREFIX = /^(?:what|when|where|who|why|how|can|could|would|will|do|does|did|is|are|am|should|may|might)\b/i;
 const DATE_QUESTION = /\b(?:what|which)\s+(?:day|date)\b|\bwhat day is it\b|\btoday'?s date\b/i;
 const VOICE_REQUEST = /^(?:(?:can|could|may)\s+we\s+talk|(?:can|could|may)\s+i\s+talk(?:\s+to\s+you)?|i\s+(?:want|would like)\s+to\s+talk)(?:\s+by\s+voice)?[.!?]*$/i;
+const GOODBYE_PATTERNS = [
+  /^(?:bye|goodbye|goodnight|see\s+you|talk\s+(?:to\s+you\s+)?later|i\s+(?:have|got)\s+to\s+go)[.!?]*$/i,
+];
 
 /**
  * The Hall is a conversation surface, not a mandatory intake form. A greeting
@@ -33,7 +37,10 @@ export function isConversationalTurnWithoutNeed(content: string): boolean {
 export function directHallReply(content: string, now = new Date()): string | null {
   const normalized = content.trim();
   if (GREETING_PATTERNS.some((pattern) => pattern.test(normalized))) {
-    return 'Hello. How can we help?';
+    return "Hello. I'm Aureus, your AI Steward. How can we help?";
+  }
+  if (GOODBYE_PATTERNS.some((pattern) => pattern.test(normalized))) {
+    return AUREUS_RELATIONAL_CLOSING;
   }
   if (DATE_QUESTION.test(normalized)) {
     const today = new Intl.DateTimeFormat('en-US', {
