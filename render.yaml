@@ -17,15 +17,14 @@
 # reason — setting Render's Root Directory to a subdirectory would break
 # both Dockerfiles' COPY paths, which are all relative to the repo root.
 #
-# CORS_ORIGIN (API), FRONTEND_URL (API), and NEXT_PUBLIC_API_BASE_URL
-# (web) are deliberately left `sync: false` rather than auto-wired
-# between the two services: Render's inter-service env var references
-# (`fromService`) only expose a bare host, not a full https:// origin,
-# and the two services' URLs (or eventual custom domains) aren't known
-# until first deploy — a chicken-and-egg auto-wiring attempt here would
-# be more fragile than an explicit, documented manual step. Fill these
-# in from the Render dashboard once both services have real URLs (see
-# the comments on each var below for the exact value each one needs).
+# CORS_ORIGIN (API) and NEXT_PUBLIC_API_BASE_URL (web) remain `sync: false`
+# because they may move with an eventual custom-domain cutover. FRONTEND_URL
+# is different: it is a safety-critical authentication callback origin used
+# in verification/reset emails, and the Founder walkthrough caught production
+# falling back to localhost when the dashboard value was absent. The pilot
+# web origin is already canonical in the release gate, so this blueprint pins
+# the same deployed origin until an intentional custom-domain change updates
+# both places together.
 
 services:
   - type: web
@@ -74,16 +73,15 @@ services:
           property: connectionString
       - key: JWT_ACCESS_SECRET
         generateValue: true
-      # Set to the deployed web service's real origin, e.g.
-      # https://aureus-web.onrender.com (or the production custom domain).
+      # Set to the deployed web service's real origin.
       # Required in production — main.ts's env validation rejects
       # NODE_ENV=production with CORS_ORIGIN left at its "*" default.
       - key: CORS_ORIGIN
         sync: false
-      # Same origin as CORS_ORIGIN above — where verification/reset
-      # emails link back to.
+      # Authentication emails must never depend on a dashboard-only value.
+      # Keep this aligned with .github/workflows/release-gate.yml web_origin.
       - key: FRONTEND_URL
-        sync: false
+        value: https://aureus-v1.onrender.com
       # Production refuses the placeholder AI provider. V1 uses OpenAI by
       # default; change both fields together if Anthropic is chosen instead.
       - key: AI_PROVIDER
