@@ -4,9 +4,11 @@ class FakeDataChannel {
   readyState: RTCDataChannelState = 'open';
   onmessage: ((event: MessageEvent) => void) | null = null;
   sentMessages: string[] = [];
+
   send(data: string) {
     this.sentMessages.push(data);
   }
+
   close() {
     this.readyState = 'closed';
   }
@@ -14,6 +16,7 @@ class FakeDataChannel {
 
 class FakeRTCPeerConnection {
   static instances: FakeRTCPeerConnection[] = [];
+  static autoConnect = true;
   onconnectionstatechange: (() => void) | null = null;
   ontrack: ((event: { streams: MediaStream[] }) => void) | null = null;
   onicegatheringstatechange: (() => void) | null = null;
@@ -42,9 +45,18 @@ class FakeRTCPeerConnection {
   }
 
   async setLocalDescription(description: RTCSessionDescriptionInit) {
-    this.localDescription = { type: description.type, sdp: `${description.sdp}-with-ice` } as RTCSessionDescription;
+    this.localDescription = {
+      type: description.type,
+      sdp: `${description.sdp}-with-ice`,
+    } as RTCSessionDescription;
   }
-  async setRemoteDescription() {}
+
+  async setRemoteDescription() {
+    if (FakeRTCPeerConnection.autoConnect) {
+      this.connectionState = 'connected';
+      this.onconnectionstatechange?.();
+    }
+  }
 
   close() {
     this.closed = true;
@@ -66,13 +78,22 @@ describe('VoiceWebRtcClient', () => {
 
   beforeEach(() => {
     FakeRTCPeerConnection.instances = [];
+    FakeRTCPeerConnection.autoConnect = true;
     micTrack = makeFakeTrack();
     getUserMediaMock = jest.fn().mockResolvedValue(makeFakeStream([micTrack]));
 
-    Object.defineProperty(global, 'RTCPeerConnection', { value: FakeRTCPeerConnection, configurable: true });
-    Object.defineProperty(navigator, 'mediaDevices', { value: { getUserMedia: getUserMediaMock }, configurable: true });
+    Object.defineProperty(global, 'RTCPeerConnection', {
+      value: FakeRTCPeerConnection,
+      configurable: true,
+    });
+    Object.defineProperty(navigator, 'mediaDevices', {
+      value: { getUserMedia: getUserMediaMock },
+      configurable: true,
+    });
 
-    fetchMock = jest.fn().mockResolvedValue({ ok: true, status: 201, text: async () => 'fake-answer-sdp' });
+    fetchMock = jest
+      .fn()
+      .mockResolvedValue({ ok: true, status: 201, text: async () => 'fake-answer-sdp' });
     global.fetch = fetchMock as unknown as typeof fetch;
   });
 
@@ -114,6 +135,26 @@ describe('VoiceWebRtcClient', () => {
     expect((sdpPart as Blob).size).toBe('fake-offer-sdp-with-ice'.length);
   });
 
+  it('does not resolve connect until the peer connection itself is ready', async () => {
+    FakeRTCPeerConnection.autoConnect = false;
+    const client = makeClient();
+    let resolved = false;
+    const connecting = client.connect('secret', 'model').then(() => {
+      resolved = true;
+    });
+
+    // Let microphone acquisition, signaling, and setRemoteDescription finish.
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(resolved).toBe(false);
+
+    const pc = FakeRTCPeerConnection.instances[0];
+    pc.connectionState = 'connected';
+    pc.onconnectionstatechange?.();
+
+    await connecting;
+    expect(resolved).toBe(true);
+  });
+
   it('throws with provider status when the provider rejects the offer', async () => {
     fetchMock.mockResolvedValue({ ok: false, status: 400, text: async () => '' });
     const client = makeClient();
@@ -122,18 +163,31 @@ describe('VoiceWebRtcClient', () => {
 
   it('forwards parsed data-channel events to onDataChannelMessage', async () => {
     const onDataChannelMessage = jest.fn();
-    const client = new VoiceWebRtcClient({ onRemoteTrack: jest.fn(), onDataChannelMessage, onConnectionStateChange: jest.fn() });
+    const client = new VoiceWebRtcClient({
+      onRemoteTrack: jest.fn(),
+      onDataChannelMessage,
+      onConnectionStateChange: jest.fn(),
+    });
     await client.connect('secret', 'model');
 
     const pc = FakeRTCPeerConnection.instances[0];
-    pc.dataChannel?.onmessage?.({ data: JSON.stringify({ type: 'response.created', response: { id: 'r1' } }) } as MessageEvent);
+    pc.dataChannel?.onmessage?.({
+      data: JSON.stringify({ type: 'response.created', response: { id: 'r1' } }),
+    } as MessageEvent);
 
-    expect(onDataChannelMessage).toHaveBeenCalledWith({ type: 'response.created', response: { id: 'r1' } });
+    expect(onDataChannelMessage).toHaveBeenCalledWith({
+      type: 'response.created',
+      response: { id: 'r1' },
+    });
   });
 
   it('drops a malformed data-channel message instead of throwing', async () => {
     const onDataChannelMessage = jest.fn();
-    const client = new VoiceWebRtcClient({ onRemoteTrack: jest.fn(), onDataChannelMessage, onConnectionStateChange: jest.fn() });
+    const client = new VoiceWebRtcClient({
+      onRemoteTrack: jest.fn(),
+      onDataChannelMessage,
+      onConnectionStateChange: jest.fn(),
+    });
     await client.connect('secret', 'model');
 
     const pc = FakeRTCPeerConnection.instances[0];
@@ -143,7 +197,11 @@ describe('VoiceWebRtcClient', () => {
 
   it('forwards the remote audio stream', async () => {
     const onRemoteTrack = jest.fn();
-    const client = new VoiceWebRtcClient({ onRemoteTrack, onDataChannelMessage: jest.fn(), onConnectionStateChange: jest.fn() });
+    const client = new VoiceWebRtcClient({
+      onRemoteTrack,
+      onDataChannelMessage: jest.fn(),
+      onConnectionStateChange: jest.fn(),
+    });
     await client.connect('secret', 'model');
 
     const pc = FakeRTCPeerConnection.instances[0];
@@ -155,7 +213,11 @@ describe('VoiceWebRtcClient', () => {
 
   it('reports connection state changes', async () => {
     const onConnectionStateChange = jest.fn();
-    const client = new VoiceWebRtcClient({ onRemoteTrack: jest.fn(), onDataChannelMessage: jest.fn(), onConnectionStateChange });
+    const client = new VoiceWebRtcClient({
+      onRemoteTrack: jest.fn(),
+      onDataChannelMessage: jest.fn(),
+      onConnectionStateChange,
+    });
     await client.connect('secret', 'model');
 
     const pc = FakeRTCPeerConnection.instances[0];
@@ -163,6 +225,27 @@ describe('VoiceWebRtcClient', () => {
     pc.onconnectionstatechange?.();
 
     expect(onConnectionStateChange).toHaveBeenCalledWith('failed');
+  });
+
+  it('ignores a delayed connection event from a peer that was already disconnected', async () => {
+    const onConnectionStateChange = jest.fn();
+    const client = new VoiceWebRtcClient({
+      onRemoteTrack: jest.fn(),
+      onDataChannelMessage: jest.fn(),
+      onConnectionStateChange,
+    });
+    await client.connect('secret', 'model');
+
+    const pc = FakeRTCPeerConnection.instances[0];
+    const delayedConnectionHandler = pc.onconnectionstatechange;
+    onConnectionStateChange.mockClear();
+
+    client.disconnect();
+    pc.connectionState = 'failed';
+    delayedConnectionHandler?.();
+
+    expect(onConnectionStateChange).not.toHaveBeenCalled();
+    expect(pc.onconnectionstatechange).toBeNull();
   });
 
   it('mutes and unmutes by disabling the mic track, not by tearing down the connection', async () => {

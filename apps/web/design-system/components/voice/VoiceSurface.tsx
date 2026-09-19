@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useConversation, useSession, useVoice } from '../../../state';
 import { EmptyState } from '../EmptyState/EmptyState';
 import { ErrorState } from '../ErrorState/ErrorState';
@@ -24,9 +24,11 @@ export interface VoiceSurfaceProps {
  */
 export function VoiceSurface({ conversationId, onClose }: VoiceSurfaceProps) {
   const { session } = useSession();
-  const { state, remoteStream, startSession, endSession, setMuted, interrupt, clearError } = useVoice();
-  const { refreshMessages } = useConversation();
+  const { state, remoteStream, startSession, endSession, setMuted, interrupt, clearError } =
+    useVoice();
+  const { refreshMessages, selectConversation } = useConversation();
   const audioRef = useRef<HTMLAudioElement>(null);
+  const [retrying, setRetrying] = useState(false);
 
   useEffect(() => {
     if (audioRef.current && remoteStream) {
@@ -39,11 +41,40 @@ export function VoiceSurface({ conversationId, onClose }: VoiceSurfaceProps) {
     }
   }, [remoteStream]);
 
+  useEffect(() => {
+    if (!state.conversationId) return;
+    // A voice-first member may not have an active text conversation yet. As
+    // soon as the brokered voice session tells us which canonical conversation
+    // it created/continued, make that same conversation active in the shared
+    // ConversationContext so returning to Type cannot look like a fresh start.
+    void selectConversation(state.conversationId);
+  }, [state.conversationId, selectConversation]);
+
   async function handleEnd() {
     await endSession();
     if (state.conversationId) {
       void refreshMessages(state.conversationId);
     }
+  }
+
+  async function handleRetry() {
+    // Keep the recovery surface in a dedicated reconnecting state while the
+    // failed session is ended and the replacement is brokered. endSession()
+    // intentionally transitions the shared state to "ended"; without this
+    // local guard the Done/exit control can flash during the retry round trip.
+    setRetrying(true);
+    try {
+      const canonicalConversationId = state.conversationId ?? conversationId;
+      await endSession();
+      await startSession(canonicalConversationId);
+    } finally {
+      setRetrying(false);
+    }
+  }
+
+  async function handleContinueByTyping() {
+    await handleEnd();
+    onClose?.();
   }
 
   if (!session.isAuthenticated) {
@@ -61,20 +92,32 @@ export function VoiceSurface({ conversationId, onClose }: VoiceSurfaceProps) {
     <div className={styles.surface}>
       <audio ref={audioRef} autoPlay />
 
-      {errorCopy ? (
+      {retrying ? (
+        <EmptyState
+          title="Reconnecting voice"
+          description="Ending the interrupted connection and starting a clean voice session."
+        />
+      ) : errorCopy ? (
         <ErrorState
           title={errorCopy.title}
           description={errorCopy.description}
           action={
-            state.error?.retryable ? (
-              <Button variant="secondary" onClick={() => void startSession(conversationId)}>
-                Try again
-              </Button>
-            ) : (
-              <Button variant="secondary" onClick={clearError}>
-                Dismiss
-              </Button>
-            )
+            <div className={styles.recoveryActions}>
+              {state.error?.retryable ? (
+                <Button variant="secondary" onClick={() => void handleRetry()}>
+                  Try voice again
+                </Button>
+              ) : (
+                <Button variant="secondary" onClick={clearError}>
+                  Dismiss
+                </Button>
+              )}
+              {onClose ? (
+                <Button variant="secondary" onClick={() => void handleContinueByTyping()}>
+                  Continue by typing
+                </Button>
+              ) : null}
+            </div>
           }
         />
       ) : state.turnState === 'idle' ? (

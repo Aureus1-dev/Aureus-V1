@@ -3,6 +3,8 @@ import type { RawRealtimeEvent } from './realtime-event-mapper';
 const REALTIME_API_URL = 'https://api.openai.com/v1/realtime/calls';
 const ICE_GATHERING_TIMEOUT_MS = 5_000;
 const SIGNALING_TIMEOUT_MS = 20_000;
+const CONNECTION_READY_TIMEOUT_MS = 15_000;
+const CONNECTION_READY_POLL_MS = 50;
 
 export interface VoiceWebRtcClientCallbacks {
   onRemoteTrack: (stream: MediaStream) => void;
@@ -30,6 +32,25 @@ async function waitForIceGatheringComplete(pc: RTCPeerConnection): Promise<void>
   });
 }
 
+async function waitForConnectionReady(
+  pc: RTCPeerConnection,
+  dataChannel: RTCDataChannel,
+): Promise<void> {
+  const deadline = Date.now() + CONNECTION_READY_TIMEOUT_MS;
+
+  while (Date.now() < deadline) {
+    if (pc.connectionState === 'failed' || pc.connectionState === 'closed') {
+      throw new Error('The voice peer connection failed before it became ready.');
+    }
+    if (pc.connectionState === 'connected' && dataChannel.readyState === 'open') {
+      return;
+    }
+    await new Promise((resolve) => setTimeout(resolve, CONNECTION_READY_POLL_MS));
+  }
+
+  throw new Error('The voice connection did not become ready in time.');
+}
+
 export class VoiceWebRtcClient {
   private pc: RTCPeerConnection | null = null;
   private dataChannel: RTCDataChannel | null = null;
@@ -44,10 +65,15 @@ export class VoiceWebRtcClient {
     this.pc = pc;
 
     pc.onconnectionstatechange = () => {
+      // Browser events can already be queued when a failed attempt is torn
+      // down. Only the peer connection this client still owns may report
+      // state, so a delayed event from the superseded attempt is inert.
+      if (this.pc !== pc) return;
       this.callbacks.onConnectionStateChange(pc.connectionState);
     };
 
     pc.ontrack = (event) => {
+      if (this.pc !== pc) return;
       const [stream] = event.streams;
       if (stream) this.callbacks.onRemoteTrack(stream);
     };
@@ -59,6 +85,7 @@ export class VoiceWebRtcClient {
     const dataChannel = pc.createDataChannel('oai-events');
     this.dataChannel = dataChannel;
     dataChannel.onmessage = (event) => {
+      if (this.dataChannel !== dataChannel) return;
       try {
         this.callbacks.onDataChannelMessage(JSON.parse(event.data) as RawRealtimeEvent);
       } catch {
@@ -93,11 +120,20 @@ export class VoiceWebRtcClient {
     }
 
     if (!response.ok) {
-      throw new Error(`Unable to establish the voice connection (provider status ${response.status}).`);
+      throw new Error(
+        `Unable to establish the voice connection (provider status ${response.status}).`,
+      );
     }
 
     const answerSdp = await response.text();
     await pc.setRemoteDescription({ type: 'answer', sdp: answerSdp });
+
+    // setRemoteDescription() only proves signaling succeeded. A member must
+    // not be told Aureus is listening until ICE/DTLS is actually connected
+    // and the Realtime data channel is open. This closes the false-success
+    // window observed in the Founder mobile walkthrough, where the UI could
+    // switch to Listening and immediately fall into "connection interrupted."
+    await waitForConnectionReady(pc, dataChannel);
   }
 
   setMuted(muted: boolean): void {
@@ -117,11 +153,23 @@ export class VoiceWebRtcClient {
   }
 
   disconnect(): void {
-    this.dataChannel?.close();
+    const dataChannel = this.dataChannel;
     this.dataChannel = null;
+    if (dataChannel) {
+      dataChannel.onmessage = null;
+      dataChannel.close();
+    }
+
     this.micStream?.getTracks().forEach((track) => track.stop());
     this.micStream = null;
-    this.pc?.close();
+
+    const pc = this.pc;
     this.pc = null;
+    if (pc) {
+      pc.onconnectionstatechange = null;
+      pc.ontrack = null;
+      pc.onicegatheringstatechange = null;
+      pc.close();
+    }
   }
 }

@@ -39,10 +39,38 @@ jobs:
         run: |
           set -o pipefail
           node scripts/release-gate.mjs | tee steward-release-evidence.json
+      - name: Run real-browser first-session gate
+        if: always() && inputs.require_voice
+        shell: bash
+        env:
+          RELEASE_WEB_ORIGIN: ${{ inputs.web_origin }}
+          RELEASE_TEST_EMAIL: ${{ secrets.RELEASE_TEST_EMAIL }}
+          RELEASE_TEST_PASSWORD: ${{ secrets.RELEASE_TEST_PASSWORD }}
+        run: |
+          set -o pipefail
+          CHROME_BIN="$(command -v google-chrome || command -v chromium || command -v chromium-browser || true)"
+          if [ -z "$CHROME_BIN" ]; then
+            echo '{"result":"HOLD","failure":"No Chrome/Chromium binary is available on the release runner."}' | tee browser-first-session-evidence.json
+            exit 1
+          fi
+          RELEASE_CHROME_BIN="$CHROME_BIN" node scripts/browser-first-session-canary.mjs 2>&1 | tee browser-first-session-evidence.json
+      - name: Verify required release evidence exists
+        if: always()
+        shell: bash
+        env:
+          RELEASE_REQUIRE_VOICE: ${{ inputs.require_voice }}
+        run: |
+          set -euo pipefail
+          test -s steward-release-evidence.json
+          if [ "$RELEASE_REQUIRE_VOICE" = "true" ]; then
+            test -s browser-first-session-evidence.json
+          fi
       - name: Preserve release evidence
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: steward-release-evidence-${{ github.sha }}
-          path: steward-release-evidence.json
+          path: |
+            steward-release-evidence.json
+            browser-first-session-evidence.json
           if-no-files-found: error

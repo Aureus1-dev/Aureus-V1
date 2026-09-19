@@ -1,19 +1,25 @@
 import { RealtimeEventMapper } from './realtime-event-mapper';
 
+const NOW = '2026-01-01T00:00:00.000Z';
+
+function makeMapper() {
+  return new RealtimeEventMapper(() => new Date(NOW));
+}
+
 describe('RealtimeEventMapper', () => {
   it('maps member speech start/stop directly, without inferring a finished turn', () => {
-    const mapper = new RealtimeEventMapper(() => new Date('2026-01-01T00:00:00.000Z'));
+    const mapper = makeMapper();
 
     expect(mapper.map({ type: 'input_audio_buffer.speech_started' })).toEqual([
-      { kind: 'member-speech-started', occurredAt: '2026-01-01T00:00:00.000Z' },
+      { kind: 'member-speech-started', occurredAt: NOW },
     ]);
     expect(mapper.map({ type: 'input_audio_buffer.speech_stopped' })).toEqual([
-      { kind: 'member-speech-stopped', occurredAt: '2026-01-01T00:00:00.000Z' },
+      { kind: 'member-speech-stopped', occurredAt: NOW },
     ]);
   });
 
   it('maps a finalized member transcript to member-turn-finalized, never from speech-stopped alone', () => {
-    const mapper = new RealtimeEventMapper(() => new Date('2026-01-01T00:00:00.000Z'));
+    const mapper = makeMapper();
     mapper.map({ type: 'input_audio_buffer.speech_stopped' });
 
     const result = mapper.map({
@@ -23,22 +29,48 @@ describe('RealtimeEventMapper', () => {
     });
 
     expect(result).toEqual([
-      { kind: 'member-turn-finalized', itemId: 'item-1', transcript: 'What is a Journey?', occurredAt: '2026-01-01T00:00:00.000Z' },
+      {
+        kind: 'member-turn-finalized',
+        itemId: 'item-1',
+        transcript: 'What is a Journey?',
+        occurredAt: NOW,
+      },
     ]);
   });
 
-  it('assembles a streamed steward transcript from deltas and emits it on response.done', () => {
-    const mapper = new RealtimeEventMapper(() => new Date('2026-01-01T00:00:00.000Z'));
+  it('assembles a streamed steward transcript from current GA output-audio transcript events and emits it on response.done', () => {
+    const mapper = makeMapper();
 
     expect(mapper.map({ type: 'response.created', response: { id: 'resp-1' } })).toEqual([
-      { kind: 'steward-response-started', responseId: 'resp-1', occurredAt: '2026-01-01T00:00:00.000Z' },
+      { kind: 'steward-response-started', responseId: 'resp-1', occurredAt: NOW },
     ]);
-    expect(mapper.map({ type: 'response.audio_transcript.delta', response_id: 'resp-1', delta: 'A Jour' })).toEqual([
-      { kind: 'steward-transcript-delta', responseId: 'resp-1', delta: 'A Jour' },
+    expect(
+      mapper.map({
+        type: 'response.output_audio_transcript.delta',
+        response_id: 'resp-1',
+        delta: 'A Jour',
+      }),
+    ).toEqual([{ kind: 'steward-transcript-delta', responseId: 'resp-1', delta: 'A Jour' }]);
+    expect(
+      mapper.map({
+        type: 'response.output_audio_transcript.delta',
+        response_id: 'resp-1',
+        delta: 'ney tracks progress.',
+      }),
+    ).toEqual([
+      {
+        kind: 'steward-transcript-delta',
+        responseId: 'resp-1',
+        delta: 'ney tracks progress.',
+      },
     ]);
-    expect(mapper.map({ type: 'response.audio_transcript.delta', response_id: 'resp-1', delta: 'ney tracks progress.' })).toEqual([
-      { kind: 'steward-transcript-delta', responseId: 'resp-1', delta: 'ney tracks progress.' },
-    ]);
+    expect(
+      mapper.map({
+        type: 'response.output_audio_transcript.done',
+        response_id: 'resp-1',
+        transcript: 'A Journey tracks progress.',
+      }),
+    ).toEqual([]);
 
     const done = mapper.map({
       type: 'response.done',
@@ -51,15 +83,63 @@ describe('RealtimeEventMapper', () => {
         responseId: 'resp-1',
         itemId: 'item-2',
         transcript: 'A Journey tracks progress.',
-        occurredAt: '2026-01-01T00:00:00.000Z',
+        occurredAt: NOW,
+      },
+    ]);
+  });
+
+  it('keeps the legacy assistant transcript aliases compatible during provider migration', () => {
+    const mapper = makeMapper();
+    mapper.map({ type: 'response.created', response: { id: 'resp-legacy' } });
+
+    expect(
+      mapper.map({
+        type: 'response.audio_transcript.delta',
+        response_id: 'resp-legacy',
+        delta: 'Legacy still works.',
+      }),
+    ).toEqual([
+      {
+        kind: 'steward-transcript-delta',
+        responseId: 'resp-legacy',
+        delta: 'Legacy still works.',
+      },
+    ]);
+
+    mapper.map({
+      type: 'response.audio_transcript.done',
+      response_id: 'resp-legacy',
+      transcript: 'Legacy still works.',
+    });
+
+    expect(
+      mapper.map({
+        type: 'response.done',
+        response: {
+          id: 'resp-legacy',
+          status: 'completed',
+          output: [{ id: 'legacy-item' }],
+        },
+      }),
+    ).toEqual([
+      {
+        kind: 'steward-response-completed',
+        responseId: 'resp-legacy',
+        itemId: 'legacy-item',
+        transcript: 'Legacy still works.',
+        occurredAt: NOW,
       },
     ]);
   });
 
   it('reports a barge-in as steward-response-interrupted, not completed, when status is cancelled', () => {
-    const mapper = new RealtimeEventMapper(() => new Date('2026-01-01T00:00:00.000Z'));
+    const mapper = makeMapper();
     mapper.map({ type: 'response.created', response: { id: 'resp-2' } });
-    mapper.map({ type: 'response.audio_transcript.delta', response_id: 'resp-2', delta: 'Here is what I fou' });
+    mapper.map({
+      type: 'response.output_audio_transcript.delta',
+      response_id: 'resp-2',
+      delta: 'Here is what I fou',
+    });
 
     const done = mapper.map({
       type: 'response.done',
@@ -72,31 +152,50 @@ describe('RealtimeEventMapper', () => {
         responseId: 'resp-2',
         itemId: 'item-3',
         transcript: 'Here is what I fou',
-        occurredAt: '2026-01-01T00:00:00.000Z',
+        occurredAt: NOW,
       },
     ]);
   });
 
   it('treats an incomplete status the same as cancelled (interrupted, not completed)', () => {
-    const mapper = new RealtimeEventMapper(() => new Date('2026-01-01T00:00:00.000Z'));
+    const mapper = makeMapper();
     mapper.map({ type: 'response.created', response: { id: 'resp-3' } });
 
-    const done = mapper.map({ type: 'response.done', response: { id: 'resp-3', status: 'incomplete', output: [] } });
+    const done = mapper.map({
+      type: 'response.done',
+      response: { id: 'resp-3', status: 'incomplete', output: [] },
+    });
 
     expect(done[0]?.kind).toBe('steward-response-interrupted');
   });
 
   it('forgets a response transcript once resolved, so a stale delta cannot leak into the next response', () => {
-    const mapper = new RealtimeEventMapper(() => new Date('2026-01-01T00:00:00.000Z'));
+    const mapper = makeMapper();
     mapper.map({ type: 'response.created', response: { id: 'resp-1' } });
-    mapper.map({ type: 'response.audio_transcript.delta', response_id: 'resp-1', delta: 'First response.' });
-    mapper.map({ type: 'response.done', response: { id: 'resp-1', status: 'completed', output: [] } });
+    mapper.map({
+      type: 'response.output_audio_transcript.delta',
+      response_id: 'resp-1',
+      delta: 'First response.',
+    });
+    mapper.map({
+      type: 'response.done',
+      response: { id: 'resp-1', status: 'completed', output: [] },
+    });
 
     mapper.map({ type: 'response.created', response: { id: 'resp-2' } });
-    const done = mapper.map({ type: 'response.done', response: { id: 'resp-2', status: 'completed', output: [] } });
+    const done = mapper.map({
+      type: 'response.done',
+      response: { id: 'resp-2', status: 'completed', output: [] },
+    });
 
     expect(done).toEqual([
-      { kind: 'steward-response-completed', responseId: 'resp-2', itemId: null, transcript: '', occurredAt: '2026-01-01T00:00:00.000Z' },
+      {
+        kind: 'steward-response-completed',
+        responseId: 'resp-2',
+        itemId: null,
+        transcript: '',
+        occurredAt: NOW,
+      },
     ]);
   });
 
@@ -118,7 +217,7 @@ describe('RealtimeEventMapper', () => {
   });
 
   it('emits a function-call-requested event for a Dynamic Screen Orchestration tool call (DOMAIN-005)', () => {
-    const mapper = new RealtimeEventMapper(() => new Date('2026-01-01T00:00:00.000Z'));
+    const mapper = makeMapper();
     mapper.map({ type: 'response.created', response: { id: 'resp-4' } });
 
     const done = mapper.map({
@@ -126,7 +225,14 @@ describe('RealtimeEventMapper', () => {
       response: {
         id: 'resp-4',
         status: 'completed',
-        output: [{ type: 'function_call', call_id: 'call-1', name: 'navigate_to_route', arguments: '{"route":"journey"}' }],
+        output: [
+          {
+            type: 'function_call',
+            call_id: 'call-1',
+            name: 'navigate_to_route',
+            arguments: '{"route":"journey"}',
+          },
+        ],
       },
     });
 
@@ -136,14 +242,20 @@ describe('RealtimeEventMapper', () => {
         callId: 'call-1',
         name: 'navigate_to_route',
         arguments: '{"route":"journey"}',
-        occurredAt: '2026-01-01T00:00:00.000Z',
+        occurredAt: NOW,
       },
-      { kind: 'steward-response-completed', responseId: 'resp-4', itemId: null, transcript: '', occurredAt: '2026-01-01T00:00:00.000Z' },
+      {
+        kind: 'steward-response-completed',
+        responseId: 'resp-4',
+        itemId: null,
+        transcript: '',
+        occurredAt: NOW,
+      },
     ]);
   });
 
   it('emits one function-call-requested event per tool call when a response requests several at once', () => {
-    const mapper = new RealtimeEventMapper(() => new Date('2026-01-01T00:00:00.000Z'));
+    const mapper = makeMapper();
     mapper.map({ type: 'response.created', response: { id: 'resp-5' } });
 
     const done = mapper.map({
@@ -152,19 +264,33 @@ describe('RealtimeEventMapper', () => {
         id: 'resp-5',
         status: 'completed',
         output: [
-          { type: 'function_call', call_id: 'call-a', name: 'focus_interface_target', arguments: '{"targetId":"Home.NextMission"}' },
-          { type: 'function_call', call_id: 'call-b', name: 'navigate_to_route', arguments: '{"route":"home"}' },
+          {
+            type: 'function_call',
+            call_id: 'call-a',
+            name: 'focus_interface_target',
+            arguments: '{"targetId":"Home.NextMission"}',
+          },
+          {
+            type: 'function_call',
+            call_id: 'call-b',
+            name: 'navigate_to_route',
+            arguments: '{"route":"home"}',
+          },
         ],
       },
     });
 
-    expect(done.filter((e) => e.kind === 'function-call-requested')).toHaveLength(2);
+    expect(done.filter((event) => event.kind === 'function-call-requested')).toHaveLength(2);
   });
 
   it('finds the spoken-message output item alongside a tool call and reports its itemId', () => {
-    const mapper = new RealtimeEventMapper(() => new Date('2026-01-01T00:00:00.000Z'));
+    const mapper = makeMapper();
     mapper.map({ type: 'response.created', response: { id: 'resp-6' } });
-    mapper.map({ type: 'response.audio_transcript.delta', response_id: 'resp-6', delta: 'Here is your journey.' });
+    mapper.map({
+      type: 'response.output_audio_transcript.delta',
+      response_id: 'resp-6',
+      delta: 'Here is your journey.',
+    });
 
     const done = mapper.map({
       type: 'response.done',
@@ -172,18 +298,26 @@ describe('RealtimeEventMapper', () => {
         id: 'resp-6',
         status: 'completed',
         output: [
-          { type: 'function_call', call_id: 'call-c', name: 'navigate_to_route', arguments: '{"route":"journey"}' },
+          {
+            type: 'function_call',
+            call_id: 'call-c',
+            name: 'navigate_to_route',
+            arguments: '{"route":"journey"}',
+          },
           { id: 'item-msg-1', type: 'message' },
         ],
       },
     });
 
-    const completed = done.find((e) => e.kind === 'steward-response-completed');
-    expect(completed).toMatchObject({ itemId: 'item-msg-1', transcript: 'Here is your journey.' });
+    const completed = done.find((event) => event.kind === 'steward-response-completed');
+    expect(completed).toMatchObject({
+      itemId: 'item-msg-1',
+      transcript: 'Here is your journey.',
+    });
   });
 
   it('extracts response.usage into the flat shape the backend expects, on a completed response', () => {
-    const mapper = new RealtimeEventMapper(() => new Date('2026-01-01T00:00:00.000Z'));
+    const mapper = makeMapper();
     mapper.map({ type: 'response.created', response: { id: 'resp-7' } });
 
     const done = mapper.map({
@@ -193,7 +327,11 @@ describe('RealtimeEventMapper', () => {
         status: 'completed',
         output: [],
         usage: {
-          input_token_details: { text_tokens: 119, audio_tokens: 13, cached_tokens_details: { text_tokens: 64, audio_tokens: 0 } },
+          input_token_details: {
+            text_tokens: 119,
+            audio_tokens: 13,
+            cached_tokens_details: { text_tokens: 64, audio_tokens: 0 },
+          },
           output_token_details: { text_tokens: 30, audio_tokens: 91 },
         },
       },
@@ -202,14 +340,18 @@ describe('RealtimeEventMapper', () => {
     expect(done[0]).toMatchObject({
       kind: 'steward-response-completed',
       usage: {
-        inputAudioTokens: 13, inputTextTokens: 119, cachedAudioTokens: 0, cachedTextTokens: 64,
-        outputAudioTokens: 91, outputTextTokens: 30,
+        inputAudioTokens: 13,
+        inputTextTokens: 119,
+        cachedAudioTokens: 0,
+        cachedTextTokens: 64,
+        outputAudioTokens: 91,
+        outputTextTokens: 30,
       },
     });
   });
 
   it('extracts response.usage on an interrupted response too, so a barge-in still gets billed accurately', () => {
-    const mapper = new RealtimeEventMapper(() => new Date('2026-01-01T00:00:00.000Z'));
+    const mapper = makeMapper();
     mapper.map({ type: 'response.created', response: { id: 'resp-8' } });
 
     const done = mapper.map({
@@ -227,15 +369,25 @@ describe('RealtimeEventMapper', () => {
 
     expect(done[0]).toMatchObject({
       kind: 'steward-response-interrupted',
-      usage: { inputAudioTokens: 10, inputTextTokens: 0, cachedAudioTokens: 0, cachedTextTokens: 0, outputAudioTokens: 5, outputTextTokens: 0 },
+      usage: {
+        inputAudioTokens: 10,
+        inputTextTokens: 0,
+        cachedAudioTokens: 0,
+        cachedTextTokens: 0,
+        outputAudioTokens: 5,
+        outputTextTokens: 0,
+      },
     });
   });
 
   it('omits usage entirely (not a zeroed object) when response.done carries none', () => {
-    const mapper = new RealtimeEventMapper(() => new Date('2026-01-01T00:00:00.000Z'));
+    const mapper = makeMapper();
     mapper.map({ type: 'response.created', response: { id: 'resp-9' } });
 
-    const done = mapper.map({ type: 'response.done', response: { id: 'resp-9', status: 'completed', output: [] } });
+    const done = mapper.map({
+      type: 'response.done',
+      response: { id: 'resp-9', status: 'completed', output: [] },
+    });
 
     expect(done[0]).not.toHaveProperty('usage');
   });

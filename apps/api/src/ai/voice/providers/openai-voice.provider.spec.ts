@@ -5,15 +5,29 @@ import type { VoiceSessionBrokerInput } from './voice-provider.interface';
 
 function makeConfig(overrides: Record<string, string> = {}): ConfigService {
   const values: Record<string, string> = { OPENAI_API_KEY: 'test-key', ...overrides };
-  return { get: (key: string, fallback?: string) => values[key] ?? fallback } as unknown as ConfigService;
+  return {
+    get: (key: string, fallback?: string) => values[key] ?? fallback,
+  } as unknown as ConfigService;
 }
 
 const INPUT: VoiceSessionBrokerInput = {
   model: 'gpt-realtime',
   voice: 'marin',
   instructions: 'Legacy platform-only instruction that must not govern live member help.',
-  turnDetectionConfig: { type: 'semantic_vad', eagerness: 'low', create_response: true, interrupt_response: true },
-  tools: [{ type: 'function', name: 'navigate_to_route', description: 'Navigate.', parameters: {} }],
+  turnDetectionConfig: {
+    type: 'semantic_vad',
+    eagerness: 'low',
+    create_response: true,
+    interrupt_response: true,
+  },
+  tools: [
+    {
+      type: 'function',
+      name: 'navigate_to_route',
+      description: 'Navigate.',
+      parameters: {},
+    },
+  ],
 };
 
 describe('OpenAiVoiceProvider', () => {
@@ -24,10 +38,14 @@ describe('OpenAiVoiceProvider', () => {
     jest.restoreAllMocks();
   });
 
-  it('posts to the GA client_secrets endpoint with governed Member Steward instructions', async () => {
+  it('posts to the GA client_secrets endpoint with governed instructions and member transcription enabled', async () => {
     const fetchMock = jest.fn().mockResolvedValue({
       ok: true,
-      json: async () => ({ value: 'ek_123', expires_at: 1735689600, session: { id: 'sess_abc' } }),
+      json: async () => ({
+        value: 'ek_123',
+        expires_at: 1735689600,
+        session: { id: 'sess_abc' },
+      }),
     });
     global.fetch = fetchMock as unknown as typeof fetch;
 
@@ -45,7 +63,10 @@ describe('OpenAiVoiceProvider', () => {
         model: INPUT.model,
         instructions: MEMBER_STEWARD_VOICE_SYSTEM_PROMPT,
         audio: {
-          input: { turn_detection: INPUT.turnDetectionConfig },
+          input: {
+            transcription: { model: 'gpt-4o-mini-transcribe' },
+            turn_detection: INPUT.turnDetectionConfig,
+          },
           output: { voice: INPUT.voice },
         },
         tools: INPUT.tools,
@@ -60,7 +81,11 @@ describe('OpenAiVoiceProvider', () => {
   it('maps the GA response (value/expires_at/session.id) into the provider-neutral broker output', async () => {
     const fetchMock = jest.fn().mockResolvedValue({
       ok: true,
-      json: async () => ({ value: 'ek_123', expires_at: 1735689600, session: { id: 'sess_abc' } }),
+      json: async () => ({
+        value: 'ek_123',
+        expires_at: 1735689600,
+        session: { id: 'sess_abc' },
+      }),
     });
     global.fetch = fetchMock as unknown as typeof fetch;
 

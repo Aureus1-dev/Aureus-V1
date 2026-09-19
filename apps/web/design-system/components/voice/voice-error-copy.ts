@@ -10,32 +10,38 @@ export function voiceErrorCopy(kind: VoiceErrorKind): { title: string; descripti
     case 'authentication':
       return {
         title: 'Sign in to continue',
-        description: "You'll need to sign in again to start a voice conversation.",
+        description:
+          "You'll need to sign in again to start a voice conversation. You can keep typing here in the meantime.",
       };
     case 'permission-denied':
       return {
         title: 'Microphone access is needed',
-        description: 'Please allow microphone access in your browser to talk with your steward, then try again.',
+        description:
+          'Allow microphone access in your browser and try voice again, or continue by typing. Nothing you already shared was lost.',
       };
     case 'connection':
       return {
         title: 'The voice connection was interrupted',
-        description: 'Your conversation history has been kept safe. Please try starting again.',
+        description:
+          'Nothing you already shared was lost. You can try voice again or continue the same conversation by typing.',
       };
     case 'unavailable':
       return {
         title: 'Voice is temporarily unavailable',
-        description: 'Please try again in a moment, or continue by typing instead.',
+        description:
+          'Nothing you already shared was lost. Try voice again, or continue the same conversation by typing.',
       };
     case 'network':
       return {
         title: 'Connection interrupted',
-        description: 'It looks like your connection was interrupted. Please try again.',
+        description:
+          'Your connection was interrupted. Nothing you already shared was lost; try voice again or continue by typing.',
       };
     default:
       return {
-        title: 'Something went wrong',
-        description: 'Please try again in a moment, or continue by typing instead.',
+        title: 'Voice could not start',
+        description:
+          'Nothing you already shared was lost. Try voice again, or continue the same conversation by typing.',
       };
   }
 }

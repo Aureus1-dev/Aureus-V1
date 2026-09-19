@@ -7,11 +7,14 @@
  * contained to this file alone (mirrors the backend's IVoiceProvider
  * abstraction, ADR-017 Decision 8).
  *
- * The event names below (`response.done` status `cancelled`/`incomplete`,
- * etc.) map directly onto the backend's Conversation Timing Layer
- * vocabulary (`AiTurnEventType`, DOMAIN-002) — a member turn is only ever
- * reported as finalized once, from `conversation.item.input_audio_transcription.completed`,
- * never from a speech-stopped pause alone.
+ * The event names below map directly onto the backend's Conversation Timing
+ * Layer vocabulary (`AiTurnEventType`, DOMAIN-002). OpenAI's GA Realtime API
+ * renamed assistant-audio transcript events from `response.audio_transcript.*`
+ * to `response.output_audio_transcript.*`; both are accepted here so an older
+ * in-flight session cannot break during a provider migration. A member turn is
+ * only ever reported as finalized once, from
+ * `conversation.item.input_audio_transcription.completed`, never from a
+ * speech-stopped pause alone.
  */
 
 /**
@@ -35,12 +38,37 @@ export interface VoiceResponseUsage {
 export type NormalizedVoiceEvent =
   | { kind: 'member-speech-started'; occurredAt: string }
   | { kind: 'member-speech-stopped'; occurredAt: string }
-  | { kind: 'member-turn-finalized'; itemId: string; transcript: string; occurredAt: string }
+  | {
+      kind: 'member-turn-finalized';
+      itemId: string;
+      transcript: string;
+      occurredAt: string;
+    }
   | { kind: 'steward-response-started'; responseId: string; occurredAt: string }
   | { kind: 'steward-transcript-delta'; responseId: string; delta: string }
-  | { kind: 'steward-response-completed'; responseId: string; itemId: string | null; transcript: string; occurredAt: string; usage?: VoiceResponseUsage }
-  | { kind: 'steward-response-interrupted'; responseId: string; itemId: string | null; transcript: string; occurredAt: string; usage?: VoiceResponseUsage }
-  | { kind: 'function-call-requested'; callId: string; name: string; arguments: string; occurredAt: string }
+  | {
+      kind: 'steward-response-completed';
+      responseId: string;
+      itemId: string | null;
+      transcript: string;
+      occurredAt: string;
+      usage?: VoiceResponseUsage;
+    }
+  | {
+      kind: 'steward-response-interrupted';
+      responseId: string;
+      itemId: string | null;
+      transcript: string;
+      occurredAt: string;
+      usage?: VoiceResponseUsage;
+    }
+  | {
+      kind: 'function-call-requested';
+      callId: string;
+      name: string;
+      arguments: string;
+      occurredAt: string;
+    }
   | { kind: 'provider-error'; message: string };
 
 export interface RawRealtimeEvent {
@@ -71,12 +99,14 @@ export class RealtimeEventMapper {
         return [{ kind: 'member-speech-stopped', occurredAt: this.nowIso() }];
 
       case 'conversation.item.input_audio_transcription.completed':
-        return [{
-          kind: 'member-turn-finalized',
-          itemId: String(raw.item_id ?? ''),
-          transcript: String(raw.transcript ?? ''),
-          occurredAt: this.nowIso(),
-        }];
+        return [
+          {
+            kind: 'member-turn-finalized',
+            itemId: String(raw.item_id ?? ''),
+            transcript: String(raw.transcript ?? ''),
+            occurredAt: this.nowIso(),
+          },
+        ];
 
       case 'response.created': {
         const responseId = extractResponseId(raw);
@@ -85,6 +115,9 @@ export class RealtimeEventMapper {
         return [{ kind: 'steward-response-started', responseId, occurredAt: this.nowIso() }];
       }
 
+      // Current GA name first; legacy alias retained for a bounded migration
+      // window so provider rollout cannot strand an already-open session.
+      case 'response.output_audio_transcript.delta':
       case 'response.audio_transcript.delta': {
         const responseId = String(raw.response_id ?? '');
         const delta = String(raw.delta ?? '');
@@ -94,6 +127,7 @@ export class RealtimeEventMapper {
         return [{ kind: 'steward-transcript-delta', responseId, delta }];
       }
 
+      case 'response.output_audio_transcript.done':
       case 'response.audio_transcript.done': {
         const responseId = String(raw.response_id ?? '');
         const transcript = String(raw.transcript ?? '');
@@ -104,17 +138,33 @@ export class RealtimeEventMapper {
       }
 
       case 'response.done': {
-        type OutputItem = { id?: string; type?: string; call_id?: string; name?: string; arguments?: string };
+        type OutputItem = {
+          id?: string;
+          type?: string;
+          call_id?: string;
+          name?: string;
+          arguments?: string;
+        };
         type ResponseUsage = {
-          input_token_details?: { text_tokens?: number; audio_tokens?: number; cached_tokens_details?: { text_tokens?: number; audio_tokens?: number } };
+          input_token_details?: {
+            text_tokens?: number;
+            audio_tokens?: number;
+            cached_tokens_details?: { text_tokens?: number; audio_tokens?: number };
+          };
           output_token_details?: { text_tokens?: number; audio_tokens?: number };
         };
-        const response = raw.response as { id?: string; status?: string; output?: OutputItem[]; usage?: ResponseUsage } | undefined;
+        const response = raw.response as
+          | {
+              id?: string;
+              status?: string;
+              output?: OutputItem[];
+              usage?: ResponseUsage;
+            }
+          | undefined;
         const responseId = response?.id ?? '';
         if (!responseId) return [];
 
         const usage = extractUsage(response?.usage);
-
         const occurredAt = this.nowIso();
         const output = response?.output ?? [];
         const events: NormalizedVoiceEvent[] = [];
@@ -147,9 +197,23 @@ export class RealtimeEventMapper {
         // 'speaking' and return to 'listening' regardless of what, if
         // anything, was said.
         if (response?.status === 'cancelled' || response?.status === 'incomplete') {
-          events.push({ kind: 'steward-response-interrupted', responseId, itemId, transcript, occurredAt, ...(usage ? { usage } : {}) });
+          events.push({
+            kind: 'steward-response-interrupted',
+            responseId,
+            itemId,
+            transcript,
+            occurredAt,
+            ...(usage ? { usage } : {}),
+          });
         } else {
-          events.push({ kind: 'steward-response-completed', responseId, itemId, transcript, occurredAt, ...(usage ? { usage } : {}) });
+          events.push({
+            kind: 'steward-response-completed',
+            responseId,
+            itemId,
+            transcript,
+            occurredAt,
+            ...(usage ? { usage } : {}),
+          });
         }
 
         return events;
@@ -157,7 +221,12 @@ export class RealtimeEventMapper {
 
       case 'error': {
         const error = raw.error as { message?: string } | undefined;
-        return [{ kind: 'provider-error', message: error?.message ?? 'The voice connection reported an error.' }];
+        return [
+          {
+            kind: 'provider-error',
+            message: error?.message ?? 'The voice connection reported an error.',
+          },
+        ];
       }
 
       default:
@@ -180,10 +249,18 @@ function extractResponseId(raw: RawRealtimeEvent): string | null {
 }
 
 /** Returns null when `response.done` carried no usage at all, rather than a zeroed-out object — a real absence is not the same as a turn that genuinely used 0 tokens. */
-function extractUsage(usage: {
-  input_token_details?: { text_tokens?: number; audio_tokens?: number; cached_tokens_details?: { text_tokens?: number; audio_tokens?: number } };
-  output_token_details?: { text_tokens?: number; audio_tokens?: number };
-} | undefined): VoiceResponseUsage | null {
+function extractUsage(
+  usage:
+    | {
+        input_token_details?: {
+          text_tokens?: number;
+          audio_tokens?: number;
+          cached_tokens_details?: { text_tokens?: number; audio_tokens?: number };
+        };
+        output_token_details?: { text_tokens?: number; audio_tokens?: number };
+      }
+    | undefined,
+): VoiceResponseUsage | null {
   if (!usage) return null;
   return {
     inputAudioTokens: usage.input_token_details?.audio_tokens ?? 0,
