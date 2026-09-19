@@ -11,6 +11,8 @@ const canonicalTestAccountOrigin = 'https://aureus-v1.onrender.com';
 const useAuthenticatedTestAccount =
   webOrigin === canonicalTestAccountOrigin && Boolean(testEmail && testPassword);
 const evidence = [];
+const browserDiagnostics = [];
+const trackedRequests = new Map();
 let chrome;
 let cdp;
 
@@ -29,14 +31,22 @@ class CdpClient {
     this.socket = socket;
     this.nextId = 1;
     this.pending = new Map();
+    this.listeners = new Map();
     socket.addEventListener('message', (event) => {
       const message = JSON.parse(event.data);
-      if (!message.id) return;
-      const pending = this.pending.get(message.id);
-      if (!pending) return;
-      this.pending.delete(message.id);
-      if (message.error) pending.reject(new Error(message.error.message));
-      else pending.resolve(message.result ?? {});
+      if (message.id) {
+        const pending = this.pending.get(message.id);
+        if (!pending) return;
+        this.pending.delete(message.id);
+        if (message.error) pending.reject(new Error(message.error.message));
+        else pending.resolve(message.result ?? {});
+        return;
+      }
+
+      if (!message.method) return;
+      for (const listener of this.listeners.get(message.method) ?? []) {
+        listener(message.params ?? {});
+      }
     });
   }
 
@@ -72,9 +82,61 @@ class CdpClient {
     });
   }
 
+  on(method, listener) {
+    const listeners = this.listeners.get(method) ?? [];
+    listeners.push(listener);
+    this.listeners.set(method, listeners);
+  }
+
   close() {
     this.socket.close();
   }
+}
+
+function isVoiceProviderUrl(url) {
+  return typeof url === 'string' && url.startsWith('https://api.openai.com/v1/realtime/calls');
+}
+
+function installBrowserDiagnostics() {
+  cdp.on('Network.requestWillBeSent', ({ requestId, request }) => {
+    if (!isVoiceProviderUrl(request?.url)) return;
+    trackedRequests.set(requestId, request.url);
+    browserDiagnostics.push({
+      type: 'voice-provider-request',
+      method: request.method,
+      url: request.url,
+    });
+  });
+
+  cdp.on('Network.responseReceived', ({ requestId, response }) => {
+    if (!trackedRequests.has(requestId)) return;
+    browserDiagnostics.push({
+      type: 'voice-provider-response',
+      status: response.status,
+      statusText: response.statusText,
+      protocol: response.protocol,
+      url: response.url,
+    });
+  });
+
+  cdp.on('Network.loadingFailed', ({ requestId, errorText, blockedReason, corsErrorStatus }) => {
+    const url = trackedRequests.get(requestId);
+    if (!url) return;
+    browserDiagnostics.push({
+      type: 'voice-provider-loading-failed',
+      url,
+      errorText,
+      blockedReason: blockedReason ?? null,
+      corsErrorStatus: corsErrorStatus ?? null,
+    });
+  });
+
+  cdp.on('Runtime.exceptionThrown', ({ exceptionDetails }) => {
+    browserDiagnostics.push({
+      type: 'browser-exception',
+      text: exceptionDetails?.exception?.description ?? exceptionDetails?.text ?? 'unknown exception',
+    });
+  });
 }
 
 async function waitForChromeDebugger() {
@@ -248,8 +310,10 @@ async function main() {
   try {
     const socketUrl = await waitForChromeDebugger();
     cdp = await CdpClient.connect(socketUrl);
+    installBrowserDiagnostics();
     await cdp.send('Page.enable');
     await cdp.send('Runtime.enable');
+    await cdp.send('Network.enable');
 
     await establishEntrySession();
     await runVoiceJourney();
@@ -261,6 +325,7 @@ async function main() {
           webOrigin,
           accountMode: useAuthenticatedTestAccount ? 'authenticated-test-account' : 'guest',
           evidence,
+          browserDiagnostics,
         },
         null,
         2,
@@ -275,6 +340,7 @@ async function main() {
           webOrigin,
           accountMode: useAuthenticatedTestAccount ? 'authenticated-test-account' : 'guest',
           evidence,
+          browserDiagnostics,
           failure: message,
           chromeError: chromeError.slice(-1500),
         },
