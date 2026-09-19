@@ -169,10 +169,18 @@ jobs:
           # replies render straight into arrival — a misconfigured deploy
           # would show that placeholder to a member in crisis. The key is
           # never used; the container only has to boot and serve /health.
+          #
+          # FRONTEND_URL joins them too: production now refuses to boot with
+          # the localhost default or a non-HTTPS/loopback origin, because a
+          # verification/reset email link that can never resolve for a real
+          # member is the exact incident this validation exists to prevent.
+          # The value here is never actually linked to; the container only
+          # has to boot.
           docker run -d --network host --name api-smoke \
             -e DATABASE_URL="postgresql://aureus:aureus@localhost:5432/aureus?schema=public" \
             -e JWT_ACCESS_SECRET="ci-only-secret-do-not-use-in-production-min-32-chars" \
             -e CORS_ORIGIN="http://localhost:3001" \
+            -e FRONTEND_URL="https://ci-smoke-test.example.com" \
             -e SMTP_HOST="smtp.example.com" \
             -e SMTP_VERIFY_ON_STARTUP="false" \
             -e AI_PROVIDER="openai" \

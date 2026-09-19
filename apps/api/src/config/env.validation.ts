@@ -1,5 +1,27 @@
 import * as Joi from 'joi';
 
+const productionFrontendUrl = Joi.string()
+  .empty('')
+  .uri({ scheme: ['https'] })
+  .custom((value: string, helpers) => {
+    // Node's URL parser keeps the brackets on an IPv6 literal host
+    // (`new URL('https://[::1]').hostname === '[::1]'`, not `'::1'`), so the
+    // loopback comparison strips them first — otherwise `[::1]` silently
+    // passes this check uncaught.
+    const hostname = new URL(value).hostname.toLowerCase().replace(/^\[|\]$/g, '');
+    if (hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '::1') {
+      return helpers.error('any.invalid');
+    }
+    return value;
+  }, 'production frontend origin validation')
+  .required()
+  .messages({
+    'any.required': 'FRONTEND_URL is required in production.',
+    'string.empty': 'FRONTEND_URL is required in production.',
+    'string.uri': 'FRONTEND_URL must be a valid HTTPS origin in production.',
+    'any.invalid': 'FRONTEND_URL must be a real deployed HTTPS origin in production, never localhost.',
+  });
+
 /**
  * Shared Joi schema for process.env (PD-002). Extracted from app.module.ts
  * so the exact same validation an actual boot performs can also run
@@ -48,7 +70,14 @@ export const envValidationSchema = Joi.object({
   SMTP_USER:       Joi.string().empty('').optional(),
   SMTP_PASSWORD:   Joi.string().empty('').optional(),
   SMTP_FROM_EMAIL: Joi.string().default('no-reply@aureus.app'),
-  FRONTEND_URL:    Joi.string().default('http://localhost:3001'),
+  // Verification and reset email URLs are part of the authentication path.
+  // Development/test may use localhost; production must supply a real HTTPS
+  // web origin and fails closed rather than emailing an unusable local link.
+  FRONTEND_URL: Joi.when('NODE_ENV', {
+    is: 'production',
+    then: productionFrontendUrl,
+    otherwise: Joi.string().uri({ scheme: ['http', 'https'] }).default('http://localhost:3001'),
+  }),
 
   // ── Opportunity Center commercial destinations (Issue #95 §2) ──────────
   // Optional provider-neutral JSON map: exact canonical HTTPS URL -> approved

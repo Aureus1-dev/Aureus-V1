@@ -3,18 +3,22 @@ import userEvent from '@testing-library/user-event';
 import { axe } from 'jest-axe';
 import { LoginForm } from './LoginForm';
 import { useSession } from '../../../state';
+import * as authApi from '../../../lib/api/auth';
 import { ApiError } from '../../../lib/api/errors';
 
 jest.mock('../../../state', () => ({ useSession: jest.fn() }));
+jest.mock('../../../lib/api/auth');
 
 const push = jest.fn();
 jest.mock('next/navigation', () => ({ useRouter: () => ({ push }) }));
 
 const mockedUseSession = useSession as jest.Mock;
+const mockedAuthApi = authApi as jest.Mocked<typeof authApi>;
 
 describe('LoginForm', () => {
   beforeEach(() => {
     push.mockClear();
+    jest.clearAllMocks();
   });
 
   it('signs in and returns directly to the conversation on success', async () => {
@@ -44,7 +48,44 @@ describe('LoginForm', () => {
 
     expect(await screen.findByText("Sign-in didn't work")).toBeInTheDocument();
     expect(screen.getByText('Invalid email or password')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Resend verification email' })).not.toBeInTheDocument();
     expect(push).not.toHaveBeenCalled();
+  });
+
+  it('offers a resend action when a correct login is blocked only by email verification', async () => {
+    const login = jest
+      .fn()
+      .mockRejectedValue(new ApiError(403, 'Please verify your email address before logging in.'));
+    mockedUseSession.mockReturnValue({ login, establishGuestSession: jest.fn() });
+    mockedAuthApi.resendVerification.mockResolvedValue(undefined);
+
+    render(<LoginForm />);
+    await userEvent.type(screen.getByLabelText('Email', { exact: false }), 'member@example.com');
+    await userEvent.type(screen.getByLabelText('Password', { exact: false }), 'Str0ng!Passw0rd');
+    await userEvent.click(screen.getByRole('button', { name: 'Sign in' }));
+
+    const resend = await screen.findByRole('button', { name: 'Resend verification email' });
+    await userEvent.click(resend);
+
+    expect(mockedAuthApi.resendVerification).toHaveBeenCalledWith('member@example.com');
+    expect(
+      await screen.findByText(
+        'If this address still needs verification, a new link is on the way. Check your inbox and spam folder.',
+      ),
+    ).toBeInTheDocument();
+  });
+
+  it('does not expose resend for an unrelated forbidden error', async () => {
+    const login = jest.fn().mockRejectedValue(new ApiError(403, 'This action is not allowed'));
+    mockedUseSession.mockReturnValue({ login, establishGuestSession: jest.fn() });
+
+    render(<LoginForm />);
+    await userEvent.type(screen.getByLabelText('Email', { exact: false }), 'member@example.com');
+    await userEvent.type(screen.getByLabelText('Password', { exact: false }), 'Str0ng!Passw0rd');
+    await userEvent.click(screen.getByRole('button', { name: 'Sign in' }));
+
+    expect(await screen.findByText('This action is not allowed')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Resend verification email' })).not.toBeInTheDocument();
   });
 
   it('shows a session-expired notice when instructed', () => {
