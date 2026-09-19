@@ -1,7 +1,7 @@
 import { VoiceWebRtcClient } from './webrtc-client';
 
 class FakeDataChannel {
-  readyState: RTCDataChannelState = 'open';
+  readyState: RTCDataChannelState = 'connecting';
   onmessage: ((event: MessageEvent) => void) | null = null;
   sentMessages: string[] = [];
 
@@ -17,11 +17,10 @@ class FakeDataChannel {
 class FakeRTCPeerConnection {
   static instances: FakeRTCPeerConnection[] = [];
   static autoConnect = true;
+  static autoOpenDataChannel = true;
   onconnectionstatechange: (() => void) | null = null;
   ontrack: ((event: { streams: MediaStream[] }) => void) | null = null;
-  onicegatheringstatechange: (() => void) | null = null;
   connectionState: RTCPeerConnectionState = 'new';
-  iceGatheringState: RTCIceGatheringState = 'complete';
   localDescription: RTCSessionDescription | null = null;
   dataChannel: FakeDataChannel | null = null;
   addedTracks: MediaStreamTrack[] = [];
@@ -47,11 +46,14 @@ class FakeRTCPeerConnection {
   async setLocalDescription(description: RTCSessionDescriptionInit) {
     this.localDescription = {
       type: description.type,
-      sdp: `${description.sdp}-with-ice`,
+      sdp: `${description.sdp}-browser-local-description`,
     } as RTCSessionDescription;
   }
 
   async setRemoteDescription() {
+    if (FakeRTCPeerConnection.autoOpenDataChannel && this.dataChannel) {
+      this.dataChannel.readyState = 'open';
+    }
     if (FakeRTCPeerConnection.autoConnect) {
       this.connectionState = 'connected';
       this.onconnectionstatechange?.();
@@ -79,6 +81,7 @@ describe('VoiceWebRtcClient', () => {
   beforeEach(() => {
     FakeRTCPeerConnection.instances = [];
     FakeRTCPeerConnection.autoConnect = true;
+    FakeRTCPeerConnection.autoOpenDataChannel = true;
     micTrack = makeFakeTrack();
     getUserMediaMock = jest.fn().mockResolvedValue(makeFakeStream([micTrack]));
 
@@ -110,7 +113,7 @@ describe('VoiceWebRtcClient', () => {
     expect(getUserMediaMock).not.toHaveBeenCalled();
   });
 
-  it('posts the gathered local SDP as raw application/sdp with only the ephemeral client secret', async () => {
+  it('posts the original offer SDP exactly as the documented browser flow', async () => {
     const client = makeClient();
     await client.connect('ephemeral-secret-abc', 'gpt-realtime');
 
@@ -125,7 +128,8 @@ describe('VoiceWebRtcClient', () => {
     expect(url).not.toContain('?model=');
     expect(init.headers.Authorization).toBe('Bearer ephemeral-secret-abc');
     expect(init.headers['Content-Type']).toBe('application/sdp');
-    expect(init.body).toBe('fake-offer-sdp-with-ice');
+    expect(init.body).toBe('fake-offer-sdp');
+    expect(init.body).not.toBe(pc.localDescription?.sdp);
     expect(init.body).not.toBeInstanceOf(FormData);
   });
 
@@ -142,22 +146,31 @@ describe('VoiceWebRtcClient', () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
-  it('does not resolve connect until the peer connection itself is ready', async () => {
+  it('treats an open Realtime data channel as ready even if aggregate peer state lags', async () => {
     FakeRTCPeerConnection.autoConnect = false;
+    const client = makeClient();
+
+    await expect(client.connect('secret', 'model')).resolves.toBeUndefined();
+
+    const pc = FakeRTCPeerConnection.instances[0];
+    expect(pc.connectionState).toBe('new');
+    expect(pc.dataChannel?.readyState).toBe('open');
+  });
+
+  it('does not resolve until the Realtime data channel is actually open', async () => {
+    FakeRTCPeerConnection.autoConnect = false;
+    FakeRTCPeerConnection.autoOpenDataChannel = false;
     const client = makeClient();
     let resolved = false;
     const connecting = client.connect('secret', 'model').then(() => {
       resolved = true;
     });
 
-    // Let microphone acquisition, signaling, and setRemoteDescription finish.
     await new Promise((resolve) => setTimeout(resolve, 0));
     expect(resolved).toBe(false);
 
     const pc = FakeRTCPeerConnection.instances[0];
-    pc.connectionState = 'connected';
-    pc.onconnectionstatechange?.();
-
+    pc.dataChannel!.readyState = 'open';
     await connecting;
     expect(resolved).toBe(true);
   });
