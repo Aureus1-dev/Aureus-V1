@@ -4,7 +4,11 @@ const productionFrontendUrl = Joi.string()
   .empty('')
   .uri({ scheme: ['https'] })
   .custom((value: string, helpers) => {
-    const hostname = new URL(value).hostname.toLowerCase();
+    // Node's URL parser keeps the brackets on an IPv6 literal host
+    // (`new URL('https://[::1]').hostname === '[::1]'`, not `'::1'`), so the
+    // loopback comparison strips them first — otherwise `[::1]` silently
+    // passes this check uncaught.
+    const hostname = new URL(value).hostname.toLowerCase().replace(/^\[|\]$/g, '');
     if (hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '::1') {
       return helpers.error('any.invalid');
     }
