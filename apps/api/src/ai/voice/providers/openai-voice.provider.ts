@@ -46,7 +46,15 @@ export class OpenAiVoiceProvider implements IVoiceProvider {
           model: input.model,
           instructions: MEMBER_STEWARD_VOICE_SYSTEM_PROMPT,
           audio: {
-            input: { turn_detection: input.turnDetectionConfig },
+            input: {
+              // Aureus persists voice and text into one canonical conversation.
+              // Realtime input transcription is optional in OpenAI's GA
+              // session contract; without enabling it the server will not emit
+              // conversation.item.input_audio_transcription.completed, so a
+              // member's spoken turn cannot be displayed or synchronized.
+              transcription: { model: 'gpt-4o-mini-transcribe' },
+              turn_detection: input.turnDetectionConfig,
+            },
             output: { voice: input.voice },
           },
           tools: input.tools,
