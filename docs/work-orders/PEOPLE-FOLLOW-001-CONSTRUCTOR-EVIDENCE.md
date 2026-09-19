@@ -16,6 +16,8 @@ This candidate implements People Step 5 as the first PA-023 / RME-001 sourced Ob
 - `ResponsibilityEvent.ACTION_EVIDENCED` carries append-only source references for reported/verified satisfaction and staff verification;
 - existing `StewardshipRelationship` remains Human Steward ownership truth;
 - existing `NotificationsService` provides dedupe-keyed reminder/retry/review communication;
+- the assigned queue and staff verification mutation responses share one minimum-necessary response shape and never serialize the member's private `requiredAction` text;
+- the sweep re-reads persisted truth before every missed-notice attempt, including an already-`MISSED` retry, so concurrent satisfaction/rescheduling cannot emit a stale missed or review notice;
 - `Task`, `StewardshipTask`, `NeedEscalation`, and `StewardshipEscalation` are not repurposed into a second obligation/case truth.
 
 ### First proof

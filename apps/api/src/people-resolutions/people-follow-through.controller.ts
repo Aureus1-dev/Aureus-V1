@@ -89,12 +89,12 @@ export class PeopleFollowThroughController {
   @ApiOperation({
     summary: 'Verify/correct a due date from source evidence as the assigned Steward or administrator',
   })
-  @ApiResponse({ status: 201, type: PeopleFollowThroughResponseDto })
+  @ApiResponse({ status: 201, type: AssignedFollowThroughResponseDto })
   verifyDue(
     @Param('responsibilityId') responsibilityId: string,
     @Body() dto: VerifyFollowThroughDueDto,
     @CurrentUser() caller: AuthenticatedUser,
-  ): Promise<PeopleFollowThroughResponseDto> {
+  ): Promise<AssignedFollowThroughResponseDto> {
     return this.followThrough.verifyDue(responsibilityId, dto, caller);
   }
 
@@ -115,12 +115,12 @@ export class PeopleFollowThroughController {
   @ApiOperation({
     summary: 'Verify Obligation satisfaction from independent evidence without auto-completing the need',
   })
-  @ApiResponse({ status: 201, type: PeopleFollowThroughResponseDto })
+  @ApiResponse({ status: 201, type: AssignedFollowThroughResponseDto })
   verifySatisfied(
     @Param('responsibilityId') responsibilityId: string,
     @Body() dto: VerifyFollowThroughSatisfactionDto,
     @CurrentUser() caller: AuthenticatedUser,
-  ): Promise<PeopleFollowThroughResponseDto> {
+  ): Promise<AssignedFollowThroughResponseDto> {
     return this.followThrough.verifySatisfied(responsibilityId, dto, caller);
   }
 }

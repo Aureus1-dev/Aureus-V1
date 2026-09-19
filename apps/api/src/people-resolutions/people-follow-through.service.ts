@@ -417,7 +417,7 @@ export class PeopleFollowThroughService {
     responsibilityId: string,
     dto: VerifyFollowThroughDueDto,
     caller: AuthenticatedUser,
-  ): Promise<PeopleFollowThroughResponseDto> {
+  ): Promise<AssignedFollowThroughResponseDto> {
     const responsibility = await this.getOpenResponsibilityForStaff(responsibilityId, caller);
     const dueAt = new Date(dto.dueAt).toISOString();
     const source = this.verifiedPointer(dto);
@@ -470,7 +470,7 @@ export class PeopleFollowThroughService {
       source,
       dto.expectedRevision,
     );
-    return this.toResponse(responsibilityId, next);
+    return this.toStaffResponse(responsibilityId, responsibility.principalUserId!, next);
   }
 
   async reportSatisfied(
@@ -526,7 +526,7 @@ export class PeopleFollowThroughService {
     responsibilityId: string,
     dto: VerifyFollowThroughSatisfactionDto,
     caller: AuthenticatedUser,
-  ): Promise<PeopleFollowThroughResponseDto> {
+  ): Promise<AssignedFollowThroughResponseDto> {
     const responsibility = await this.getOpenResponsibilityForStaff(responsibilityId, caller);
     const source = this.verifiedPointer(dto);
     const now = new Date().toISOString();
@@ -558,7 +558,7 @@ export class PeopleFollowThroughService {
       source,
       dto.expectedRevision,
     );
-    return this.toResponse(responsibilityId, next);
+    return this.toStaffResponse(responsibilityId, responsibility.principalUserId!, next);
   }
 
   async findAssigned(caller: AuthenticatedUser): Promise<AssignedFollowThroughResponseDto[]> {
@@ -591,20 +591,7 @@ export class PeopleFollowThroughService {
       if (contract.owner !== PeopleFollowThroughOwner.HUMAN_STEWARD && !contract.reviewRequired) {
         return [];
       }
-      return [
-        {
-          responsibilityId: row.id,
-          memberId: row.principalUserId!,
-          obligationId: contract.obligationId,
-          revision: contract.revision,
-          kind: contract.kind,
-          owner: contract.owner,
-          dueAt: contract.dueAt,
-          nextAttemptAt: contract.nextAttemptAt,
-          state: contract.state,
-          reviewRequired: contract.reviewRequired,
-        },
-      ];
+      return [this.toStaffResponse(row.id, row.principalUserId!, contract)];
     });
   }
 
@@ -653,32 +640,34 @@ export class PeopleFollowThroughService {
       }
 
       if (due < now) {
-        let missed = contract;
         try {
-          if (contract.state !== PeopleFollowThroughState.MISSED) {
-            missed = await this.mutateContract(row.id, row.principalUserId, (current) => {
-              if (SATISFIED_STATES.has(current.state) || new Date(current.dueAt) >= now) {
-                return current;
-              }
-              return {
-                ...current,
-                state: PeopleFollowThroughState.MISSED,
-                reviewRequired: true,
-                reviewReason:
-                  'The current due time passed without evidence that the sourced obligation was satisfied.',
-                history: [
-                  ...current.history,
-                  {
-                    event: 'DUE_TIME_PASSED_WITHOUT_SATISFACTION_EVIDENCE',
-                    knownAt: now.toISOString(),
-                    actor: 'SYSTEM',
-                    dueAt: current.dueAt,
-                    dueProvenance: current.dueProvenance,
-                  },
-                ],
-              };
-            });
-          }
+          // Re-read inside the transaction on every pass, including when the
+          // batch snapshot already said MISSED. A member may have satisfied or
+          // rescheduled the obligation while this sweep was working through
+          // earlier rows.
+          const missed = await this.mutateContract(row.id, row.principalUserId, (current) => {
+            if (SATISFIED_STATES.has(current.state) || new Date(current.dueAt) >= now) {
+              return current;
+            }
+            if (current.state === PeopleFollowThroughState.MISSED) return current;
+            return {
+              ...current,
+              state: PeopleFollowThroughState.MISSED,
+              reviewRequired: true,
+              reviewReason:
+                'The current due time passed without evidence that the sourced obligation was satisfied.',
+              history: [
+                ...current.history,
+                {
+                  event: 'DUE_TIME_PASSED_WITHOUT_SATISFACTION_EVIDENCE',
+                  knownAt: now.toISOString(),
+                  actor: 'SYSTEM',
+                  dueAt: current.dueAt,
+                  dueProvenance: current.dueProvenance,
+                },
+              ],
+            };
+          });
 
           // The row may have been satisfied or rescheduled after the sweep's
           // initial read. Never send a stale "missed" notice in that case.
@@ -1085,6 +1074,25 @@ export class PeopleFollowThroughService {
         contract.owner !== PeopleFollowThroughOwner.MEMBER &&
         contract.state !== PeopleFollowThroughState.DISPUTED &&
         !contract.reviewRequired,
+    };
+  }
+
+  private toStaffResponse(
+    responsibilityId: string,
+    memberId: string,
+    contract: FollowThroughContract,
+  ): AssignedFollowThroughResponseDto {
+    return {
+      responsibilityId,
+      memberId,
+      obligationId: contract.obligationId,
+      revision: contract.revision,
+      kind: contract.kind,
+      owner: contract.owner,
+      dueAt: contract.dueAt,
+      nextAttemptAt: contract.nextAttemptAt,
+      state: contract.state,
+      reviewRequired: contract.reviewRequired,
     };
   }
 }

@@ -98,6 +98,7 @@ The first-proof scheduler is intentionally bounded to the pilot scale and scans 
 - sends a dedupe-keyed notice when `nextAttemptAt` arrives;
 - sends a dedupe-keyed notice inside the 24-hour due window;
 - when the due time passes without satisfaction evidence, marks the Obligation `MISSED`, preserves the underlying Responsibility, and marks review required;
+- re-reads persisted truth before every missed-notice attempt, including retries for an already-`MISSED` snapshot, so a concurrent satisfaction or reschedule suppresses stale missed/review notices;
 - sends a generic member notification;
 - if a current Human Steward is assigned, sends a minimum-necessary generic review notice;
 - honors ordinary notification preferences;
@@ -109,7 +110,7 @@ The sweep is an orchestration trigger, not evidence of real-world completion.
 
 Member routes are self-only through the existing Personal Responsibility ownership boundary.
 
-The assigned Human Steward queue exposes only:
+The assigned Human Steward queue and both staff verification mutation responses expose only:
 
 - member id;
 - Responsibility id;

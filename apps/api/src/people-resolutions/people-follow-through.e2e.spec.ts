@@ -12,6 +12,7 @@ import {
 import request from 'supertest';
 import { AppModule } from '../app.module';
 import { AllExceptionsFilter } from '../common/filters/all-exceptions.filter';
+import { NotificationsService } from '../communication/notifications/notifications.service';
 import { PrismaService } from '../prisma/prisma.service';
 import {
   PeopleFollowThroughDueProvenance,
@@ -41,6 +42,18 @@ describe('People Step 5 — Obligation & Follow-through E2E', () => {
 
   const marker = `people-step5-${randomUUID()}`;
   const secretAction = `private-housing-action-${randomUUID()}`;
+  const staffResponseFields = [
+    'responsibilityId',
+    'memberId',
+    'obligationId',
+    'revision',
+    'kind',
+    'owner',
+    'dueAt',
+    'nextAttemptAt',
+    'state',
+    'reviewRequired',
+  ].sort();
 
   beforeAll(async () => {
     const moduleRef: TestingModule = await Test.createTestingModule({
@@ -323,9 +336,17 @@ describe('People Step 5 — Obligation & Follow-through E2E', () => {
       })
       .expect(201);
 
-    expect(verified.body.dueProvenance).toBe(PeopleFollowThroughDueProvenance.VERIFIED);
+    expect(Object.keys(verified.body).sort()).toEqual(staffResponseFields);
+    expect(JSON.stringify(verified.body)).not.toContain(secretAction);
+    expect(verified.body).not.toHaveProperty('requiredAction');
     expect(verified.body.dueAt).toBe('2026-10-02T16:00:00.000Z');
     housingRevision = verified.body.revision;
+
+    const memberState = await request(app.getHttpServer())
+      .get(`/people/follow-through/${housingResponsibilityId}`)
+      .set('Authorization', `Bearer ${ownerToken}`)
+      .expect(200);
+    expect(memberState.body.dueProvenance).toBe(PeopleFollowThroughDueProvenance.VERIFIED);
 
     const evidence = await prisma.db.responsibilityEvent.findFirst({
       where: {
@@ -518,6 +539,89 @@ describe('People Step 5 — Obligation & Follow-through E2E', () => {
     );
   });
 
+  it('rechecks an already-MISSED Obligation before retrying its missed notice', async () => {
+    const conversation = await request(app.getHttpServer())
+      .post('/ai/conversations')
+      .set('Authorization', `Bearer ${otherToken}`)
+      .send({ title: 'Step 5 stale missed-notice proof' })
+      .expect(201);
+    const need = await prisma.db.statedNeed.create({
+      data: {
+        userId: otherId,
+        conversationId: conversation.body.id,
+        content: 'I need housing help following up on an overdue application.',
+      },
+    });
+    const accepted = await request(app.getHttpServer())
+      .post('/people/resolutions')
+      .set('Authorization', `Bearer ${otherToken}`)
+      .send({ statedNeedId: need.id, objective: 'Help me follow through on this application' })
+      .expect(201);
+    const responsibilityId = accepted.body.responsibility.id;
+
+    const created = await request(app.getHttpServer())
+      .post(`/people/follow-through/${responsibilityId}/housing`)
+      .set('Authorization', `Bearer ${otherToken}`)
+      .send({
+        kind: 'DEADLINE',
+        owner: 'AUREUS',
+        requiredAction: 'Check the overdue housing application',
+        dueAt: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
+        dueTimeZone: 'America/New_York',
+      })
+      .expect(201);
+
+    const attempted = await request(app.getHttpServer())
+      .post(`/people/follow-through/${responsibilityId}/attempts`)
+      .set('Authorization', `Bearer ${otherToken}`)
+      .send({
+        expectedRevision: created.body.revision,
+        result: 'NO_RESPONSE',
+        nextAttemptAt: new Date(Date.now() - 60 * 60 * 1000).toISOString(),
+      })
+      .expect(201);
+
+    await followThrough.runFollowThroughSweep();
+    const missed = await request(app.getHttpServer())
+      .get(`/people/follow-through/${responsibilityId}`)
+      .set('Authorization', `Bearer ${otherToken}`)
+      .expect(200);
+    expect(missed.body.state).toBe(PeopleFollowThroughState.MISSED);
+    expect(missed.body.revision).toBeGreaterThan(attempted.body.revision);
+
+    const notifications = app.get(NotificationsService);
+    const originalNotify = notifications.notify.bind(notifications);
+    let satisfactionTriggered = false;
+    let staleMissedCalls = 0;
+    const notifySpy = jest.spyOn(notifications, 'notify').mockImplementation(async (input) => {
+      const isTarget = input.data?.responsibilityId === responsibilityId;
+      if (isTarget && input.type === 'people_follow_through_retry_due' && !satisfactionTriggered) {
+        satisfactionTriggered = true;
+        await request(app.getHttpServer())
+          .post(`/people/follow-through/${responsibilityId}/satisfaction-report`)
+          .set('Authorization', `Bearer ${otherToken}`)
+          .send({ expectedRevision: missed.body.revision, note: 'Completed during the sweep.' })
+          .expect(201);
+      }
+      if (isTarget && input.type === 'people_follow_through_missed') staleMissedCalls += 1;
+      return originalNotify(input);
+    });
+
+    try {
+      await followThrough.runFollowThroughSweep();
+    } finally {
+      notifySpy.mockRestore();
+    }
+
+    expect(satisfactionTriggered).toBe(true);
+    expect(staleMissedCalls).toBe(0);
+    const current = await request(app.getHttpServer())
+      .get(`/people/follow-through/${responsibilityId}`)
+      .set('Authorization', `Bearer ${otherToken}`)
+      .expect(200);
+    expect(current.body.state).toBe(PeopleFollowThroughState.SATISFIED_REPORTED);
+  });
+
   it('records Obligation satisfaction without completing the underlying Personal Need Responsibility', async () => {
     const reported = await request(app.getHttpServer())
       .post(`/people/follow-through/${housingResponsibilityId}/satisfaction-report`)
@@ -534,7 +638,7 @@ describe('People Step 5 — Obligation & Follow-through E2E', () => {
 
     const verified = await request(app.getHttpServer())
       .post(`/people/follow-through/${housingResponsibilityId}/satisfaction-verification`)
-      .set('Authorization', `Bearer ${stewardToken}`)
+      .set('Authorization', `Bearer ${adminToken}`)
       .send({
         expectedRevision: housingRevision,
         sourceSystem: 'PROPERTY_PROVIDER',
@@ -544,6 +648,9 @@ describe('People Step 5 — Obligation & Follow-through E2E', () => {
       })
       .expect(201);
     expect(verified.body.state).toBe(PeopleFollowThroughState.SATISFIED_VERIFIED);
+    expect(Object.keys(verified.body).sort()).toEqual(staffResponseFields);
+    expect(JSON.stringify(verified.body)).not.toContain(secretAction);
+    expect(verified.body).not.toHaveProperty('requiredAction');
     housingRevision = verified.body.revision;
 
     responsibility = await prisma.db.responsibility.findUniqueOrThrow({
