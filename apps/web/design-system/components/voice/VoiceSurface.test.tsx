@@ -100,13 +100,16 @@ describe('VoiceSurface', () => {
     expect(MockedClient).not.toHaveBeenCalled();
   });
 
-  it('starts a session on explicit member action and shows the live controls once connected', async () => {
+  it('starts a session on explicit member action, adopts its canonical conversation, and shows live controls', async () => {
     renderSurface();
     await userEvent.click(screen.getByRole('button', { name: 'Start voice conversation' }));
 
     expect(mockedVoiceApi.startVoiceSession).toHaveBeenCalledWith('token-123', undefined);
     expect(await screen.findByRole('button', { name: 'End conversation' })).toBeInTheDocument();
     expect(screen.getByText('Listening…')).toBeInTheDocument();
+    await waitFor(() =>
+      expect(mockedConversationsApi.listMessages).toHaveBeenCalledWith('token-123', 'conv-1'),
+    );
   });
 
   it('displays a finalized member turn in the live transcript', async () => {
@@ -162,7 +165,7 @@ describe('VoiceSurface', () => {
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 
-  it('keeps the exit control hidden for the entire retry round trip', async () => {
+  it('keeps the exit control hidden and retries the same canonical conversation', async () => {
     renderSurface();
     await userEvent.click(screen.getByRole('button', { name: 'Start voice conversation' }));
     await screen.findByRole('button', { name: 'End conversation' });
@@ -182,6 +185,7 @@ describe('VoiceSurface', () => {
       expect(mockedVoiceApi.endVoiceSession).toHaveBeenCalledWith('token-123', 'vs-1'),
     );
     await waitFor(() => expect(mockedVoiceApi.startVoiceSession).toHaveBeenCalledTimes(2));
+    expect(mockedVoiceApi.startVoiceSession).toHaveBeenLastCalledWith('token-123', 'conv-1');
     expect(screen.getByText('Reconnecting voice')).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Done' })).not.toBeInTheDocument();
 
