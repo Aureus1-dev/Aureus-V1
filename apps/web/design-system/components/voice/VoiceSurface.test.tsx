@@ -7,7 +7,10 @@ import { VoiceProvider } from '../../../state/voice/VoiceContext';
 import { VoiceSurface } from './VoiceSurface';
 import * as voiceApi from '../../../lib/api/voice';
 import * as conversationsApi from '../../../lib/api/conversations';
-import { VoiceWebRtcClient, type VoiceWebRtcClientCallbacks } from '../../../lib/voice/webrtc-client';
+import {
+  VoiceWebRtcClient,
+  type VoiceWebRtcClientCallbacks,
+} from '../../../lib/voice/webrtc-client';
 import { ApiError } from '../../../lib/api/errors';
 
 jest.mock('../../../lib/api/voice');
@@ -18,11 +21,28 @@ const mockedVoiceApi = voiceApi as jest.Mocked<typeof voiceApi>;
 const mockedConversationsApi = conversationsApi as jest.Mocked<typeof conversationsApi>;
 const MockedClient = VoiceWebRtcClient as jest.MockedClass<typeof VoiceWebRtcClient>;
 
+const voiceSession = {
+  id: 'vs-1',
+  conversationId: 'conv-1',
+  clientSecret: 'secret',
+  expiresAt: 'x',
+  model: 'gpt-realtime',
+  voice: 'marin',
+  turnDetectionMode: 'semantic_vad',
+  startedAt: 'x',
+  endedAt: null,
+};
+
 function SignedInAs({ children }: { children: React.ReactNode }) {
   const { setSession, session } = useSession();
   const signedIn = session.isAuthenticated;
   if (!signedIn) {
-    setSession({ ...session, isAuthenticated: true, accessToken: 'token-123', memberId: 'member-1' });
+    setSession({
+      ...session,
+      isAuthenticated: true,
+      accessToken: 'token-123',
+      memberId: 'member-1',
+    });
   }
   return <>{children}</>;
 }
@@ -55,12 +75,15 @@ function lastCallbacks(): VoiceWebRtcClientCallbacks {
 describe('VoiceSurface', () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    mockedVoiceApi.startVoiceSession.mockResolvedValue({
-      id: 'vs-1', conversationId: 'conv-1', clientSecret: 'secret', expiresAt: 'x',
-      model: 'gpt-realtime', voice: 'marin', turnDetectionMode: 'semantic_vad', startedAt: 'x', endedAt: null,
-    });
+    mockedVoiceApi.startVoiceSession.mockResolvedValue(voiceSession);
     mockedVoiceApi.syncVoiceEvents.mockResolvedValue({ messages: [], turnEvents: [] });
-    mockedVoiceApi.endVoiceSession.mockResolvedValue({ id: 'vs-1', conversationId: 'conv-1', startedAt: 'x', endedAt: 'y', endReason: 'MEMBER_ENDED' });
+    mockedVoiceApi.endVoiceSession.mockResolvedValue({
+      id: 'vs-1',
+      conversationId: 'conv-1',
+      startedAt: 'x',
+      endedAt: 'y',
+      endReason: 'MEMBER_ENDED',
+    });
     mockedConversationsApi.listMessages.mockResolvedValue([]);
   });
 
@@ -91,7 +114,9 @@ describe('VoiceSurface', () => {
     await screen.findByRole('button', { name: 'End conversation' });
 
     lastCallbacks().onDataChannelMessage({
-      type: 'conversation.item.input_audio_transcription.completed', item_id: 'item-1', transcript: 'What is a Journey?',
+      type: 'conversation.item.input_audio_transcription.completed',
+      item_id: 'item-1',
+      transcript: 'What is a Journey?',
     });
 
     expect(await screen.findByText('What is a Journey?')).toBeInTheDocument();
@@ -116,7 +141,9 @@ describe('VoiceSurface', () => {
     await userEvent.click(screen.getByRole('button', { name: 'End conversation' }));
 
     expect(await screen.findByText('Conversation ended')).toBeInTheDocument();
-    await waitFor(() => expect(mockedConversationsApi.listMessages).toHaveBeenCalledWith('token-123', 'conv-1'));
+    await waitFor(() =>
+      expect(mockedConversationsApi.listMessages).toHaveBeenCalledWith('token-123', 'conv-1'),
+    );
     expect(screen.getByRole('button', { name: 'Done' })).toBeInTheDocument();
   });
 
@@ -134,7 +161,7 @@ describe('VoiceSurface', () => {
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 
-  it('ends the failed live attempt before retrying voice', async () => {
+  it('keeps the exit control hidden for the entire retry round trip', async () => {
     renderSurface();
     await userEvent.click(screen.getByRole('button', { name: 'Start voice conversation' }));
     await screen.findByRole('button', { name: 'End conversation' });
@@ -142,10 +169,24 @@ describe('VoiceSurface', () => {
     lastCallbacks().onConnectionStateChange('failed');
     expect(await screen.findByText('The voice connection was interrupted')).toBeInTheDocument();
 
+    let resolveRetry!: (value: typeof voiceSession) => void;
+    const pendingRetry = new Promise<typeof voiceSession>((resolve) => {
+      resolveRetry = resolve;
+    });
+    mockedVoiceApi.startVoiceSession.mockImplementationOnce(() => pendingRetry);
+
     await userEvent.click(screen.getByRole('button', { name: 'Try voice again' }));
 
-    await waitFor(() => expect(mockedVoiceApi.endVoiceSession).toHaveBeenCalledWith('token-123', 'vs-1'));
+    await waitFor(() =>
+      expect(mockedVoiceApi.endVoiceSession).toHaveBeenCalledWith('token-123', 'vs-1'),
+    );
     await waitFor(() => expect(mockedVoiceApi.startVoiceSession).toHaveBeenCalledTimes(2));
+    expect(screen.getByText('Reconnecting voice')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Done' })).not.toBeInTheDocument();
+
+    resolveRetry(voiceSession);
+    expect(await screen.findByRole('button', { name: 'End conversation' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Done' })).not.toBeInTheDocument();
   });
 
   it('has no accessibility violations before a session starts', async () => {
