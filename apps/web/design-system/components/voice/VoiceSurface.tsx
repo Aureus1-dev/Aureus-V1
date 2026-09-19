@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useConversation, useSession, useVoice } from '../../../state';
 import { EmptyState } from '../EmptyState/EmptyState';
 import { ErrorState } from '../ErrorState/ErrorState';
@@ -24,9 +24,11 @@ export interface VoiceSurfaceProps {
  */
 export function VoiceSurface({ conversationId, onClose }: VoiceSurfaceProps) {
   const { session } = useSession();
-  const { state, remoteStream, startSession, endSession, setMuted, interrupt, clearError } = useVoice();
+  const { state, remoteStream, startSession, endSession, setMuted, interrupt, clearError } =
+    useVoice();
   const { refreshMessages } = useConversation();
   const audioRef = useRef<HTMLAudioElement>(null);
+  const [retrying, setRetrying] = useState(false);
 
   useEffect(() => {
     if (audioRef.current && remoteStream) {
@@ -47,12 +49,17 @@ export function VoiceSurface({ conversationId, onClose }: VoiceSurfaceProps) {
   }
 
   async function handleRetry() {
-    // A retry is a new governed attempt, never a second connection layered on
-    // top of a failed one. Ending first releases the microphone, peer
-    // connection, pending session state, and backend voice session before a
-    // replacement is brokered.
-    await endSession();
-    await startSession(conversationId);
+    // Keep the recovery surface in a dedicated reconnecting state while the
+    // failed session is ended and the replacement is brokered. endSession()
+    // intentionally transitions the shared state to "ended"; without this
+    // local guard the Done/exit control can flash during the retry round trip.
+    setRetrying(true);
+    try {
+      await endSession();
+      await startSession(conversationId);
+    } finally {
+      setRetrying(false);
+    }
   }
 
   async function handleContinueByTyping() {
@@ -75,7 +82,12 @@ export function VoiceSurface({ conversationId, onClose }: VoiceSurfaceProps) {
     <div className={styles.surface}>
       <audio ref={audioRef} autoPlay />
 
-      {errorCopy ? (
+      {retrying ? (
+        <EmptyState
+          title="Reconnecting voice"
+          description="Ending the interrupted connection and starting a clean voice session."
+        />
+      ) : errorCopy ? (
         <ErrorState
           title={errorCopy.title}
           description={errorCopy.description}
