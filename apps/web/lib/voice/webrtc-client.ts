@@ -1,35 +1,14 @@
 import type { RawRealtimeEvent } from './realtime-event-mapper';
 
 const REALTIME_API_URL = 'https://api.openai.com/v1/realtime/calls';
-const ICE_GATHERING_TIMEOUT_MS = 15_000;
 const SIGNALING_TIMEOUT_MS = 20_000;
-const CONNECTION_READY_TIMEOUT_MS = 15_000;
+const CONNECTION_READY_TIMEOUT_MS = 30_000;
 const CONNECTION_READY_POLL_MS = 50;
 
 export interface VoiceWebRtcClientCallbacks {
   onRemoteTrack: (stream: MediaStream) => void;
   onDataChannelMessage: (raw: RawRealtimeEvent) => void;
   onConnectionStateChange: (state: RTCPeerConnectionState) => void;
-}
-
-async function waitForIceGatheringComplete(pc: RTCPeerConnection): Promise<void> {
-  if (pc.iceGatheringState === 'complete') return;
-
-  await new Promise<void>((resolve) => {
-    let settled = false;
-    const finish = () => {
-      if (settled) return;
-      settled = true;
-      clearTimeout(timeout);
-      pc.onicegatheringstatechange = null;
-      resolve();
-    };
-    const timeout = setTimeout(finish, ICE_GATHERING_TIMEOUT_MS);
-
-    pc.onicegatheringstatechange = () => {
-      if (pc.iceGatheringState === 'complete') finish();
-    };
-  });
 }
 
 async function waitForConnectionReady(
@@ -44,9 +23,16 @@ async function waitForConnectionReady(
         `Voice WebRTC failed before ready (peer=${pc.connectionState}, data=${dataChannel.readyState}).`,
       );
     }
-    if (pc.connectionState === 'connected' && dataChannel.readyState === 'open') {
+
+    // An open Realtime data channel is direct proof that ICE, DTLS, and SCTP
+    // connectivity are usable. Some mobile Chromium/WebView builds can lag in
+    // updating RTCPeerConnection.connectionState even after the data channel
+    // is functional, so do not turn that aggregate browser state into a false
+    // member-visible failure.
+    if (dataChannel.readyState === 'open') {
       return;
     }
+
     await new Promise((resolve) => setTimeout(resolve, CONNECTION_READY_POLL_MS));
   }
 
@@ -101,25 +87,22 @@ export class VoiceWebRtcClient {
       }
     };
 
+    // Follow OpenAI's browser WebRTC sequence exactly: create the offer, set
+    // it locally, then POST the original offer SDP directly. Do not add an
+    // extra ICE-gathering wait or substitute pc.localDescription.sdp; the
+    // provider's documented browser flow deliberately starts signaling here.
     const offer = await pc.createOffer();
     await pc.setLocalDescription(offer);
-    await waitForIceGatheringComplete(pc);
-
-    const localSdp = pc.localDescription?.sdp ?? offer.sdp;
-    if (!localSdp) throw new Error('Unable to create the voice connection offer.');
+    const offerSdp = offer.sdp;
+    if (!offerSdp) throw new Error('Unable to create the voice connection offer.');
 
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), SIGNALING_TIMEOUT_MS);
     let response: Response;
     try {
-      // Follow OpenAI's browser WebRTC contract exactly: the ephemeral key is
-      // used directly by the browser and the SDP offer is the raw request body.
-      // The REST endpoint also supports multipart requests, but raw
-      // application/sdp is the documented browser path and avoids an extra
-      // multipart serialization layer on mobile browsers/custom tabs.
       response = await fetch(REALTIME_API_URL, {
         method: 'POST',
-        body: localSdp,
+        body: offerSdp,
         headers: {
           Authorization: `Bearer ${clientSecret}`,
           'Content-Type': 'application/sdp',
@@ -150,11 +133,9 @@ export class VoiceWebRtcClient {
       throw new Error(`Voice SDP answer could not be applied: ${detail}`);
     }
 
-    // setRemoteDescription() only proves signaling succeeded. A member must
-    // not be told Aureus is listening until ICE/DTLS is actually connected
-    // and the Realtime data channel is open. This closes the false-success
-    // window observed in the Founder mobile walkthrough, where the UI could
-    // switch to Listening and immediately fall into "connection interrupted."
+    // setRemoteDescription() only proves signaling succeeded. Wait until the
+    // Realtime data channel is actually usable before telling the member that
+    // Aureus is listening.
     await waitForConnectionReady(pc, dataChannel);
   }
 
@@ -190,7 +171,6 @@ export class VoiceWebRtcClient {
     if (pc) {
       pc.onconnectionstatechange = null;
       pc.ontrack = null;
-      pc.onicegatheringstatechange = null;
       pc.close();
     }
   }
