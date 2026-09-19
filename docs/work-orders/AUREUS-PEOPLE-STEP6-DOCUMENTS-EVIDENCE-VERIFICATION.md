@@ -16,11 +16,13 @@ implementation rather than the placeholder assumptions this document originally
 carried (see the retired §13 below). Required merge order remains Step 5 → Step 6
 → Step 7; Step 5 has now cleared that gate.
 
-This repair responds to two independent-review rounds on the pre-rebase candidate
-(`21581c17749f656f28444259f79ce44d2d17c56b`): an initial adversarial review (2
-BLOCKER + 4 HIGH) and a post-Step-5-merge re-audit (5 BLOCKER + 6 HIGH + 3
-MEDIUM, superseding the first because the head had not moved). Every finding's
-disposition is recorded in §14.
+This is the product of three independent-review rounds: an initial adversarial
+review of the pre-rebase candidate (2 BLOCKER + 4 HIGH), a post-Step-5-merge
+re-audit of the same unmoved head (5 BLOCKER + 6 HIGH + 3 MEDIUM, superseding
+the first), and an independent re-review of the first repair pass
+(`8ee8ea00d26db3fad52100b8276e323379d3dbd7`) that found the first repair had
+not fully closed two BLOCKER-level invariants and one HIGH provenance gap.
+Every finding's disposition, across all three rounds, is recorded in §14.
 
 The architectural boundary is now load-bearing, not aspirational: **Step 5 owns
 Obligation/follow-through/deadlines/reminders/retries. Step 6 owns evidence
@@ -61,7 +63,7 @@ Performed against the base SHA before any schema change. Findings:
 |---|---|---|
 | Canonical work outcome / ownership / privacy / status | `Responsibility` (`prisma/schema.prisma:645`) | **Reuse.** Evidence requirements attach to an existing `Responsibility`; Step 6 never becomes a second case system. |
 | Append-only outcome ledger, evidence-strength vocabulary | `ResponsibilityEvent` + `ResponsibilityEventType.ACTION_EVIDENCED` + `ResponsibilityEvidenceLevel` (`REPORTED`/`VERIFIED`) | **Reuse.** Every meaningful Step 6 evidence transition is also written as a `ResponsibilityEvent` through the existing `ResponsibilitiesService`/`IResponsibilityRepository` contract — the same contract `legal-matters.service.ts` and `people-resolutions.service.ts` already call. Step 6 introduces no parallel event type. |
-| Evidence-gated completion | `ResponsibilitiesService.completePersonalNeedWithEvidence()` / `exhaustPersonalNeedWithEvidence()` (`apps/api/src/responsibilities/responsibilities.service.ts:281`) | **Reuse verbatim, no signature change.** Every existing caller (`legal-matters.service.ts:261`, `people-resolutions.service.ts`) only ever supplies `evidenceLevel: REPORTED`. Step 6 is the first caller that can genuinely supply `VERIFIED`, because it is the first domain with an independent-verification record behind it. |
+| Evidence-gated completion | `ResponsibilitiesService.completePersonalNeedWithEvidence()` / `exhaustPersonalNeedWithEvidence()` (`apps/api/src/responsibilities/responsibilities.service.ts:281`) | **Not reused — historical row, retained for context only.** The original slice called this as its only completion path; independent review correctly identified that as violating the Step 5/6 boundary (§6), and the repair removed the call and its route entirely. Step 6 does not call `completePersonalNeedWithEvidence()`/`exhaustPersonalNeedWithEvidence()` at all — nothing in this module can transition a `PERSONAL_NEED_RESOLUTION` Responsibility. |
 | Artifact storage / upload metadata | `Document` (`prisma/schema.prisma:3711`) — opaque `storageRef`, owner-only, soft-deletable, no real cloud storage (ADR-014 Decision 5) | **Reuse.** Evidence items wrap an existing `Document` row rather than re-implementing file metadata. Step 6 adds no upload/storage machinery; it inherits the same limitation (`storageRef` is an opaque pointer — see §9 Known limitations). |
 | Safe Document-to-work-item linkage | `LegalMatterDocumentLink` (`prisma/schema.prisma:837`) and `LegalMattersService.linkDocument()` | **Pattern reused, not the table itself.** `EvidenceItem.documentId` re-implements the identical ownership check (`document.userId === subjectUserId && deletedAt: null`) rather than importing the Legal-specific join table. |
 | Append-only verification history with cached current-state fields | `CitySheetVerificationEvent` + `CitySheetEntry.verificationStatus/verifiedById/lastVerifiedAt` (`prisma/schema.prisma:3850`, `3946`) | **Pattern reused.** `EvidenceVerification` is append-only exactly like `CitySheetVerificationEvent`; `EvidenceRequirement.currentSufficiency`/`status` are recomputed, cached fields exactly like `CitySheetEntry`'s current-state fields — never the only record of what happened. |
@@ -305,8 +307,8 @@ because the route no longer exists.
    `requiredValidityDays: 90`) → `MISSING`.
 3. Member uploads a `Document` (existing endpoint) and submits it as a
    `MEMBER_PROVIDED` `EvidenceItem` → `PRESENT_UNVERIFIED`. System truthfully
-   reports "We received it. This has not been verified yet." Attempting
-   completion at this point is rejected.
+   reports "We received it. This has not been verified yet." There is no
+   completion path to attempt at this Step 6 module boundary at all (§6).
 4. An ACTIVE Steward without a Document grant attempts to verify → rejected
    (authority not established).
 5. Member grants the Steward `READ`/`DOCUMENT` authority via the existing
@@ -373,34 +375,42 @@ because the route no longer exists.
 
 ## 11. Constructor gates (this repair pass, exact head recorded in the PR)
 
-- [x] Rebased onto merged Step 5 (`4a7497d261ed5bdaf1c8d6924fe69dfc9660016e`);
-      zero merge conflicts (Step 5 and Step 6 touch disjoint files)
-- [x] `prisma migrate deploy` / `prisma generate` clean
+This is the **second** repair pass on this branch. The first repair pass
+(head `8ee8ea00d26db3fad52100b8276e323379d3dbd7`) had its own gate run
+recorded in PR history; that head's GitHub Actions run
+(`35422904033`/`35422902305`) confirmed both `Build & Test` and `Docker
+Build Verification` green, closing the Docker-unconfirmed line this section
+previously carried. This section now records the second repair pass's own
+fresh local gate run:
+
+- [x] Real `git rebase` remains intact from the first pass — no re-rebase was
+      needed (this pass only adds commits on top; Step 5's merge base is
+      unchanged)
+- [x] `prisma migrate deploy` / `prisma generate` clean (includes the three
+      new `EvidenceRequirement.waiverRequested*` columns)
 - [x] `pnpm run check-types` clean
 - [x] `pnpm run lint` clean (0 errors; pre-existing warnings only, none newly
       introduced in `evidence/`)
 - [x] `node contracts/product-v1/v1/validate-product-contracts.mjs` clean
 - [x] `pnpm audit --audit-level high --ignore GHSA-ggr8-5vv4-36mx` clean
-- [x] e2e tests green (`evidence.e2e.spec.ts`, rewritten — 41 tests, including
-      the full repaired adversarial list in §12 and the real Step 5
-      integration proof)
-- [x] full `pnpm --filter @aureus-v1/api run test:ci` green (exact CI command:
-      194 suites / 1962 tests, serial, with coverage, on a fresh migrated —
-      not pre-seeded — database)
+- [x] e2e tests green (`evidence.e2e.spec.ts` — 42 cases, including the
+      genuine-concurrency BLOCKER 2 race regression and the corrected
+      BLOCKER 1/4 relationship-only-summary regression)
+- [x] full `pnpm --filter @aureus-v1/api run test:ci` green (exact CI
+      command: 194 suites / 1963 tests, serial, with coverage, on a fresh
+      migrated — not pre-seeded — database)
 - [x] `pnpm --filter @aureus-v1/web run test` green (159 suites / 895 tests;
       no web changes; proves no regression)
 - [x] `pnpm run build` (monorepo — shared + api + web) clean
 - [x] `npx prisma db seed` (Founder Pilot seed synchronization) clean, run
       after tests as CI orders it
 - [ ] Docker Build Verification — **could not run in this construction
-      sandbox**: egress to `production.cloudfront.docker.com` returns 403
-      (same limitation the Step 6 candidate's own PR description already
-      recorded for the pre-repair head; Dockerfiles are untouched by this
-      repair). Must be confirmed green in real GitHub Actions CI on the
-      pushed exact head.
-- [x] no accidental unrelated diff — `app.module.ts`'s pre-existing cosmetic
-      formatter churn (unrelated to the two `EvidenceModule` lines) has been
-      reverted per the first independent review's "other observations"
+      sandbox** for this exact new head (same unchanged registry-egress
+      limitation); must be confirmed green in real GitHub Actions CI on the
+      pushed exact head, as it already was for the immediately prior head.
+- [x] no accidental unrelated diff — confirmed via `git status`: exactly the
+      evidence module, schema/migration (three new waiver-provenance
+      columns), controller OpenAPI text, and this work order
 - [x] this work order agrees with the implementation
 - [x] exact base/head SHAs recorded in the PR
 - [ ] branch pushed (this repair pass)
@@ -518,3 +528,22 @@ rather than left silently unmet.
 observations" — `app.module.ts` cosmetic formatter churn beyond the two
 `EvidenceModule` lines — has been reverted so the diff against `main` is
 exactly those two lines.
+
+### Third round — independent re-review of the first repair (`pullrequestreview-5254743571`, against head `8ee8ea00d26db3fad52100b8276e323379d3dbd7`)
+
+The independent re-reviewer confirmed most prior findings were genuinely
+repaired, but found two blocking invariants and one provenance gap that the
+first repair pass had not fully closed:
+
+| Finding | Disposition |
+|---|---|
+| BLOCKER 1 — relationship-only `summary` still discloses private Responsibility evidence (aggregate sufficiency + message) without the Step-2 grant | **Fixed.** The prior repair's "minimal aggregate-only projection" for a relationship-only Steward is removed entirely. `resolveReadAccess()`/`ReadAccess` (`FULL`/`STAFF_MINIMAL`) is replaced by a single `assertCanReadFull()` gate shared by `listRequirements`/`getRequirement`/`summary`; a relationship-only Steward now gets the not-found boundary on all three, with no lesser evidence projection anywhere. `EvidenceResponsibilitySummary.requirements` is no longer optional — every successful `summary()` call returns full detail, because only FULL access ever reaches a response. |
+| BLOCKER 2 — terminal-Responsibility immutability has a TOCTOU race (check-then-transact, not inside the transaction) | **Fixed.** `assertNonTerminalResponsibility()` (a plain in-memory check against an already-loaded object, read before the transaction) is replaced by `lockNonTerminalResponsibility(tx, responsibilityId)`, which takes a `SELECT ... FOR UPDATE` row lock on the Responsibility as the first statement inside the same transaction as every evidence-truth write (`createRequirement`, `submitItem`, `verifyItem`, `waiveRequirement`). This serializes against any concurrent transaction that also touches the row (a plain Prisma `UPDATE` from another governed path takes the same row lock), closing the race. A new genuine-concurrency regression (not sequential) races a real `submitItem` HTTP call against a directly-issued terminalizing transaction that deliberately holds the row lock for a fixed window, and asserts the submission is rejected with `409` and produces zero Evidence rows/events. |
+| HIGH — waiver request provenance is overwritten when an administrator decides | **Fixed.** `EvidenceRequirement` gains three new columns — `waiverRequestedByUserId`/`waiverRequestedReason`/`waiverRequestedAt` — populated only by a member's non-authoritative request and never touched by an administrator's later decision, which continues to use the pre-existing `waivedByUserId`/`waivedReason`/`waivedAt` triple exclusively. The two triples are now fully independent: a decision can never erase a request's who/why/when. Regression asserts both triples' values survive, unchanged, across the request→decision transition. |
+| MEDIUM — repository truth/documentation still internally inconsistent | **Fixed.** The §2 reuse-table row for "Evidence-gated completion" is corrected to state the path is not reused/called at all (previously implied Step 6 was `completePersonalNeedWithEvidence()`'s first `VERIFIED` caller). §8 step 3's stale "Attempting completion … is rejected" sentence (from when the route still existed) is corrected to state there is no completion path to attempt. The controller's `waive` OpenAPI summary now distinguishes a principal's request from an administrator's authoritative decision. This §11 constructor-gate section's Docker line is updated below to record the real GitHub Actions confirmation the second head already received, rather than continuing to read as unconfirmed. |
+
+No new authority universe, second workflow engine, or expiry scheduler was
+introduced to close any of these — the fixes are exclusively: removing a
+projection that shouldn't have existed, moving an existing check inside an
+existing transaction with a standard row lock, adding three columns to
+preserve already-computed provenance, and correcting stale prose.

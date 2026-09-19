@@ -3868,9 +3868,23 @@ model EvidenceRequirement {
 
   createdByUserId String @db.Uuid // soft reference to User, no enforced relation (matches CitySheetEntry.verifiedById convention)
 
+  // Authoritative decision provenance only — set exclusively when an
+  // administrator transitions this requirement to WAIVED. Never set (and
+  // never overwritten) by a member's WAIVER_REQUESTED request; see
+  // waiverRequested* below for that. Kept as two independent triples so a
+  // later authoritative decision can never erase who originally requested
+  // the waiver, why, or when (work order §14, second re-review HIGH).
   waivedByUserId String?   @db.Uuid
   waivedReason   String?
   waivedAt       DateTime?
+
+  // A member/principal's non-authoritative request provenance. Set only by
+  // waiveRequirement() when the caller is the principal (never an admin),
+  // and never overwritten by the administrator's later authoritative
+  // decision above.
+  waiverRequestedByUserId String?   @db.Uuid
+  waiverRequestedReason   String?
+  waiverRequestedAt       DateTime?
 
   policyVersion String   @default("people-step6-v1")
   createdAt     DateTime @default(now())

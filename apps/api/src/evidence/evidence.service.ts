@@ -60,7 +60,6 @@ const TERMINAL_RESPONSIBILITY_STATUSES: ResponsibilityStatus[] = [
 ];
 
 const REQUIREMENT_INCLUDE = {
-  responsibility: { select: { status: true } },
   items: {
     include: { verifications: { orderBy: { performedAt: 'asc' as const } } },
     orderBy: { submittedAt: 'asc' as const },
@@ -68,11 +67,8 @@ const REQUIREMENT_INCLUDE = {
 } satisfies Prisma.EvidenceRequirementInclude;
 
 type RequirementWithItems = EvidenceRequirement & {
-  responsibility: { status: ResponsibilityStatus };
   items: (EvidenceItem & { verifications: EvidenceVerification[] })[];
 };
-
-type ReadAccess = 'FULL' | 'STAFF_MINIMAL';
 
 export interface EvidenceItemView {
   id: string;
@@ -116,9 +112,18 @@ export interface EvidenceRequirementView {
   cachedSufficiencyAtLastWrite: EvidenceSufficiencyStatus;
   liveSufficiency: EvidenceSufficiencyStatus;
   requiredValidityDays: number | null;
+  // Authoritative-decision provenance only — set only once an administrator
+  // decides. Never populated by a member's mere request; see
+  // waiverRequested* below.
   waivedByUserId: string | null;
   waivedReason: string | null;
   waivedAt: Date | null;
+  // A member/principal's non-authoritative waiver request, preserved
+  // independently so an administrator's later decision can never overwrite
+  // who originally asked, why, or when.
+  waiverRequestedByUserId: string | null;
+  waiverRequestedReason: string | null;
+  waiverRequestedAt: Date | null;
   memberMessage: string;
   items: EvidenceItemView[];
 }
@@ -127,12 +132,7 @@ export interface EvidenceResponsibilitySummary {
   responsibilityId: string;
   aggregateSufficiency: EvidenceSufficiencyStatus;
   message: string;
-  // Omitted entirely for a caller who only holds STAFF_MINIMAL access (an
-  // ACTIVE Steward relationship without an explicit Step-2 read grant) — a
-  // deliberately minimal coordination projection with no requirement
-  // labels/descriptions, item history, source refs, hashes, or verification
-  // reasons. See BLOCKER 3/4 disposition in the work order.
-  requirements?: EvidenceRequirementView[];
+  requirements: EvidenceRequirementView[];
 }
 
 @Injectable()
@@ -153,9 +153,9 @@ export class EvidenceService {
   ): Promise<EvidenceRequirementView> {
     const responsibility = await this.getEvidenceEligibleResponsibility(responsibilityId);
     await this.assertCanManage(responsibility.id, responsibility.principalUserId!, caller);
-    this.assertNonTerminalResponsibility(responsibility);
 
     const requirementId = await this.prisma.db.$transaction(async (tx) => {
+      await this.lockNonTerminalResponsibility(tx, responsibility.id);
       const requirement = await tx.evidenceRequirement.create({
         data: {
           responsibilityId: responsibility.id,
@@ -183,12 +183,7 @@ export class EvidenceService {
     caller: AuthenticatedUser,
   ): Promise<EvidenceRequirementView[]> {
     const responsibility = await this.getEvidenceEligibleResponsibility(responsibilityId);
-    const access = await this.resolveReadAccess(
-      responsibilityId,
-      responsibility.principalUserId!,
-      caller,
-    );
-    if (access !== 'FULL') throw new NotFoundException('Responsibility not found');
+    await this.assertCanReadFull(responsibilityId, responsibility.principalUserId!, caller);
     const canReadDocuments = await this.canReadDocumentContentForSubject(
       responsibility.principalUserId!,
       caller,
@@ -206,12 +201,7 @@ export class EvidenceService {
     caller: AuthenticatedUser,
   ): Promise<EvidenceRequirementView> {
     const requirement = await this.mustLoadRequirement(requirementId);
-    const access = await this.resolveReadAccess(
-      requirement.responsibilityId,
-      requirement.subjectUserId,
-      caller,
-    );
-    if (access !== 'FULL') throw new NotFoundException('Evidence requirement not found');
+    await this.assertCanReadFull(requirement.responsibilityId, requirement.subjectUserId, caller);
     const canReadDocuments = await this.canReadDocumentContentForSubject(
       requirement.subjectUserId,
       caller,
@@ -230,14 +220,15 @@ export class EvidenceService {
     // Not-found rather than forbidden for an unrelated caller — matches the
     // repository's existing cross-tenant-probing-resistant convention.
     if (!isPrincipal && !isAdmin) throw new NotFoundException('Evidence requirement not found');
-    this.assertNonTerminalResponsibility(requirement.responsibility);
 
     // A member/principal cannot unilaterally waive their own requirement —
     // that would let them erase a difficult proof from aggregate sufficiency
     // (prior HIGH finding). They may only request; an administrator alone
-    // may authoritatively waive. Provenance (who, when, why, and whether it
-    // was a request or an authoritative decision) is preserved via status +
-    // the same waivedBy/waivedReason/waivedAt columns either way.
+    // may authoritatively waive. Request provenance (waiverRequestedBy/
+    // Reason/At) and decision provenance (waivedBy/Reason/At) are stored in
+    // independent columns so an administrator's later decision can never
+    // overwrite — and thereby lose — the original requester's identity,
+    // reason, or timestamp (work order §14, second re-review HIGH).
     const targetStatus = isAdmin
       ? EvidenceRequirementStatus.WAIVED
       : EvidenceRequirementStatus.WAIVER_REQUESTED;
@@ -249,14 +240,22 @@ export class EvidenceService {
     }
 
     await this.prisma.db.$transaction(async (tx) => {
+      await this.lockNonTerminalResponsibility(tx, requirement.responsibilityId);
       await tx.evidenceRequirement.update({
         where: { id: requirementId },
-        data: {
-          status: targetStatus,
-          waivedByUserId: caller.id,
-          waivedReason: dto.reason.trim(),
-          waivedAt: new Date(),
-        },
+        data: isAdmin
+          ? {
+              status: targetStatus,
+              waivedByUserId: caller.id,
+              waivedReason: dto.reason.trim(),
+              waivedAt: new Date(),
+            }
+          : {
+              status: targetStatus,
+              waiverRequestedByUserId: caller.id,
+              waiverRequestedReason: dto.reason.trim(),
+              waiverRequestedAt: new Date(),
+            },
       });
       await this.emitResponsibilityEvidenceEventTx(tx, requirement.responsibilityId, {
         sourceRecordType: 'EvidenceRequirement',
@@ -302,7 +301,6 @@ export class EvidenceService {
       requirement.subjectUserId,
       caller,
     );
-    this.assertNonTerminalResponsibility(requirement.responsibility);
     if (requirement.status !== EvidenceRequirementStatus.OPEN) {
       throw new ConflictException(
         `This requirement is ${requirement.status} and no longer accepts evidence`,
@@ -354,6 +352,7 @@ export class EvidenceService {
 
     try {
       await this.prisma.db.$transaction(async (tx) => {
+        await this.lockNonTerminalResponsibility(tx, requirement.responsibilityId);
         if (previous) {
           const claimed = await tx.evidenceItem.updateMany({
             where: { id: previous!.id, status: EvidenceItemStatus.SUBMITTED },
@@ -421,7 +420,7 @@ export class EvidenceService {
   ): Promise<EvidenceRequirementView> {
     const item = await this.prisma.db.evidenceItem.findUnique({
       where: { id: itemId },
-      include: { requirement: { include: { responsibility: { select: { status: true } } } } },
+      include: { requirement: true },
     });
     if (!item) throw new NotFoundException('Evidence item not found');
 
@@ -433,7 +432,6 @@ export class EvidenceService {
       caller,
     );
 
-    this.assertNonTerminalResponsibility(item.requirement.responsibility);
     if (item.status !== EvidenceItemStatus.SUBMITTED) {
       throw new ConflictException(
         'Only the current (non-superseded) evidence item may be verified',
@@ -448,6 +446,7 @@ export class EvidenceService {
     }
 
     await this.prisma.db.$transaction(async (tx) => {
+      await this.lockNonTerminalResponsibility(tx, item.requirement.responsibilityId);
       await tx.evidenceVerification.create({
         data: {
           evidenceItemId: item.id,
@@ -500,11 +499,14 @@ export class EvidenceService {
     caller: AuthenticatedUser,
   ): Promise<EvidenceResponsibilitySummary> {
     const responsibility = await this.getEvidenceEligibleResponsibility(responsibilityId);
-    const access = await this.resolveReadAccess(
-      responsibilityId,
-      responsibility.principalUserId!,
-      caller,
-    );
+    // An aggregate evidentiary judgment (ADEQUATE/INSUFFICIENT/etc., plus its
+    // truthful message) is itself private Responsibility evidence — a
+    // relationship-only Steward gets no projection of it at all, not even a
+    // "minimal" aggregate-only one. Merged Step 4's relationship-only
+    // coordination surface is limited to operational facts (identity,
+    // status, ownership, timestamps); it is not a lower-detail evidence
+    // view. See work order §7/§14 BLOCKER 1 (second re-review repair).
+    await this.assertCanReadFull(responsibilityId, responsibility.principalUserId!, caller);
 
     const requirements = await this.prisma.db.evidenceRequirement.findMany({
       where: { responsibilityId },
@@ -516,13 +518,6 @@ export class EvidenceService {
     // on as current truth (work order "Time-expiry truth").
     const aggregate = this.aggregateSufficiency(requirements);
     const message = this.memberFacingAggregateMessage(aggregate);
-
-    if (access !== 'FULL') {
-      // Deliberately minimal staff coordination projection — no requirement
-      // labels/descriptions, item history, source refs, hashes, or
-      // verification reasons.
-      return { responsibilityId, aggregateSufficiency: aggregate, message };
-    }
 
     const canReadDocuments = await this.canReadDocumentContentForSubject(
       responsibility.principalUserId!,
@@ -641,21 +636,28 @@ export class EvidenceService {
   // ---------------------------------------------------------------------
 
   /**
-   * FULL grants the complete requirement/item/verification payload (labels,
-   * descriptions, item history, source refs, hashes, verification reasons).
-   * STAFF_MINIMAL grants only the deliberately minimal coordination
-   * projection from responsibilitySummary(). Neither
-   * HouseholdResponsibilityParticipant (coordination consent only, Step 3)
-   * nor a bare ACTIVE StewardshipRelationship (assignment only, Step 4)
-   * grants FULL — an explicit Step-2 AuthorityGrant is required.
+   * Grants the complete requirement/item/verification payload — labels,
+   * descriptions, item history, source refs, hashes, verification reasons —
+   * and, for responsibilitySummary(), the aggregate evidentiary judgment
+   * itself (an aggregate sufficiency status plus its truthful message is
+   * still private Responsibility evidence, not a lower-detail coordination
+   * fact). Neither HouseholdResponsibilityParticipant (coordination consent
+   * only, Step 3) nor a bare ACTIVE StewardshipRelationship (assignment
+   * only, Step 4) is sufficient on its own — an explicit Step-2
+   * AuthorityGrant is required for every Step-6 evidence read, with no
+   * lesser "minimal" evidence projection for anyone who lacks it. A staff
+   * coordination surface that needs a non-evidence signal must be built
+   * separately through the governed Human-Steward/coordination domain,
+   * never by relaxing this boundary (work order §14, second re-review
+   * BLOCKER 1).
    */
-  private async resolveReadAccess(
+  private async assertCanReadFull(
     responsibilityId: string,
     subjectUserId: string,
     caller: AuthenticatedUser,
-  ): Promise<ReadAccess> {
-    if (caller.id === subjectUserId) return 'FULL';
-    if (ADMIN_ROLES.some((role) => caller.roles.includes(role))) return 'FULL';
+  ): Promise<void> {
+    if (caller.id === subjectUserId) return;
+    if (ADMIN_ROLES.some((role) => caller.roles.includes(role))) return;
     if (caller.roles.includes(UserRole.STEWARD)) {
       const relationship = await this.prisma.db.stewardshipRelationship.findFirst({
         where: {
@@ -677,7 +679,8 @@ export class EvidenceService {
           },
           caller.id,
         );
-        return decision.result === AuthorityDecisionResult.PERMIT ? 'FULL' : 'STAFF_MINIMAL';
+        if (decision.result === AuthorityDecisionResult.PERMIT) return;
+        throw new NotFoundException('Responsibility not found');
       }
     }
     throw new NotFoundException('Responsibility not found');
@@ -914,11 +917,30 @@ export class EvidenceService {
    * against it — only a separately governed correction/reopen mechanism
    * could ever change that (none exists in this slice). Reads/history
    * remain available through listRequirements/getRequirement/summary.
+   *
+   * Must be called from inside the SAME transaction that performs the
+   * evidence-truth write, using `SELECT ... FOR UPDATE` to take a row lock
+   * on the Responsibility. A plain read-then-write outside a transaction
+   * (the original implementation) leaves a TOCTOU window: another governed
+   * path could terminalize the Responsibility after the check but before
+   * this transaction commits. The row lock serializes against any
+   * concurrent transaction that also touches this row (Prisma issues a
+   * normal row-level UPDATE for a status change, which the lock blocks
+   * until this transaction finishes, and vice versa) — see work order §14,
+   * second re-review BLOCKER 2.
    */
-  private assertNonTerminalResponsibility(responsibility: { status: ResponsibilityStatus }): void {
-    if (TERMINAL_RESPONSIBILITY_STATUSES.includes(responsibility.status)) {
+  private async lockNonTerminalResponsibility(
+    tx: Prisma.TransactionClient,
+    responsibilityId: string,
+  ): Promise<void> {
+    const rows = await tx.$queryRaw<Array<{ status: ResponsibilityStatus }>>(Prisma.sql`
+      SELECT "status" FROM "Responsibility" WHERE "id" = ${responsibilityId}::uuid FOR UPDATE
+    `);
+    const status = rows[0]?.status;
+    if (!status) throw new NotFoundException('Responsibility not found');
+    if (TERMINAL_RESPONSIBILITY_STATUSES.includes(status)) {
       throw new ConflictException(
-        `This Responsibility is already ${responsibility.status}. Evidence can no longer be created, submitted, verified, or waived without a separately governed correction/reopen mechanism.`,
+        `This Responsibility is already ${status}. Evidence can no longer be created, submitted, verified, or waived without a separately governed correction/reopen mechanism.`,
       );
     }
   }
@@ -987,6 +1009,9 @@ export class EvidenceService {
       waivedByUserId: requirement.waivedByUserId,
       waivedReason: requirement.waivedReason,
       waivedAt: requirement.waivedAt,
+      waiverRequestedByUserId: requirement.waiverRequestedByUserId,
+      waiverRequestedReason: requirement.waiverRequestedReason,
+      waiverRequestedAt: requirement.waiverRequestedAt,
       memberMessage: this.memberFacingMessage(requirement, liveSufficiency),
       items: requirement.items.map((item) => this.itemView(item, canReadDocuments)),
     };

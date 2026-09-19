@@ -62,7 +62,10 @@ export class EvidenceController {
   }
 
   @Post('requirements/:requirementId/waive')
-  @ApiOperation({ summary: 'Waive an OPEN requirement (principal or administrator only)' })
+  @ApiOperation({
+    summary:
+      'Request or decide a waiver (principal or administrator only). The principal can only request — this records a non-authoritative WAIVER_REQUESTED that still counts in aggregate sufficiency. Only an administrator can authoritatively WAIVE, excluding it from the aggregate.',
+  })
   waive(
     @Param('requirementId') requirementId: string,
     @Body() dto: WaiveEvidenceRequirementDto,

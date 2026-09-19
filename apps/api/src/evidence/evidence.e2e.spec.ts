@@ -8,6 +8,7 @@ import {
   EvidenceVerificationResult,
   HouseholdMembershipStatus,
   HouseholdResponsibilityShareStatus,
+  Prisma,
   ResponsibilityActorClass,
   ResponsibilityAuthorityClass,
   ResponsibilityContextType,
@@ -570,10 +571,15 @@ describe('PEOPLE-STEP6 Documents, Evidence & Verification E2E', () => {
       .expect(404);
   });
 
-  it('BLOCKER 4 — the assigned Steward, relationship only, gets a deliberately minimal coordination projection, never full detail', async () => {
+  it('BLOCKER 4 / BLOCKER 1 (2nd re-review) — the assigned Steward, relationship only, gets the not-found boundary everywhere, including summary', async () => {
     // The Steward has an ACTIVE relationship but only ever received a
     // per-document verification grant and a manage grant above — never a
-    // Step-2 evidence-READ grant for this Responsibility.
+    // Step-2 evidence-READ grant for this Responsibility. An aggregate
+    // evidentiary judgment (ADEQUATE/INSUFFICIENT + its truthful message) is
+    // itself private Responsibility evidence, so there is no lesser "minimal
+    // projection" fallback here either — the independent re-review correctly
+    // identified the prior minimal-summary fallback as still leaking
+    // evidence.
     await request(app.getHttpServer())
       .get(`/people/evidence/requirements/${requirementId}`)
       .set('Authorization', `Bearer ${stewardToken}`)
@@ -582,14 +588,10 @@ describe('PEOPLE-STEP6 Documents, Evidence & Verification E2E', () => {
       .get(`/people/evidence/responsibilities/${responsibilityId}/requirements`)
       .set('Authorization', `Bearer ${stewardToken}`)
       .expect(404);
-
-    const summary = await request(app.getHttpServer())
+    await request(app.getHttpServer())
       .get(`/people/evidence/responsibilities/${responsibilityId}/summary`)
       .set('Authorization', `Bearer ${stewardToken}`)
-      .expect(200);
-    expect(summary.body.aggregateSufficiency).toBe(EvidenceSufficiencyStatus.ADEQUATE);
-    expect(summary.body.requirements).toBeUndefined();
-    expect(JSON.stringify(summary.body)).not.toMatch(/Proof of current address/);
+      .expect(404);
   });
 
   it('BLOCKER 4 — once the member grants an explicit Step-2 evidence-read authority, the Steward receives full detail', async () => {
@@ -686,7 +688,13 @@ describe('PEOPLE-STEP6 Documents, Evidence & Verification E2E', () => {
       .send({ reason: 'Member lives alone; this requirement does not apply.' })
       .expect(201);
     expect(requested.body.status).toBe(EvidenceRequirementStatus.WAIVER_REQUESTED);
-    expect(requested.body.waivedByUserId).toBe(memberId);
+    // A mere request is never authoritative-decision provenance.
+    expect(requested.body.waivedByUserId).toBeNull();
+    expect(requested.body.waiverRequestedByUserId).toBe(memberId);
+    expect(requested.body.waiverRequestedReason).toBe(
+      'Member lives alone; this requirement does not apply.',
+    );
+    expect(requested.body.waiverRequestedAt).not.toBeNull();
     expect(requested.body.memberMessage).toMatch(/pending administrator review/i);
 
     // A mere request must not remove the requirement from aggregate
@@ -718,6 +726,14 @@ describe('PEOPLE-STEP6 Documents, Evidence & Verification E2E', () => {
       .expect(201);
     expect(decided.body.status).toBe(EvidenceRequirementStatus.WAIVED);
     expect(decided.body.waivedByUserId).toBe(adminId);
+    expect(decided.body.waivedReason).toBe('Confirmed: member has no household to document.');
+    // HIGH (2nd re-review) — the administrator's authoritative decision must
+    // never overwrite the original request's who/why/when.
+    expect(decided.body.waiverRequestedByUserId).toBe(memberId);
+    expect(decided.body.waiverRequestedReason).toBe(
+      'Member lives alone; this requirement does not apply.',
+    );
+    expect(decided.body.waiverRequestedAt).toBe(requested.body.waiverRequestedAt);
 
     const events = await prisma.db.responsibilityEvent.findMany({
       where: {
@@ -942,6 +958,79 @@ describe('PEOPLE-STEP6 Documents, Evidence & Verification E2E', () => {
         where: { evidenceItemId: item.id },
       });
       expect(verificationCount).toBe(0);
+    });
+
+    it('BLOCKER 2 (2nd re-review) — a terminal transition racing a Step-6 mutation cannot leave a post-terminal Evidence row', async () => {
+      const raceResponsibility = await prisma.db.responsibility.create({
+        data: {
+          kind: ResponsibilityKind.PERSONAL_NEED_RESOLUTION,
+          objective: 'Race fixture — concurrent terminalization vs. submitItem',
+          status: ResponsibilityStatus.ACTIVE,
+          contextType: ResponsibilityContextType.PERSONAL,
+          principalUserId: memberId,
+          originConversationId: randomUUID(),
+          successCriteria: { type: 'PERSONAL_NEED_RESOLUTION', statedNeedId: randomUUID() },
+          authorityClass: ResponsibilityAuthorityClass.GUIDANCE_ONLY,
+          authorityPolicyVersion: 'people-step6-test',
+          privacyScope: ResponsibilityPrivacyScope.PERSONAL_PRIVATE,
+          privacyPolicyVersion: 'people-step6-test',
+        },
+      });
+      const raceRequirement = await prisma.db.evidenceRequirement.create({
+        data: {
+          responsibilityId: raceResponsibility.id,
+          subjectUserId: memberId,
+          label: 'Race requirement',
+          description: 'Exists before the concurrent terminalization',
+          createdByUserId: adminId,
+        },
+      });
+      const documentId = await createOwnedDocument(memberId, 'Race document');
+
+      // Directly simulate "another governed path" terminalizing this exact
+      // Responsibility: acquire the same FOR UPDATE row lock
+      // lockNonTerminalResponsibility() takes, hold it for a fixed window
+      // (long enough to guarantee it overlaps the concurrent submitItem call
+      // below), then commit the terminal transition. Issued strictly before
+      // the HTTP call in the same synchronous tick, so its lock-acquisition
+      // query reaches Postgres first in practice.
+      const lockHoldMs = 500;
+      const terminalizePromise = prisma.db.$transaction(async (tx) => {
+        await tx.$queryRaw(Prisma.sql`
+          SELECT "status" FROM "Responsibility" WHERE "id" = ${raceResponsibility.id}::uuid FOR UPDATE
+        `);
+        await new Promise((resolve) => setTimeout(resolve, lockHoldMs));
+        await tx.responsibility.update({
+          where: { id: raceResponsibility.id },
+          data: { status: ResponsibilityStatus.COMPLETED, completedAt: new Date() },
+        });
+      });
+
+      const submitPromise = request(app.getHttpServer())
+        .post(`/people/evidence/requirements/${raceRequirement.id}/items`)
+        .set('Authorization', `Bearer ${memberToken}`)
+        .send({ documentId });
+
+      const [, submitResponse] = await Promise.all([terminalizePromise, submitPromise]);
+
+      // lockNonTerminalResponsibility() must have blocked on the same row
+      // lock until the terminalizing transaction committed, then observed
+      // the now-COMPLETED status and rejected the submission — not raced
+      // past it using a stale pre-transaction read.
+      expect(submitResponse.status).toBe(409);
+      const itemCount = await prisma.db.evidenceItem.count({
+        where: { requirementId: raceRequirement.id },
+      });
+      expect(itemCount).toBe(0);
+      const eventCount = await prisma.db.responsibilityEvent.count({
+        where: { responsibilityId: raceResponsibility.id, sourceRecordType: 'EvidenceItem' },
+      });
+      expect(eventCount).toBe(0);
+      const finalStatus = await prisma.db.responsibility.findUniqueOrThrow({
+        where: { id: raceResponsibility.id },
+        select: { status: true },
+      });
+      expect(finalStatus.status).toBe(ResponsibilityStatus.COMPLETED);
     });
   });
 
