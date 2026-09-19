@@ -110,7 +110,7 @@ describe('VoiceWebRtcClient', () => {
     expect(getUserMediaMock).not.toHaveBeenCalled();
   });
 
-  it('uses the gathered local SDP as an application/sdp multipart part with only the ephemeral client secret', async () => {
+  it('posts the gathered local SDP as raw application/sdp with only the ephemeral client secret', async () => {
     const client = makeClient();
     await client.connect('ephemeral-secret-abc', 'gpt-realtime');
 
@@ -124,15 +124,22 @@ describe('VoiceWebRtcClient', () => {
     expect(url).toBe('https://api.openai.com/v1/realtime/calls');
     expect(url).not.toContain('?model=');
     expect(init.headers.Authorization).toBe('Bearer ephemeral-secret-abc');
-    expect(init.headers['Content-Type']).toBeUndefined();
-    expect(init.body).toBeInstanceOf(FormData);
+    expect(init.headers['Content-Type']).toBe('application/sdp');
+    expect(init.body).toBe('fake-offer-sdp-with-ice');
+    expect(init.body).not.toBeInstanceOf(FormData);
+  });
 
-    const sdpPart = (init.body as FormData).get('sdp');
-    expect(sdpPart).toBeInstanceOf(Blob);
-    expect((sdpPart as Blob).type).toBe('application/sdp');
-    // jsdom's Blob does not implement Blob.text(); size still proves the
-    // complete gathered SDP string was serialized into the multipart part.
-    expect((sdpPart as Blob).size).toBe('fake-offer-sdp-with-ice'.length);
+  it('fails clearly when the browser cannot provide microphone capture', async () => {
+    Object.defineProperty(navigator, 'mediaDevices', {
+      value: undefined,
+      configurable: true,
+    });
+
+    const client = makeClient();
+    await expect(client.connect('secret', 'model')).rejects.toThrow(
+      'Voice microphone capture is not supported in this browser.',
+    );
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 
   it('does not resolve connect until the peer connection itself is ready', async () => {
@@ -159,6 +166,14 @@ describe('VoiceWebRtcClient', () => {
     fetchMock.mockResolvedValue({ ok: false, status: 400, text: async () => '' });
     const client = makeClient();
     await expect(client.connect('secret', 'model')).rejects.toThrow('provider status 400');
+  });
+
+  it('reports signaling fetch failures with the failing stage', async () => {
+    fetchMock.mockRejectedValue(new TypeError('Failed to fetch'));
+    const client = makeClient();
+    await expect(client.connect('secret', 'model')).rejects.toThrow(
+      'Voice signaling request failed before an SDP answer was received: Failed to fetch',
+    );
   });
 
   it('forwards parsed data-channel events to onDataChannelMessage', async () => {
