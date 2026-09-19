@@ -323,6 +323,7 @@ model User {
   householdResponsibilityParticipation   HouseholdResponsibilityParticipant[] @relation("HouseholdResponsibilityParticipantUser")
   householdResponsibilityInvitationsSent HouseholdResponsibilityParticipant[] @relation("HouseholdResponsibilityParticipantInviter")
   householdEvents                        HouseholdEvent[]                     @relation("HouseholdEventActor")
+  evidenceRequirementsAsSubject           EvidenceRequirement[]                @relation("EvidenceRequirementSubject")
 }
 
 // ===========================================================================
@@ -676,6 +677,7 @@ model Responsibility {
   guidedApplicationSessions GuidedApplicationSession[]
   legalMatter               LegalMatter?
   householdParticipants     HouseholdResponsibilityParticipant[]
+  evidenceRequirements      EvidenceRequirement[]
 
   @@index([contextType, principalUserId, status, updatedAt])
   @@index([principalOrganizationId, status, updatedAt])
@@ -3733,6 +3735,7 @@ model Document {
 
   activity         StewardActivityLog[]
   legalMatterLinks LegalMatterDocumentLink[]
+  evidenceItems    EvidenceItem[]
 
   @@index([userId])
   @@index([category])
@@ -3758,6 +3761,228 @@ model StewardActivityLog {
 
   @@index([userId])
   @@index([occurredAt])
+}
+
+// ===========================================================================
+// PEOPLE-STEP6 — Documents, Evidence & Verification
+//
+// Reuses Responsibility (outcome/ownership/privacy), Document (artifact
+// storage/upload metadata), AuthorityGrant (steward/third-party access
+// gateway, evaluated per Responsibility for read/manage and per Document for
+// verification), and StewardshipRelationship (current human ownership)
+// rather than inventing a second case, permission, or document system.
+// Deliberately NOT reused as an evidence-authorization bypass:
+// HouseholdResponsibilityParticipant (coordination consent only — Step 3) and
+// an ACTIVE StewardshipRelationship alone (assignment only — Step 4). Both
+// require an explicit Step-2 AuthorityGrant before any private evidence
+// payload is exposed or mutated. EvidenceRequirement
+// / EvidenceItem / EvidenceVerification are new because no existing model
+// represents a generic, cross-domain "what proof is required, what was
+// supplied, and who independently verified it" contract — LegalMatterSource
+// and CitySheetVerificationEvent are domain-specific, and
+// ResponsibilityEvidenceLevel is a two-value summary flag on the
+// Responsibility ledger, not a requirement/item/verification model.
+//
+// Core distinction preserved throughout: a Document existing is not evidence;
+// evidence existing is not evidence being sufficient; an assertion is not
+// independent verification; verification is not completion of the underlying
+// Responsibility. See docs/work-orders/AUREUS-PEOPLE-STEP6-DOCUMENTS-EVIDENCE-
+// VERIFICATION.md.
+// ===========================================================================
+
+enum EvidenceRequirementStatus {
+  OPEN
+  SATISFIED
+  // A member/principal request to waive is recorded here, not as WAIVED —
+  // the principal cannot unilaterally remove a proof requirement from
+  // aggregate sufficiency (see EvidenceService.waiveRequirement). It remains
+  // "active" for sufficiency purposes until an administrator authoritatively
+  // decides it.
+  WAIVER_REQUESTED
+  WAIVED
+  CANCELLED
+}
+
+// Cached, recomputed-on-write summary of live EvidenceItem/EvidenceVerification
+// state (same pattern as CitySheetEntry.verificationStatus) — never the only
+// record of what happened; the append-only rows below remain authoritative.
+enum EvidenceSufficiencyStatus {
+  MISSING
+  PRESENT_UNVERIFIED
+  INSUFFICIENT
+  ADEQUATE
+}
+
+enum EvidenceOrigin {
+  MEMBER_PROVIDED
+  STEWARD_PROVIDED
+  SYSTEM_PRODUCED
+  EXTERNAL_SOURCED
+}
+
+enum EvidenceItemStatus {
+  SUBMITTED
+  SUPERSEDED
+  WITHDRAWN
+}
+
+enum EvidenceVerificationResult {
+  VERIFIED
+  REJECTED
+  FLAGGED_FOR_REVIEW
+}
+
+enum EvidenceVerificationMethod {
+  HUMAN_STEWARD_REVIEW
+  PLATFORM_ADMIN_REVIEW
+  SYSTEM_RECORD_MATCH
+  EXTERNAL_ATTESTATION
+}
+
+// What proof is required, why, and for which Responsibility. subjectUserId is
+// denormalized from Responsibility.principalUserId (mirrors LegalMatter.userId)
+// so authorization queries never have to join Responsibility on every read.
+model EvidenceRequirement {
+  id               String         @id @default(uuid()) @db.Uuid
+  responsibilityId String         @db.Uuid
+  responsibility   Responsibility @relation(fields: [responsibilityId], references: [id], onDelete: Cascade)
+  subjectUserId    String         @db.Uuid
+  subject          User           @relation("EvidenceRequirementSubject", fields: [subjectUserId], references: [id], onDelete: Cascade)
+
+  label       String
+  description String
+
+  // Null means no expiration rule applies to items satisfying this requirement.
+  requiredValidityDays Int?
+
+  status EvidenceRequirementStatus @default(OPEN)
+
+  // Recomputed-on-write only. Time-based expiry (validUntil passing) changes
+  // truth without a write, so this column can read ADEQUATE after the
+  // underlying evidence has actually expired. Never exposed under this name
+  // to API consumers — see EvidenceService.view(), which exposes it as
+  // `cachedSufficiencyAtLastWrite` alongside the always-live `liveSufficiency`
+  // — and never consulted by any completion/satisfaction decision, which must
+  // always call the live computeSufficiency()/aggregateSufficiency() path.
+  currentSufficiency EvidenceSufficiencyStatus @default(MISSING)
+
+  createdByUserId String @db.Uuid // soft reference to User, no enforced relation (matches CitySheetEntry.verifiedById convention)
+
+  // Authoritative decision provenance only — set exclusively when an
+  // administrator transitions this requirement to WAIVED. Never set (and
+  // never overwritten) by a member's WAIVER_REQUESTED request; see
+  // waiverRequested* below for that. Kept as two independent triples so a
+  // later authoritative decision can never erase who originally requested
+  // the waiver, why, or when (work order §14, second re-review HIGH).
+  waivedByUserId String?   @db.Uuid
+  waivedReason   String?
+  waivedAt       DateTime?
+
+  // A member/principal's non-authoritative request provenance. Set only by
+  // waiveRequirement() when the caller is the principal (never an admin),
+  // and never overwritten by the administrator's later authoritative
+  // decision above.
+  waiverRequestedByUserId String?   @db.Uuid
+  waiverRequestedReason   String?
+  waiverRequestedAt       DateTime?
+
+  policyVersion String   @default("people-step6-v1")
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  items EvidenceItem[]
+
+  @@index([responsibilityId, status])
+  @@index([subjectUserId, status])
+  @@index([currentSufficiency])
+}
+
+// One supplied artifact/version. A replacement is a new row (supersedesItemId
+// points back to the old one); the old row is marked SUPERSEDED, never
+// mutated or deleted, preserving full history (never silently rewritten).
+//
+// A hand-authored partial unique index — `EvidenceItem_requirementId_current_key
+// ON "EvidenceItem"("requirementId") WHERE "status" = 'SUBMITTED'` — lives in
+// this model's migration only, because Prisma's schema language cannot
+// express a WHERE-qualified unique index. It guarantees at most one current
+// item per requirement even under a concurrent-submission race; do not
+// remove it when regenerating a future migration without preserving the
+// same guarantee.
+model EvidenceItem {
+  id            String              @id @default(uuid()) @db.Uuid
+  requirementId String              @db.Uuid
+  requirement   EvidenceRequirement @relation(fields: [requirementId], references: [id], onDelete: Cascade)
+
+  // The existing Document artifact this item wraps. Nullable because some
+  // evidence is EXTERNAL_SOURCED (e.g. a verified external record lookup)
+  // rather than an uploaded Document — exactly one of documentId /
+  // externalSourceRef is set, enforced in the service layer.
+  documentId String?   @db.Uuid
+  document   Document? @relation(fields: [documentId], references: [id], onDelete: Restrict)
+
+  externalSourceRef         String?
+  externalSourceDescription String?
+
+  origin               EvidenceOrigin
+  providedByUserId     String                   @db.Uuid // soft reference to User, no enforced relation (matches CitySheetEntry.verifiedById convention)
+  providedByActorClass ResponsibilityActorClass
+
+  status EvidenceItemStatus @default(SUBMITTED)
+
+  // Self-referencing 1:1 supersession chain: this item replaces exactly one
+  // prior item, and a prior item is replaced by at most one new item.
+  supersedesItemId String?       @unique @db.Uuid
+  supersedes       EvidenceItem? @relation("EvidenceItemSupersession", fields: [supersedesItemId], references: [id], onDelete: SetNull)
+  supersededBy     EvidenceItem? @relation("EvidenceItemSupersession")
+
+  // Validity/expiration window. Neither field implies verification by itself.
+  validFrom  DateTime?
+  validUntil DateTime?
+
+  // Client-asserted hash of the artifact bytes only — never independently
+  // computed from stored bytes (the platform has no real file-byte storage;
+  // see ADR-014 Decision 5 and this work order's Known Limitations). Must
+  // never be presented as a cryptographic integrity guarantee.
+  integrityHash String?
+
+  submittedAt DateTime @default(now())
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  verifications EvidenceVerification[]
+
+  @@index([requirementId, status])
+  @@index([documentId])
+  @@index([validUntil])
+}
+
+// Append-only verification history (CitySheetVerificationEvent pattern) —
+// verify()/reject()/flagForReview() each insert a new row; nothing here is
+// ever updated or deleted once written.
+model EvidenceVerification {
+  id             String       @id @default(uuid()) @db.Uuid
+  evidenceItemId String       @db.Uuid
+  evidenceItem   EvidenceItem @relation(fields: [evidenceItemId], references: [id], onDelete: Cascade)
+
+  result EvidenceVerificationResult
+  method EvidenceVerificationMethod
+
+  performedByUserId String                   @db.Uuid // soft reference to User, no enforced relation (matches CitySheetEntry.verifiedById convention)
+  actorClass        ResponsibilityActorClass
+
+  // Human-readable record of why this actor was permitted to verify (e.g.
+  // "ACTIVE StewardshipRelationship <id> + AuthorityGrant <id>" or
+  // "PLATFORM_ADMINISTRATOR role") — traceability for "authority to verify."
+  authorityBasis String
+
+  // Required when result = REJECTED or FLAGGED_FOR_REVIEW; optional for VERIFIED.
+  reason String?
+
+  performedAt DateTime @default(now())
+
+  @@index([evidenceItemId, performedAt])
+  @@index([performedByUserId])
+  @@index([result])
 }
 
 // ===========================================================================
