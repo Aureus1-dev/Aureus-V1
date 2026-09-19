@@ -3,6 +3,8 @@ import type { RawRealtimeEvent } from './realtime-event-mapper';
 const REALTIME_API_URL = 'https://api.openai.com/v1/realtime/calls';
 const ICE_GATHERING_TIMEOUT_MS = 5_000;
 const SIGNALING_TIMEOUT_MS = 20_000;
+const CONNECTION_READY_TIMEOUT_MS = 15_000;
+const CONNECTION_READY_POLL_MS = 50;
 
 export interface VoiceWebRtcClientCallbacks {
   onRemoteTrack: (stream: MediaStream) => void;
@@ -28,6 +30,25 @@ async function waitForIceGatheringComplete(pc: RTCPeerConnection): Promise<void>
       if (pc.iceGatheringState === 'complete') finish();
     };
   });
+}
+
+async function waitForConnectionReady(
+  pc: RTCPeerConnection,
+  dataChannel: RTCDataChannel,
+): Promise<void> {
+  const deadline = Date.now() + CONNECTION_READY_TIMEOUT_MS;
+
+  while (Date.now() < deadline) {
+    if (pc.connectionState === 'failed' || pc.connectionState === 'closed') {
+      throw new Error('The voice peer connection failed before it became ready.');
+    }
+    if (pc.connectionState === 'connected' && dataChannel.readyState === 'open') {
+      return;
+    }
+    await new Promise((resolve) => setTimeout(resolve, CONNECTION_READY_POLL_MS));
+  }
+
+  throw new Error('The voice connection did not become ready in time.');
 }
 
 export class VoiceWebRtcClient {
@@ -98,6 +119,13 @@ export class VoiceWebRtcClient {
 
     const answerSdp = await response.text();
     await pc.setRemoteDescription({ type: 'answer', sdp: answerSdp });
+
+    // setRemoteDescription() only proves signaling succeeded. A member must
+    // not be told Aureus is listening until ICE/DTLS is actually connected
+    // and the Realtime data channel is open. This closes the false-success
+    // window observed in the Founder mobile walkthrough, where the UI could
+    // switch to Listening and immediately fall into "connection interrupted."
+    await waitForConnectionReady(pc, dataChannel);
   }
 
   setMuted(muted: boolean): void {
