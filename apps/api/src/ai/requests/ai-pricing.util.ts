@@ -54,14 +54,23 @@ const VOICE_PRICING_PER_1K_TOKENS_USD: Record<
     cachedAudioInput: 0.0004,
     cachedTextInput: 0.0004,
   },
-  // Official OpenAI model pricing for gpt-realtime-1.5 is $4/$16 per 1M
-  // text input/output tokens and $32/$64 per 1M audio input/output tokens,
-  // with cached input at $0.40 per 1M. Values below are the per-1K equivalents.
+  // Keep historical pricing for sessions already recorded against 1.5.
   'gpt-realtime-1.5': {
     audioInput: 0.032,
     audioOutput: 0.064,
     textInput: 0.004,
     textOutput: 0.016,
+    cachedAudioInput: 0.0004,
+    cachedTextInput: 0.0004,
+  },
+  // Official OpenAI model pricing for gpt-realtime-2.1 is $4/$24 per 1M
+  // text input/output tokens and $32/$64 per 1M audio input/output tokens,
+  // with cached text/audio input at $0.40 per 1M. Values below are per-1K.
+  'gpt-realtime-2.1': {
+    audioInput: 0.032,
+    audioOutput: 0.064,
+    textInput: 0.004,
+    textOutput: 0.024,
     cachedAudioInput: 0.0004,
     cachedTextInput: 0.0004,
   },

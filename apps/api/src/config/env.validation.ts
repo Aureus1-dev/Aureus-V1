@@ -143,11 +143,9 @@ export const envValidationSchema = Joi.object({
 
   // Voice Domain (ADR-016). Reuses OPENAI_API_KEY above.
   //
-  // Was 'gpt-realtime' until the Steward Release Gate browser canary
-  // captured OpenAI rejecting that configured value with `model_not_found`.
-  // The default now uses the supported `gpt-realtime-1.5` model; production
-  // account/key access is still proven by the live Steward Release Gate rather
-  // than assumed from configuration alone.
-  VOICE_MODEL: Joi.string().empty('').default('gpt-realtime-1.5'),
+  // Production proved gpt-realtime-2.1 end-to-end through the Steward Release
+  // Gate (brokerage, WebRTC ready state, clean end, and same-session return).
+  // Keep the repository default aligned with that proven production model.
+  VOICE_MODEL: Joi.string().empty('').default('gpt-realtime-2.1'),
   VOICE_NAME:  Joi.string().empty('').default('marin'),
 });
