@@ -18,6 +18,7 @@ import * as needsApi from '../../../lib/api/needs';
 import * as documentsApi from '../../../lib/api/documents';
 import * as recommendationsApi from '../../../lib/api/recommendations';
 import * as opportunitiesApi from '../../../lib/api/opportunities';
+import * as peopleHelpApi from '../../../lib/api/people-help';
 import { ApiError } from '../../../lib/api/errors';
 
 jest.mock('../../../lib/api/conversations');
@@ -34,6 +35,7 @@ jest.mock('../../../lib/api/documents');
 jest.mock('../../../lib/api/connected-accounts');
 jest.mock('../../../lib/api/steward-activity');
 jest.mock('../../../lib/api/opportunities');
+jest.mock('../../../lib/api/people-help');
 jest.mock('next/navigation', () => ({ useRouter: () => ({ push: jest.fn() }) }));
 
 const mockedApi = conversationsApi as jest.Mocked<typeof conversationsApi>;
@@ -44,6 +46,7 @@ const mockedNeeds = needsApi as jest.Mocked<typeof needsApi>;
 const mockedDocuments = documentsApi as jest.Mocked<typeof documentsApi>;
 const mockedRecommendations = recommendationsApi as jest.Mocked<typeof recommendationsApi>;
 const mockedOpportunities = opportunitiesApi as jest.Mocked<typeof opportunitiesApi>;
+const mockedPeopleHelp = peopleHelpApi as jest.Mocked<typeof peopleHelpApi>;
 
 function SignedInAs({ children }: { children: React.ReactNode }) {
   const { setSession, session } = useSession();
@@ -85,6 +88,32 @@ function renderSurface({ signedIn = true }: { signedIn?: boolean } = {}) {
   );
 }
 
+function makeResponsibility(
+  overrides: Partial<peopleHelpApi.PeopleResponsibilityDto> = {},
+): peopleHelpApi.PeopleResponsibilityDto {
+  return {
+    id: 'responsibility-1',
+    kind: 'OPPORTUNITY_APPLICATION_GUIDANCE',
+    objective: 'Help me work through the verified application for Career Training Grant',
+    status: 'ACTIVE',
+    contextType: 'PERSONAL',
+    authorityClass: 'GUIDANCE_ONLY',
+    authorityPolicyVersion: 'responsibility-guidance-v1',
+    privacyScope: 'PERSONAL_PRIVATE',
+    privacyPolicyVersion: 'personal-private-v1',
+    originConversationId: 'conv-1',
+    originOpportunityId: 'opportunity-1',
+    successCriteria: { type: 'APPLICATION_GUIDANCE_MEMBER_OUTCOME_RECORDED' },
+    dueAt: null,
+    retentionExpiresAt: null,
+    completedAt: null,
+    createdAt: '2026-09-01T20:00:00.000Z',
+    updatedAt: '2026-09-01T20:00:00.000Z',
+    events: [],
+    ...overrides,
+  };
+}
+
 describe('ConversationSurface', () => {
   beforeEach(() => {
     jest.clearAllMocks();
@@ -109,6 +138,10 @@ describe('ConversationSurface', () => {
       page: 1,
       limit: 20,
       totalPages: 0,
+    });
+    mockedPeopleHelp.getActivePeopleApplicationHelp.mockResolvedValue({
+      session: null,
+      responsibility: null,
     });
   });
 
@@ -381,6 +414,211 @@ describe('ConversationSurface', () => {
         'Needs you',
       ),
     ).not.toBeInTheDocument();
+  });
+
+  it('shows durable Carry State from the real Responsibility once one exists for this conversation, surviving conversation resume', async () => {
+    mockedApi.listConversations.mockResolvedValue({
+      data: [
+        { id: 'conv-1', userId: 'member-1', title: 'Career grant', createdAt: 'x', updatedAt: 'x' },
+      ],
+      total: 1,
+      page: 1,
+      limit: 20,
+      totalPages: 1,
+    });
+    mockedApi.listMessages.mockResolvedValue([
+      {
+        id: 'msg-1',
+        conversationId: 'conv-1',
+        role: 'ASSISTANT',
+        content: 'Here is a verified opportunity for you.',
+        createdAt: '2026-09-01T19:00:00.000Z',
+      },
+    ]);
+    mockedPeopleHelp.getActivePeopleApplicationHelp.mockImplementation(async (_token, conversationId) => {
+      if (conversationId !== 'conv-1') return { session: null, responsibility: null };
+      return {
+        session: null,
+        responsibility: makeResponsibility({
+          status: 'WAITING_ON_USER',
+          events: [
+            {
+              id: 'event-1',
+              type: 'ACTION_EVIDENCED',
+              actorClass: 'SYSTEM',
+              actorUserId: null,
+              fromStatus: 'ACTIVE',
+              toStatus: 'ACTIVE',
+              sourceSystem: 'GUIDED_APPLICATION',
+              sourceRecordType: 'GuidedApplicationSession',
+              sourceRecordId: 'session-1',
+              sourceState: 'FIELD_REVIEWED',
+              evidenceLevel: 'REPORTED',
+              occurredAt: '2026-09-01T20:15:00.000Z',
+            },
+          ],
+        }),
+      };
+    });
+
+    renderSurface();
+
+    // Resumed automatically — this is durable, persisted Carry State, not
+    // something the member had to re-trigger this session.
+    const summary = await screen.findByRole('region', { name: 'What Aureus is doing' });
+    expect(within(summary).getByText('Working on')).toBeInTheDocument();
+    expect(
+      within(summary).getByText('Help me work through the verified application for Career Training Grant'),
+    ).toBeInTheDocument();
+    expect(within(summary).getByText('Status')).toBeInTheDocument();
+    expect(
+      within(summary).getByText(
+        'Paused for you. Come back when you are ready and Aureus will pick it up here.',
+      ),
+    ).toBeInTheDocument();
+    expect(within(summary).getByText('Needs you')).toBeInTheDocument();
+    expect(within(summary).getByText('Next action')).toBeInTheDocument();
+    expect(within(summary).getByText(/^You: /)).toBeInTheDocument();
+    expect(within(summary).getByText('Evidence')).toBeInTheDocument();
+    expect(within(summary).getByText('Last activity')).toBeInTheDocument();
+  });
+
+  it('never borrows another conversation\'s Carry State when switching conversations', async () => {
+    mockedApi.listConversations.mockResolvedValue({
+      data: [
+        { id: 'conv-alpha', userId: 'member-1', title: 'Alpha', createdAt: 'x', updatedAt: '2024-01-01T00:00:00.000Z' },
+        { id: 'conv-beta', userId: 'member-1', title: 'Beta', createdAt: 'x', updatedAt: '2024-06-01T00:00:00.000Z' },
+      ],
+      total: 2,
+      page: 1,
+      limit: 20,
+      totalPages: 1,
+    });
+    mockedApi.listMessages.mockResolvedValue([]);
+    mockedPeopleHelp.getActivePeopleApplicationHelp.mockImplementation(async (_token, conversationId) => {
+      if (conversationId === 'conv-alpha') {
+        return {
+          session: null,
+          responsibility: makeResponsibility({
+            id: 'r-alpha',
+            objective: 'Help me with the Alpha benefit application',
+            originConversationId: 'conv-alpha',
+            status: 'ACTIVE',
+          }),
+        };
+      }
+      if (conversationId === 'conv-beta') {
+        return {
+          session: null,
+          responsibility: makeResponsibility({
+            id: 'r-beta',
+            objective: 'Help me with the Beta benefit application',
+            originConversationId: 'conv-beta',
+            status: 'WAITING_ON_USER',
+          }),
+        };
+      }
+      return { session: null, responsibility: null };
+    });
+
+    renderSurface();
+
+    // Auto-resumes the most recently updated conversation (Beta) first.
+    const betaSummary = await screen.findByRole('region', { name: 'What Aureus is doing' });
+    expect(within(betaSummary).getByText('Help me with the Beta benefit application')).toBeInTheDocument();
+    expect(within(betaSummary).queryByText('Help me with the Alpha benefit application')).not.toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('button', { name: 'History' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Alpha' }));
+
+    await waitFor(() => {
+      const alphaSummary = screen.getByRole('region', { name: 'What Aureus is doing' });
+      expect(within(alphaSummary).getByText('Help me with the Alpha benefit application')).toBeInTheDocument();
+      expect(within(alphaSummary).queryByText('Help me with the Beta benefit application')).not.toBeInTheDocument();
+    });
+  });
+
+  it('does not describe a completed Responsibility as currently being carried, and clears Needs you/Next action', async () => {
+    mockedApi.listConversations.mockResolvedValue({
+      data: [{ id: 'conv-1', userId: 'member-1', title: 'Career grant', createdAt: 'x', updatedAt: 'x' }],
+      total: 1,
+      page: 1,
+      limit: 20,
+      totalPages: 1,
+    });
+    mockedApi.listMessages.mockResolvedValue([]);
+    mockedPeopleHelp.getActivePeopleApplicationHelp.mockResolvedValue({
+      session: null,
+      responsibility: makeResponsibility({
+        status: 'COMPLETED',
+        completedAt: '2026-09-01T21:00:00.000Z',
+        events: [
+          {
+            id: 'event-completed',
+            type: 'COMPLETED',
+            actorClass: 'SYSTEM',
+            actorUserId: null,
+            fromStatus: 'ACTIVE',
+            toStatus: 'COMPLETED',
+            sourceSystem: 'OPPORTUNITY_ENGINE',
+            sourceRecordType: 'SavedOpportunity',
+            sourceRecordId: 'saved-1',
+            sourceState: 'APPLIED',
+            evidenceLevel: 'REPORTED',
+            occurredAt: '2026-09-01T21:00:00.000Z',
+          },
+        ],
+      }),
+    });
+
+    renderSurface();
+
+    const summary = await screen.findByRole('region', { name: 'What Aureus is doing' });
+    expect(within(summary).getByText('Completed — nothing further to carry.')).toBeInTheDocument();
+    expect(within(summary).queryByText(/guiding you through|in progress/i)).not.toBeInTheDocument();
+    expect(within(summary).queryByText('Needs you')).not.toBeInTheDocument();
+    expect(within(summary).queryByText('Next action')).not.toBeInTheDocument();
+    expect(within(summary).getByText('Evidence')).toBeInTheDocument();
+    expect(within(summary).getByText(/You reported: submitted\/applied/)).toBeInTheDocument();
+  });
+
+  it('shows an honest idle Carry State — the real conversational fallback, never a fabricated Responsibility — when nothing durable is being carried', async () => {
+    mockedApi.createConversation.mockResolvedValue({
+      id: 'conv-1',
+      userId: 'member-1',
+      title: null,
+      createdAt: 'x',
+      updatedAt: 'x',
+    });
+    mockedApi.sendMessage.mockResolvedValue({
+      id: 'reply-1',
+      conversationId: 'conv-1',
+      role: 'ASSISTANT',
+      content: 'Sure, tell me more.',
+      createdAt: 'x',
+    });
+    // Explicit for clarity, though this is already the beforeEach default.
+    mockedPeopleHelp.getActivePeopleApplicationHelp.mockResolvedValue({
+      session: null,
+      responsibility: null,
+    });
+
+    renderSurface();
+    const textarea = await screen.findByLabelText('Message your steward');
+    await userEvent.type(textarea, 'Just thinking out loud for now.');
+    await userEvent.click(screen.getByRole('button', { name: 'Send' }));
+    await screen.findByText('Sure, tell me more.');
+
+    const summary = screen.getByRole('region', { name: 'What Aureus is doing' });
+    expect(within(summary).getByText('Just thinking out loud for now.')).toBeInTheDocument();
+    expect(
+      within(summary).getByText('Nothing further in progress right now — ask for more anytime.'),
+    ).toBeInTheDocument();
+    // No durable Responsibility exists, so none of the Carry-State-only rows are invented.
+    expect(within(summary).queryByText('Status')).not.toBeInTheDocument();
+    expect(within(summary).queryByText('Next action')).not.toBeInTheDocument();
+    expect(within(summary).queryByText('Evidence')).not.toBeInTheDocument();
+    expect(within(summary).queryByText('Last activity')).not.toBeInTheDocument();
   });
 
   it('resumes the most recently updated conversation automatically for a returning member', async () => {

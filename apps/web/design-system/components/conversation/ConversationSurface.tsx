@@ -38,6 +38,7 @@ import {
 } from './ConversationTimeline';
 import { ApplicationGuidePanel } from './ApplicationGuidePanel';
 import { ResponsibilityProgressCard } from './ResponsibilityProgressCard';
+import { buildCarryState } from './responsibility-carry-state';
 import { LegalMatterPanel } from './LegalMatterPanel';
 import { MessageComposer } from './MessageComposer';
 import { VisibleWorkSummary } from './VisibleWorkSummary';
@@ -323,7 +324,6 @@ export function ConversationSurface({ initialMode = 'text' }: ConversationSurfac
   );
   const currentMessages = latestCurrentMessages(messageEntries);
   const currentUserMessage = currentMessages.find((entry) => entry.message.role === 'USER');
-  const workingOn = currentUserMessage?.message.content ?? null;
 
   const currentAssistant = [...currentMessages]
     .reverse()
@@ -332,29 +332,47 @@ export function ConversationSurface({ initialMode = 'text' }: ConversationSurfac
   const toolReceipts = (currentAssistant?.message.toolCalls ?? [])
     .map(describeToolCall)
     .filter((receipt): receipt is string => Boolean(receipt));
-  const carrying = state.pendingResponse
-    ? 'Reading what you shared and figuring out how to help.'
-    : toolReceipts.length > 0
-      ? toolReceipts.join(' · ')
-      : 'Nothing further in progress right now — ask for more anytime.';
 
-  const needsResumeApplication =
-    !applicationGuideSession &&
-    Boolean(applicationHelpResponsibility?.originOpportunityId) &&
-    applicationHelpResponsibility?.status !== 'COMPLETED';
+  // Production Carry State (UI Slice 2): once Aureus has formally accepted
+  // durable work, that Responsibility — not conversation text — becomes the
+  // authoritative source for every Visible Work field below. `carryState` is
+  // a pure projection (`responsibility-carry-state.ts`) of the real,
+  // conversation-scoped `applicationHelpResponsibility` this component
+  // already fetches from `GET /people-help/application/active`; it is
+  // deliberately null (never a fabricated "idle" object) when no durable
+  // Responsibility exists yet for this conversation, in which case the
+  // conversation-derived signals below remain the honest, pre-acceptance
+  // fallback — "conversation text may initiate work," but never overrides it.
+  const carryState = buildCarryState(applicationHelpResponsibility);
+
+  const workingOn = carryState ? carryState.workingOn : (currentUserMessage?.message.content ?? null);
+  const status = carryState ? carryState.status : null;
+  const carrying = carryState
+    ? carryState.carrying
+    : state.pendingResponse
+      ? 'Reading what you shared and figuring out how to help.'
+      : toolReceipts.length > 0
+        ? toolReceipts.join(' · ')
+        : 'Nothing further in progress right now — ask for more anytime.';
+  const nextAction = carryState ? carryState.nextAction : null;
+  const evidence = carryState ? carryState.evidence : [];
+  const lastActivityAt = carryState ? carryState.lastActivityAt : null;
+
   // A prior turn's opportunity never survives into a new one: once the
   // member starts a new turn, `currentMessages` (from `latestCurrentMessages`)
   // no longer includes the previous assistant reply — even while the new
   // reply is still pending — so `currentOpportunity` is already undefined
   // here. This is the same boundary `ConversationTimeline` itself enforces,
   // not a second, independent guard that could drift from it.
-  const needsYou = currentOpportunity
-    ? `Review the verified next step Aureus found${currentOpportunity.sourceName ? ' from ' + currentOpportunity.sourceName : ''}.`
-    : needsResumeApplication
-      ? 'Resume the application Aureus already started for you.'
+  const needsYou = carryState
+    ? carryState.needsYou
+    : currentOpportunity
+      ? `Review the verified next step Aureus found${currentOpportunity.sourceName ? ' from ' + currentOpportunity.sourceName : ''}.`
       : null;
 
-  const doneMeans = "You'll know this is done when Aureus gives you a clear result or next step.";
+  const doneMeans = carryState
+    ? carryState.doneMeans
+    : "You'll know this is done when Aureus gives you a clear result or next step.";
 
   return (
     <div className={styles.surface}>
@@ -397,9 +415,13 @@ export function ConversationSurface({ initialMode = 'text' }: ConversationSurfac
           {workingOn ? (
             <VisibleWorkSummary
               workingOn={workingOn}
+              status={status}
               carrying={carrying}
               needsYou={needsYou}
+              nextAction={nextAction}
               doneMeans={doneMeans}
+              evidence={evidence}
+              lastActivityAt={lastActivityAt}
             />
           ) : null}
 

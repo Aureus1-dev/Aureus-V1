@@ -47,6 +47,21 @@
   color: var(--color-warning);
 }
 
+.evidenceList {
+  margin: 0;
+  padding-inline-start: 1.2em;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.evidenceItem {
+  color: var(--color-text-primary);
+  font-size: var(--font-size-base);
+  line-height: var(--line-height-normal);
+  overflow-wrap: anywhere;
+}
+
 @media (max-width: 640px) {
   .summary {
     padding: var(--space-3);
