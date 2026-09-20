@@ -1,0 +1,56 @@
+/* Matches ConversationTimeline's .workStage treatment so this reads as
+   part of the same Hall surface, not a competing card style. */
+.summary {
+  width: min(100%, 58rem);
+  margin: 0 auto;
+  padding: var(--space-4);
+  border: 1px solid color-mix(in srgb, var(--color-border-subtle) 72%, transparent);
+  border-radius: var(--radius-xl);
+  background: color-mix(in srgb, var(--color-surface-primary) 68%, transparent);
+  box-shadow: 0 1rem 3rem rgba(0, 0, 0, 0.08);
+  backdrop-filter: blur(14px);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.row {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.label {
+  margin: 0;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  letter-spacing: 0.02em;
+}
+
+.value {
+  margin: 0;
+  color: var(--color-text-primary);
+  font-size: var(--font-size-base);
+  line-height: var(--line-height-normal);
+  overflow-wrap: anywhere;
+}
+
+.needsYou {
+  padding: var(--space-3);
+  border-radius: var(--radius-lg);
+  border: 1px solid color-mix(in srgb, var(--color-warning) 45%, var(--color-border));
+  background: color-mix(in srgb, var(--color-warning) 8%, transparent);
+}
+
+.needsYou .label {
+  color: var(--color-warning);
+}
+
+@media (max-width: 640px) {
+  .summary {
+    padding: var(--space-3);
+    border-radius: var(--radius-lg);
+    gap: var(--space-2);
+  }
+}

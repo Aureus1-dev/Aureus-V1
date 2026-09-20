@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { axe } from 'jest-axe';
 import { SessionProvider, useSession } from '../../../state/session/SessionContext';
@@ -150,8 +150,111 @@ describe('ConversationSurface', () => {
     await userEvent.type(textarea, 'Hello, I need help.');
     await userEvent.click(screen.getByRole('button', { name: 'Send' }));
 
-    await waitFor(() => expect(screen.getByText('Hello, I need help.')).toBeInTheDocument());
+    const log = await screen.findByRole('log');
+    await waitFor(() =>
+      expect(within(log).getByText('Hello, I need help.')).toBeInTheDocument(),
+    );
     expect(await screen.findByText('It sounds like you want to get started.')).toBeInTheDocument();
+  });
+
+  it('leads the empty state with the front-door promise before any message is sent', async () => {
+    renderSurface();
+    expect(
+      await screen.findByText(
+        /Tell Aureus what you want to accomplish\.\s*Aureus figures out how to get it done\./,
+      ),
+    ).toBeInTheDocument();
+    expect(screen.getByText('How can we help?')).toBeInTheDocument();
+  });
+
+  it('shows the Visible Work summary with real content once a message has been sent, and no "Needs you" absent a real signal', async () => {
+    mockedApi.createConversation.mockResolvedValue({
+      id: 'conv-1',
+      userId: 'member-1',
+      title: null,
+      createdAt: 'x',
+      updatedAt: 'x',
+    });
+    mockedApi.sendMessage.mockResolvedValue({
+      id: 'reply-1',
+      conversationId: 'conv-1',
+      role: 'ASSISTANT',
+      content: 'It sounds like you want to get started.',
+      createdAt: 'x',
+    });
+
+    renderSurface();
+    const textarea = await screen.findByLabelText('Message your steward');
+    await userEvent.type(textarea, 'Hello, I need help.');
+    await userEvent.click(screen.getByRole('button', { name: 'Send' }));
+
+    await screen.findByText('It sounds like you want to get started.');
+
+    const summary = screen.getByRole('region', { name: 'What Aureus is doing' });
+    expect(within(summary).getByText('Working on')).toBeInTheDocument();
+    expect(within(summary).getByText('Hello, I need help.')).toBeInTheDocument();
+    expect(within(summary).getByText('Aureus is carrying')).toBeInTheDocument();
+    expect(within(summary).getByText('Done means')).toBeInTheDocument();
+    // No opportunity action and no resumable application help were returned,
+    // so "Needs you" must not be invented.
+    expect(within(summary).queryByText('Needs you')).not.toBeInTheDocument();
+  });
+
+  it('resumes the most recently updated conversation automatically for a returning member', async () => {
+    mockedApi.listConversations.mockResolvedValue({
+      data: [
+        {
+          id: 'conv-older',
+          userId: 'member-1',
+          title: null,
+          createdAt: 'x',
+          updatedAt: '2024-01-01T00:00:00.000Z',
+        },
+        {
+          id: 'conv-newer',
+          userId: 'member-1',
+          title: null,
+          createdAt: 'x',
+          updatedAt: '2024-06-01T00:00:00.000Z',
+        },
+      ],
+      total: 2,
+      page: 1,
+      limit: 20,
+      totalPages: 1,
+    });
+    mockedApi.listMessages.mockImplementation(async (_token, conversationId) => {
+      if (conversationId === 'conv-newer') {
+        return [
+          {
+            id: 'msg-newer',
+            conversationId: 'conv-newer',
+            role: 'ASSISTANT',
+            content: 'Welcome back — picking up where we left off.',
+            createdAt: 'x',
+          },
+        ];
+      }
+      return [
+        {
+          id: 'msg-older',
+          conversationId: 'conv-older',
+          role: 'ASSISTANT',
+          content: 'This is the older conversation.',
+          createdAt: 'x',
+        },
+      ];
+    });
+
+    renderSurface();
+
+    // Resumed without any click on History/New — a returning member never
+    // lands on an empty "How can we help?" while a real conversation exists.
+    expect(
+      await screen.findByText('Welcome back — picking up where we left off.'),
+    ).toBeInTheDocument();
+    expect(screen.queryByText('This is the older conversation.')).not.toBeInTheDocument();
+    expect(screen.queryByText('How can we help?')).not.toBeInTheDocument();
   });
 
   it('shows a calm, retryable error state and preserves the draft on 503', async () => {

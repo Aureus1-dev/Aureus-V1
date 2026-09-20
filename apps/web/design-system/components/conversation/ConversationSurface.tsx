@@ -30,11 +30,12 @@ import { ErrorState } from '../ErrorState/ErrorState';
 import { Button } from '../Button/Button';
 import { VoiceSurface } from '../voice';
 import { ConversationHistory } from './ConversationHistory';
-import { ConversationTimeline } from './ConversationTimeline';
+import { ConversationTimeline, describeToolCall } from './ConversationTimeline';
 import { ApplicationGuidePanel } from './ApplicationGuidePanel';
 import { ResponsibilityProgressCard } from './ResponsibilityProgressCard';
 import { LegalMatterPanel } from './LegalMatterPanel';
 import { MessageComposer } from './MessageComposer';
+import { VisibleWorkSummary } from './VisibleWorkSummary';
 import { conversationErrorCopy } from './conversation-error-copy';
 import { buildVirtualTimeline, type BuiltPlan } from './build-virtual-timeline';
 import styles from './ConversationSurface.module.css';
@@ -103,6 +104,35 @@ export function ConversationSurface({ initialMode = 'text' }: ConversationSurfac
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [session.isAuthenticated]);
+
+  // Returning-member continuity (UI Slice 1): a member with existing
+  // conversations should not land on a blank "How can we help?" every
+  // time — resume the most recently updated one automatically. Fires at
+  // most once per mount (the ref, not just a state check, matters here:
+  // `activeConversationId` is also `null` immediately after the member
+  // explicitly clicks "New conversation", and this must never undo that
+  // deliberate choice on a later render).
+  const autoResumedRef = useRef(false);
+  useEffect(() => {
+    if (autoResumedRef.current) return;
+    if (!session.isAuthenticated || state.isLoadingConversations) return;
+    if (state.activeConversationId) {
+      autoResumedRef.current = true;
+      return;
+    }
+    if (state.conversations.length === 0) return;
+    autoResumedRef.current = true;
+    const mostRecent = [...state.conversations].sort((a, b) =>
+      b.updatedAt.localeCompare(a.updatedAt),
+    )[0];
+    if (mostRecent) void selectConversation(mostRecent.id);
+  }, [
+    session.isAuthenticated,
+    state.isLoadingConversations,
+    state.activeConversationId,
+    state.conversations,
+    selectConversation,
+  ]);
 
   // Grounds an in-conversation plan in the StatedNeed captured for this
   // specific conversation, mirroring FirstRunWelcome's own lookup — a
@@ -275,6 +305,49 @@ export function ConversationSurface({ initialMode = 'text' }: ConversationSurfac
     connectedExperiences.state.documents,
   );
 
+  // Visible Work grammar (UI Slice 1): every field below is read from data
+  // this component already has for real reasons (the member's own words, a
+  // real Goal record, the latest reply's real tool calls, a real pending
+  // approval) — nothing here is invented, timed, or fabricated to look busy.
+  const activeGoal = journey.state.goals.find((goal) => goal.status === 'ACTIVE') ?? null;
+  const firstUserMessage = entries.find(
+    (entry) => entry.type === 'message' && entry.message.role === 'USER',
+  );
+  const workingOn =
+    activeGoal?.title ??
+    (firstUserMessage?.type === 'message' ? firstUserMessage.message.content : null);
+
+  const lastAssistantMessage = [...entries]
+    .reverse()
+    .find((entry) => entry.type === 'message' && entry.message.role === 'ASSISTANT');
+  const currentOpportunity =
+    lastAssistantMessage?.type === 'message' ? lastAssistantMessage.message.opportunityAction : undefined;
+  const toolReceipts =
+    lastAssistantMessage?.type === 'message'
+      ? (lastAssistantMessage.message.toolCalls ?? [])
+          .map(describeToolCall)
+          .filter((receipt): receipt is string => Boolean(receipt))
+      : [];
+  const carrying = state.pendingResponse
+    ? 'Reading what you shared and figuring out how to help.'
+    : toolReceipts.length > 0
+      ? toolReceipts.join(' · ')
+      : 'Nothing further in progress right now — ask for more anytime.';
+
+  const needsResumeApplication =
+    !applicationGuideSession &&
+    Boolean(applicationHelpResponsibility?.originOpportunityId) &&
+    applicationHelpResponsibility?.status !== 'COMPLETED';
+  const needsYou = currentOpportunity
+    ? `Review the verified next step Aureus found${currentOpportunity.sourceName ? ' from ' + currentOpportunity.sourceName : ''}.`
+    : needsResumeApplication
+      ? 'Resume the application Aureus already started for you.'
+      : null;
+
+  const doneMeans = activeGoal
+    ? `You'll know this is done when "${activeGoal.title}" is finished.`
+    : "You'll know this is done when Aureus gives you a clear result or next step.";
+
   return (
     <div className={styles.surface}>
       <ConversationHistory
@@ -313,9 +386,24 @@ export function ConversationSurface({ initialMode = 'text' }: ConversationSurfac
         />
       ) : (
         <>
+          {workingOn ? (
+            <VisibleWorkSummary
+              workingOn={workingOn}
+              carrying={carrying}
+              needsYou={needsYou}
+              doneMeans={doneMeans}
+            />
+          ) : null}
+
           {entries.length === 0 && !state.pendingResponse ? (
             <>
+              <p className={styles.promise}>
+                Tell Aureus what you want to accomplish.
+                <br />
+                Aureus figures out how to get it done.
+              </p>
               <EmptyState
+                titleAs="h1"
                 title="How can we help?"
                 description="Tell us what is happening in your own words—by typing or talking. We’ll take on as much as we responsibly can, and help you see it through."
               />

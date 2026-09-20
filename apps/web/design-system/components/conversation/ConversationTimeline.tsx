@@ -66,7 +66,8 @@ function safeArguments(toolCall: ToolCallDto): Record<string, unknown> {
   }
 }
 
-function describeToolCall(toolCall: ToolCallDto): string | null {
+/** Exported for `VisibleWorkSummary`'s "Aureus is carrying" line, which needs the same real receipts, not a second description of the same tool calls. */
+export function describeToolCall(toolCall: ToolCallDto): string | null {
   const args = safeArguments(toolCall);
   switch (toolCall.name) {
     case 'navigate_to_route': {
