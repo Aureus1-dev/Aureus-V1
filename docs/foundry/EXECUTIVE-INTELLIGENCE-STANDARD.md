@@ -14,12 +14,38 @@ The goal is to improve the quality of questions, prompts, plans, creative briefs
 
 This standard is especially important for the Production House, where weak upstream understanding can create polished but strategically wrong output.
 
+## Governance relationship and inheritance
+
+This standard is a **Foundry/AI intelligence-and-execution layer**. It does not replace, rewrite, supersede, or create an alternative to the existing Founder’s Office governance system.
+
+The governing relationship is explicit:
+
+- [EOS-001 — Executive Operating System](founders-office/EOS-001-executive-operating-system.md) remains the organizational/accountability model for Aureus executive offices. It governs office purpose, responsibility, authority, coordination, ownership, escalation, accountability, and institutional learning duties.
+- [EDP-001 — Executive Decision Protocol](founders-office/EDP-001-executive-decision-protocol.md) remains the authoritative decision lifecycle for significant Founder’s Office decisions. It governs definition of the question, evidence gathering, alternatives, mission review, risk review, red-team review, recommendation, Founder decision, implementation, and stewardship review.
+- [FDR-001 — Founder Decision Register](founders-office/FDR-001-founder-decision-register.md) remains the authoritative system of record for significant decisions, rationale, assumptions, risks, implementation, expected outcomes, actual outcomes, amendments, and institutional learning.
+- [FOD-001 — Founder Operating Doctrine](founders-office/FOD-001-founder-operating-doctrine.md) remains the leadership/stewardship doctrine for the First Steward and equivalent institutional responsibility.
+- `EXECUTIVE-INTELLIGENCE-STANDARD.md` supplies shared context, research, evidence, question compilation, domain analysis, dissent, tool intelligence, synthesis, verification, and production briefing **in service of** those governing systems.
+
+If this standard ever appears to conflict with EOS-001, EDP-001, FDR-001, or FOD-001 within their governing scopes, the applicable Founder’s Office document controls and this intelligence layer must be reconciled to it.
+
+### Executive Offices vs Executive Skills
+
+| Concept | What it is | What it owns | What it does not become |
+|---|---|---|---|
+| **Executive Offices** | Institutional accountability and organizational ownership established under EOS-001 | Responsibilities, authority, accountable ownership, coordination, commitments, and office-level execution | A collection of AI personas or optional reasoning modes |
+| **Executive Skills** | Foundry/AI reasoning and expertise lenses that may serve one or more offices | Analysis, research, synthesis, critique, verification, production support, and domain expertise | An accountable office, a new authority source, or a substitute for the decision owner |
+
+An Executive Office may call several Executive Skills. One Executive Skill may serve several Executive Offices. Skills can inform, challenge, and support accountable owners; they do not silently acquire institutional authority.
+
 ## 2. Executive architecture
 
 The default architecture is:
 
 ```text
 Founder / authorized decision-maker
+        |
+        v
+EOS-001 accountable Executive Office(s)
         |
         v
 Aureus institutional intelligence / Foundry
@@ -39,7 +65,7 @@ Aureus institutional intelligence / Foundry
         +--> Verification skill
 ```
 
-These are executive **skills / perspectives**, not independent characters competing for control. A worker or autonomous agent may be used internally by a skill when multi-step execution requires one, but authority, memory, provenance, approvals, and final synthesis remain governed by Aureus.
+These are executive **skills / perspectives**, not independent characters competing for control. A worker or autonomous agent may be used internally by a skill when multi-step execution requires one, but authority, accountability, memory, provenance, approvals, and final decision ownership remain governed by Aureus and the applicable Executive Office / Founder’s Office system.
 
 ## 3. Shared Executive Context Packet
 
@@ -50,7 +76,7 @@ Minimum packet:
 1. **Mission and constitutional constraints**
    - current mission and non-negotiables;
    - truth, privacy, agency, authorization, safety, ownership, and stewardship boundaries;
-   - applicable policy and governance constraints.
+   - applicable policy and governance constraints, including FOD-001 where Founder leadership/stewardship is implicated.
 
 2. **Current institutional state**
    - what is live;
@@ -67,6 +93,8 @@ Minimum packet:
    - what has changed since;
    - unresolved dissent.
 
+   For significant Founder’s Office decisions, this history is retrieved from or linked to the authoritative FDR-001 record. The context packet may summarize or reference it; it does not create a second permanent decision register.
+
 4. **Evidence state**
    - verified facts;
    - observations;
@@ -82,6 +110,8 @@ Minimum packet:
    - failures, friction, and successful patterns;
    - lessons already accepted into institutional knowledge.
 
+   Where the outcome belongs to a significant Founder’s Office decision, expected outcomes, actual outcomes, and institutional learning remain part of the FDR-001 record and may be referenced here.
+
 6. **Decision frame**
    - exact question;
    - desired outcome;
@@ -89,8 +119,9 @@ Minimum packet:
    - constraints;
    - reversibility;
    - consequence level;
-   - decision owner;
-   - required approvals.
+   - accountable office / decision owner;
+   - required approvals;
+   - whether EDP-001 applies.
 
 No executive skill may silently substitute stale or private context for this packet.
 
@@ -222,6 +253,8 @@ Track, where material:
 
 Do not choose a tool because it is fashionable, because credits exist, or because a vendor claims superiority. Route work based on measured fitness for the task.
 
+See [Tool Intelligence Operating Model](TOOL-INTELLIGENCE-OPERATING-MODEL.md) for the continuous-lightweight discovery / targeted-deep-evaluation model.
+
 ## 5. Source hierarchy
 
 Prefer evidence in roughly this order, while allowing domain-specific exceptions:
@@ -253,6 +286,8 @@ Suggested classes:
 
 Stale evidence must be labeled stale rather than silently reused.
 
+The freshness classes describe how volatile information may be; they do not require exhaustive scheduled research. [Just-in-Time Intelligence](JUST-IN-TIME-INTELLIGENCE.md) governs refresh-on-read / refresh-on-decision behavior except where stale information itself creates material operational, legal, safety, security, financial, or customer risk.
+
 ## 7. Intelligence radar
 
 Foundry should maintain a continuous external intelligence radar with at least these lanes:
@@ -266,7 +301,7 @@ Foundry should maintain a continuous external intelligence radar with at least t
 7. **Markets and operations** — category demand, customer behavior, cost curves, labor / workflow changes, regulation, and adoption.
 8. **Creative culture** — noteworthy work, formats, storytelling patterns, emerging aesthetics, audience behavior, and new distribution formats.
 
-Items entering the radar are not automatically accepted as institutional truth. They become candidates for evaluation, testing, or incorporation.
+Items entering the radar are not automatically accepted as institutional truth. They become candidates for evaluation, testing, or incorporation. The radar is a lightweight discovery mechanism, not a parallel policy or decision authority.
 
 ## 8. Question and prompt compiler
 
@@ -291,6 +326,8 @@ The compiler asks internally:
 
 The resulting prompt / work order should contain enough context to create good work without burying the worker in irrelevant material.
 
+For significant Founder’s Office decisions, question compilation supports EDP-001 Stage 1 and evidence gathering supports later EDP-001 stages; the compiler does not replace or reorder that lifecycle.
+
 ## 9. Common executive answer format
 
 Unless the task clearly requires another form, material executive recommendations use the same structure:
@@ -308,6 +345,8 @@ Unless the task clearly requires another form, material executive recommendation
 11. **What would change the recommendation** — disconfirming evidence.
 12. **Next responsible test / action** — owner, evidence required, and completion condition.
 
+This is an **implementation/output format supporting the EDP-001 lifecycle, not an alternative decision lifecycle**. For a significant Founder’s Office decision, the material produced here feeds the applicable EDP-001 stages; it does not bypass Stage 8 Founder Decision, Stage 9 Implementation, Stage 10 Stewardship Review, or any other required stage.
+
 Facts, inference, judgment, and uncertainty must never be blended into one unlabeled voice.
 
 ## 10. Executive synthesis
@@ -323,10 +362,12 @@ Synthesis should:
 - test important assumptions;
 - use a red-team / critic when consequences warrant;
 - use a verifier independent from the producer when practical;
-- preserve unresolved dissent for the decision owner;
-- record the final decision, rationale, expected result, and what evidence would prove it right or wrong.
+- preserve unresolved dissent for the accountable decision owner;
+- produce the evidence, alternatives, recommendation, expected result, and disconfirming conditions needed by the governing decision process.
 
 The Founder should see the smallest useful synthesis, with deeper evidence available on demand.
+
+For significant Founder’s Office decisions, synthesis is an input to EDP-001. After the authorized decision is made, the final decision, rationale, assumptions, risks, implementation record, expected outcomes, later actual outcomes, and institutional learning are recorded in FDR-001. Foundry does not create a competing permanent decision store.
 
 ## 11. Production House preflight
 
@@ -353,24 +394,42 @@ Before Production House creates a material artifact or campaign, compile a `Prod
 
 Production House should be able to explain why a creative direction was chosen, not only generate an attractive result.
 
+A ProductionBrief is an execution artifact. It does not assign institutional authority or replace an accountable Executive Office under EOS-001.
+
 ## 12. Learning loop
 
-Every important decision or produced artifact should be eligible for the same loop:
+Every important decision or produced artifact should be eligible for the same intelligence/evaluation loop:
 
 ```text
 question / intent
 -> compiled context and evidence
 -> executive / production work
 -> prediction / expected result
--> action or release
+-> authorized action or release
 -> real-world evidence
 -> actual result
 -> prediction gap / friction / success
 -> Foundry analysis
 -> candidate lesson
 -> independent validation when material
--> governed Library update
+-> governed Library update when appropriate
 ```
+
+This loop is an intelligence and evaluation mechanism, not a new permanent decision register.
+
+For significant Founder’s Office decisions:
+
+```text
+EDP-001 decision lifecycle
+-> Founder / authorized decision
+-> FDR-001 authoritative decision record
+-> implementation
+-> actual outcome / stewardship review
+-> FDR-001 outcome + institutional learning
+-> Foundry / Library may reference validated lessons as appropriate
+```
+
+The FDR-001 record remains authoritative for the significant final decision, rationale, assumptions, risks, implementation, expected outcomes, actual outcomes, amendments, and institutional learning. Foundry may preserve working evidence and candidate lessons according to policy, but it must not fork the permanent decision history.
 
 This preserves what Aureus learns without turning one success, one failure, one executive opinion, or one model output into permanent doctrine prematurely.
 
@@ -379,6 +438,9 @@ This preserves what Aureus learns without turning one success, one failure, one 
 Do not:
 
 - create isolated executive personalities with different private realities;
+- confuse an Executive Skill with an accountable Executive Office;
+- create a parallel decision lifecycle beside EDP-001;
+- create a competing permanent decision register beside FDR-001;
 - imitate famous leaders as personas;
 - treat a model’s confidence as evidence;
 - use only academic theory without field reality;
@@ -398,17 +460,20 @@ This standard is operational when:
 
 1. executive skills consume a shared context packet;
 2. a common evidence / provenance schema distinguishes fact, inference, judgment, and uncertainty;
-3. Foundry can route the smallest competent mix of executive skills for a question;
+3. Foundry can route the smallest competent mix of executive skills for a question without changing EOS-001 accountability;
 4. the external intelligence radar has source, freshness, provenance, and deduplication rules;
 5. a living tool / capability map exists;
 6. Production House uses the preflight brief for material work;
-7. executive outputs follow the common answer contract;
-8. decisions record predictions and actual outcomes;
-9. lessons flow through Foundry validation into governed Library knowledge;
-10. stale intelligence can be detected and refreshed instead of silently reused.
+7. executive outputs follow the common answer contract as an implementation/output format supporting EDP-001 where applicable;
+8. significant Founder’s Office decisions follow EDP-001 and are recorded authoritatively in FDR-001;
+9. decision outcomes and institutional learning for those significant decisions return to FDR-001, while validated reusable lessons may also flow through Foundry governance into Library knowledge;
+10. stale intelligence can be detected and refreshed instead of silently reused;
+11. FOD-001 remains the governing leadership/stewardship doctrine rather than being recreated inside AI prompting or synthesis.
 
 ## 15. Governing idea
 
 **Same truth. Different expertise. Better questions. Better work. Measured against reality.**
 
-The executive team exists to increase the quality of Aureus’s judgment and execution, not to multiply voices. Creativity, scholarship, operating experience, market awareness, current technology, dissent, and measured outcomes should meet in one governed intelligence system before consequential work is carried forward.
+The executive intelligence layer exists to increase the quality of Aureus’s judgment and execution, not to multiply authorities or voices. Creativity, scholarship, operating experience, market awareness, current technology, dissent, and measured outcomes should meet in one governed intelligence system before consequential work is carried forward.
+
+EOS-001 owns the organizational/accountability model. EDP-001 owns the significant Founder’s Office decision lifecycle. FDR-001 owns the authoritative significant-decision record and learning history. FOD-001 owns the leadership/stewardship doctrine. This standard supplies the intelligence and execution support that helps those systems work better.
