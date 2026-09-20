@@ -48,18 +48,36 @@ describe('buildCarryState', () => {
     expect(buildCarryState(null)).toBeNull();
   });
 
-  it('projects the real objective as "Working on" and a plain-language status for ACTIVE work', () => {
-    const state = buildCarryState(makeResponsibility());
+  it('projects the real objective as "Working on" and a plain-language status for ACTIVE work with a live guide session', () => {
+    // hasActiveGuideSession=true: Aureus is genuinely guiding right now.
+    const state = buildCarryState(makeResponsibility(), true);
     expect(state).not.toBeNull();
     expect(state!.workingOn).toBe('Help me work through the verified application for Career Training Grant');
     expect(state!.status).toBe('We are working on this together now.');
     expect(state!.carrying).toMatch(/guiding you through the verified application/i);
     expect(state!.nextAction).toEqual({ description: 'Continue the guided application.', owner: 'AUREUS' });
+    expect(state!.needsYou).toBeNull();
   });
 
-  it('only shows "Needs you" when the Responsibility is genuinely WAITING_ON_USER', () => {
-    const active = buildCarryState(makeResponsibility({ status: 'ACTIVE' }));
-    expect(active!.needsYou).toBeNull();
+  it('does not claim Aureus is guiding, and identifies the real member action, for ACTIVE work with no live guide session', () => {
+    // The backend's ACTIVE status alone never proves a session is open —
+    // OR-002 accepts the Responsibility before the guide session necessarily
+    // exists, and a member can leave without an explicit pause. Omitting the
+    // second argument (hasActiveGuideSession) models exactly that state.
+    const state = buildCarryState(makeResponsibility({ status: 'ACTIVE' }));
+    expect(state).not.toBeNull();
+    expect(state!.carrying).not.toMatch(/guiding you/i);
+    expect(state!.carrying).toMatch(/ready to continue/i);
+    expect(state!.needsYou).toMatch(/resume the guided application/i);
+    expect(state!.nextAction).toEqual({
+      description: state!.needsYou,
+      owner: 'MEMBER',
+    });
+  });
+
+  it('only shows "Needs you" when the Responsibility genuinely requires the member (WAITING_ON_USER, or ACTIVE guidance with no live session)', () => {
+    const activeWithLiveSession = buildCarryState(makeResponsibility({ status: 'ACTIVE' }), true);
+    expect(activeWithLiveSession!.needsYou).toBeNull();
 
     const waitingThirdParty = buildCarryState(makeResponsibility({ status: 'WAITING_ON_THIRD_PARTY' }));
     expect(waitingThirdParty!.needsYou).toBeNull();

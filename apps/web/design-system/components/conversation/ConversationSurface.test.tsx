@@ -538,6 +538,118 @@ describe('ConversationSurface', () => {
     });
   });
 
+  it('never renders the previous conversation\'s Carry State while the new conversation\'s fetch is still pending', async () => {
+    mockedApi.listConversations.mockResolvedValue({
+      data: [
+        { id: 'conv-alpha', userId: 'member-1', title: 'Alpha', createdAt: 'x', updatedAt: '2024-01-01T00:00:00.000Z' },
+        { id: 'conv-beta', userId: 'member-1', title: 'Beta', createdAt: 'x', updatedAt: '2024-06-01T00:00:00.000Z' },
+      ],
+      total: 2,
+      page: 1,
+      limit: 20,
+      totalPages: 1,
+    });
+    mockedApi.listMessages.mockResolvedValue([]);
+
+    let resolveBeta!: (value: peopleHelpApi.ActivePeopleApplicationHelpDto | null) => void;
+    const betaPending = new Promise<peopleHelpApi.ActivePeopleApplicationHelpDto | null>((resolve) => {
+      resolveBeta = resolve;
+    });
+
+    mockedPeopleHelp.getActivePeopleApplicationHelp.mockImplementation(async (_token, conversationId) => {
+      if (conversationId === 'conv-alpha') {
+        return {
+          session: null,
+          responsibility: makeResponsibility({
+            id: 'r-alpha',
+            objective: 'Help me with the Alpha benefit application',
+            originConversationId: 'conv-alpha',
+            status: 'ACTIVE',
+          }),
+        };
+      }
+      if (conversationId === 'conv-beta') {
+        return betaPending;
+      }
+      return { session: null, responsibility: null };
+    });
+
+    renderSurface();
+
+    // Auto-resumes Beta first (most recently updated) — its fetch is the
+    // still-pending one, so nothing durable is shown for it yet.
+    await screen.findByText('How can we help?');
+
+    await userEvent.click(screen.getByRole('button', { name: 'History' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Alpha' }));
+
+    // Alpha's own fetch resolves immediately and shows Alpha's real state.
+    const alphaSummary = await screen.findByRole('region', { name: 'What Aureus is doing' });
+    expect(within(alphaSummary).getByText('Help me with the Alpha benefit application')).toBeInTheDocument();
+
+    // Switch back to Beta, whose fetch is STILL unresolved. The History
+    // dialog is already open from selecting Alpha (selecting a conversation
+    // does not close it), so this clicks "Beta" directly rather than
+    // toggling "History" again, which would only close it. Alpha's
+    // objective/status/evidence must never appear as Beta's Carry State
+    // while Beta's own fetch is pending (independent audit, PR #160) — the
+    // effect clears state synchronously on every conversation switch rather
+    // than leaving the previous conversation's values rendered until the
+    // new fetch settles.
+    await userEvent.click(screen.getByRole('button', { name: 'Beta' }));
+
+    expect(screen.queryByText('Help me with the Alpha benefit application')).not.toBeInTheDocument();
+    expect(screen.queryByRole('region', { name: 'What Aureus is doing' })).not.toBeInTheDocument();
+
+    resolveBeta({
+      session: null,
+      responsibility: makeResponsibility({
+        id: 'r-beta',
+        objective: 'Help me with the Beta benefit application',
+        originConversationId: 'conv-beta',
+        status: 'WAITING_ON_USER',
+      }),
+    });
+
+    const betaSummary = await screen.findByRole('region', { name: 'What Aureus is doing' });
+    expect(within(betaSummary).getByText('Help me with the Beta benefit application')).toBeInTheDocument();
+    expect(within(betaSummary).queryByText('Help me with the Alpha benefit application')).not.toBeInTheDocument();
+  });
+
+  it('does not claim Aureus is currently guiding, and assigns the next action to the member, for an ACTIVE Responsibility with no live guide session', async () => {
+    mockedApi.listConversations.mockResolvedValue({
+      data: [{ id: 'conv-1', userId: 'member-1', title: 'Career grant', createdAt: 'x', updatedAt: 'x' }],
+      total: 1,
+      page: 1,
+      limit: 20,
+      totalPages: 1,
+    });
+    mockedApi.listMessages.mockResolvedValue([]);
+    mockedPeopleHelp.getActivePeopleApplicationHelp.mockResolvedValue({
+      // No active guide session — a real, valid state: OR-002 accepts the
+      // Responsibility before the guide session necessarily exists, and a
+      // member can leave/return without an explicit pause.
+      session: null,
+      responsibility: makeResponsibility({ status: 'ACTIVE' }),
+    });
+
+    renderSurface();
+
+    const summary = await screen.findByRole('region', { name: 'What Aureus is doing' });
+    expect(within(summary).queryByText(/guiding you/i)).not.toBeInTheDocument();
+    expect(
+      within(summary).getByText('Aureus accepted this and is ready to continue — resume when you are ready.'),
+    ).toBeInTheDocument();
+    expect(within(summary).getByText('Needs you')).toBeInTheDocument();
+    expect(
+      within(summary).getByText('Resume the guided application to continue — Aureus is ready when you are.'),
+    ).toBeInTheDocument();
+    expect(within(summary).getByText('Next action')).toBeInTheDocument();
+    // Next action must be owned by the member, not Aureus, since no
+    // execution is actually occurring right now.
+    expect(within(summary).getByText(/^You: Resume the guided application/)).toBeInTheDocument();
+  });
+
   it('does not describe a completed Responsibility as currently being carried, and clears Needs you/Next action', async () => {
     mockedApi.listConversations.mockResolvedValue({
       data: [{ id: 'conv-1', userId: 'member-1', title: 'Career grant', createdAt: 'x', updatedAt: 'x' }],

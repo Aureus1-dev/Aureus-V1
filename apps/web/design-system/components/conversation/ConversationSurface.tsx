@@ -175,6 +175,14 @@ export function ConversationSurface({ initialMode = 'text' }: ConversationSurfac
       return;
     }
 
+    // Clear immediately, before the fetch for the NEW conversation resolves.
+    // Without this, switching conversations would leave the PREVIOUS
+    // conversation's session/Responsibility state rendered as this
+    // conversation's Carry State for as long as the new fetch is pending
+    // (independent audit, PR #160).
+    setApplicationGuideSession(null);
+    setApplicationHelpResponsibility(null);
+
     let cancelled = false;
     void getActivePeopleApplicationHelp(
       session.accessToken,
@@ -343,7 +351,25 @@ export function ConversationSurface({ initialMode = 'text' }: ConversationSurfac
   // Responsibility exists yet for this conversation, in which case the
   // conversation-derived signals below remain the honest, pre-acceptance
   // fallback — "conversation text may initiate work," but never overrides it.
-  const carryState = buildCarryState(applicationHelpResponsibility);
+  //
+  // The effect above already clears both pieces of state synchronously on
+  // every conversation switch before refetching, but this equality check is
+  // kept as an explicit, independent guard (independent audit, PR #160):
+  // Carry State is only ever projected from a Responsibility whose own
+  // `originConversationId` actually matches the conversation being viewed,
+  // so a stale value could never be projected even if some future code path
+  // ever set this state outside that effect.
+  const currentApplicationHelpResponsibility =
+    applicationHelpResponsibility?.originConversationId === state.activeConversationId
+      ? applicationHelpResponsibility
+      : null;
+  // Real, live session presence — not inferred from Responsibility.status.
+  // ACTIVE means only "non-terminal, no wait condition recorded"; it is not
+  // proof that Aureus is guiding anything in THIS session right now (OR-002
+  // accepts the Responsibility before the guide session necessarily exists,
+  // and a member can leave/return without an explicit pause).
+  const hasActiveGuideSession = Boolean(applicationGuideSession);
+  const carryState = buildCarryState(currentApplicationHelpResponsibility, hasActiveGuideSession);
 
   const workingOn = carryState ? carryState.workingOn : (currentUserMessage?.message.content ?? null);
   const status = carryState ? carryState.status : null;

@@ -91,6 +91,16 @@ export function describeReportedOutcome(responsibility: PeopleResponsibilityDto)
 const APPLICATION_GUIDANCE_NEEDS_YOU =
   'Return to finish the guided application, or tell Aureus you applied or are not interested.';
 const GENERIC_NEEDS_YOU = 'Aureus needs something from you to continue — return to the conversation for details.';
+// The backend's ACTIVE status means only "non-terminal, no wait condition
+// recorded" — it is not a live claim that a guide session is open in this
+// browser right now. OR-002 accepts the Responsibility before the guide
+// session necessarily exists (`PeopleHelpService.start()`), and a member can
+// also leave/return without an explicit pause, so "ACTIVE + no live session"
+// is a real, valid state the existing UI already requires a Resume click
+// for (`ResponsibilityProgressCard`'s `canResume`/`onResume` gate). Claiming
+// "Guiding you" or an AUREUS-owned next action here would describe execution
+// that is not actually occurring (independent audit, PR #160).
+const RESUME_GUIDANCE_NEEDS_YOU = 'Resume the guided application to continue — Aureus is ready when you are.';
 
 function describeCarrying(responsibility: PeopleResponsibilityDto): string {
   const isApplicationGuidance = responsibility.kind === 'OPPORTUNITY_APPLICATION_GUIDANCE';
@@ -215,16 +225,37 @@ function computeLastActivityAt(responsibility: PeopleResponsibilityDto): string 
  * to project (the caller must fall back to its own honest, conversation-
  * scoped signals) — never a fabricated "nothing to see" object standing in
  * for genuinely absent data.
+ *
+ * `hasActiveGuideSession` is real session presence — not derived from
+ * `status` — because `status === 'ACTIVE'` alone does not prove Aureus is
+ * currently guiding anything in this session; only a live
+ * `GuidedApplicationSession` does.
  */
-export function buildCarryState(responsibility: PeopleResponsibilityDto | null): CarryState | null {
+export function buildCarryState(
+  responsibility: PeopleResponsibilityDto | null,
+  hasActiveGuideSession = false,
+): CarryState | null {
   if (!responsibility) return null;
+
+  const isGuidanceAwaitingResume =
+    responsibility.kind === 'OPPORTUNITY_APPLICATION_GUIDANCE' &&
+    responsibility.status === 'ACTIVE' &&
+    !hasActiveGuideSession;
 
   return {
     workingOn: responsibility.objective,
     status: describeResponsibilityStatus(responsibility.status),
-    carrying: describeCarrying(responsibility),
-    needsYou: responsibility.status === 'WAITING_ON_USER' ? describeNeedsYou(responsibility) : null,
-    nextAction: describeNextAction(responsibility),
+    carrying: isGuidanceAwaitingResume
+      ? 'Aureus accepted this and is ready to continue — resume when you are ready.'
+      : describeCarrying(responsibility),
+    needsYou: isGuidanceAwaitingResume
+      ? RESUME_GUIDANCE_NEEDS_YOU
+      : responsibility.status === 'WAITING_ON_USER'
+        ? describeNeedsYou(responsibility)
+        : null,
+    nextAction: isGuidanceAwaitingResume
+      ? { description: RESUME_GUIDANCE_NEEDS_YOU, owner: 'MEMBER' }
+      : describeNextAction(responsibility),
     doneMeans: describeDoneMeans(responsibility.successCriteria),
     evidence: extractEvidence(responsibility),
     lastActivityAt: computeLastActivityAt(responsibility),
