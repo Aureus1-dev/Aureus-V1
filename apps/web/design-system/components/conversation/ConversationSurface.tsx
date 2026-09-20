@@ -30,7 +30,12 @@ import { ErrorState } from '../ErrorState/ErrorState';
 import { Button } from '../Button/Button';
 import { VoiceSurface } from '../voice';
 import { ConversationHistory } from './ConversationHistory';
-import { ConversationTimeline, describeToolCall } from './ConversationTimeline';
+import {
+  ConversationTimeline,
+  describeToolCall,
+  latestCurrentMessages,
+  type MessageEntry,
+} from './ConversationTimeline';
 import { ApplicationGuidePanel } from './ApplicationGuidePanel';
 import { ResponsibilityProgressCard } from './ResponsibilityProgressCard';
 import { LegalMatterPanel } from './LegalMatterPanel';
@@ -305,29 +310,28 @@ export function ConversationSurface({ initialMode = 'text' }: ConversationSurfac
     connectedExperiences.state.documents,
   );
 
-  // Visible Work grammar (UI Slice 1): every field below is read from data
-  // this component already has for real reasons (the member's own words, a
-  // real Goal record, the latest reply's real tool calls, a real pending
-  // approval) — nothing here is invented, timed, or fabricated to look busy.
-  const activeGoal = journey.state.goals.find((goal) => goal.status === 'ACTIVE') ?? null;
-  const firstUserMessage = entries.find(
-    (entry) => entry.type === 'message' && entry.message.role === 'USER',
+  // Visible Work grammar (UI Slice 1, repaired per independent audit on
+  // PR #158): every field is scoped to the CURRENT exchange only, sharing
+  // `ConversationTimeline`'s own `latestCurrentMessages` boundary rather
+  // than a second, looser derivation. `GoalDto` carries no `conversationId`
+  // (`lib/api/goals.ts`) — a member-global ACTIVE Journey goal describes no
+  // particular conversation, so it is never used here, not even as a
+  // fallback, to avoid an unrelated goal overriding what this conversation
+  // is actually doing right now.
+  const messageEntries = entries.filter(
+    (entry): entry is MessageEntry => entry.type === 'message',
   );
-  const workingOn =
-    activeGoal?.title ??
-    (firstUserMessage?.type === 'message' ? firstUserMessage.message.content : null);
+  const currentMessages = latestCurrentMessages(messageEntries);
+  const currentUserMessage = currentMessages.find((entry) => entry.message.role === 'USER');
+  const workingOn = currentUserMessage?.message.content ?? null;
 
-  const lastAssistantMessage = [...entries]
+  const currentAssistant = [...currentMessages]
     .reverse()
-    .find((entry) => entry.type === 'message' && entry.message.role === 'ASSISTANT');
-  const currentOpportunity =
-    lastAssistantMessage?.type === 'message' ? lastAssistantMessage.message.opportunityAction : undefined;
-  const toolReceipts =
-    lastAssistantMessage?.type === 'message'
-      ? (lastAssistantMessage.message.toolCalls ?? [])
-          .map(describeToolCall)
-          .filter((receipt): receipt is string => Boolean(receipt))
-      : [];
+    .find((entry) => entry.message.role === 'ASSISTANT');
+  const currentOpportunity = currentAssistant?.message.opportunityAction;
+  const toolReceipts = (currentAssistant?.message.toolCalls ?? [])
+    .map(describeToolCall)
+    .filter((receipt): receipt is string => Boolean(receipt));
   const carrying = state.pendingResponse
     ? 'Reading what you shared and figuring out how to help.'
     : toolReceipts.length > 0
@@ -338,15 +342,19 @@ export function ConversationSurface({ initialMode = 'text' }: ConversationSurfac
     !applicationGuideSession &&
     Boolean(applicationHelpResponsibility?.originOpportunityId) &&
     applicationHelpResponsibility?.status !== 'COMPLETED';
+  // A prior turn's opportunity never survives into a new one: once the
+  // member starts a new turn, `currentMessages` (from `latestCurrentMessages`)
+  // no longer includes the previous assistant reply — even while the new
+  // reply is still pending — so `currentOpportunity` is already undefined
+  // here. This is the same boundary `ConversationTimeline` itself enforces,
+  // not a second, independent guard that could drift from it.
   const needsYou = currentOpportunity
     ? `Review the verified next step Aureus found${currentOpportunity.sourceName ? ' from ' + currentOpportunity.sourceName : ''}.`
     : needsResumeApplication
       ? 'Resume the application Aureus already started for you.'
       : null;
 
-  const doneMeans = activeGoal
-    ? `You'll know this is done when "${activeGoal.title}" is finished.`
-    : "You'll know this is done when Aureus gives you a clear result or next step.";
+  const doneMeans = "You'll know this is done when Aureus gives you a clear result or next step.";
 
   return (
     <div className={styles.surface}>
