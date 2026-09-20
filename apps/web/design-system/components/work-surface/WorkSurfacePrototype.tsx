@@ -1,8 +1,7 @@
 'use client';
 
-import { useEffect, useMemo } from 'react';
+import { useMemo } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { useSession } from '../../../state';
 import { SkipLink } from '../../accessibility';
 import { ArrivalView } from './ArrivalView';
 import { UnderstandingView } from './UnderstandingView';
@@ -42,9 +41,10 @@ function parseScenario(value: string | null): ScenarioId {
  * Aureus Work Surface — Slice 0 prototype root (isolated route:
  * `/work-surface`). Composes every required state from
  * `AUREUS-WORK-SURFACE-PORTFOLIO.md` / `-REVIEW-ADDENDUM.md` behind one
- * local fixture engine. Not linked from production navigation, not
- * reachable unless `WORK_SURFACE_PROTOTYPE_ENABLED` is on, and does not
- * touch or replace the existing Living Hall front door.
+ * local fixture engine. Not linked from production navigation, disabled by
+ * default in production, and intentionally free of real guest/account or
+ * orchestration side effects. It does not touch or replace the Living Hall
+ * production front door.
  */
 export function WorkSurfacePrototype() {
   const searchParams = useSearchParams();
@@ -54,22 +54,6 @@ export function WorkSurfacePrototype() {
   );
   const engine = useWorkSurfaceEngine(initialScenario);
   const { state } = engine;
-  const { session, establishGuestSession } = useSession();
-
-  // Guest Steward mode stays real even inside this prototype: the
-  // composer works against an actual anonymous session, and the Carry
-  // Boundary panel's account claim is a real upgrade of it. This effect
-  // mirrors the same silent bootstrap `RootPage`/`AuthGate` already do.
-  useEffect(() => {
-    if (!session.isAuthenticated) {
-      void establishGuestSession().catch(() => {
-        // The prototype route still renders fully without a live guest
-        // session — only the real account-claim action would fail, and
-        // that failure is already handled where it's attempted.
-      });
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [session.isAuthenticated]);
 
   const activeMatter =
     state.view.kind === 'active-work' ? state.matters[state.view.matterId] : null;
