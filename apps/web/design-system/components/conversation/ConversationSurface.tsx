@@ -359,16 +359,33 @@ export function ConversationSurface({ initialMode = 'text' }: ConversationSurfac
   // `originConversationId` actually matches the conversation being viewed,
   // so a stale value could never be projected even if some future code path
   // ever set this state outside that effect.
+  //
+  // This guard is not just for the Visible Work summary: the effect that
+  // fetches this state clears it in a `useEffect`, which runs AFTER the
+  // render caused by `activeConversationId` changing — so there is still one
+  // render where conversation B is active but conversation A's raw
+  // Responsibility/session remain in `applicationHelpResponsibility`/
+  // `applicationGuideSession`. Every consumer in this section (Visible Work,
+  // `ResponsibilityProgressCard`, `ApplicationGuidePanel`, the Resume
+  // action, and `hasActiveGuideSession`) must therefore read the
+  // conversation-matched values below, never the raw state directly —
+  // otherwise A's card/panel could render under B, and the stale Resume
+  // button's `originOpportunityId` (A's) could be submitted through
+  // `startApplicationGuideForOpportunity`, which always targets the
+  // *current* `state.activeConversationId` (B) — binding the wrong action to
+  // the wrong conversation (independent audit, PR #160).
   const currentApplicationHelpResponsibility =
     applicationHelpResponsibility?.originConversationId === state.activeConversationId
       ? applicationHelpResponsibility
       : null;
+  const currentApplicationGuideSession =
+    applicationGuideSession?.conversationId === state.activeConversationId ? applicationGuideSession : null;
   // Real, live session presence — not inferred from Responsibility.status.
   // ACTIVE means only "non-terminal, no wait condition recorded"; it is not
   // proof that Aureus is guiding anything in THIS session right now (OR-002
   // accepts the Responsibility before the guide session necessarily exists,
   // and a member can leave/return without an explicit pause).
-  const hasActiveGuideSession = Boolean(applicationGuideSession);
+  const hasActiveGuideSession = Boolean(currentApplicationGuideSession);
   const carryState = buildCarryState(currentApplicationHelpResponsibility, hasActiveGuideSession);
 
   const workingOn = carryState ? carryState.workingOn : (currentUserMessage?.message.content ?? null);
@@ -489,17 +506,17 @@ export function ConversationSurface({ initialMode = 'text' }: ConversationSurfac
             <p className={styles.guideError} role="alert">{applicationGuideError}</p>
           ) : null}
 
-          {applicationHelpResponsibility ? (
+          {currentApplicationHelpResponsibility ? (
             <ResponsibilityProgressCard
-              responsibility={applicationHelpResponsibility}
+              responsibility={currentApplicationHelpResponsibility}
               busy={applicationGuideStarting}
               onResume={
-                !applicationGuideSession &&
-                applicationHelpResponsibility.originOpportunityId &&
-                applicationHelpResponsibility.status !== 'COMPLETED'
+                !hasActiveGuideSession &&
+                currentApplicationHelpResponsibility.originOpportunityId &&
+                currentApplicationHelpResponsibility.status !== 'COMPLETED'
                   ? () =>
                       void startApplicationGuideForOpportunity(
-                        applicationHelpResponsibility.originOpportunityId!,
+                        currentApplicationHelpResponsibility.originOpportunityId!,
                       )
                   : undefined
               }
@@ -515,11 +532,11 @@ export function ConversationSurface({ initialMode = 'text' }: ConversationSurfac
             />
           ) : null}
 
-          {applicationGuideSession && session.accessToken ? (
+          {currentApplicationGuideSession && session.accessToken ? (
             <ApplicationGuidePanel
               accessToken={session.accessToken}
-              session={applicationGuideSession}
-              responsibility={applicationHelpResponsibility}
+              session={currentApplicationGuideSession}
+              responsibility={currentApplicationHelpResponsibility}
               onSessionChange={setApplicationGuideSession}
               onResponsibilityChange={setApplicationHelpResponsibility}
               onEnded={() => {

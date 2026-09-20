@@ -564,6 +564,7 @@ describe('ConversationSurface', () => {
             id: 'r-alpha',
             objective: 'Help me with the Alpha benefit application',
             originConversationId: 'conv-alpha',
+            originOpportunityId: 'opportunity-alpha',
             status: 'ACTIVE',
           }),
         };
@@ -572,6 +573,28 @@ describe('ConversationSurface', () => {
         return betaPending;
       }
       return { session: null, responsibility: null };
+    });
+    mockedPeopleHelp.startPeopleApplicationHelp.mockResolvedValue({
+      responsibility: makeResponsibility({
+        id: 'r-beta',
+        objective: 'Help me with the Beta benefit application',
+        originConversationId: 'conv-beta',
+        originOpportunityId: 'opportunity-beta',
+        status: 'ACTIVE',
+      }),
+      session: {
+        id: 'session-beta',
+        conversationId: 'conv-beta',
+        opportunityId: 'opportunity-beta',
+        responsibilityId: 'r-beta',
+        opportunityTitle: 'Beta benefit',
+        provider: 'Beta Provider',
+        applicationUrl: 'https://example.com/beta',
+        status: 'ACTIVE',
+        screenCaptureConsentGrantedAt: null,
+        screenCaptureConsentRevokedAt: null,
+        lastFrameAnalyzedAt: null,
+      },
     });
 
     renderSurface();
@@ -583,9 +606,13 @@ describe('ConversationSurface', () => {
     await userEvent.click(screen.getByRole('button', { name: 'History' }));
     await userEvent.click(screen.getByRole('button', { name: 'Alpha' }));
 
-    // Alpha's own fetch resolves immediately and shows Alpha's real state.
+    // Alpha's own fetch resolves immediately and shows Alpha's real state,
+    // including its ResponsibilityProgressCard and its own Resume action
+    // (ACTIVE with no session offers "Continue with Aureus").
     const alphaSummary = await screen.findByRole('region', { name: 'What Aureus is doing' });
     expect(within(alphaSummary).getByText('Help me with the Alpha benefit application')).toBeInTheDocument();
+    expect(screen.getByText(/aureus is carrying this with you/i)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /continue with aureus/i })).toBeInTheDocument();
 
     // Switch back to Beta, whose fetch is STILL unresolved. The History
     // dialog is already open from selecting Alpha (selecting a conversation
@@ -600,6 +627,14 @@ describe('ConversationSurface', () => {
 
     expect(screen.queryByText('Help me with the Alpha benefit application')).not.toBeInTheDocument();
     expect(screen.queryByRole('region', { name: 'What Aureus is doing' })).not.toBeInTheDocument();
+    // Alpha's ResponsibilityProgressCard — and, critically, its Resume
+    // action bound to Alpha's opportunity — must not still be on screen
+    // under Beta (a re-review finding: the stale card's onResume closed
+    // over Alpha's originOpportunityId while startApplicationGuideForOpportunity
+    // always targets the *current* conversation, which would have bound
+    // Alpha's opportunity to Beta's conversation on a fast click).
+    expect(screen.queryByText(/aureus is carrying this with you/i)).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /continue with aureus/i })).not.toBeInTheDocument();
 
     resolveBeta({
       session: null,
@@ -607,6 +642,7 @@ describe('ConversationSurface', () => {
         id: 'r-beta',
         objective: 'Help me with the Beta benefit application',
         originConversationId: 'conv-beta',
+        originOpportunityId: 'opportunity-beta',
         status: 'WAITING_ON_USER',
       }),
     });
@@ -614,6 +650,81 @@ describe('ConversationSurface', () => {
     const betaSummary = await screen.findByRole('region', { name: 'What Aureus is doing' });
     expect(within(betaSummary).getByText('Help me with the Beta benefit application')).toBeInTheDocument();
     expect(within(betaSummary).queryByText('Help me with the Alpha benefit application')).not.toBeInTheDocument();
+
+    // Beta's own real card/Resume action now appears, and clicking it
+    // targets Beta's own opportunity — never Alpha's.
+    await userEvent.click(screen.getByRole('button', { name: /continue with aureus/i }));
+    await waitFor(() => {
+      expect(mockedPeopleHelp.startPeopleApplicationHelp).toHaveBeenCalledWith(
+        'token-123',
+        'conv-beta',
+        'opportunity-beta',
+      );
+    });
+    expect(mockedPeopleHelp.startPeopleApplicationHelp).not.toHaveBeenCalledWith(
+      expect.anything(),
+      expect.anything(),
+      'opportunity-alpha',
+    );
+  });
+
+  it('never renders the previous conversation\'s ApplicationGuidePanel while the new conversation is active', async () => {
+    mockedApi.listConversations.mockResolvedValue({
+      data: [
+        { id: 'conv-alpha', userId: 'member-1', title: 'Alpha', createdAt: 'x', updatedAt: '2024-01-01T00:00:00.000Z' },
+        { id: 'conv-beta', userId: 'member-1', title: 'Beta', createdAt: 'x', updatedAt: '2024-06-01T00:00:00.000Z' },
+      ],
+      total: 2,
+      page: 1,
+      limit: 20,
+      totalPages: 1,
+    });
+    mockedApi.listMessages.mockResolvedValue([]);
+    mockedPeopleHelp.getActivePeopleApplicationHelp.mockImplementation(async (_token, conversationId) => {
+      if (conversationId === 'conv-alpha') {
+        return {
+          session: {
+            id: 'session-alpha',
+            conversationId: 'conv-alpha',
+            opportunityId: 'opportunity-alpha',
+            responsibilityId: 'r-alpha',
+            opportunityTitle: 'Alpha benefit',
+            provider: 'Alpha Provider',
+            applicationUrl: 'https://example.com/alpha',
+            status: 'ACTIVE',
+            screenCaptureConsentGrantedAt: null,
+            screenCaptureConsentRevokedAt: null,
+            lastFrameAnalyzedAt: null,
+          },
+          responsibility: makeResponsibility({
+            id: 'r-alpha',
+            objective: 'Help me with the Alpha benefit application',
+            originConversationId: 'conv-alpha',
+            status: 'ACTIVE',
+          }),
+        };
+      }
+      return { session: null, responsibility: null };
+    });
+
+    renderSurface();
+
+    // Auto-resumes Beta first (most recently updated, no active help).
+    await screen.findByText('How can we help?');
+    expect(screen.queryByRole('region', { name: 'Application guidance' })).not.toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('button', { name: 'History' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Alpha' }));
+
+    // Alpha genuinely has an active guide session — its panel is real here.
+    expect(await screen.findByRole('region', { name: 'Application guidance' })).toBeInTheDocument();
+
+    // Switching back to Beta, which has no application help at all, must
+    // not leave Alpha's ApplicationGuidePanel mounted.
+    await userEvent.click(screen.getByRole('button', { name: 'Beta' }));
+    await waitFor(() => {
+      expect(screen.queryByRole('region', { name: 'Application guidance' })).not.toBeInTheDocument();
+    });
   });
 
   it('does not claim Aureus is currently guiding, and assigns the next action to the member, for an ACTIVE Responsibility with no live guide session', async () => {
