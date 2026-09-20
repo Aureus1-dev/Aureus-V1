@@ -1,15 +1,12 @@
 import { act, fireEvent, render, screen } from '@testing-library/react';
 import { WorkSurfacePrototype } from './WorkSurfacePrototype';
-import { useSession } from '../../../state';
 import { useTheme } from '../../theme';
 
-jest.mock('../../../state', () => ({ useSession: jest.fn() }));
 jest.mock('../../theme', () => ({ useTheme: jest.fn() }));
 jest.mock('next/navigation', () => ({
   useSearchParams: () => new URLSearchParams(),
 }));
 
-const mockedUseSession = useSession as jest.Mock;
 const mockedUseTheme = useTheme as jest.Mock;
 
 function submit(text: string) {
@@ -19,16 +16,8 @@ function submit(text: string) {
 }
 
 describe('WorkSurfacePrototype', () => {
-  let establishGuestSession: jest.Mock;
-
   beforeEach(() => {
     jest.useFakeTimers();
-    establishGuestSession = jest.fn().mockResolvedValue(undefined);
-    mockedUseSession.mockReturnValue({
-      session: { isAuthenticated: false, isGuest: false },
-      establishGuestSession,
-      claimAccount: jest.fn(),
-    });
     mockedUseTheme.mockReturnValue({ motionPreference: 'system', setMotionPreference: jest.fn() });
   });
 
@@ -36,13 +25,12 @@ describe('WorkSurfacePrototype', () => {
     jest.useRealTimers();
   });
 
-  it('renders help immediately with no authentication wall, while quietly establishing a real guest session', () => {
+  it('renders help immediately with no authentication wall or real-session dependency', () => {
     render(<WorkSurfacePrototype />);
 
     expect(screen.getByText('How can we help?')).toBeInTheDocument();
     expect(screen.getByRole('textbox')).toBeInTheDocument();
     expect(screen.queryByRole('textbox', { name: /password/i })).not.toBeInTheDocument();
-    expect(establishGuestSession).toHaveBeenCalled();
   });
 
   it('never opens the Carry Boundary for a bare goal statement', () => {
