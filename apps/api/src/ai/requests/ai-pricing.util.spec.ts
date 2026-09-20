@@ -55,12 +55,13 @@ describe('computeVoiceCostUsd', () => {
     expect(computeVoiceCostUsd('gpt-realtime', usage)).toBeGreaterThanOrEqual(0);
   });
 
-  it('prices gpt-realtime-1.5 (the corrected VOICE_MODEL default) rather than silently falling back to $0', () => {
-    // Regression guard: VOICE_MODEL's default moved to 'gpt-realtime-1.5'
-    // (env.validation.ts) after 'gpt-realtime' was rejected by OpenAI in
-    // production. Without a matching entry here, every real voice session
-    // would record costUsd=0 and silently bypass spend ceilings.
+  it('prices gpt-realtime-2.1 (the current VOICE_MODEL default) rather than silently falling back to $0', () => {
     const usage: VoiceTokenUsage = { ...zeroUsage, inputAudioTokens: 1000, outputAudioTokens: 1000 };
-    expect(computeVoiceCostUsd('gpt-realtime-1.5', usage)).toBeCloseTo(0.032 + 0.064, 6);
+    expect(computeVoiceCostUsd('gpt-realtime-2.1', usage)).toBeCloseTo(0.032 + 0.064, 6);
+  });
+
+  it('uses the published gpt-realtime-2.1 text-output rate', () => {
+    const usage: VoiceTokenUsage = { ...zeroUsage, inputTextTokens: 1000, outputTextTokens: 1000 };
+    expect(computeVoiceCostUsd('gpt-realtime-2.1', usage)).toBeCloseTo(0.004 + 0.024, 6);
   });
 });
