@@ -40,6 +40,19 @@ describe('Work-first brevity contract (Founder walkthrough repair)', () => {
     expect(MEMBER_STEWARD_VOICE_SYSTEM_PROMPT).toContain(capabilityReply);
   });
 
+  it('preserves continuity once an objective or active work is already established', () => {
+    expect(MEMBER_STEWARD_SYSTEM_PROMPT).toContain(
+      'only when there is no established objective or active work',
+    );
+    expect(MEMBER_STEWARD_SYSTEM_PROMPT).toContain('preserve continuity and respond in context');
+    expect(MEMBER_STEWARD_SYSTEM_PROMPT).toContain(
+      'Never re-ask for an objective Aureus already knows',
+    );
+    expect(MEMBER_STEWARD_VOICE_SYSTEM_PROMPT).toContain(
+      'Never re-ask for an objective Aureus already knows',
+    );
+  });
+
   it('sets a firm 1-3 sentence default for ordinary conversation, with named exceptions', () => {
     expect(MEMBER_STEWARD_SYSTEM_PROMPT).toContain('Brevity is a firm default, not a style preference');
     expect(MEMBER_STEWARD_SYSTEM_PROMPT).toContain('roughly 1-3 short sentences');
