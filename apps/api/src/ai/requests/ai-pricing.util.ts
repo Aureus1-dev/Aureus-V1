@@ -58,6 +58,23 @@ const VOICE_PRICING_PER_1K_TOKENS_USD: Record<
     cachedAudioInput: 0.0004,
     cachedTextInput: 0.0004, // approximated — see comment above
   },
+  // Added when VOICE_MODEL's default moved to 'gpt-realtime-1.5' (see
+  // env.validation.ts). Rates are carried over unchanged from 'gpt-realtime'
+  // above, not independently confirmed against OpenAI's own pricing page —
+  // this sandbox's network egress blocks openai.com/developers.openai.com,
+  // and two secondary sources disagreed with each other (one matched these
+  // exact figures, one gave a flat $0.004/$0.016 rate for both audio and
+  // text). Founder confirmed using the audio-premium structure below rather
+  // than the flat alternative. Re-verify against an authoritative OpenAI
+  // source before trusting this for real spend-ceiling decisions.
+  'gpt-realtime-1.5': {
+    audioInput: 0.032,
+    audioOutput: 0.064,
+    textInput: 0.004,
+    textOutput: 0.016,
+    cachedAudioInput: 0.0004,
+    cachedTextInput: 0.0004,
+  },
 };
 
 export interface VoiceTokenUsage {
