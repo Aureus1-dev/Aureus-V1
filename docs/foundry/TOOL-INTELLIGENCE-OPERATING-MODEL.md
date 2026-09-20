@@ -3,6 +3,20 @@
 **Status:** Proposed companion to `EXECUTIVE-INTELLIGENCE-STANDARD.md` and `JUST-IN-TIME-INTELLIGENCE.md`  
 **Principle:** Tool discovery is continuous at the surface; tool mastery is deep at the moment of use.
 
+## Governance inheritance
+
+This document is a Foundry/AI tool-intelligence operating model. It does **not** create a parallel executive organization, decision lifecycle, leadership doctrine, or permanent decision register.
+
+It inherits from and operates in service of:
+
+- [EOS-001 — Executive Operating System](founders-office/EOS-001-executive-operating-system.md), which remains the organizational/accountability model for Aureus executive offices;
+- [EDP-001 — Executive Decision Protocol](founders-office/EDP-001-executive-decision-protocol.md), which remains the authoritative lifecycle for significant Founder’s Office decisions;
+- [FDR-001 — Founder Decision Register](founders-office/FDR-001-founder-decision-register.md), which remains the authoritative permanent record for significant decisions, rationale, assumptions, risks, implementation, expected outcomes, actual outcomes, and institutional learning;
+- [FOD-001 — Founder Operating Doctrine](founders-office/FOD-001-founder-operating-doctrine.md), which remains the leadership/stewardship doctrine;
+- [Executive Intelligence Standard](EXECUTIVE-INTELLIGENCE-STANDARD.md) and [Just-in-Time Intelligence Operating Rule](JUST-IN-TIME-INTELLIGENCE.md), which define the supporting Foundry/AI intelligence layer and its demand-driven research posture.
+
+Tool signals, evaluations, benchmarks, and recommendations are inputs to accountable offices and decision owners. When a tool choice becomes a significant Founder’s Office decision, EDP-001 governs the decision lifecycle and FDR-001 receives the authoritative final decision record and later outcome review.
+
 ## 1. Why tools are a special case
 
 Most knowledge can be researched when a known question appears. Tools are different because a new capability can create a question Aureus did not previously know to ask.
@@ -37,7 +51,8 @@ CONTINUOUS, LIGHTWEIGHT HORIZON SCAN
                         |
                         +-- yes -> focused evaluation
                                     -> task-specific test
-                                    -> adoption / rejection / defer decision
+                                    -> adoption / rejection / defer recommendation
+                                    -> accountable decision when required
                                     -> actual-use evidence
                                     -> durable lesson
 ```
@@ -80,6 +95,8 @@ It creates a compact `ToolChangeSignal`:
 - status: `NEW | TRIAGED | WATCH | EVALUATE | ADOPTED | REJECTED | SUPERSEDED`;
 - confidence / maturity: `RELEASED | PREVIEW | ANNOUNCED | RESEARCH_SIGNAL`;
 - urgency when applicable, especially deprecations / security / breaking changes.
+
+A `ToolChangeSignal` is intelligence, not authority. It does not by itself authorize a tool adoption, migration, policy change, or executive decision.
 
 ## 4. Layer 2 — Capability triage
 
@@ -132,7 +149,7 @@ task requirements
 -> shortlist plausible candidates
 -> fetch current specs / price / constraints only for the shortlist
 -> targeted test if uncertainty is material
--> route the work
+-> route or recommend the work within existing authority
 -> record actual outcome
 ```
 
@@ -144,7 +161,7 @@ Aureus should distinguish the **present market** from the **future edge**.
 
 ### Present market
 
-Capabilities released or reliably available now. These may be used after normal evaluation.
+Capabilities released or reliably available now. These may be used after normal evaluation and within the authority of the accountable office or decision owner.
 
 ### Near-future signals
 
@@ -188,7 +205,7 @@ When a real project appears:
 3. shortlist the tools that plausibly fit;
 4. learn the relevant features deeply enough to use them well;
 5. run targeted samples when quality is uncertain;
-6. select the workflow based on output quality, cost, speed, rights, reliability, and controllability;
+6. select or recommend the workflow within existing authority based on output quality, cost, speed, rights, reliability, and controllability;
 7. save what we learn from real production.
 
 ## 9. Engineering / business / people application
@@ -229,11 +246,13 @@ Minimum fields:
 
 Refresh it when we use the tool materially or receive a relevant change signal.
 
+An `ActiveToolCard` is operational intelligence. It is not a substitute for EOS-001 office accountability, EDP-001 decision authority, or FDR-001 decision history.
+
 ## 11. Adoption rule
 
 A new tool or capability is not adopted because it is new.
 
-Adopt when it produces a meaningful improvement in one or more of:
+Adopt or recommend adoption when it produces a meaningful improvement in one or more of:
 
 - member / customer outcome;
 - quality;
@@ -250,9 +269,11 @@ Adopt when it produces a meaningful improvement in one or more of:
 
 The gain must justify switching cost, migration risk, added complexity, and dependence.
 
+Adoption remains subject to the accountable office and existing authority. If adoption constitutes a significant Founder’s Office decision, follow EDP-001 and record the authoritative final decision in FDR-001.
+
 ## 12. Retirement rule
 
-Tool intelligence also removes tools.
+Tool intelligence also identifies tools that should be removed.
 
 When a tool becomes redundant, inferior, unsafe, too expensive, deprecated, unreliable, or unnecessarily duplicative:
 
@@ -262,6 +283,8 @@ When a tool becomes redundant, inferior, unsafe, too expensive, deprecated, unre
 - preserve required records / provenance;
 - remove unnecessary integration and cost;
 - update routing so Aureus no longer chooses it.
+
+Retirement remains subject to the accountable office and existing authority. If retirement constitutes a significant Founder’s Office decision, follow EDP-001 and record the authoritative final decision and later outcome review in FDR-001.
 
 The desired state is not the largest toolset. It is the **smallest current toolset that gives Aureus access to the best capabilities it responsibly needs.**
 
@@ -297,6 +320,8 @@ For meaningful tool use, capture:
 - whether another tool would be tested next time.
 
 This gradually turns the tool registry from vendor claims into **Aureus first-party capability evidence**.
+
+For significant Founder’s Office decisions, the authoritative expected outcome, actual outcome, and institutional learning remain in FDR-001; this tool-intelligence evidence may be referenced by that record rather than creating a competing permanent decision store.
 
 ## 15. Governing shorthand
 
