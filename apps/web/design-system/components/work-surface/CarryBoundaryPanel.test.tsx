@@ -1,12 +1,7 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { axe } from 'jest-axe';
 import { CarryBoundaryPanel } from './CarryBoundaryPanel';
-import { useSession } from '../../../state';
-
-jest.mock('../../../state', () => ({ useSession: jest.fn() }));
-
-const mockedUseSession = useSession as jest.Mock;
 
 const reason = {
   id: 'continue-later' as const,
@@ -28,64 +23,57 @@ function baseProps(overrides: Partial<Parameters<typeof CarryBoundaryPanel>[0]> 
 }
 
 describe('CarryBoundaryPanel', () => {
-  let claimAccount: jest.Mock;
-
-  beforeEach(() => {
-    claimAccount = jest.fn().mockResolvedValue(undefined);
-    mockedUseSession.mockReturnValue({ claimAccount });
-  });
-
-  it('explains what is carried, why an account is needed, and what will be preserved', () => {
+  it('explains the carry boundary while making the prototype-only status explicit', () => {
     render(<CarryBoundaryPanel {...baseProps()} />);
 
     expect(screen.getByText(reason.why)).toBeInTheDocument();
     expect(screen.getByText('Housing search')).toBeInTheDocument();
-    expect(screen.getByText('What will be preserved')).toBeInTheDocument();
+    expect(screen.getByText('What production would preserve at this boundary')).toBeInTheDocument();
+    expect(screen.getByText(/No account will be created/i)).toBeInTheDocument();
   });
 
-  it('offers a real, prominent "Not now" that declines without requiring a form submission', async () => {
+  it('offers a prominent "Not now" that declines without requiring a form submission', async () => {
     const onDecline = jest.fn();
-    render(<CarryBoundaryPanel {...baseProps({ onDecline })} />);
+    const onClaimStart = jest.fn();
+    render(<CarryBoundaryPanel {...baseProps({ onDecline, onClaimStart })} />);
 
     await userEvent.click(screen.getByRole('button', { name: 'Not now' }));
     expect(onDecline).toHaveBeenCalledTimes(1);
-    expect(claimAccount).not.toHaveBeenCalled();
+    expect(onClaimStart).not.toHaveBeenCalled();
   });
 
-  it('validates the password before attempting to claim the account', async () => {
+  it('validates the password before previewing the claim interaction', async () => {
     const onClaimStart = jest.fn();
     render(<CarryBoundaryPanel {...baseProps({ onClaimStart })} />);
 
     await userEvent.type(screen.getByLabelText('Email', { exact: false }), 'member@example.com');
     await userEvent.type(screen.getByLabelText('Password', { exact: false }), 'short');
-    await userEvent.click(screen.getByRole('button', { name: /Create your free Aureus account/ }));
+    await userEvent.click(screen.getByRole('button', { name: /Preview account claim/ }));
 
     expect(screen.getByRole('alert')).toHaveTextContent(/at least 8 characters/i);
     expect(onClaimStart).not.toHaveBeenCalled();
-    expect(claimAccount).not.toHaveBeenCalled();
   });
 
-  it('really upgrades the current guest session on submit — this is not a fixture', async () => {
+  it('previews the claim success state without calling any real account API', async () => {
     const onClaimStart = jest.fn();
     const onClaimSuccess = jest.fn();
     render(<CarryBoundaryPanel {...baseProps({ onClaimStart, onClaimSuccess })} />);
 
     await userEvent.type(screen.getByLabelText('Email', { exact: false }), 'member@example.com');
     await userEvent.type(screen.getByLabelText('Password', { exact: false }), 'a-strong-password');
-    await userEvent.click(screen.getByRole('button', { name: /Create your free Aureus account/ }));
+    await userEvent.click(screen.getByRole('button', { name: /Preview account claim/ }));
 
     expect(onClaimStart).toHaveBeenCalledTimes(1);
-    expect(claimAccount).toHaveBeenCalledWith('member@example.com', 'a-strong-password');
-    await waitFor(() => expect(onClaimSuccess).toHaveBeenCalledTimes(1));
+    expect(onClaimSuccess).toHaveBeenCalledTimes(1);
   });
 
-  it('shows a calm confirmation once claimed, replacing the form', () => {
+  it('shows an explicit prototype confirmation once the claim interaction is previewed', () => {
     render(<CarryBoundaryPanel {...baseProps({ claimStatus: 'success' })} />);
-    expect(screen.getByText(/keep carrying this/)).toBeInTheDocument();
+    expect(screen.getByText(/No account was created here/i)).toBeInTheDocument();
     expect(screen.queryByLabelText('Email')).not.toBeInTheDocument();
   });
 
-  it('surfaces a claim failure without losing the form or the work', () => {
+  it('surfaces an injected claim error state without losing the form', () => {
     render(
       <CarryBoundaryPanel
         {...baseProps({
