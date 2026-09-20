@@ -46,6 +46,59 @@ function json(text, label) {
   }
 }
 
+function redactDiagnosticText(value) {
+  return String(value ?? '')
+    .replace(/Bearer\s+[A-Za-z0-9._~+/=-]+/gi, 'Bearer [REDACTED]')
+    .replace(/\b(?:sk|ek)[-_][A-Za-z0-9_-]{8,}\b/g, '[REDACTED_TOKEN]')
+    .slice(0, 2_000);
+}
+
+async function captureAiFailureDiagnostic(conversationId, auth) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), Math.min(timeoutMs, 10_000));
+  try {
+    const response = await fetch(
+      `${apiOrigin}/ai/requests/me?capability=QUESTION_ANSWERING&limit=20`,
+      { headers: auth, signal: controller.signal },
+    );
+    const text = await response.text();
+    if (!response.ok) {
+      evidence.push({
+        label: 'live Steward provider diagnostic unavailable',
+        status: response.status,
+      });
+      return;
+    }
+
+    const payload = json(text, 'live Steward provider diagnostic');
+    const records = Array.isArray(payload?.data) ? payload.data : [];
+    const failed = records.find(
+      (record) => record?.conversationId === conversationId && record?.status === 'FAILED',
+    );
+
+    if (!failed) {
+      evidence.push({ label: 'live Steward provider diagnostic unavailable', reason: 'no failed request record found' });
+      return;
+    }
+
+    evidence.push({
+      label: 'live Steward provider diagnostic',
+      status: failed.status,
+      provider: failed.provider ?? null,
+      model: failed.model ?? null,
+      latencyMs: failed.latencyMs ?? null,
+      errorMessage: redactDiagnosticText(failed.errorMessage),
+    });
+  } catch (error) {
+    evidence.push({
+      label: 'live Steward provider diagnostic unavailable',
+      reason: redactDiagnosticText(error instanceof Error ? error.message : String(error)),
+    });
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 async function run() {
   const web = await request('web front door', `${webOrigin}/`);
   if (!/<title>Aureus<\/title>/i.test(web.text))
@@ -111,8 +164,11 @@ async function run() {
       failures.push('live Steward response was empty or a stub/placeholder');
     }
   } catch {
-    // request() already recorded the blocking evidence; continue so voice is
-    // independently checked in the same release packet.
+    // The member-owned AI request ledger already contains the provider's
+    // underlying failure detail. Capture only the failed record for this
+    // canary conversation, redact token-shaped values, and keep going so
+    // voice is independently checked in the same release packet.
+    await captureAiFailureDiagnostic(conversation.id, auth);
   }
 
   if (requireVoice) {
