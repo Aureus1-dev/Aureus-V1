@@ -223,9 +223,10 @@ describe('ConversationSurface', () => {
 
     await screen.findByText('It sounds like you want to get started.');
 
-    const summary = screen.getByRole('region', { name: 'What Aureus is doing' });
-    expect(within(summary).getByText('Working on')).toBeInTheDocument();
-    expect(within(summary).getByText('Hello, I need help.')).toBeInTheDocument();
+    const summary = screen.getByRole('region', { name: 'Active work' });
+    // Outcome is the dominant heading — the member's own words, directly —
+    // not a labeled row like the other fields.
+    expect(within(summary).getByRole('heading', { name: 'Hello, I need help.' })).toBeInTheDocument();
     expect(within(summary).getByText('Aureus is carrying')).toBeInTheDocument();
     expect(within(summary).getByText('Done means')).toBeInTheDocument();
     // No opportunity action and no resumable application help were returned,
@@ -266,7 +267,7 @@ describe('ConversationSurface', () => {
     await screen.findByText('First reply.');
 
     expect(
-      within(screen.getByRole('region', { name: 'What Aureus is doing' })).getByText(
+      within(screen.getByRole('region', { name: 'Active work' })).getByText(
         'First request about job training.',
       ),
     ).toBeInTheDocument();
@@ -275,7 +276,7 @@ describe('ConversationSurface', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Send' }));
     await screen.findByText('Second reply.');
 
-    const summary = screen.getByRole('region', { name: 'What Aureus is doing' });
+    const summary = screen.getByRole('region', { name: 'Active work' });
     expect(
       within(summary).getByText('Actually, I need help with something else entirely.'),
     ).toBeInTheDocument();
@@ -326,7 +327,7 @@ describe('ConversationSurface', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Send' }));
     await screen.findByText('Got it.');
 
-    const summary = screen.getByRole('region', { name: 'What Aureus is doing' });
+    const summary = screen.getByRole('region', { name: 'Active work' });
     expect(within(summary).getByText('Help me find a food pantry nearby.')).toBeInTheDocument();
     expect(within(summary).queryByText('Renovate the kitchen')).not.toBeInTheDocument();
   });
@@ -378,7 +379,7 @@ describe('ConversationSurface', () => {
     await screen.findByText('Here is a verified opportunity for you.');
 
     expect(
-      within(screen.getByRole('region', { name: 'What Aureus is doing' })).getByText('Needs you'),
+      within(screen.getByRole('region', { name: 'Active work' })).getByText('Needs you'),
     ).toBeInTheDocument();
 
     // Start a new turn whose reply has not arrived yet.
@@ -395,7 +396,7 @@ describe('ConversationSurface', () => {
     // must not still be presented as something needing the member.
     await waitFor(() => {
       expect(
-        within(screen.getByRole('region', { name: 'What Aureus is doing' })).queryByText(
+        within(screen.getByRole('region', { name: 'Active work' })).queryByText(
           'Needs you',
         ),
       ).not.toBeInTheDocument();
@@ -410,7 +411,7 @@ describe('ConversationSurface', () => {
     });
     await screen.findByText('Second reply, no new opportunity.');
     expect(
-      within(screen.getByRole('region', { name: 'What Aureus is doing' })).queryByText(
+      within(screen.getByRole('region', { name: 'Active work' })).queryByText(
         'Needs you',
       ),
     ).not.toBeInTheDocument();
@@ -465,12 +466,14 @@ describe('ConversationSurface', () => {
 
     // Resumed automatically — this is durable, persisted Carry State, not
     // something the member had to re-trigger this session.
-    const summary = await screen.findByRole('region', { name: 'What Aureus is doing' });
-    expect(within(summary).getByText('Working on')).toBeInTheDocument();
+    const summary = await screen.findByRole('region', { name: 'Active work' });
+    // Outcome is the dominant heading — the real objective, directly.
     expect(
-      within(summary).getByText('Help me work through the verified application for Career Training Grant'),
+      within(summary).getByRole('heading', {
+        name: 'Help me work through the verified application for Career Training Grant',
+      }),
     ).toBeInTheDocument();
-    expect(within(summary).getByText('Status')).toBeInTheDocument();
+    expect(within(summary).getByText(/^Status/)).toBeInTheDocument();
     expect(
       within(summary).getByText(
         'Paused for you. Come back when you are ready and Aureus will pick it up here.',
@@ -480,7 +483,7 @@ describe('ConversationSurface', () => {
     expect(within(summary).getByText('Next action')).toBeInTheDocument();
     expect(within(summary).getByText(/^You: /)).toBeInTheDocument();
     expect(within(summary).getByText('Evidence')).toBeInTheDocument();
-    expect(within(summary).getByText('Last activity')).toBeInTheDocument();
+    expect(within(summary).getByText(/^Last activity/)).toBeInTheDocument();
   });
 
   it('never borrows another conversation\'s Carry State when switching conversations', async () => {
@@ -524,7 +527,7 @@ describe('ConversationSurface', () => {
     renderSurface();
 
     // Auto-resumes the most recently updated conversation (Beta) first.
-    const betaSummary = await screen.findByRole('region', { name: 'What Aureus is doing' });
+    const betaSummary = await screen.findByRole('region', { name: 'Active work' });
     expect(within(betaSummary).getByText('Help me with the Beta benefit application')).toBeInTheDocument();
     expect(within(betaSummary).queryByText('Help me with the Alpha benefit application')).not.toBeInTheDocument();
 
@@ -532,7 +535,7 @@ describe('ConversationSurface', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Alpha' }));
 
     await waitFor(() => {
-      const alphaSummary = screen.getByRole('region', { name: 'What Aureus is doing' });
+      const alphaSummary = screen.getByRole('region', { name: 'Active work' });
       expect(within(alphaSummary).getByText('Help me with the Alpha benefit application')).toBeInTheDocument();
       expect(within(alphaSummary).queryByText('Help me with the Beta benefit application')).not.toBeInTheDocument();
     });
@@ -607,11 +610,11 @@ describe('ConversationSurface', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Alpha' }));
 
     // Alpha's own fetch resolves immediately and shows Alpha's real state,
-    // including its ResponsibilityProgressCard and its own Resume action
-    // (ACTIVE with no session offers "Continue with Aureus").
-    const alphaSummary = await screen.findByRole('region', { name: 'What Aureus is doing' });
+    // including its Needs You callout and its own Resume action (ACTIVE
+    // with no session offers "Continue with Aureus").
+    const alphaSummary = await screen.findByRole('region', { name: 'Active work' });
     expect(within(alphaSummary).getByText('Help me with the Alpha benefit application')).toBeInTheDocument();
-    expect(screen.getByText(/aureus is carrying this with you/i)).toBeInTheDocument();
+    expect(within(alphaSummary).getByText('Needs you')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /continue with aureus/i })).toBeInTheDocument();
 
     // Switch back to Beta, whose fetch is STILL unresolved. The History
@@ -626,14 +629,13 @@ describe('ConversationSurface', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Beta' }));
 
     expect(screen.queryByText('Help me with the Alpha benefit application')).not.toBeInTheDocument();
-    expect(screen.queryByRole('region', { name: 'What Aureus is doing' })).not.toBeInTheDocument();
-    // Alpha's ResponsibilityProgressCard — and, critically, its Resume
-    // action bound to Alpha's opportunity — must not still be on screen
-    // under Beta (a re-review finding: the stale card's onResume closed
-    // over Alpha's originOpportunityId while startApplicationGuideForOpportunity
-    // always targets the *current* conversation, which would have bound
-    // Alpha's opportunity to Beta's conversation on a fast click).
-    expect(screen.queryByText(/aureus is carrying this with you/i)).not.toBeInTheDocument();
+    expect(screen.queryByRole('region', { name: 'Active work' })).not.toBeInTheDocument();
+    // Alpha's Active Work Surface — and, critically, its Resume action
+    // bound to Alpha's opportunity — must not still be on screen under Beta
+    // (a re-review finding: the stale card's onResume closed over Alpha's
+    // originOpportunityId while startApplicationGuideForOpportunity always
+    // targets the *current* conversation, which would have bound Alpha's
+    // opportunity to Beta's conversation on a fast click).
     expect(screen.queryByRole('button', { name: /continue with aureus/i })).not.toBeInTheDocument();
 
     resolveBeta({
@@ -647,7 +649,7 @@ describe('ConversationSurface', () => {
       }),
     });
 
-    const betaSummary = await screen.findByRole('region', { name: 'What Aureus is doing' });
+    const betaSummary = await screen.findByRole('region', { name: 'Active work' });
     expect(within(betaSummary).getByText('Help me with the Beta benefit application')).toBeInTheDocument();
     expect(within(betaSummary).queryByText('Help me with the Alpha benefit application')).not.toBeInTheDocument();
 
@@ -746,7 +748,7 @@ describe('ConversationSurface', () => {
 
     renderSurface();
 
-    const summary = await screen.findByRole('region', { name: 'What Aureus is doing' });
+    const summary = await screen.findByRole('region', { name: 'Active work' });
     expect(within(summary).queryByText(/guiding you/i)).not.toBeInTheDocument();
     expect(
       within(summary).getByText('Aureus accepted this and is ready to continue — resume when you are ready.'),
@@ -796,7 +798,7 @@ describe('ConversationSurface', () => {
 
     renderSurface();
 
-    const summary = await screen.findByRole('region', { name: 'What Aureus is doing' });
+    const summary = await screen.findByRole('region', { name: 'Active work' });
     expect(within(summary).getByText('Completed — nothing further to carry.')).toBeInTheDocument();
     expect(within(summary).queryByText(/guiding you through|in progress/i)).not.toBeInTheDocument();
     expect(within(summary).queryByText('Needs you')).not.toBeInTheDocument();
@@ -832,7 +834,7 @@ describe('ConversationSurface', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Send' }));
     await screen.findByText('Sure, tell me more.');
 
-    const summary = screen.getByRole('region', { name: 'What Aureus is doing' });
+    const summary = screen.getByRole('region', { name: 'Active work' });
     expect(within(summary).getByText('Just thinking out loud for now.')).toBeInTheDocument();
     expect(
       within(summary).getByText('Nothing further in progress right now — ask for more anytime.'),

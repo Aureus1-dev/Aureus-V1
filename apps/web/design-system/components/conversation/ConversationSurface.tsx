@@ -37,11 +37,10 @@ import {
   type MessageEntry,
 } from './ConversationTimeline';
 import { ApplicationGuidePanel } from './ApplicationGuidePanel';
-import { ResponsibilityProgressCard } from './ResponsibilityProgressCard';
+import { ActiveWorkSurface } from './ActiveWorkSurface';
 import { buildCarryState } from './responsibility-carry-state';
 import { LegalMatterPanel } from './LegalMatterPanel';
 import { MessageComposer } from './MessageComposer';
-import { VisibleWorkSummary } from './VisibleWorkSummary';
 import { conversationErrorCopy } from './conversation-error-copy';
 import { buildVirtualTimeline, type BuiltPlan } from './build-virtual-timeline';
 import styles from './ConversationSurface.module.css';
@@ -390,6 +389,8 @@ export function ConversationSurface({ initialMode = 'text' }: ConversationSurfac
 
   const workingOn = carryState ? carryState.workingOn : (currentUserMessage?.message.content ?? null);
   const status = carryState ? carryState.status : null;
+  const tone = carryState ? carryState.tone : null;
+  const authorityNote = carryState ? carryState.authorityNote : null;
   const carrying = carryState
     ? carryState.carrying
     : state.pendingResponse
@@ -456,15 +457,44 @@ export function ConversationSurface({ initialMode = 'text' }: ConversationSurfac
       ) : (
         <>
           {workingOn ? (
-            <VisibleWorkSummary
+            <ActiveWorkSurface
               workingOn={workingOn}
               status={status}
+              tone={tone}
               carrying={carrying}
               needsYou={needsYou}
               nextAction={nextAction}
               doneMeans={doneMeans}
               evidence={evidence}
               lastActivityAt={lastActivityAt}
+              authorityNote={authorityNote}
+              resumeBusy={applicationGuideStarting}
+              onResume={
+                currentApplicationHelpResponsibility &&
+                !hasActiveGuideSession &&
+                currentApplicationHelpResponsibility.originOpportunityId &&
+                currentApplicationHelpResponsibility.status !== 'COMPLETED'
+                  ? () =>
+                      void startApplicationGuideForOpportunity(
+                        currentApplicationHelpResponsibility.originOpportunityId!,
+                      )
+                  : undefined
+              }
+              guidePanel={
+                currentApplicationGuideSession && session.accessToken ? (
+                  <ApplicationGuidePanel
+                    accessToken={session.accessToken}
+                    session={currentApplicationGuideSession}
+                    responsibility={currentApplicationHelpResponsibility}
+                    onSessionChange={setApplicationGuideSession}
+                    onResponsibilityChange={setApplicationHelpResponsibility}
+                    onEnded={() => {
+                      setApplicationGuideSession(null);
+                      setApplicationGuideError(null);
+                    }}
+                  />
+                ) : null
+              }
             />
           ) : null}
 
@@ -506,43 +536,12 @@ export function ConversationSurface({ initialMode = 'text' }: ConversationSurfac
             <p className={styles.guideError} role="alert">{applicationGuideError}</p>
           ) : null}
 
-          {currentApplicationHelpResponsibility ? (
-            <ResponsibilityProgressCard
-              responsibility={currentApplicationHelpResponsibility}
-              busy={applicationGuideStarting}
-              onResume={
-                !hasActiveGuideSession &&
-                currentApplicationHelpResponsibility.originOpportunityId &&
-                currentApplicationHelpResponsibility.status !== 'COMPLETED'
-                  ? () =>
-                      void startApplicationGuideForOpportunity(
-                        currentApplicationHelpResponsibility.originOpportunityId!,
-                      )
-                  : undefined
-              }
-            />
-          ) : null}
-
           {needId && needContent && state.activeConversationId && session.accessToken ? (
             <LegalMatterPanel
               accessToken={session.accessToken}
               conversationId={state.activeConversationId}
               statedNeedId={needId}
               statedNeedContent={needContent}
-            />
-          ) : null}
-
-          {currentApplicationGuideSession && session.accessToken ? (
-            <ApplicationGuidePanel
-              accessToken={session.accessToken}
-              session={currentApplicationGuideSession}
-              responsibility={currentApplicationHelpResponsibility}
-              onSessionChange={setApplicationGuideSession}
-              onResponsibilityChange={setApplicationHelpResponsibility}
-              onEnded={() => {
-                setApplicationGuideSession(null);
-                setApplicationGuideError(null);
-              }}
             />
           ) : null}
 

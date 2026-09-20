@@ -7,6 +7,15 @@ export interface CarryStateNextAction {
   owner: CarryStateOwner;
 }
 
+/**
+ * A presentation-agnostic classification of lifecycle status, for selecting
+ * a visual tone (e.g. a status accent) — never rendered as text itself.
+ * `describeResponsibilityStatus` remains the only source of the actual
+ * displayed words, so a consumer keying styling off `tone` can never
+ * accidentally leak an internal enum name to the member.
+ */
+export type CarryStateTone = 'active' | 'attention' | 'blocked' | 'complete' | 'neutral';
+
 export interface CarryStateEvidenceEntry {
   description: string;
   occurredAt: string;
@@ -25,12 +34,20 @@ export interface CarryStateEvidenceEntry {
 export interface CarryState {
   workingOn: string;
   status: string;
+  /** Visual-only classification of `status` — see `CarryStateTone`. */
+  tone: CarryStateTone;
   carrying: string;
   needsYou: string | null;
   nextAction: CarryStateNextAction | null;
   doneMeans: string;
   evidence: CarryStateEvidenceEntry[];
   lastActivityAt: string | null;
+  /**
+   * The real authority/privacy boundary disclosure for this Responsibility's
+   * kind, where one is required (e.g. OR-002 guidance's "Aureus guides; you
+   * submit/attest" boundary) — null when no kind-specific disclosure applies.
+   */
+  authorityNote: string | null;
 }
 
 /**
@@ -60,32 +77,42 @@ export function describeResponsibilityStatus(status: PeopleResponsibilityDto['st
 }
 
 /**
- * The member-reported application outcome, truthfully labeled — never
- * "verified"/"approved" — scanning events for the terminal COMPLETED
- * evidence OR-002 actually writes (`ResponsibilitiesService.
- * completeApplicationGuidance`, evidenceLevel REPORTED, sourceRecordType
- * 'SavedOpportunity'). Returns null when no such completion evidence exists.
+ * Visual-only tone for `status` — used to select an accent, never text.
+ * Kept alongside `describeResponsibilityStatus` so the two can never drift:
+ * every branch here corresponds 1:1 with a branch there.
  */
-export function describeReportedOutcome(responsibility: PeopleResponsibilityDto): string | null {
-  const completion = [...responsibility.events].reverse().find((event) => event.type === 'COMPLETED');
-
-  if (
-    completion?.sourceRecordType !== 'SavedOpportunity' ||
-    completion.evidenceLevel !== 'REPORTED' ||
-    !completion.sourceState
-  ) {
-    return null;
+export function describeStatusTone(status: PeopleResponsibilityDto['status']): CarryStateTone {
+  switch (status) {
+    case 'ACTIVE':
+    case 'WAITING_ON_AUREUS':
+      return 'active';
+    case 'WAITING_ON_USER':
+      return 'attention';
+    case 'WAITING_ON_THIRD_PARTY':
+      return 'neutral';
+    case 'BLOCKED':
+    case 'RESPONSIBLY_EXHAUSTED':
+      return 'blocked';
+    case 'COMPLETED':
+      return 'complete';
+    case 'CANCELLED':
+      return 'neutral';
   }
+}
 
-  if (completion.sourceState === 'APPLIED') {
-    return 'Application status: submitted/applied — reported by you.';
+/**
+ * The real authority/privacy boundary disclosure, by kind. Preserves the
+ * exact commitments OR-002 §5 requires stay visible wherever this
+ * Responsibility's state is shown ("Aureus guides; the member submits/
+ * attests," "Private to your Aureus account") — moved here from
+ * `ResponsibilityProgressCard` so it is derived once, not re-authored per
+ * presentation surface.
+ */
+function describeAuthorityBoundary(responsibility: PeopleResponsibilityDto): string | null {
+  if (responsibility.kind === 'OPPORTUNITY_APPLICATION_GUIDANCE') {
+    return 'Aureus can guide you through the application. You remain in control of what you enter, attest to, and submit. Private to your Aureus account.';
   }
-
-  if (completion.sourceState === 'NOT_INTERESTED') {
-    return 'Application status: not continuing — reported by you.';
-  }
-
-  return `Application status: ${completion.sourceState} — reported by you.`;
+  return null;
 }
 
 const APPLICATION_GUIDANCE_NEEDS_YOU =
@@ -245,6 +272,8 @@ export function buildCarryState(
   return {
     workingOn: responsibility.objective,
     status: describeResponsibilityStatus(responsibility.status),
+    tone: describeStatusTone(responsibility.status),
+    authorityNote: describeAuthorityBoundary(responsibility),
     carrying: isGuidanceAwaitingResume
       ? 'Aureus accepted this and is ready to continue — resume when you are ready.'
       : describeCarrying(responsibility),

@@ -175,6 +175,26 @@ describe('buildCarryState', () => {
     expect(state!.evidence[0].occurredAt).toBe('2026-09-01T21:00:00.000Z');
   });
 
+  it('classifies each status into a visual-only tone, distinct from the displayed text, never itself displayed', () => {
+    expect(buildCarryState(makeResponsibility({ status: 'ACTIVE' }), true)!.tone).toBe('active');
+    expect(buildCarryState(makeResponsibility({ status: 'WAITING_ON_AUREUS' }))!.tone).toBe('active');
+    expect(buildCarryState(makeResponsibility({ status: 'WAITING_ON_USER' }))!.tone).toBe('attention');
+    expect(buildCarryState(makeResponsibility({ status: 'WAITING_ON_THIRD_PARTY' }))!.tone).toBe('neutral');
+    expect(buildCarryState(makeResponsibility({ status: 'BLOCKED' }))!.tone).toBe('blocked');
+    expect(buildCarryState(makeResponsibility({ status: 'RESPONSIBLY_EXHAUSTED' }))!.tone).toBe('blocked');
+    expect(buildCarryState(makeResponsibility({ status: 'COMPLETED' }))!.tone).toBe('complete');
+    expect(buildCarryState(makeResponsibility({ status: 'CANCELLED' }))!.tone).toBe('neutral');
+  });
+
+  it('carries the real authority/privacy boundary disclosure for guidance work, and none for kinds that have no such disclosure', () => {
+    const guidance = buildCarryState(makeResponsibility({ kind: 'OPPORTUNITY_APPLICATION_GUIDANCE' }));
+    expect(guidance!.authorityNote).toMatch(/you remain in control of what you enter, attest to, and submit/i);
+    expect(guidance!.authorityNote).toMatch(/private to your aureus account/i);
+
+    const decision = buildCarryState(makeResponsibility({ kind: 'OPPORTUNITY_DECISION' }));
+    expect(decision!.authorityNote).toBeNull();
+  });
+
   it('computes "Last activity" from the most recent event, falling back to updatedAt when there are no events', () => {
     const withEvents = buildCarryState(
       makeResponsibility({
