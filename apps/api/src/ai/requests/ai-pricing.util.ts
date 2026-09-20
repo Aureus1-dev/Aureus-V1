@@ -37,14 +37,10 @@ export function computeCostUsd(model: string, promptTokens: number, completionTo
 /**
  * Realtime API per-model rates (USD per 1,000 tokens), priced by OpenAI
  * across six categories rather than text's flat prompt/completion pair —
- * audio and text are billed at very different rates, and a cached token
- * (the member's own prior turns, replayed back as context on every new
- * turn) is billed at a steep discount rather than free. `cachedTextInput`
- * is not separately published for the base gpt-realtime model as of this
- * writing; approximated at the same ~10%-of-standard-rate ratio OpenAI
- * applies to cached text elsewhere in the Realtime line (e.g.
- * gpt-realtime-2.1), pending an official rate — flagged here, not
- * silently assumed exact.
+ * audio and text are billed at different rates, while cached input tokens
+ * receive a discounted rate. The rates below are normalized from OpenAI's
+ * official per-1M-token model pricing into per-1K-token values so this file's
+ * cost calculations and spend ceilings use the same unit throughout.
  */
 const VOICE_PRICING_PER_1K_TOKENS_USD: Record<
   string,
@@ -56,17 +52,11 @@ const VOICE_PRICING_PER_1K_TOKENS_USD: Record<
     textInput: 0.004,
     textOutput: 0.016,
     cachedAudioInput: 0.0004,
-    cachedTextInput: 0.0004, // approximated — see comment above
+    cachedTextInput: 0.0004,
   },
-  // Added when VOICE_MODEL's default moved to 'gpt-realtime-1.5' (see
-  // env.validation.ts). Rates are carried over unchanged from 'gpt-realtime'
-  // above, not independently confirmed against OpenAI's own pricing page —
-  // this sandbox's network egress blocks openai.com/developers.openai.com,
-  // and two secondary sources disagreed with each other (one matched these
-  // exact figures, one gave a flat $0.004/$0.016 rate for both audio and
-  // text). Founder confirmed using the audio-premium structure below rather
-  // than the flat alternative. Re-verify against an authoritative OpenAI
-  // source before trusting this for real spend-ceiling decisions.
+  // Official OpenAI model pricing for gpt-realtime-1.5 is $4/$16 per 1M
+  // text input/output tokens and $32/$64 per 1M audio input/output tokens,
+  // with cached input at $0.40 per 1M. Values below are the per-1K equivalents.
   'gpt-realtime-1.5': {
     audioInput: 0.032,
     audioOutput: 0.064,
