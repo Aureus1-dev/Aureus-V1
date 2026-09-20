@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect, useRef, useState, type FormEvent } from 'react';
-import { useSession } from '../../../state';
 import { FormField } from '../FormField/FormField';
 import type { CarryReason, ClaimStatus } from './engine/types';
 import styles from './CarryBoundaryPanel.module.css';
@@ -19,17 +18,9 @@ export interface CarryBoundaryPanelProps {
 
 /**
  * The Carry Boundary account/claim panel (portfolio §6 State D, §15,
- * §20; addendum §5). Explains what Aureus is carrying, why continuity
- * requires an account, and what will be preserved — then offers a real
- * account claim or a genuine, prominent "Not now".
- *
- * `claimAccount` below is a REAL call into the app's existing guest/claim
- * infrastructure (`state/session/SessionContext.tsx`) — it really
- * upgrades the current guest session in place. That is deliberate: the
- * Carry Boundary is the one place in this prototype where "account
- * creation" is not a fixture, because the underlying capability already
- * exists in the real app and faking it here would be exactly the kind of
- * simulated capability the design doctrine forbids.
+ * §20; addendum §5). Slice 0 is a fixture-only review surface, so this
+ * panel demonstrates the proposed interaction without creating a real
+ * account or claiming that fixture state has become durable.
  */
 export function CarryBoundaryPanel({
   reason,
@@ -39,9 +30,8 @@ export function CarryBoundaryPanel({
   onDecline,
   onClaimStart,
   onClaimSuccess,
-  onClaimError,
+  onClaimError: _onClaimError,
 }: CarryBoundaryPanelProps) {
-  const { claimAccount } = useSession();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [fieldError, setFieldError] = useState<string | null>(null);
@@ -51,7 +41,7 @@ export function CarryBoundaryPanel({
     headingRef.current?.focus();
   }, []);
 
-  async function handleSubmit(event: FormEvent) {
+  function handleSubmit(event: FormEvent) {
     event.preventDefault();
     if (!email.includes('@')) {
       setFieldError('Enter a valid email address.');
@@ -63,14 +53,9 @@ export function CarryBoundaryPanel({
     }
     setFieldError(null);
     onClaimStart();
-    try {
-      await claimAccount(email, password);
-      onClaimSuccess();
-    } catch {
-      onClaimError(
-        "We couldn't create your account just now. Your work is safe here — you can try again.",
-      );
-    }
+    // Slice 0 deliberately does not call the real guest/account APIs. This
+    // success state previews the intended UI only; no entered data is sent.
+    onClaimSuccess();
   }
 
   if (claimStatus === 'success') {
@@ -78,7 +63,8 @@ export function CarryBoundaryPanel({
       <div className={styles.overlay} role="presentation">
         <div className={styles.panel} role="status">
           <p className={styles.successMessage}>
-            You&apos;re set. Aureus will keep carrying this — across time and devices.
+            Prototype complete. In production, this is where Aureus would confirm continuity. No
+            account was created here.
           </p>
         </div>
       </div>
@@ -100,7 +86,7 @@ export function CarryBoundaryPanel({
 
         {carryingSummary.length > 0 ? (
           <div className={styles.section}>
-            <p className={styles.sectionLabel}>What Aureus is carrying</p>
+            <p className={styles.sectionLabel}>What Aureus is carrying in this prototype</p>
             <ul className={styles.list}>
               {carryingSummary.map((item) => (
                 <li key={item}>{item}</li>
@@ -110,18 +96,19 @@ export function CarryBoundaryPanel({
         ) : null}
 
         <div className={styles.section}>
-          <p className={styles.sectionLabel}>What will be preserved</p>
+          <p className={styles.sectionLabel}>What production would preserve at this boundary</p>
           <ul className={styles.list}>
-            <li>This conversation and what Aureus has found so far</li>
-            <li>Any documents you&apos;ve shared</li>
-            <li>Deadlines and reminders Aureus is tracking</li>
+            <li>This conversation and the work Aureus has completed so far</li>
+            <li>Documents the member chose to keep with the matter</li>
+            <li>Approved deadlines, reminders, and follow-through state</li>
           </ul>
         </div>
 
         <div className={styles.section}>
-          <p className={styles.sectionLabel}>Permission requested</p>
+          <p className={styles.sectionLabel}>Prototype review only</p>
           <p className={styles.permissionText}>
-            Just an email and password, so this stays only yours. Nothing else is requested.
+            No account will be created and nothing entered in this form is sent or saved. The form
+            exists only to review the proposed Carry Boundary interaction.
           </p>
         </div>
 
@@ -142,7 +129,7 @@ export function CarryBoundaryPanel({
             value={password}
             onChange={setPassword}
             required
-            helpText="At least 8 characters."
+            helpText="At least 8 characters. Prototype only — not sent or saved."
             error={fieldError ?? undefined}
             disabled={claimStatus === 'pending'}
           />
@@ -155,9 +142,7 @@ export function CarryBoundaryPanel({
 
           <div className={styles.actions}>
             <button type="submit" className={styles.primary} disabled={claimStatus === 'pending'}>
-              {claimStatus === 'pending'
-                ? 'Creating your account…'
-                : 'Create your free Aureus account'}
+              {claimStatus === 'pending' ? 'Previewing…' : 'Preview account claim'}
             </button>
             <button
               type="button"
