@@ -36,7 +36,9 @@ import { SyncVoiceEventsResponseDto, TurnEventResponseDto } from './dto/sync-voi
 import { VoiceSessionStatusResponseDto } from './dto/voice-session-status-response.dto';
 import { MessageResponseDto } from '../conversations/dto/message-response.dto';
 
-const VOICE_MODEL_DEFAULT = 'gpt-realtime';
+// Kept in sync by hand with env.validation.ts's VOICE_MODEL Joi default —
+// see that file for why this changed from 'gpt-realtime'.
+const VOICE_MODEL_DEFAULT = 'gpt-realtime-1.5';
 const VOICE_NAME_DEFAULT = 'marin';
 
 /**
