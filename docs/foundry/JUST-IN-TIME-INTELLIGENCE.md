@@ -3,6 +3,20 @@
 **Status:** Governing operating clarification for `EXECUTIVE-INTELLIGENCE-STANDARD.md`  
 **Principle:** Do not precompute, preload, or continuously research intelligence that has no active use. Keep the map light; deepen only when the work demands it.
 
+## Governance inheritance
+
+This document is a Foundry/AI operating rule. It does **not** create a parallel executive governance, decision, leadership, or permanent decision-record system.
+
+It inherits from and operates in service of:
+
+- [EOS-001 — Executive Operating System](founders-office/EOS-001-executive-operating-system.md), which remains the organizational/accountability model for Aureus executive offices;
+- [EDP-001 — Executive Decision Protocol](founders-office/EDP-001-executive-decision-protocol.md), which remains the authoritative lifecycle for significant Founder’s Office decisions;
+- [FDR-001 — Founder Decision Register](founders-office/FDR-001-founder-decision-register.md), which remains the authoritative permanent record for significant decisions, rationale, assumptions, risks, implementation, expected outcomes, actual outcomes, and institutional learning;
+- [FOD-001 — Founder Operating Doctrine](founders-office/FOD-001-founder-operating-doctrine.md), which remains the leadership/stewardship doctrine for the First Steward and equivalent institutional responsibility;
+- [Executive Intelligence Standard](EXECUTIVE-INTELLIGENCE-STANDARD.md), which defines the Foundry/AI intelligence-and-execution layer this rule constrains.
+
+Where just-in-time research contributes to a significant Founder’s Office decision, that work supports the EDP-001 lifecycle. The final significant decision and its durable decision history belong in FDR-001 rather than in a separate Foundry decision store.
+
 ## 1. Default posture
 
 Aureus is **demand-driven, not preload-driven**.
@@ -40,6 +54,8 @@ Aureus should persist only the small amount of information that is broadly valua
 - change signals / subscriptions / release pointers where inexpensive;
 - known hazards, deprecations, contractual boundaries, and critical incompatibilities;
 - indexes that let Aureus find deeper information quickly.
+
+For significant Founder’s Office decisions, the durable source of truth for decision history is FDR-001. This document does not establish another permanent decision record.
 
 This is a **map**, not a warehouse of constantly refreshed research.
 
@@ -95,7 +111,9 @@ Scheduled refresh is reserved for information whose stale state itself creates o
 
 Executive skills are capabilities, not always-running personas.
 
-For each request, Foundry / Aureus routes the **smallest competent skill set**. Examples:
+For each request, Foundry / Aureus routes the **smallest competent skill set**. Executive skills supply reasoning and expertise; they do not replace the accountable Executive Offices established by EOS-001.
+
+Examples:
 
 - pricing decision may need CEO/Strategy + Finance + Market Research;
 - production campaign may need Production House + Brand + audience research + rights verification;
@@ -111,6 +129,8 @@ Depth should scale with the decision:
 - **Low consequence / reversible:** use existing context and a quick freshness check.
 - **Moderate consequence:** targeted research from a few strong sources; inspect counter-case.
 - **High consequence / expensive / difficult to reverse:** deeper multi-source research, opposing evidence, independent review, and explicit verification.
+
+When the matter qualifies as a significant Founder’s Office decision, this research depth supports—but does not replace—the EDP-001 decision lifecycle.
 
 This keeps Aureus fast and cheap for ordinary work while still allowing institutional-grade depth when it matters.
 
@@ -154,7 +174,7 @@ Over time, Aureus becomes better informed through real use rather than through e
 After research, distinguish:
 
 - **Durable lesson:** validated and broadly reusable -> candidate for governed Library retention.
-- **Decision record:** why this specific choice was made -> retain with provenance and outcome expectation.
+- **Decision record:** why this specific choice was made -> retain with provenance and outcome expectation; if it is a significant Founder’s Office decision, route the authoritative final record to FDR-001.
 - **Source pointer:** useful place to re-check later -> retain cheaply.
 - **Transient evidence:** useful only to this task -> expire according to policy.
 - **Unproven observation:** may be kept as a candidate, clearly labeled, if future comparison has value.
@@ -172,6 +192,7 @@ The operating mode is correct when Aureus can answer yes to all of these:
 5. Did research depth match consequence and reversibility?
 6. Did we keep a useful durable lesson or pointer without retaining unnecessary bulk?
 7. Can the same intelligence be reconstructed later from provenance if needed?
+8. If this became a significant Founder’s Office decision, did we follow EDP-001 and place the authoritative final record in FDR-001?
 
 ## Governing shorthand
 
