@@ -27,6 +27,27 @@
   display: none;
 }
 
+/* The Front Door promise (UI Slice 1): "Tell Aureus what you want to
+   accomplish. Aureus figures out how to get it done." — leads the empty
+   state, above "How can we help?" itself. Same text-shadow treatment
+   EmptyState already uses so it reads clearly over the Hall regardless of
+   the room's current lighting/tint. */
+.promise {
+  margin: 0;
+  padding: 0 var(--space-8);
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-md);
+  line-height: var(--line-height-relaxed);
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.55);
+}
+
+@media (max-width: 640px) {
+  .promise {
+    padding: 0 var(--space-5);
+    font-size: var(--font-size-base);
+  }
+}
+
 .guideStatus,
 .guideError {
   margin: var(--space-3) 0;

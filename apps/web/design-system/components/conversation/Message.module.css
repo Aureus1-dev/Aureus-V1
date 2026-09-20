@@ -20,6 +20,12 @@
   white-space: pre-wrap;
   overflow-wrap: anywhere;
   text-wrap: balance;
+  /* No backing card sits behind this text (deliberate — "the Hall is the
+     conversation environment, not a chat-card sitting on top of it"), so
+     contrast against the room's own image/vignette/wash relies entirely on
+     this shadow. Same treatment EmptyState already uses for the same
+     reason, applied here where it was previously missing. */
+  text-shadow: 0 1px 6px rgba(0, 0, 0, 0.45);
 }
 .member .bubble {
   background: transparent;

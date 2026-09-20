@@ -30,11 +30,17 @@ import { ErrorState } from '../ErrorState/ErrorState';
 import { Button } from '../Button/Button';
 import { VoiceSurface } from '../voice';
 import { ConversationHistory } from './ConversationHistory';
-import { ConversationTimeline } from './ConversationTimeline';
+import {
+  ConversationTimeline,
+  describeToolCall,
+  latestCurrentMessages,
+  type MessageEntry,
+} from './ConversationTimeline';
 import { ApplicationGuidePanel } from './ApplicationGuidePanel';
 import { ResponsibilityProgressCard } from './ResponsibilityProgressCard';
 import { LegalMatterPanel } from './LegalMatterPanel';
 import { MessageComposer } from './MessageComposer';
+import { VisibleWorkSummary } from './VisibleWorkSummary';
 import { conversationErrorCopy } from './conversation-error-copy';
 import { buildVirtualTimeline, type BuiltPlan } from './build-virtual-timeline';
 import styles from './ConversationSurface.module.css';
@@ -103,6 +109,35 @@ export function ConversationSurface({ initialMode = 'text' }: ConversationSurfac
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [session.isAuthenticated]);
+
+  // Returning-member continuity (UI Slice 1): a member with existing
+  // conversations should not land on a blank "How can we help?" every
+  // time — resume the most recently updated one automatically. Fires at
+  // most once per mount (the ref, not just a state check, matters here:
+  // `activeConversationId` is also `null` immediately after the member
+  // explicitly clicks "New conversation", and this must never undo that
+  // deliberate choice on a later render).
+  const autoResumedRef = useRef(false);
+  useEffect(() => {
+    if (autoResumedRef.current) return;
+    if (!session.isAuthenticated || state.isLoadingConversations) return;
+    if (state.activeConversationId) {
+      autoResumedRef.current = true;
+      return;
+    }
+    if (state.conversations.length === 0) return;
+    autoResumedRef.current = true;
+    const mostRecent = [...state.conversations].sort((a, b) =>
+      b.updatedAt.localeCompare(a.updatedAt),
+    )[0];
+    if (mostRecent) void selectConversation(mostRecent.id);
+  }, [
+    session.isAuthenticated,
+    state.isLoadingConversations,
+    state.activeConversationId,
+    state.conversations,
+    selectConversation,
+  ]);
 
   // Grounds an in-conversation plan in the StatedNeed captured for this
   // specific conversation, mirroring FirstRunWelcome's own lookup — a
@@ -275,6 +310,52 @@ export function ConversationSurface({ initialMode = 'text' }: ConversationSurfac
     connectedExperiences.state.documents,
   );
 
+  // Visible Work grammar (UI Slice 1, repaired per independent audit on
+  // PR #158): every field is scoped to the CURRENT exchange only, sharing
+  // `ConversationTimeline`'s own `latestCurrentMessages` boundary rather
+  // than a second, looser derivation. `GoalDto` carries no `conversationId`
+  // (`lib/api/goals.ts`) — a member-global ACTIVE Journey goal describes no
+  // particular conversation, so it is never used here, not even as a
+  // fallback, to avoid an unrelated goal overriding what this conversation
+  // is actually doing right now.
+  const messageEntries = entries.filter(
+    (entry): entry is MessageEntry => entry.type === 'message',
+  );
+  const currentMessages = latestCurrentMessages(messageEntries);
+  const currentUserMessage = currentMessages.find((entry) => entry.message.role === 'USER');
+  const workingOn = currentUserMessage?.message.content ?? null;
+
+  const currentAssistant = [...currentMessages]
+    .reverse()
+    .find((entry) => entry.message.role === 'ASSISTANT');
+  const currentOpportunity = currentAssistant?.message.opportunityAction;
+  const toolReceipts = (currentAssistant?.message.toolCalls ?? [])
+    .map(describeToolCall)
+    .filter((receipt): receipt is string => Boolean(receipt));
+  const carrying = state.pendingResponse
+    ? 'Reading what you shared and figuring out how to help.'
+    : toolReceipts.length > 0
+      ? toolReceipts.join(' · ')
+      : 'Nothing further in progress right now — ask for more anytime.';
+
+  const needsResumeApplication =
+    !applicationGuideSession &&
+    Boolean(applicationHelpResponsibility?.originOpportunityId) &&
+    applicationHelpResponsibility?.status !== 'COMPLETED';
+  // A prior turn's opportunity never survives into a new one: once the
+  // member starts a new turn, `currentMessages` (from `latestCurrentMessages`)
+  // no longer includes the previous assistant reply — even while the new
+  // reply is still pending — so `currentOpportunity` is already undefined
+  // here. This is the same boundary `ConversationTimeline` itself enforces,
+  // not a second, independent guard that could drift from it.
+  const needsYou = currentOpportunity
+    ? `Review the verified next step Aureus found${currentOpportunity.sourceName ? ' from ' + currentOpportunity.sourceName : ''}.`
+    : needsResumeApplication
+      ? 'Resume the application Aureus already started for you.'
+      : null;
+
+  const doneMeans = "You'll know this is done when Aureus gives you a clear result or next step.";
+
   return (
     <div className={styles.surface}>
       <ConversationHistory
@@ -313,9 +394,24 @@ export function ConversationSurface({ initialMode = 'text' }: ConversationSurfac
         />
       ) : (
         <>
+          {workingOn ? (
+            <VisibleWorkSummary
+              workingOn={workingOn}
+              carrying={carrying}
+              needsYou={needsYou}
+              doneMeans={doneMeans}
+            />
+          ) : null}
+
           {entries.length === 0 && !state.pendingResponse ? (
             <>
+              <p className={styles.promise}>
+                Tell Aureus what you want to accomplish.
+                <br />
+                Aureus figures out how to get it done.
+              </p>
               <EmptyState
+                titleAs="h1"
                 title="How can we help?"
                 description="Tell us what is happening in your own words—by typing or talking. We’ll take on as much as we responsibly can, and help you see it through."
               />

@@ -24,6 +24,25 @@
   color: var(--color-text-tertiary);
 }
 
+/* This trigger previously had no mobile treatment at all, so it stayed
+   fixed at top:16px/right:16px on every viewport — inside the same
+   top-right band AppShell's header occupies once the header goes
+   full-width on mobile (AppShell.module.css, max-width:720px). Moved
+   below the header, matching the offset .roomLabel already uses safely in
+   the same corner, plus a small gap so the two never sit flush. ⌘K has no
+   meaning without a physical keyboard, so the hint is dropped rather than
+   wrapped or truncated. */
+@media (max-width: 640px) {
+  .trigger {
+    top: 5.5rem;
+    right: var(--space-4);
+  }
+
+  .kbdHint {
+    display: none;
+  }
+}
+
 .backdrop {
   position: fixed;
   inset: 0;

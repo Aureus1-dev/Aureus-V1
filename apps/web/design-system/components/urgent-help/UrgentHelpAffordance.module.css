@@ -74,10 +74,16 @@
 }
 
 @media (max-width: 640px) {
+  /* Stays in its documented free corner (bottom-left — see the component's
+     own doc comment) rather than moving to top-left, which used to land it
+     directly on top of AppShell's header (also fixed at top:12px/left:12px
+     on mobile — AppShell.module.css). Raised by the same 6rem AppShell's
+     own `.workspace` already reserves on mobile for the sticky composer
+     band, so it clears MessageComposer on /conversation without needing
+     any route-specific logic. */
   .trigger {
     left: var(--space-3);
-    top: calc(var(--space-3) + env(safe-area-inset-top, 0px));
-    bottom: auto;
+    bottom: calc(6rem + var(--space-3) + env(safe-area-inset-bottom, 0px));
     max-width: min(11rem, calc(50vw - var(--space-4)));
     background: rgba(18, 18, 18, 0.82);
     backdrop-filter: blur(8px);
