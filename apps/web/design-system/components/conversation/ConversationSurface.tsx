@@ -38,6 +38,7 @@ import {
 } from './ConversationTimeline';
 import { ApplicationGuidePanel } from './ApplicationGuidePanel';
 import { ResponsibilityProgressCard } from './ResponsibilityProgressCard';
+import { buildCarryState } from './responsibility-carry-state';
 import { LegalMatterPanel } from './LegalMatterPanel';
 import { MessageComposer } from './MessageComposer';
 import { VisibleWorkSummary } from './VisibleWorkSummary';
@@ -173,6 +174,14 @@ export function ConversationSurface({ initialMode = 'text' }: ConversationSurfac
       setApplicationHelpResponsibility(null);
       return;
     }
+
+    // Clear immediately, before the fetch for the NEW conversation resolves.
+    // Without this, switching conversations would leave the PREVIOUS
+    // conversation's session/Responsibility state rendered as this
+    // conversation's Carry State for as long as the new fetch is pending
+    // (independent audit, PR #160).
+    setApplicationGuideSession(null);
+    setApplicationHelpResponsibility(null);
 
     let cancelled = false;
     void getActivePeopleApplicationHelp(
@@ -323,7 +332,6 @@ export function ConversationSurface({ initialMode = 'text' }: ConversationSurfac
   );
   const currentMessages = latestCurrentMessages(messageEntries);
   const currentUserMessage = currentMessages.find((entry) => entry.message.role === 'USER');
-  const workingOn = currentUserMessage?.message.content ?? null;
 
   const currentAssistant = [...currentMessages]
     .reverse()
@@ -332,29 +340,82 @@ export function ConversationSurface({ initialMode = 'text' }: ConversationSurfac
   const toolReceipts = (currentAssistant?.message.toolCalls ?? [])
     .map(describeToolCall)
     .filter((receipt): receipt is string => Boolean(receipt));
-  const carrying = state.pendingResponse
-    ? 'Reading what you shared and figuring out how to help.'
-    : toolReceipts.length > 0
-      ? toolReceipts.join(' · ')
-      : 'Nothing further in progress right now — ask for more anytime.';
 
-  const needsResumeApplication =
-    !applicationGuideSession &&
-    Boolean(applicationHelpResponsibility?.originOpportunityId) &&
-    applicationHelpResponsibility?.status !== 'COMPLETED';
+  // Production Carry State (UI Slice 2): once Aureus has formally accepted
+  // durable work, that Responsibility — not conversation text — becomes the
+  // authoritative source for every Visible Work field below. `carryState` is
+  // a pure projection (`responsibility-carry-state.ts`) of the real,
+  // conversation-scoped `applicationHelpResponsibility` this component
+  // already fetches from `GET /people-help/application/active`; it is
+  // deliberately null (never a fabricated "idle" object) when no durable
+  // Responsibility exists yet for this conversation, in which case the
+  // conversation-derived signals below remain the honest, pre-acceptance
+  // fallback — "conversation text may initiate work," but never overrides it.
+  //
+  // The effect above already clears both pieces of state synchronously on
+  // every conversation switch before refetching, but this equality check is
+  // kept as an explicit, independent guard (independent audit, PR #160):
+  // Carry State is only ever projected from a Responsibility whose own
+  // `originConversationId` actually matches the conversation being viewed,
+  // so a stale value could never be projected even if some future code path
+  // ever set this state outside that effect.
+  //
+  // This guard is not just for the Visible Work summary: the effect that
+  // fetches this state clears it in a `useEffect`, which runs AFTER the
+  // render caused by `activeConversationId` changing — so there is still one
+  // render where conversation B is active but conversation A's raw
+  // Responsibility/session remain in `applicationHelpResponsibility`/
+  // `applicationGuideSession`. Every consumer in this section (Visible Work,
+  // `ResponsibilityProgressCard`, `ApplicationGuidePanel`, the Resume
+  // action, and `hasActiveGuideSession`) must therefore read the
+  // conversation-matched values below, never the raw state directly —
+  // otherwise A's card/panel could render under B, and the stale Resume
+  // button's `originOpportunityId` (A's) could be submitted through
+  // `startApplicationGuideForOpportunity`, which always targets the
+  // *current* `state.activeConversationId` (B) — binding the wrong action to
+  // the wrong conversation (independent audit, PR #160).
+  const currentApplicationHelpResponsibility =
+    applicationHelpResponsibility?.originConversationId === state.activeConversationId
+      ? applicationHelpResponsibility
+      : null;
+  const currentApplicationGuideSession =
+    applicationGuideSession?.conversationId === state.activeConversationId ? applicationGuideSession : null;
+  // Real, live session presence — not inferred from Responsibility.status.
+  // ACTIVE means only "non-terminal, no wait condition recorded"; it is not
+  // proof that Aureus is guiding anything in THIS session right now (OR-002
+  // accepts the Responsibility before the guide session necessarily exists,
+  // and a member can leave/return without an explicit pause).
+  const hasActiveGuideSession = Boolean(currentApplicationGuideSession);
+  const carryState = buildCarryState(currentApplicationHelpResponsibility, hasActiveGuideSession);
+
+  const workingOn = carryState ? carryState.workingOn : (currentUserMessage?.message.content ?? null);
+  const status = carryState ? carryState.status : null;
+  const carrying = carryState
+    ? carryState.carrying
+    : state.pendingResponse
+      ? 'Reading what you shared and figuring out how to help.'
+      : toolReceipts.length > 0
+        ? toolReceipts.join(' · ')
+        : 'Nothing further in progress right now — ask for more anytime.';
+  const nextAction = carryState ? carryState.nextAction : null;
+  const evidence = carryState ? carryState.evidence : [];
+  const lastActivityAt = carryState ? carryState.lastActivityAt : null;
+
   // A prior turn's opportunity never survives into a new one: once the
   // member starts a new turn, `currentMessages` (from `latestCurrentMessages`)
   // no longer includes the previous assistant reply — even while the new
   // reply is still pending — so `currentOpportunity` is already undefined
   // here. This is the same boundary `ConversationTimeline` itself enforces,
   // not a second, independent guard that could drift from it.
-  const needsYou = currentOpportunity
-    ? `Review the verified next step Aureus found${currentOpportunity.sourceName ? ' from ' + currentOpportunity.sourceName : ''}.`
-    : needsResumeApplication
-      ? 'Resume the application Aureus already started for you.'
+  const needsYou = carryState
+    ? carryState.needsYou
+    : currentOpportunity
+      ? `Review the verified next step Aureus found${currentOpportunity.sourceName ? ' from ' + currentOpportunity.sourceName : ''}.`
       : null;
 
-  const doneMeans = "You'll know this is done when Aureus gives you a clear result or next step.";
+  const doneMeans = carryState
+    ? carryState.doneMeans
+    : "You'll know this is done when Aureus gives you a clear result or next step.";
 
   return (
     <div className={styles.surface}>
@@ -397,9 +458,13 @@ export function ConversationSurface({ initialMode = 'text' }: ConversationSurfac
           {workingOn ? (
             <VisibleWorkSummary
               workingOn={workingOn}
+              status={status}
               carrying={carrying}
               needsYou={needsYou}
+              nextAction={nextAction}
               doneMeans={doneMeans}
+              evidence={evidence}
+              lastActivityAt={lastActivityAt}
             />
           ) : null}
 
@@ -441,17 +506,17 @@ export function ConversationSurface({ initialMode = 'text' }: ConversationSurfac
             <p className={styles.guideError} role="alert">{applicationGuideError}</p>
           ) : null}
 
-          {applicationHelpResponsibility ? (
+          {currentApplicationHelpResponsibility ? (
             <ResponsibilityProgressCard
-              responsibility={applicationHelpResponsibility}
+              responsibility={currentApplicationHelpResponsibility}
               busy={applicationGuideStarting}
               onResume={
-                !applicationGuideSession &&
-                applicationHelpResponsibility.originOpportunityId &&
-                applicationHelpResponsibility.status !== 'COMPLETED'
+                !hasActiveGuideSession &&
+                currentApplicationHelpResponsibility.originOpportunityId &&
+                currentApplicationHelpResponsibility.status !== 'COMPLETED'
                   ? () =>
                       void startApplicationGuideForOpportunity(
-                        applicationHelpResponsibility.originOpportunityId!,
+                        currentApplicationHelpResponsibility.originOpportunityId!,
                       )
                   : undefined
               }
@@ -467,11 +532,11 @@ export function ConversationSurface({ initialMode = 'text' }: ConversationSurfac
             />
           ) : null}
 
-          {applicationGuideSession && session.accessToken ? (
+          {currentApplicationGuideSession && session.accessToken ? (
             <ApplicationGuidePanel
               accessToken={session.accessToken}
-              session={applicationGuideSession}
-              responsibility={applicationHelpResponsibility}
+              session={currentApplicationGuideSession}
+              responsibility={currentApplicationHelpResponsibility}
               onSessionChange={setApplicationGuideSession}
               onResponsibilityChange={setApplicationHelpResponsibility}
               onEnded={() => {
