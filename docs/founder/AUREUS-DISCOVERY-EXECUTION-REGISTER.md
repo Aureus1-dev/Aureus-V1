@@ -52,11 +52,13 @@ Portfolio disposition:
 10. **Production acceptance is exact-deployment acceptance.** Green CI is mechanical evidence, not the member experience.
 11. **Human acceptance stays human.** The Accountable Steward walkthrough is not silently converted into an automated claim.
 
-## 4. Current repository snapshot
+## 4. REG-001 reconciliation snapshot
 
-### Current main
+This section records the repository state used to reconcile REG-001. It is a historical anchor for this bootstrap slice, not a live current-main pointer. **After REG-001 merges, and after any later repository change, determine current `main` from live Git rather than from this snapshot.**
 
-`b1485f279aff07ebaefc1a409e01bd46c02d5e47` — merge of PR #162 / UI-003 Active Work Surface.
+### Reconciliation base / `main` at reconciliation
+
+`b1485f279aff07ebaefc1a409e01bd46c02d5e47` — `main` when REG-001 was reconciled; merge of PR #162 / UI-003 Active Work Surface.
 
 ### UI-003 release evidence
 
