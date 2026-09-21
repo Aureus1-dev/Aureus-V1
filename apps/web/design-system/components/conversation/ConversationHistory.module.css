@@ -118,6 +118,14 @@
 .speaker { font-weight: var(--font-weight-medium); }
 .savedAction { margin-top: var(--space-1); }
 @media (max-width: 640px) {
-  .controls { padding: var(--space-2) var(--space-3) 0; }
+  /* GlobalActionPalette's "Ask Aureus" trigger is fixed at top:5.5rem/
+     right:1rem on this same breakpoint (GlobalActionPalette.module.css),
+     directly above where these New/History pills would otherwise render
+     (AppShell's mobile shell padding-top puts this surface's first in-flow
+     content right at that same 5.5rem line) — the two visibly collided on
+     the Founder walkthrough. Extra top padding here clears the trigger's
+     own height instead of moving shared AppShell chrome that every member
+     surface depends on. */
+  .controls { padding: var(--space-10) var(--space-3) 0; }
   .drawer { width: 100vw; padding: var(--space-4); }
 }

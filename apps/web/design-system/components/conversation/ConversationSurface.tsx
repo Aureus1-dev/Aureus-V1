@@ -470,15 +470,10 @@ export function ConversationSurface({ initialMode = 'text' }: ConversationSurfac
 
           {entries.length === 0 && !state.pendingResponse ? (
             <>
-              <p className={styles.promise}>
-                Tell Aureus what you want to accomplish.
-                <br />
-                Aureus figures out how to get it done.
-              </p>
               <EmptyState
                 titleAs="h1"
                 title="How can we help?"
-                description="Tell us what is happening in your own words—by typing or talking. We’ll take on as much as we responsibly can, and help you see it through."
+                description="Tell me what you want to accomplish."
               />
               <p className={styles.privacyNotice}>
                 We use what you share to respond. Aureus will ask before taking action or saving
