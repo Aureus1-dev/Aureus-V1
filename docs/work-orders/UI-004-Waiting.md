@@ -49,7 +49,8 @@ It reuses:
 - the existing self-scoped `GET /responsibilities` API for current member-owned Responsibility truth;
 - `Responsibility.originConversationId` for conversation scoping;
 - the existing Step-5 `successCriteria.step5FollowThrough` contract for bounded Housing follow-through truth;
-- Step-5 `owner`, `requiredAction`, `lastAttemptAt`, `nextAttemptAt`, `dueAt`, `dueProvenance`, `state`, and `reviewRequired` where present;
+- Step-5 `owner`, `requiredAction`, `lastAttemptAt`, `nextAttemptAt`, `dueAt`, `dueProvenance`, `state`, `reportedSatisfiedAt`, `verifiedSatisfiedAt`, and `reviewRequired` where present;
+- append-only Responsibility events (`toStatus`, `occurredAt`) as provenance for later waits;
 - the existing `ActiveWorkSurface` as the one work presentation;
 - the existing application-help Responsibility as the narrower primary Responsibility when it is active;
 - existing UI-003 conversation/session equality guards and application-guide continuity.
@@ -91,7 +92,20 @@ Therefore:
 - a stale coarse `WAITING_ON_USER` may not continue to produce `Needs you` or a member-owned wait next-action after that Obligation is satisfied;
 - the underlying Personal Need remains open until its own Step-1 outcome evidence resolves or responsibly exhausts it.
 
-When this stale-status condition occurs, the surface should say that the follow-up is no longer waiting while keeping the underlying need visible as still open/carried. It must not silently claim the entire Personal Need is complete.
+The cutoff for that bounded wait is the **first canonical satisfaction timestamp**: `reportedSatisfiedAt` when present, otherwise `verifiedSatisfiedAt`. Later verification strengthens the same satisfaction truth and does not move the cutoff forward.
+
+A broader Personal Need may legitimately enter a **new** wait after Step-5 satisfaction. UI-004 honors that only when append-only Responsibility evidence explicitly records a transition into the Responsibility's current `WAITING_*` status with `occurredAt` later than the first satisfaction timestamp. `Responsibility.updatedAt`, messages, tool calls, generic activity, or an old wait event are not enough.
+
+When such a new post-satisfaction wait exists:
+
+- the new coarse Responsibility wait is shown;
+- the old satisfied Step-5 `requiredAction`, due date, `lastAttemptAt`, and `nextAttemptAt` are **not reused** to describe it;
+- `WAITING_ON_USER` may again produce `Needs you` because that later state transition is new canonical truth;
+- `WAITING_ON_THIRD_PARTY` / `WAITING_ON_AUREUS` may again show the corresponding holder truth.
+
+If satisfaction exists but its timing cannot be ordered against an explicit current wait transition, presentation fails closed and suppresses the possibly stale wait.
+
+When a stale pre-satisfaction `WAITING_*` condition remains, the surface says that the follow-up is no longer waiting while keeping the underlying need visible as still open/carried. It must not silently claim the entire Personal Need is complete.
 
 ### 5.1 Holder
 
@@ -106,34 +120,35 @@ A visual tone may never determine holder truth.
 
 ### 5.2 What is being waited on
 
-When Step-5 follow-through exists, use its canonical sourced `requiredAction`.
+When an unsatisfied Step-5 follow-through exists, use its canonical sourced `requiredAction`.
 
-Without a Step-5 contract, use only a bounded status-derived sentence. Do not manufacture a specific landlord, agency, document, callback, or appointment from conversation prose.
+Without a current Step-5 wait—including a new broader wait after Step-5 satisfaction—use only a bounded status-derived sentence. Do not manufacture a specific landlord, agency, document, callback, or appointment from conversation prose or from the already-satisfied obligation.
 
 ### 5.3 Last and next follow-up
 
-- `lastAttemptAt` is the only Step-5 field that may be presented as the last follow-up time.
-- `nextAttemptAt` is the only Step-5 field that may be presented as the next follow-up time.
+- `lastAttemptAt` is the only Step-5 field that may be presented as the last follow-up time for that current Step-5 wait.
+- `nextAttemptAt` is the only Step-5 field that may be presented as the next follow-up time for that current Step-5 wait.
 - generic `Responsibility.updatedAt`, message timestamps, tool calls, or status transitions may **not** be relabeled as a chase/follow-up.
-- if no real last/next attempt exists, omit that row entirely.
+- after Step-5 satisfaction, a later broader Responsibility wait does not inherit old Step-5 follow-up timestamps.
+- if no real last/next attempt exists for the current wait, omit that row entirely.
 
 ### 5.4 Due / expectation truth
 
-Step-5 `dueAt` may be shown as a **Due** time, with `REPORTED` vs `VERIFIED` provenance when available.
+Step-5 `dueAt` may be shown as a **Due** time, with `REPORTED` vs `VERIFIED` provenance when available for the current Step-5 wait.
 
-UI-004 does not rename a due time into an expected third-party response range. A true expected range may be added later only when canonical source data exists.
+A later broader Responsibility wait after Step-5 satisfaction does not inherit the satisfied obligation's due date. UI-004 does not rename any due time into an expected third-party response range. A true expected range may be added later only when canonical source data exists.
 
 ### 5.5 Nothing the member needs to do
 
 Show `Nothing you need to do.` only when canonical truth supports it.
 
-For the Step-5 contract this requires:
+For a current Step-5 contract this requires:
 
 - owner is not `MEMBER`;
 - state is not `DISPUTED`;
 - `reviewRequired` is false.
 
-Without Step-5 data, a Responsibility explicitly waiting on Aureus or a third party may truthfully show the same statement; `WAITING_ON_USER` may not.
+Without a current Step-5 wait, a Responsibility explicitly waiting on Aureus or a third party may truthfully show the same statement; `WAITING_ON_USER` may not.
 
 ## 6. Authority / privacy boundary
 
@@ -186,7 +201,9 @@ Tests/review must try to falsify at least:
 11. keyboard/screen-reader users lose holder or timing truth;
 12. mobile layout makes the wait facts unreadable;
 13. `SATISFIED_REPORTED` or `SATISFIED_VERIFIED` can be resurrected as Waiting by an old `WAITING_*` status or by `HUMAN_STEWARD` ownership;
-14. a satisfied member-owned Step-5 Obligation can continue to emit false `Needs you` or a member-owned wait next-action.
+14. a satisfied member-owned Step-5 Obligation can continue to emit false `Needs you` or a member-owned wait next-action;
+15. a new `WAITING_ON_USER` transition after satisfaction is incorrectly suppressed;
+16. a new `WAITING_ON_THIRD_PARTY` transition after satisfaction is incorrectly suppressed or inherits the old satisfied Step-5 action/chase/due truth.
 
 ## 10. Definition of done
 
@@ -200,6 +217,7 @@ UI-004 is ready for independent review when:
 - [x] due provenance is visible when Step-5 provides it;
 - [x] `Nothing you need to do.` is gated by real ownership/review truth;
 - [x] satisfied Step-5 state suppresses stale wait/Needs-you projection without falsely completing the underlying need;
+- [x] a later wait is honored only with explicit post-satisfaction Responsibility state-transition evidence and never inherits old satisfied Step-5 details;
 - [x] no new persistence/schema/scheduler is added;
 - [x] adversarial component/projection tests exist;
 - [ ] full web/API mechanical CI is green on the exact head;
