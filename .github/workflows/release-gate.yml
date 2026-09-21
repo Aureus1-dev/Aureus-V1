@@ -20,57 +20,56 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: steward-release-gate-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
   deployed-system-gate:
-    name: Exact Deployment Canary
+    name: Living Exact-Deployment Gate
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - name: Run deployed release gate
+      - name: Validate living release registry
+        run: node scripts/release-gate-manifest.mjs
+      - name: Resolve browser runtime
+        id: browser
+        shell: bash
+        run: |
+          set -euo pipefail
+          CHROME_BIN="$(command -v google-chrome || command -v chromium || command -v chromium-browser || true)"
+          echo "chrome_bin=$CHROME_BIN" >> "$GITHUB_OUTPUT"
+      - name: Run every required release contract
         shell: bash
         env:
           RELEASE_WEB_ORIGIN: ${{ inputs.web_origin }}
           RELEASE_API_ORIGIN: ${{ inputs.api_origin }}
           RELEASE_REQUIRE_VOICE: ${{ inputs.require_voice }}
+          RELEASE_EXPECTED_COMMIT: ${{ github.sha }}
           RELEASE_COMMIT_SHA: ${{ github.sha }}
-        run: |
-          set -o pipefail
-          node scripts/release-gate.mjs | tee steward-release-evidence.json
-      - name: Run real-browser first-session gate
-        if: always() && inputs.require_voice
-        shell: bash
-        env:
-          RELEASE_WEB_ORIGIN: ${{ inputs.web_origin }}
+          RELEASE_EVIDENCE_DIR: release-evidence
+          RELEASE_CHROME_BIN: ${{ steps.browser.outputs.chrome_bin }}
           RELEASE_TEST_EMAIL: ${{ secrets.RELEASE_TEST_EMAIL }}
           RELEASE_TEST_PASSWORD: ${{ secrets.RELEASE_TEST_PASSWORD }}
         run: |
           set -o pipefail
-          CHROME_BIN="$(command -v google-chrome || command -v chromium || command -v chromium-browser || true)"
-          if [ -z "$CHROME_BIN" ]; then
-            echo '{"result":"HOLD","failure":"No Chrome/Chromium binary is available on the release runner."}' | tee browser-first-session-evidence.json
-            exit 1
-          fi
-          RELEASE_CHROME_BIN="$CHROME_BIN" node scripts/browser-first-session-canary.mjs 2>&1 | tee browser-first-session-evidence.json
+          node scripts/run-release-gates.mjs
       - name: Verify required release evidence exists
         if: always()
         shell: bash
-        env:
-          RELEASE_REQUIRE_VOICE: ${{ inputs.require_voice }}
         run: |
           set -euo pipefail
-          test -s steward-release-evidence.json
-          if [ "$RELEASE_REQUIRE_VOICE" = "true" ]; then
-            test -s browser-first-session-evidence.json
-          fi
+          test -s release-evidence/release-gate-summary.json
+          node -e "const fs=require('fs'); const p=JSON.parse(fs.readFileSync('release-evidence/release-gate-summary.json','utf8')); if(!['AUTOMATED_GATE_PASSED','HOLD'].includes(p.result)) process.exit(1)"
       - name: Preserve release evidence
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: steward-release-evidence-${{ github.sha }}
-          path: |
-            steward-release-evidence.json
-            browser-first-session-evidence.json
+          path: release-evidence/*.json
           if-no-files-found: error

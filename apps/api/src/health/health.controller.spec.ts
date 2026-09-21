@@ -54,6 +54,36 @@ describe('HealthController (PD-002)', () => {
     expect(prismaHealth.isHealthy).toHaveBeenCalledWith('database');
   });
 
+  it('GET /health/version reports the running immutable commit without claiming one when absent', () => {
+    const previousRenderCommit = process.env.RENDER_GIT_COMMIT;
+    const previousAureusCommit = process.env.AUREUS_COMMIT_SHA;
+    const previousServiceId = process.env.RENDER_SERVICE_ID;
+    const previousInstanceId = process.env.RENDER_INSTANCE_ID;
+
+    try {
+      process.env.RENDER_GIT_COMMIT = '0123456789abcdef0123456789abcdef01234567';
+      process.env.AUREUS_COMMIT_SHA = 'ffffffffffffffffffffffffffffffffffffffff';
+      process.env.RENDER_SERVICE_ID = 'srv-api';
+      process.env.RENDER_INSTANCE_ID = 'instance-api';
+
+      expect(controller.version()).toEqual({
+        service: 'api',
+        commit: '0123456789abcdef0123456789abcdef01234567',
+        serviceId: 'srv-api',
+        instanceId: 'instance-api',
+      });
+
+      delete process.env.RENDER_GIT_COMMIT;
+      delete process.env.AUREUS_COMMIT_SHA;
+      expect(controller.version().commit).toBeNull();
+    } finally {
+      restoreEnvironment('RENDER_GIT_COMMIT', previousRenderCommit);
+      restoreEnvironment('AUREUS_COMMIT_SHA', previousAureusCommit);
+      restoreEnvironment('RENDER_SERVICE_ID', previousServiceId);
+      restoreEnvironment('RENDER_INSTANCE_ID', previousInstanceId);
+    }
+  });
+
   it('GET /health/ai checks AI provider circuit-breaker state, not database connectivity', async () => {
     health.check.mockResolvedValue({ status: 'ok', info: {}, error: {}, details: {} });
     await controller.ai();
@@ -65,3 +95,8 @@ describe('HealthController (PD-002)', () => {
     expect(prismaHealth.isHealthy).not.toHaveBeenCalled();
   });
 });
+
+function restoreEnvironment(name: string, value: string | undefined) {
+  if (value === undefined) delete process.env[name];
+  else process.env[name] = value;
+}

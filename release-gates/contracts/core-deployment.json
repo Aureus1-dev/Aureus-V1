@@ -1,0 +1,10 @@
+{
+  "id": "core-deployment",
+  "order": 10,
+  "title": "Exact deployed core system",
+  "mode": "automated",
+  "runner": "scripts/release-gate.mjs",
+  "evidenceFile": "core-deployment-evidence.json",
+  "passResults": ["AUTOMATED_GATE_PASSED"],
+  "description": "Proves exact web/API commit identity, front door, liveness, readiness, guest entry, conversation creation, a real Steward response, and voice brokerage when voice is required."
+}
