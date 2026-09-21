@@ -71,17 +71,25 @@ describe('ActiveWorkSurface', () => {
     expect(within(surface).getByText(/^Aureus: Continue the guided application\.$/)).toBeInTheDocument();
   });
 
-  it('state 2 — ACTIVE with no live guide session: Resume is required and owned by the member, never claims guiding', () => {
+  it('state 2 — ACTIVE with no live guide session: renders the sourced structured resume ask and no duplicate Next action', () => {
     const onResume = jest.fn();
     renderFromResponsibility(makeResponsibility({ status: 'ACTIVE' }), false, { onResume });
 
     const surface = screen.getByRole('region', { name: 'Active work' });
     expect(within(surface).queryByText(/guiding you/i)).not.toBeInTheDocument();
-    expect(within(surface).getByText('Needs you')).toBeInTheDocument();
+    expect(within(surface).getByText('I need one thing from you')).toBeInTheDocument();
+    expect(within(surface).getByText('Resume the application when you are ready.')).toBeInTheDocument();
     expect(
-      within(surface).getByText('Resume the guided application to continue — Aureus is ready when you are.'),
+      within(surface).getByText(
+        'Only you can enter private information, attest to it, and submit this application. I cannot do those steps for you.',
+      ),
     ).toBeInTheDocument();
-    expect(within(surface).getByText(/^You: Resume the guided application/)).toBeInTheDocument();
+    expect(
+      within(surface).getByText('Once you reopen it, I will continue guiding you from the current application.'),
+    ).toBeInTheDocument();
+    expect(within(surface).getByText('If you can’t')).toBeInTheDocument();
+    expect(within(surface).queryByText('Needs you')).not.toBeInTheDocument();
+    expect(within(surface).queryByText('Next action')).not.toBeInTheDocument();
 
     const resumeButton = within(surface).getByRole('button', { name: 'Continue with Aureus' });
     expect(resumeButton).toBeInTheDocument();
@@ -94,7 +102,7 @@ describe('ActiveWorkSurface', () => {
     expect(onResume).toHaveBeenCalledTimes(1);
   });
 
-  it('state 3 — WAITING_ON_USER: paused, Needs you shown, next action owned by the member', () => {
+  it('state 3 — WAITING_ON_USER application guidance: paused and represented by the same structured resume ask', () => {
     renderFromResponsibility(makeResponsibility({ status: 'WAITING_ON_USER' }));
 
     const surface = screen.getByRole('region', { name: 'Active work' });
@@ -102,8 +110,10 @@ describe('ActiveWorkSurface', () => {
     expect(
       within(surface).getByText('Paused for you. Come back when you are ready and Aureus will pick it up here.'),
     ).toBeInTheDocument();
-    expect(within(surface).getByText('Needs you')).toBeInTheDocument();
-    expect(within(surface).getByText(/^You: /)).toBeInTheDocument();
+    expect(within(surface).getByText('I need one thing from you')).toBeInTheDocument();
+    expect(within(surface).getByText('Resume the application when you are ready.')).toBeInTheDocument();
+    expect(within(surface).queryByText('Needs you')).not.toBeInTheDocument();
+    expect(within(surface).queryByText('Next action')).not.toBeInTheDocument();
   });
 
   it('state 4 — WAITING_ON_THIRD_PARTY: no Needs you, next action clearly owned by an outside party', () => {
@@ -184,7 +194,7 @@ describe('ActiveWorkSurface', () => {
     expect(screen.getByTestId('real-guide-panel')).toBeInTheDocument();
   });
 
-  it('never renders a Resume button when the caller supplies no onResume handler, even if Needs you is shown', () => {
+  it('never renders a Resume button when the caller supplies no onResume handler, even when the structured ask is shown', () => {
     renderFromResponsibility(makeResponsibility({ status: 'WAITING_ON_USER' }));
     expect(screen.queryByRole('button', { name: 'Continue with Aureus' })).not.toBeInTheDocument();
   });
