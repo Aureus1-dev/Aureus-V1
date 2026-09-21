@@ -24,6 +24,10 @@ import {
   startPeopleApplicationHelp,
   type PeopleResponsibilityDto,
 } from '../../../lib/api/people-help';
+import {
+  getMyResponsibilities,
+  type ResponsibilityDto,
+} from '../../../lib/api/responsibilities';
 import { planItemKey } from '../plan/PlanCard';
 import { EmptyState } from '../EmptyState/EmptyState';
 import { ErrorState } from '../ErrorState/ErrorState';
@@ -53,20 +57,11 @@ export interface ConversationSurfaceProps {
 
 /**
  * The Conversation Room (Living Steward Workspace redesign) — the primary
- * surface, sized to occupy ~70-80% of the workspace (`ConversationSurface.
- * module.css`, combined with `AppShell`'s `240px | 1fr | 320px` grid).
- * Composes history, timeline, composer, and recovery presentation around
- * the existing `/ai/conversations` backend contract, unchanged (FPB-015
- * Phase Two, AFX-001 §3). A plan/journey-update/document that arose during
- * the active conversation now renders inline via `buildVirtualTimeline`
- * (a frontend-only composition — the backend has no message↔plan/goal/
- * document correlation) rather than requiring a separate page visit.
- * Deciding on a plan item still goes through that item's own real,
- * unmodified approval mechanism — `recommendations.approve/dismiss` for a
- * RECOMMENDATION item, `offerResource`/`respondToOffer` for a
- * CITY_RESOURCE item, grounded by the same `getMyNeeds()` lookup
- * `FirstRunWelcome` already uses to find the StatedNeed tied to this
- * conversation.
+ * surface. UI-004 extends the existing one Active Work presentation by
+ * projecting the current conversation's canonical Personal Need
+ * Responsibility when no narrower application-help Responsibility is active.
+ * No second task/wait store is created; waiting truth comes from the existing
+ * Responsibility and its Step-5 follow-through contract.
  */
 export function ConversationSurface({ initialMode = 'text' }: ConversationSurfaceProps) {
   const { session } = useSession();
@@ -89,6 +84,8 @@ export function ConversationSurface({ initialMode = 'text' }: ConversationSurfac
     useState<GuidedApplicationSessionDto | null>(null);
   const [applicationHelpResponsibility, setApplicationHelpResponsibility] =
     useState<PeopleResponsibilityDto | null>(null);
+  const [personalNeedResponsibility, setPersonalNeedResponsibility] =
+    useState<ResponsibilityDto | null>(null);
   const [applicationGuideError, setApplicationGuideError] = useState<string | null>(null);
   const [applicationGuideStarting, setApplicationGuideStarting] = useState(false);
 
@@ -110,13 +107,6 @@ export function ConversationSurface({ initialMode = 'text' }: ConversationSurfac
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [session.isAuthenticated]);
 
-  // Returning-member continuity (UI Slice 1): a member with existing
-  // conversations should not land on a blank "How can we help?" every
-  // time — resume the most recently updated one automatically. Fires at
-  // most once per mount (the ref, not just a state check, matters here:
-  // `activeConversationId` is also `null` immediately after the member
-  // explicitly clicks "New conversation", and this must never undo that
-  // deliberate choice on a later render).
   const autoResumedRef = useRef(false);
   useEffect(() => {
     if (autoResumedRef.current) return;
@@ -139,10 +129,6 @@ export function ConversationSurface({ initialMode = 'text' }: ConversationSurfac
     selectConversation,
   ]);
 
-  // Grounds an in-conversation plan in the StatedNeed captured for this
-  // specific conversation, mirroring FirstRunWelcome's own lookup — a
-  // plan built without a needId is still shown, just without any
-  // CITY_RESOURCE items to auto-offer.
   useEffect(() => {
     if (!session.accessToken || !state.activeConversationId) {
       setNeedId(undefined);
@@ -174,11 +160,6 @@ export function ConversationSurface({ initialMode = 'text' }: ConversationSurfac
       return;
     }
 
-    // Clear immediately, before the fetch for the NEW conversation resolves.
-    // Without this, switching conversations would leave the PREVIOUS
-    // conversation's session/Responsibility state rendered as this
-    // conversation's Carry State for as long as the new fetch is pending
-    // (independent audit, PR #160).
     setApplicationGuideSession(null);
     setApplicationHelpResponsibility(null);
 
@@ -203,6 +184,38 @@ export function ConversationSurface({ initialMode = 'text' }: ConversationSurfac
     };
   }, [session.accessToken, state.activeConversationId]);
 
+  // UI-004 — Waiting. Reuse the existing self-scoped Responsibility list to
+  // locate the canonical Personal Need Responsibility for this conversation.
+  // This is a read projection only; it does not create or mutate work truth.
+  useEffect(() => {
+    if (!session.accessToken || !state.activeConversationId) {
+      setPersonalNeedResponsibility(null);
+      return;
+    }
+
+    setPersonalNeedResponsibility(null);
+    let cancelled = false;
+    void getMyResponsibilities(session.accessToken)
+      .then((rows) => {
+        if (cancelled) return;
+        const current = rows
+          .filter(
+            (row) =>
+              row.kind === 'PERSONAL_NEED_RESOLUTION' &&
+              row.originConversationId === state.activeConversationId,
+          )
+          .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))[0] ?? null;
+        setPersonalNeedResponsibility(current);
+      })
+      .catch(() => {
+        if (!cancelled) setPersonalNeedResponsibility(null);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [session.accessToken, state.activeConversationId]);
+
   useEffect(() => {
     if (plan.state.plan && plan.state.plan !== previousPlanRef.current) {
       setPlanBuiltAt(new Date().toISOString());
@@ -210,9 +223,6 @@ export function ConversationSurface({ initialMode = 'text' }: ConversationSurfac
     previousPlanRef.current = plan.state.plan;
   }, [plan.state.plan]);
 
-  // Every City Sheet match in a newly-built plan is offered as soon as it
-  // appears (mirroring Gate C's own NeedResourcesPage and FirstRunWelcome),
-  // so accept/decline is available immediately.
   useEffect(() => {
     if (!plan.state.plan || !needId || !session.accessToken) return;
     const unoffered = [plan.state.plan.primary, ...plan.state.plan.supporting].filter(
@@ -318,8 +328,6 @@ export function ConversationSurface({ initialMode = 'text' }: ConversationSurfac
     connectedExperiences.state.documents,
   );
 
-  // Active Work grammar: every conversational fallback field is scoped to
-  // the current exchange by the same boundary used by ConversationTimeline.
   const messageEntries = entries.filter(
     (entry): entry is MessageEntry => entry.type === 'message',
   );
@@ -334,23 +342,33 @@ export function ConversationSurface({ initialMode = 'text' }: ConversationSurfac
     .map(describeToolCall)
     .filter((receipt): receipt is string => Boolean(receipt));
 
-  // Once Aureus has formally accepted durable work, the real
-  // conversation-scoped Responsibility becomes authoritative. The explicit
-  // equality guards also protect the render immediately after a conversation
-  // switch, before the effect above has cleared/refetched raw state.
   const currentApplicationHelpResponsibility =
     applicationHelpResponsibility?.originConversationId === state.activeConversationId
       ? applicationHelpResponsibility
       : null;
   const currentApplicationGuideSession =
     applicationGuideSession?.conversationId === state.activeConversationId ? applicationGuideSession : null;
+  const currentPersonalNeedResponsibility =
+    personalNeedResponsibility?.originConversationId === state.activeConversationId
+      ? personalNeedResponsibility
+      : null;
+
+  // Preserve UI-003/application-guide behavior when that narrower accepted
+  // Responsibility exists. Otherwise the broader Personal Need Responsibility
+  // becomes the same Active Work surface — not a second card.
+  const primaryResponsibility =
+    currentApplicationHelpResponsibility ?? currentPersonalNeedResponsibility;
   const hasActiveGuideSession = Boolean(currentApplicationGuideSession);
-  const carryState = buildCarryState(currentApplicationHelpResponsibility, hasActiveGuideSession);
+  const carryState = buildCarryState(
+    primaryResponsibility,
+    primaryResponsibility?.kind === 'OPPORTUNITY_APPLICATION_GUIDANCE' && hasActiveGuideSession,
+  );
 
   const workingOn = carryState ? carryState.workingOn : (currentUserMessage?.message.content ?? null);
   const status = carryState ? carryState.status : null;
   const tone = carryState ? carryState.tone : null;
   const authorityNote = carryState ? carryState.authorityNote : null;
+  const waiting = carryState ? carryState.waiting : null;
   const carrying = carryState
     ? carryState.carrying
     : state.pendingResponse
@@ -416,6 +434,7 @@ export function ConversationSurface({ initialMode = 'text' }: ConversationSurfac
               status={status}
               tone={tone}
               carrying={carrying}
+              waiting={waiting}
               needsYou={needsYou}
               nextAction={nextAction}
               doneMeans={doneMeans}
