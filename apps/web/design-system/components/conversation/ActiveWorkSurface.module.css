@@ -15,8 +15,6 @@
   gap: var(--space-3);
 }
 
-/* Outcome is the dominant heading of the whole surface — the work is the
-   primary object, not one row among equals. */
 .outcome {
   margin: 0;
   color: var(--color-text-primary);
@@ -40,9 +38,6 @@
   font-weight: var(--font-weight-medium);
 }
 
-/* Semantic hue is intentionally a secondary cue only. The status words use
-   textPrimary for WCAG AA normal-text contrast; the dot and tint carry the
-   semantic hue without making color the only signal. */
 .statusDot {
   width: 0.5rem;
   height: 0.5rem;
@@ -95,10 +90,85 @@
   overflow-wrap: anywhere;
 }
 
-/* Needs You is the one section that must never be missed — a bordered,
-   warm-tinted callout rather than a plain row, and placed early in the
-   primary block, right after Carrying. Semantic warning color stays on the
-   callout treatment; its words use textPrimary for normal-text contrast. */
+/* UI-004 — Waiting stays inside the one Active Work surface. It is visually
+   calm and explicit about holder/follow-up truth without looking like a new
+   dashboard, task card, or second workflow system. */
+.waiting {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-lg);
+  border: 1px solid color-mix(in srgb, var(--color-border-subtle) 82%, transparent);
+  background: color-mix(in srgb, var(--color-text-secondary) 6%, transparent);
+}
+
+.waitingHeader {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+
+.waitingLabel,
+.waitingHolder,
+.waitingOn,
+.noActionNeeded {
+  margin: 0;
+}
+
+.waitingLabel {
+  color: var(--color-text-primary);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: 0.02em;
+}
+
+.waitingHolder {
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+}
+
+.waitingOn {
+  color: var(--color-text-primary);
+  font-size: var(--font-size-base);
+  line-height: var(--line-height-normal);
+  overflow-wrap: anywhere;
+}
+
+.waitingFacts {
+  margin: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
+  gap: var(--space-2) var(--space-4);
+}
+
+.waitingFact {
+  min-width: 0;
+}
+
+.waitingFact dt {
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+}
+
+.waitingFact dd {
+  margin: 0.1rem 0 0;
+  color: var(--color-text-primary);
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-normal);
+  overflow-wrap: anywhere;
+}
+
+.noActionNeeded {
+  color: var(--color-text-primary);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+}
+
 .needsYou {
   display: flex;
   flex-direction: column;
@@ -137,10 +207,6 @@
   margin-top: var(--space-1);
 }
 
-/* Progressive disclosure: evidence/history is real but secondary — a
-   native <details> keeps it reachable, keyboard- and screen-reader-
-   friendly, with zero extra JS, and it is omitted entirely by the
-   component when there is nothing real to disclose. */
 .detail {
   margin-top: var(--space-1);
   border-top: 1px solid color-mix(in srgb, var(--color-border-subtle) 72%, transparent);
@@ -189,5 +255,9 @@
     padding: var(--space-4);
     border-radius: var(--radius-lg);
     gap: var(--space-2);
+  }
+
+  .waitingFacts {
+    grid-template-columns: 1fr;
   }
 }
