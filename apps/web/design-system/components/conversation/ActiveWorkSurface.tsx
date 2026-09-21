@@ -1,5 +1,10 @@
 import type { ReactNode } from 'react';
-import type { CarryStateEvidenceEntry, CarryStateNextAction, CarryStateTone } from './responsibility-carry-state';
+import type {
+  CarryStateEvidenceEntry,
+  CarryStateNextAction,
+  CarryStateTone,
+  CarryStateWaiting,
+} from './responsibility-carry-state';
 import { Button } from '../Button/Button';
 import { VisuallyHidden } from '../../accessibility/VisuallyHidden';
 import styles from './ActiveWorkSurface.module.css';
@@ -13,6 +18,8 @@ export interface ActiveWorkSurfaceProps {
   tone?: CarryStateTone | null;
   /** What Aureus is actually doing right now — real signals only, never a decorative filler line. */
   carrying: string;
+  /** UI-004: canonical wait truth. Entire block is omitted when no real waiting state exists. */
+  waiting?: CarryStateWaiting | null;
   /** Only set when something real genuinely requires the member; omitted entirely otherwise. */
   needsYou?: string | null;
   /** The next executable step and who owns it — derived from real Responsibility status, never fabricated. */
@@ -24,26 +31,15 @@ export interface ActiveWorkSurfaceProps {
   lastActivityAt?: string | null;
   /** The real authority/privacy boundary disclosure for this Responsibility's kind, when one applies. */
   authorityNote?: string | null;
-  /**
-   * A genuine, already-wired Resume action — only passed when the existing
-   * workflow actually supports resuming inline (`ConversationSurface`'s own
-   * `startApplicationGuideForOpportunity`, bound to the correct conversation
-   * and opportunity). Never invented for a state that has no real action.
-   */
   onResume?: () => void;
   resumeBusy?: boolean;
-  /**
-   * The real, unmodified `ApplicationGuidePanel` for this Responsibility's
-   * live guide session, composed inside this surface rather than as a
-   * separate competing card. `null`/omitted whenever no live session exists
-   * — this component never renders guide-session UI on its own.
-   */
   guidePanel?: ReactNode;
 }
 
 const OWNER_LABEL: Record<CarryStateNextAction['owner'], string> = {
   AUREUS: 'Aureus',
   MEMBER: 'You',
+  HUMAN_STEWARD: 'A Human Steward',
   THIRD_PARTY: 'An outside party',
 };
 
@@ -55,30 +51,25 @@ const TONE_CLASS: Record<CarryStateTone, string> = {
   neutral: styles.toneNeutral,
 };
 
+function formatDateTime(value: string): string {
+  return new Date(value).toLocaleString();
+}
+
 /**
- * UI Slice 3 — Active Work Surface. The single presentation of one durable
- * Responsibility (or, before Aureus has formally accepted anything, the
- * honest pre-acceptance conversation signals from Slice 1) — replacing the
- * three previously-separate, partly-redundant surfaces (`VisibleWorkSummary`,
- * `ResponsibilityProgressCard`, and the loose CSS `ResponsibilityProgressCard`
- * inherited) with one surface with real visual hierarchy and progressive
- * disclosure.
+ * UI Slice 3 established this as the single presentation of one durable
+ * Responsibility. UI-004 adds the Waiting grammar inside this same surface
+ * rather than creating a second status card or task system.
  *
- * Every field is supplied by the caller (`ConversationSurface`), sourced
- * either from `responsibility-carry-state.ts`'s `buildCarryState` (once a
- * durable Responsibility exists) or from real conversation signals — this
- * component renders only what it is given and never fabricates activity, a
- * percentage, a status, or an action. Primary content (outcome, status,
- * carrying, needs-you, next action, done-means) is always visible; evidence
- * and last-activity sit behind a native `<details>` disclosure so the
- * member is not asked to read everything at once, and that disclosure is
- * omitted entirely when there is nothing real to show inside it.
+ * Every field is supplied by the caller from canonical Responsibility or
+ * Step-5 follow-through truth. This component renders only what it is given
+ * and never fabricates activity, ownership, chase dates, ETAs, or actions.
  */
 export function ActiveWorkSurface({
   workingOn,
   status,
   tone,
   carrying,
+  waiting,
   needsYou,
   nextAction,
   doneMeans,
@@ -106,6 +97,42 @@ export function ActiveWorkSurface({
         <span className={styles.fieldLabel}>Aureus is carrying</span>
         {carrying}
       </p>
+
+      {waiting ? (
+        <section className={styles.waiting} aria-label="Waiting">
+          <div className={styles.waitingHeader}>
+            <p className={styles.waitingLabel}>Waiting</p>
+            <p className={styles.waitingHolder}>Held by {OWNER_LABEL[waiting.holder]}</p>
+          </div>
+          <p className={styles.waitingOn}>{waiting.waitingOn}</p>
+          <dl className={styles.waitingFacts}>
+            {waiting.lastFollowUpAt ? (
+              <div className={styles.waitingFact}>
+                <dt>Last follow-up</dt>
+                <dd><time dateTime={waiting.lastFollowUpAt}>{formatDateTime(waiting.lastFollowUpAt)}</time></dd>
+              </div>
+            ) : null}
+            {waiting.nextFollowUpAt ? (
+              <div className={styles.waitingFact}>
+                <dt>Next follow-up</dt>
+                <dd><time dateTime={waiting.nextFollowUpAt}>{formatDateTime(waiting.nextFollowUpAt)}</time></dd>
+              </div>
+            ) : null}
+            {waiting.dueAt ? (
+              <div className={styles.waitingFact}>
+                <dt>Due</dt>
+                <dd>
+                  <time dateTime={waiting.dueAt}>{formatDateTime(waiting.dueAt)}</time>
+                  {waiting.dueProvenance ? ` · ${waiting.dueProvenance === 'VERIFIED' ? 'verified' : 'reported'}` : ''}
+                </dd>
+              </div>
+            ) : null}
+          </dl>
+          {waiting.noActionNeededFromMember ? (
+            <p className={styles.noActionNeeded}>Nothing you need to do.</p>
+          ) : null}
+        </section>
+      ) : null}
 
       {needsYou ? (
         <div className={styles.needsYou}>
@@ -154,7 +181,7 @@ export function ActiveWorkSurface({
 
           {lastActivityAt ? (
             <p className={styles.lastActivity}>
-              Last activity: <time dateTime={lastActivityAt}>{new Date(lastActivityAt).toLocaleString()}</time>
+              Last activity: <time dateTime={lastActivityAt}>{formatDateTime(lastActivityAt)}</time>
             </p>
           ) : null}
         </details>
