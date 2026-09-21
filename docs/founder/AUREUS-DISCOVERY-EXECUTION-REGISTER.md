@@ -400,3 +400,30 @@ Every future work order should state:
 - Living Release Gate contract IDs, or a truthful docs-only/no-deploy statement;
 - successor item;
 - register row/status change required after acceptance.
+
+## 9. REG-001 acceptance record
+
+The following are the acceptance conditions for the bootstrap slice. On the review branch they are the review gate; once this accepted file is on `main`, they are the historical reason Item 02 is complete:
+
+- this register is anchored to exact post-UI-003 main;
+- UI-003 is no longer described as an open PR;
+- current open PR/issue state is refreshed;
+- Product V1 guidance points here for sequencing while retaining its requirements/history;
+- PEOPLE-000 points here for order while retaining its domain ladder;
+- stale walkthrough issues are reconciled/dispositioned;
+- no competing document truthfully claims sole active sequencing authority without a pointer to this register;
+- future work orders are required to update the register;
+- no later feature implementation is included;
+- exact-head CI is green;
+- independent review confirms no lost requirement, silent supersession, duplicate truth universe, or governance weakening.
+
+## 10. Current-item resolution
+
+Determine current work from **live Git** plus the merge-stable interpretation on the relevant queue item; do not use historical SHAs or timestamps as a current-state substitute.
+
+For UI-005 specifically:
+
+- **If the UI-005 implementation/register changes exist only on `feat/ui-005-asking`:** UI-005 is the current candidate under construction/independent verification. UI-006 is not authorized by that branch.
+- **If the independently accepted UI-005 implementation and this register transition are present on `main`:** UI-005 is complete as the accepted code slice; its exact-deployment and Accountable Steward evidence remain separate release facts. The canonical current construction item is **UI-006 — Bad News / Recovering**.
+
+That accepted-on-`main` transition is the queue advancement. No post-merge status-only edit is required merely to mark UI-005 complete.
