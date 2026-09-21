@@ -1,6 +1,9 @@
-import type { PeopleResponsibilityDto, PeopleResponsibilityEventDto } from '../../../lib/api/people-help';
+import type { PeopleResponsibilityDto } from '../../../lib/api/people-help';
+import type { ResponsibilityDto, ResponsibilityEventDto } from '../../../lib/api/responsibilities';
 
-export type CarryStateOwner = 'AUREUS' | 'MEMBER' | 'THIRD_PARTY';
+export type CarryStateOwner = 'AUREUS' | 'MEMBER' | 'HUMAN_STEWARD' | 'THIRD_PARTY';
+
+type ResponsibilityProjection = PeopleResponsibilityDto | ResponsibilityDto;
 
 export interface CarryStateNextAction {
   description: string;
@@ -19,17 +22,31 @@ export type CarryStateTone = 'active' | 'attention' | 'blocked' | 'complete' | '
 export interface CarryStateEvidenceEntry {
   description: string;
   occurredAt: string;
-  level: PeopleResponsibilityEventDto['evidenceLevel'];
+  level: ResponsibilityEventDto['evidenceLevel'];
+}
+
+export interface CarryStateWaiting {
+  /** The real current holder. Never inferred from visual tone or copy. */
+  holder: CarryStateOwner;
+  /** The sourced condition/action being waited on, or a bounded status-derived fallback. */
+  waitingOn: string;
+  /** A real recorded follow-through attempt, never generic last activity relabeled as a chase. */
+  lastFollowUpAt: string | null;
+  /** A real scheduled next follow-through attempt, when the canonical contract has one. */
+  nextFollowUpAt: string | null;
+  /** The real obligation/responsibility due time, not presented as an invented response ETA. */
+  dueAt: string | null;
+  dueProvenance: 'REPORTED' | 'VERIFIED' | null;
+  /** True only when canonical holder/review truth says the member has no current action. */
+  noActionNeededFromMember: boolean;
 }
 
 /**
  * The authoritative "Visible Work" projection of one durable Responsibility
  * (UI Slice 2 — Production Carry State). Every field here is read or derived
- * from `PeopleResponsibilityDto` — the real, conversation-scoped, already
- * server-persisted record `getActivePeopleApplicationHelp` returns — never
- * from conversation text. `ConversationSurface` falls back to its own
- * conversation-derived signals only when `buildCarryState` returns `null`
- * (no durable Responsibility exists yet for this conversation).
+ * from the real, conversation-scoped, server-persisted Responsibility — never
+ * from conversation text. UI-004 adds `waiting`, which is likewise only a
+ * projection of existing Responsibility/Step-5 follow-through truth.
  */
 export interface CarryState {
   workingOn: string;
@@ -42,6 +59,7 @@ export interface CarryState {
   doneMeans: string;
   evidence: CarryStateEvidenceEntry[];
   lastActivityAt: string | null;
+  waiting: CarryStateWaiting | null;
   /**
    * The real authority/privacy boundary disclosure for this Responsibility's
    * kind, where one is required (e.g. OR-002 guidance's "Aureus guides; you
@@ -50,12 +68,7 @@ export interface CarryState {
   authorityNote: string | null;
 }
 
-/**
- * Plain-language lifecycle status. The single shared source `Responsibility
- * ProgressCard` and the Visible Work bridge both read, so the two surfaces
- * can never describe the same Responsibility differently.
- */
-export function describeResponsibilityStatus(status: PeopleResponsibilityDto['status']): string {
+export function describeResponsibilityStatus(status: ResponsibilityProjection['status']): string {
   switch (status) {
     case 'ACTIVE':
       return 'We are working on this together now.';
@@ -76,12 +89,7 @@ export function describeResponsibilityStatus(status: PeopleResponsibilityDto['st
   }
 }
 
-/**
- * Visual-only tone for `status` — used to select an accent, never text.
- * Kept alongside `describeResponsibilityStatus` so the two can never drift:
- * every branch here corresponds 1:1 with a branch there.
- */
-export function describeStatusTone(status: PeopleResponsibilityDto['status']): CarryStateTone {
+export function describeStatusTone(status: ResponsibilityProjection['status']): CarryStateTone {
   switch (status) {
     case 'ACTIVE':
     case 'WAITING_ON_AUREUS':
@@ -100,15 +108,7 @@ export function describeStatusTone(status: PeopleResponsibilityDto['status']): C
   }
 }
 
-/**
- * The real authority/privacy boundary disclosure, by kind. Preserves the
- * exact commitments OR-002 §5 requires stay visible wherever this
- * Responsibility's state is shown ("Aureus guides; the member submits/
- * attests," "Private to your Aureus account") — moved here from
- * `ResponsibilityProgressCard` so it is derived once, not re-authored per
- * presentation surface.
- */
-function describeAuthorityBoundary(responsibility: PeopleResponsibilityDto): string | null {
+function describeAuthorityBoundary(responsibility: ResponsibilityProjection): string | null {
   if (responsibility.kind === 'OPPORTUNITY_APPLICATION_GUIDANCE') {
     return 'Aureus can guide you through the application. You remain in control of what you enter, attest to, and submit. Private to your Aureus account.';
   }
@@ -118,18 +118,9 @@ function describeAuthorityBoundary(responsibility: PeopleResponsibilityDto): str
 const APPLICATION_GUIDANCE_NEEDS_YOU =
   'Return to finish the guided application, or tell Aureus you applied or are not interested.';
 const GENERIC_NEEDS_YOU = 'Aureus needs something from you to continue — return to the conversation for details.';
-// The backend's ACTIVE status means only "non-terminal, no wait condition
-// recorded" — it is not a live claim that a guide session is open in this
-// browser right now. OR-002 accepts the Responsibility before the guide
-// session necessarily exists (`PeopleHelpService.start()`), and a member can
-// also leave/return without an explicit pause, so "ACTIVE + no live session"
-// is a real, valid state the existing UI already requires a Resume click
-// for (`ResponsibilityProgressCard`'s `canResume`/`onResume` gate). Claiming
-// "Guiding you" or an AUREUS-owned next action here would describe execution
-// that is not actually occurring (independent audit, PR #160).
 const RESUME_GUIDANCE_NEEDS_YOU = 'Resume the guided application to continue — Aureus is ready when you are.';
 
-function describeCarrying(responsibility: PeopleResponsibilityDto): string {
+function describeCarrying(responsibility: ResponsibilityProjection): string {
   const isApplicationGuidance = responsibility.kind === 'OPPORTUNITY_APPLICATION_GUIDANCE';
   switch (responsibility.status) {
     case 'ACTIVE':
@@ -153,13 +144,13 @@ function describeCarrying(responsibility: PeopleResponsibilityDto): string {
   }
 }
 
-function describeNeedsYou(responsibility: PeopleResponsibilityDto): string {
+function describeNeedsYou(responsibility: ResponsibilityProjection): string {
   return responsibility.kind === 'OPPORTUNITY_APPLICATION_GUIDANCE'
     ? APPLICATION_GUIDANCE_NEEDS_YOU
     : GENERIC_NEEDS_YOU;
 }
 
-function describeNextAction(responsibility: PeopleResponsibilityDto): CarryStateNextAction | null {
+function describeNextAction(responsibility: ResponsibilityProjection): CarryStateNextAction | null {
   switch (responsibility.status) {
     case 'ACTIVE':
       return {
@@ -184,14 +175,6 @@ function describeNextAction(responsibility: PeopleResponsibilityDto): CarryState
   }
 }
 
-/**
- * `successCriteria` is a per-kind JSON contract the backend already writes
- * at acceptance time (`responsibilities.service.ts` — `OPPORTUNITY_DECISION_
- * CRITERIA` / `APPLICATION_GUIDANCE_CRITERIA`), not free text — its `type`
- * is a small controlled vocabulary. An unrecognized/missing type falls back
- * to a generic, still-honest sentence rather than guessing specifics the
- * contract doesn't actually state.
- */
 function describeDoneMeans(successCriteria: unknown): string {
   const type =
     successCriteria && typeof successCriteria === 'object' && 'type' in successCriteria
@@ -203,12 +186,14 @@ function describeDoneMeans(successCriteria: unknown): string {
       return "You'll know this is done when you tell Aureus you applied or decided not to continue.";
     case 'OPPORTUNITY_DECISION_RECORDED':
       return "You'll know this is done when you've recorded a decision about this opportunity.";
+    case 'PERSONAL_NEED_RESOLUTION':
+      return "You'll know this is done when the underlying need has a recorded outcome — not merely when a handoff, offer, or follow-up happens.";
     default:
       return "You'll know this is done when Aureus records a verified outcome for this.";
   }
 }
 
-function describeEvidenceEvent(event: PeopleResponsibilityEventDto): string {
+function describeEvidenceEvent(event: ResponsibilityEventDto): string {
   if (event.sourceRecordType === 'SavedOpportunity' && event.sourceState) {
     const outcome =
       event.sourceState === 'APPLIED'
@@ -223,13 +208,7 @@ function describeEvidenceEvent(event: PeopleResponsibilityEventDto): string {
   }.`;
 }
 
-/**
- * Only events that actually carry proof — `ACTION_EVIDENCED`/`COMPLETED` —
- * become "Evidence." A tool call succeeding, a message being sent, or any
- * other event type is never described as evidence (PA-021 §5/§17.3: a tool
- * response or model claim is not completion evidence by itself).
- */
-function extractEvidence(responsibility: PeopleResponsibilityDto): CarryStateEvidenceEntry[] {
+function extractEvidence(responsibility: ResponsibilityProjection): CarryStateEvidenceEntry[] {
   return responsibility.events
     .filter((event) => event.type === 'ACTION_EVIDENCED' || event.type === 'COMPLETED')
     .map((event) => ({
@@ -239,7 +218,7 @@ function extractEvidence(responsibility: PeopleResponsibilityDto): CarryStateEvi
     }));
 }
 
-function computeLastActivityAt(responsibility: PeopleResponsibilityDto): string {
+function computeLastActivityAt(responsibility: ResponsibilityProjection): string {
   const lastEventAt =
     responsibility.events.length > 0
       ? [...responsibility.events].sort((a, b) => b.occurredAt.localeCompare(a.occurredAt))[0].occurredAt
@@ -247,19 +226,102 @@ function computeLastActivityAt(responsibility: PeopleResponsibilityDto): string 
   return lastEventAt && lastEventAt > responsibility.updatedAt ? lastEventAt : responsibility.updatedAt;
 }
 
+type Step5FollowThroughProjection = {
+  version: 'people-step5-obligation-v1';
+  owner: CarryStateOwner;
+  requiredAction: string;
+  dueAt: string;
+  dueProvenance: 'REPORTED' | 'VERIFIED';
+  state: string;
+  lastAttemptAt: string | null;
+  nextAttemptAt: string | null;
+  reviewRequired: boolean;
+};
+
+function readStep5FollowThrough(successCriteria: unknown): Step5FollowThroughProjection | null {
+  if (!successCriteria || typeof successCriteria !== 'object' || Array.isArray(successCriteria)) return null;
+  const raw = (successCriteria as Record<string, unknown>).step5FollowThrough;
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null;
+  const value = raw as Record<string, unknown>;
+  const owner = value.owner;
+  if (
+    value.version !== 'people-step5-obligation-v1' ||
+    !['AUREUS', 'MEMBER', 'HUMAN_STEWARD', 'THIRD_PARTY'].includes(String(owner)) ||
+    typeof value.requiredAction !== 'string' ||
+    typeof value.dueAt !== 'string' ||
+    !['REPORTED', 'VERIFIED'].includes(String(value.dueProvenance))
+  ) {
+    return null;
+  }
+  return {
+    version: 'people-step5-obligation-v1',
+    owner: owner as CarryStateOwner,
+    requiredAction: value.requiredAction,
+    dueAt: value.dueAt,
+    dueProvenance: value.dueProvenance as 'REPORTED' | 'VERIFIED',
+    state: typeof value.state === 'string' ? value.state : 'PENDING',
+    lastAttemptAt: typeof value.lastAttemptAt === 'string' ? value.lastAttemptAt : null,
+    nextAttemptAt: typeof value.nextAttemptAt === 'string' ? value.nextAttemptAt : null,
+    reviewRequired: value.reviewRequired === true,
+  };
+}
+
+function statusHolder(status: ResponsibilityProjection['status']): CarryStateOwner | null {
+  switch (status) {
+    case 'WAITING_ON_AUREUS':
+      return 'AUREUS';
+    case 'WAITING_ON_USER':
+      return 'MEMBER';
+    case 'WAITING_ON_THIRD_PARTY':
+      return 'THIRD_PARTY';
+    default:
+      return null;
+  }
+}
+
+function buildWaitingState(responsibility: ResponsibilityProjection): CarryStateWaiting | null {
+  const followThrough = readStep5FollowThrough(responsibility.successCriteria);
+  const holderFromStatus = statusHolder(responsibility.status);
+  const followThroughIsWaiting =
+    Boolean(followThrough) &&
+    (followThrough!.state === 'WAITING' || followThrough!.owner === 'HUMAN_STEWARD');
+
+  if (!holderFromStatus && !followThroughIsWaiting) return null;
+
+  const holder = followThrough?.owner ?? holderFromStatus ?? 'AUREUS';
+  const waitingOn =
+    followThrough?.requiredAction ??
+    (holder === 'MEMBER'
+      ? 'Aureus is waiting for your next step.'
+      : holder === 'AUREUS'
+        ? 'Aureus has the next step.'
+        : holder === 'HUMAN_STEWARD'
+          ? 'A Human Steward has the next step.'
+          : 'Aureus is waiting for an outside party to respond.');
+
+  const noActionNeededFromMember = followThrough
+    ? holder !== 'MEMBER' && followThrough.state !== 'DISPUTED' && !followThrough.reviewRequired
+    : holder !== 'MEMBER';
+
+  return {
+    holder,
+    waitingOn,
+    lastFollowUpAt: followThrough?.lastAttemptAt ?? null,
+    nextFollowUpAt: followThrough?.nextAttemptAt ?? null,
+    dueAt: followThrough?.dueAt ?? responsibility.dueAt ?? null,
+    dueProvenance: followThrough?.dueProvenance ?? null,
+    noActionNeededFromMember,
+  };
+}
+
 /**
  * The bridge itself. Returns `null` when there is no durable Responsibility
- * to project (the caller must fall back to its own honest, conversation-
- * scoped signals) — never a fabricated "nothing to see" object standing in
- * for genuinely absent data.
- *
- * `hasActiveGuideSession` is real session presence — not derived from
- * `status` — because `status === 'ACTIVE'` alone does not prove Aureus is
- * currently guiding anything in this session; only a live
- * `GuidedApplicationSession` does.
+ * to project. `hasActiveGuideSession` is real session presence — not derived
+ * from status — because ACTIVE application guidance alone does not prove a
+ * guide session is live in this browser.
  */
 export function buildCarryState(
-  responsibility: PeopleResponsibilityDto | null,
+  responsibility: ResponsibilityProjection | null,
   hasActiveGuideSession = false,
 ): CarryState | null {
   if (!responsibility) return null;
@@ -288,5 +350,6 @@ export function buildCarryState(
     doneMeans: describeDoneMeans(responsibility.successCriteria),
     evidence: extractEvidence(responsibility),
     lastActivityAt: computeLastActivityAt(responsibility),
+    waiting: isGuidanceAwaitingResume ? null : buildWaitingState(responsibility),
   };
 }
