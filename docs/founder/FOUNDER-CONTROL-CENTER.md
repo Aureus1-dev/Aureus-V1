@@ -1,12 +1,14 @@
 # Aureus Founder Control Center
 
-**Status:** Founder-facing build control plane  
+**Status:** HISTORICAL BUILD-CONTROL SNAPSHOT — superseded for current sequencing by `docs/founder/AUREUS-DISCOVERY-EXECUTION-REGISTER.md`.  
 **Last reconciled:** 2026-09-02  
-**Scope:** Product construction and release truth only. This dashboard does not amend governance or constitutional authority.
+**Scope:** Preserved product-construction and release evidence from that date. This document does not amend governance or constitutional authority and must not be used for current SHAs, `NOW`/`NEXT` sequencing, or current PR/issue status.
 
-## 1. What this dashboard is for
+> **Current execution truth:** after REG-001 is independently accepted and merged, use the Master Discovery & Execution Register for what comes next, the applicable current work order for the bounded job, live GitHub state for exact SHAs/PRs/CI, and the Living Release Gate plus Accountable Steward walkthrough for release acceptance. The historical `NOW`, `NEXT`, repository baselines, and Issue #95 references below are retained as evidence of the September 2 operating state only.
 
-This is the Founder's one-page answer to five questions:
+## 1. What this dashboard recorded
+
+At the time of the September 2 snapshot, this was the Founder's one-page answer to five questions:
 
 1. What is live now?
 2. What are we building now?
@@ -14,19 +16,19 @@ This is the Founder's one-page answer to five questions:
 4. What comes next?
 5. What requires the Founder's decision or real-world test?
 
-The dashboard is not another customer-facing Aureus feature. It is the control plane for the build.
+The dashboard was not another customer-facing Aureus feature. It was the control plane for the build at that time. It is now preserved rather than continuously updated so later sessions cannot mistake stale SHAs or old sequencing for present truth.
 
-## 2. Current system baseline
+## 2. Historical system baseline
 
-| Repository | Current `main` | Role today |
+| Repository | `main` recorded in this snapshot | Role recorded at the time |
 |---|---|---|
-| Aureus-V1 | `80a0e1f5083c751bc91e9830122fc01d6516dfd1` | Product/runtime owner. OR-002 PR #111 is merged; post-merge CI run `33588099069` is SUCCESS including Docker. OR-003 builds from this exact main. |
-| Aureus-Foundry | `e6c0a4558145c6f00d5e7734be95af08daf8241a` | Main remains the production-neutral baseline. Draft PR #7 is the governed Claude review meeting room; latest closure-review head `6ea7ae4327933d9789c231433fb3251654a39bbc` passed Foundry CI but is not merged. |
+| Aureus-V1 | `80a0e1f5083c751bc91e9830122fc01d6516dfd1` | Product/runtime owner. OR-002 PR #111 was merged; post-merge CI run `33588099069` was SUCCESS including Docker. OR-003 was planned from this exact main. |
+| Aureus-Foundry | `e6c0a4558145c6f00d5e7734be95af08daf8241a` | Main was the production-neutral baseline. Draft PR #7 was the governed Claude review meeting room; latest closure-review head `6ea7ae4327933d9789c231433fb3251654a39bbc` had passed Foundry CI but was not merged. |
 | Aureus-Library | `ea9887c50550e466411742c3f3fc53a3de7f264f` | Governed durable knowledge and release integrity layer |
 
-### Product construction completed
+### Product construction completed as of this snapshot
 
-The business-product sequence PF-004 through PF-012 is merged. The repository already contains:
+The business-product sequence PF-004 through PF-012 was recorded as merged. The repository already contained:
 
 - business tenant foundation;
 - business knowledge workspace;
@@ -38,9 +40,9 @@ The business-product sequence PF-004 through PF-012 is merged. The repository al
 - phone/SMS continuity scaffolding;
 - Founder walkthrough / first-client release gate.
 
-The current job is no longer to invent those foundations. It is to complete, harden, verify, simplify, and connect the system.
+The recorded job was no longer to invent those foundations. It was to complete, harden, verify, simplify, and connect the system.
 
-## 3. Current active work
+## 3. Historical active work snapshot
 
 ### CLOSED — Outcome architecture reconciliation
 
@@ -55,9 +57,9 @@ The current job is no longer to invent those foundations. It is to complete, har
 - V1 PR #109 formalized the Business/shared ↔ Personal/private transition boundary required by the independent review.
 - Exact reviewed head: `8d431754a21413fc92ffdd7a059198ce34ebcd20`.
 - Claude closure verdict: PASS; no P0/P1; READY FOR FOUNDER MERGE DECISION.
-- Resulting current V1 main: `2c545de9e25b3c740db0fec6183f6ef9efbf541b`.
+- Resulting V1 main at that point: `2c545de9e25b3c740db0fec6183f6ef9efbf541b`.
 - Post-merge main CI run `33576038825`: SUCCESS.
-- OR-CCT-001 does not authorize cross-context transfer; it defines the gate a later implementation must pass.
+- OR-CCT-001 did not authorize cross-context transfer; it defined the gate a later implementation must pass.
 
 ### CLOSED — OR-001 Responsibility Core
 
@@ -77,23 +79,23 @@ The current job is no longer to invent those foundations. It is to complete, har
 - Post-merge CI run `33588099069`: SUCCESS including Docker.
 - Proof: verified application help → durable private Responsibility → leave/return → exact session/Responsibility binding → pause/resume → explicit member-reported outcome → truthful completion surface.
 
-### NOW — OR-003 Kitchen & Bath Ready Project
+### HISTORICAL NOW — OR-003 Kitchen & Bath Ready Project
 
-**Working branch:** `feat/or-003-kitchen-bath-ready-project`  
-**Base:** `80a0e1f5083c751bc91e9830122fc01d6516dfd1`  
+**Working branch recorded then:** `feat/or-003-kitchen-bath-ready-project`  
+**Base recorded then:** `80a0e1f5083c751bc91e9830122fc01d6516dfd1`  
 **Work order:** `docs/work-orders/OR-003-Kitchen-Bath-Ready-Project.md`
 
-Goal:
+Goal recorded then:
 
 `fuzzy project intent → customer-supplied discovery → distilled Ready Project → explicit Transaction Barrier Graph → exact expert validation still required`
 
-OR-003 reuses the consented PF-009 Kitchen & Bath handoff rather than creating a second CRM/project source of truth. The Ready Project is a deterministic projection of retained customer-supplied/system-observed facts; the raw Ward transcript remains attributable evidence but is no longer the contractor's primary reconstruction interface.
+OR-003 reused the consented PF-009 Kitchen & Bath handoff rather than creating a second CRM/project source of truth. The Ready Project was defined as a deterministic projection of retained customer-supplied/system-observed facts; the raw Ward transcript remained attributable evidence but was no longer the contractor's primary reconstruction interface.
 
-The first barrier graph keeps uncertainty explicit: desire, fit, price, funding, availability, timing, knowledge/uncertainty, trust, decision authority, administrative friction, and alternatives. No hidden lead score or inferred trust/propensity is introduced.
+The first barrier graph kept uncertainty explicit: desire, fit, price, funding, availability, timing, knowledge/uncertainty, trust, decision authority, administrative friction, and alternatives. No hidden lead score or inferred trust/propensity was introduced.
 
-This slice intentionally does **not** manufacture a Business-customer Responsibility principal for account-free visitors. Current Responsibility principal constraints and OR-CCT-001 remain intact.
+This slice intentionally did **not** manufacture a Business-customer Responsibility principal for account-free visitors. Responsibility principal constraints and OR-CCT-001 remained intact.
 
-Acceptance requires:
+Acceptance required:
 
 1. deterministic Ready Project and deny-path tests;
 2. customer/business Outcome Surface tests;
@@ -101,13 +103,13 @@ Acceptance requires:
 4. fresh independent Claude review;
 5. Founder merge decision.
 
-### NEXT after OR-003
+### HISTORICAL NEXT after OR-003
 
-Proceed to OR-004 Revenue Completion from the resulting exact green main.
+The snapshot said to proceed to OR-004 Revenue Completion. **That sequencing statement is superseded.** Current order comes only from the Master Discovery & Execution Register after REG-001 acceptance.
 
-## 4. Definition of complete V1
+## 4. Definition of complete V1 recorded here
 
-V1 is not defined by the number of features. It is complete when the core promise works reliably:
+V1 was not defined by the number of features. The core promise recorded here was:
 
 `Understand → tell the truth → give a real next step → preserve context → obtain consent where required → hand off → record the outcome → recover safely when something fails.`
 
@@ -115,7 +117,7 @@ For the founding Business Ward pilot:
 
 `Business onboarding → approved knowledge → public Ward → answer/clarify → consented human handoff → business follow-up → outcome → correction/deletion → failure drill.`
 
-No external business begins until the automated release gate and the Founder mobile/desktop walkthrough pass against the same exact deployed V1 SHA.
+No external business begins until the applicable automated release gate and the Founder/Accountable Steward mobile/desktop walkthrough pass against the same exact deployed V1 SHA.
 
 ## 5. The build operating system
 
@@ -129,28 +131,28 @@ No external business begins until the automated release gate and the Founder mob
 | Gemini | Multimodal evaluator: screenshots, recordings, visual/mobile QA, large evaluation sets, later See/Guide screen understanding | Become a required dependency merely because credits exist |
 | Foundry | Work-order compilation, consequence/data classification, producer/reviewer routing, evidence, audit, evaluation, disagreement/outcome machinery | Sit in the live customer critical path before its production blockers are closed |
 | CI | Mechanical referee for tests, migrations, types, lint, builds, images and contract gates | Claim that production UX works |
-| Founder walkthrough | Human proof that the deployed product actually works | Be replaced by CI or model confidence |
+| Founder / Accountable Steward walkthrough | Human proof that the deployed product actually works | Be replaced by CI or model confidence |
 
-### Required change loop
+### Current required change loop
 
-1. Dashboard identifies one active work order.
-2. ChatGPT reads current repository state and governing implementation documents.
+1. Master Discovery & Execution Register identifies the one active item and predecessor.
+2. Constructor reads live repository state, the current work order, and governing implementation documents.
 3. Work happens on one dedicated branch.
-4. Tests are added for the intended behavior and relevant deny paths.
-5. Claude independently reviews the requirement, architecture and diff with an explicit instruction to find failure.
+4. Tests/evidence are added for intended behavior and relevant deny paths.
+5. An independent reviewer inspects the requirement, architecture, full diff, and exact head with an explicit instruction to find failure.
 6. Findings are reconciled; disagreements remain visible until resolved.
 7. CI must pass at one exact head SHA.
-8. Gemini performs visual/multimodal evaluation when the change affects UX or real-world screen understanding.
-9. The exact SHA is merged and deployed.
-10. Production acceptance for that work order is run.
-11. A defect becomes the next work order and a permanent regression check where possible.
-12. This dashboard is updated before moving on.
+8. Multimodal/visual evaluation is used when the change affects UX or real-world screen understanding.
+9. The exact accepted SHA is merged and, where applicable, deployed.
+10. Living Release Gate runs against the exact deployed SHA for production-impacting work.
+11. Accountable Steward human acceptance is recorded separately where required.
+12. The Master Register is updated before the next item begins.
 
 ## 6. Where the Foundry belongs
 
-### Foundry is part of the operating system now
+### Foundry is part of the operating-system direction
 
-The Foundry is the intelligence-production layer, not an optional future idea. Its architecture already models:
+The Foundry architecture models:
 
 - request and intent intake;
 - clarification and work-order compilation;
@@ -169,9 +171,9 @@ The Foundry is the intelligence-production layer, not an optional future idea. I
 
 Learning may propose changes but does not activate live policy itself.
 
-### How we use Foundry during V1 construction
+### Historical construction use recorded here
 
-Use Foundry as the **build and evaluation factory** before making it a runtime dependency:
+The snapshot proposed using Foundry as the **build and evaluation factory** before making it a runtime dependency:
 
 - compile high-level requests into inspectable work orders;
 - classify what is safe to automate versus what needs human approval;
@@ -182,11 +184,11 @@ Use Foundry as the **build and evaluation factory** before making it a runtime d
 - record outcomes and corrections;
 - prove provider-neutral contracts before adding live adapters.
 
-This means Foundry participates in how Aureus is built **now**, even while the live member/business request path can continue to run directly in V1.
+That direction remains evidence, but current Foundry sequencing is controlled by the Master Register.
 
-### What must happen before Foundry becomes a production runtime service
+### Historical blockers before Foundry production runtime
 
-Current known blockers include:
+The snapshot listed:
 
 - real provider adapters and contract-quality proof;
 - production authentication rather than caller-trusted headers;
@@ -197,9 +199,9 @@ Current known blockers include:
 - production deployment, secrets and observability;
 - empirical quality/latency/cost evaluation.
 
-Only then should V1 make Foundry a required service for live user requests.
+Only after the relevant current work orders and gates are satisfied should V1 make Foundry a required service for live user requests.
 
-## 7. The intended end-state architecture
+## 7. Historical intended end-state architecture
 
 ```text
                          FOUNDER CONTROL CENTER
@@ -240,6 +242,8 @@ Only then should V1 make Foundry a required service for live user requests.
                   only through governed admission/release
 ```
 
+The control-plane box in this historical diagram is now functionally replaced for sequencing by the Master Discovery & Execution Register plus the applicable work order and live Git state.
+
 ### Runtime end state after Foundry productionization
 
 ```text
@@ -273,40 +277,31 @@ Member / Visitor / Business
                                                    Library review
 ```
 
-## 8. Connecting Claude
+## 8. Connecting independent reviewers
 
-### Immediate path — recommended for the next work order
+For current V1 work, an independent reviewer should:
 
-Aureus-V1 already contains a root `CLAUDE.md`. Claude Code should therefore start with V1, because the next active work order is in V1.
+1. operate against the exact current PR/head rather than a disconnected copy;
+2. read `CLAUDE.md`, `docs/ai/REPOSITORY_STEWARD.md`, the Master Discovery & Execution Register, the current work order, relevant architecture/ADRs, and the entire proposed diff;
+3. form an independent view rather than becoming a co-author;
+4. return blockers, security/tenant risks, incorrect assumptions, missing tests, simpler alternatives, and PASS/HOLD tied to the exact SHA.
 
-Setup:
+Do **not** use old Issue #95 or the `NOW/NEXT` labels in this file as current reviewer instructions.
 
-1. Connect Claude to GitHub and grant access to `Aureus1-dev/Aureus-V1`.
-2. Open Claude Code on the web or run Claude Code from a checkout of the V1 repository.
-3. Ensure it is operating on the exact work-order branch/PR, not a private disconnected copy.
-4. Tell Claude to read `CLAUDE.md`, `docs/ai/REPOSITORY_STEWARD.md`, the Founder Control Center, Issue #95, the relevant ADR, and the entire proposed diff.
-5. Its default job in our loop is **review**, not simultaneous competing implementation.
-6. Require it to return: blockers, security/tenant risks, incorrect assumptions, missing tests, simpler alternatives and a PASS/HOLD recommendation tied to the exact SHA.
+### Foundry and Library historical setup evidence
 
-### Foundry and Library setup
+Library bootstrap governance recorded here had merged on `main`:
 
-Library bootstrap governance is now merged on `main`:
+- Aureus-Library PR #14 merged at reviewed head `e160e0eda88bfa21f33a5c36b6753114404e68b6`; Library `main` in this snapshot was `ea9887c50550e466411742c3f3fc53a3de7f264f`.
+- Library had provider-neutral root `AGENTS.md` plus a thin root `CLAUDE.md` on `main`.
+- Competing Library PR #13 was closed unmerged and superseded.
 
-- Aureus-Library PR #14 merged at reviewed head `e160e0eda88bfa21f33a5c36b6753114404e68b6`; current Library `main` is `ea9887c50550e466411742c3f3fc53a3de7f264f`.
-- Library now has provider-neutral root `AGENTS.md` plus a thin root `CLAUDE.md` on `main`.
-- Competing Library PR #13 is closed unmerged and superseded; do not revive both instruction paths.
+Foundry evidence recorded here:
 
-Foundry remains separately gated:
-
-- Aureus-Foundry `main` remains `e6c0a4558145c6f00d5e7734be95af08daf8241a`.
-- Foundry draft PR #7 remains open and unmerged. Its Claude entry point, operating contract, review work order, and disabled-by-default Anthropic adapter govern only that candidate branch, not `main`.
-- Do not merge Foundry PR #7 merely to obtain instruction files or infer provider-use authority from its existence.
+- Aureus-Foundry `main` in this snapshot was `e6c0a4558145c6f00d5e7734be95af08daf8241a`.
+- Foundry draft PR #7 was open and unmerged.
 
 Do not copy V1 instructions into another repository. Each entry point must encode that repository's own architecture, commands, test gates, authority boundaries, and cross-repository contract rules.
-
-### Optional later automation
-
-Once the manual loop is proving useful, automate independent review so a PR can trigger Claude review and attach findings to the PR. Automation is an optimization, not a prerequisite to beginning construction.
 
 ## 9. Founder decision lane
 
@@ -319,7 +314,7 @@ The Founder should normally see only items in these categories:
 - irreversible or consequential action authority;
 - architecture tradeoff with meaningful long-term lock-in;
 - acceptance of a known risk that cannot currently be eliminated;
-- final Founder walkthrough result.
+- final Founder/Accountable Steward walkthrough result.
 
 Ordinary bug fixes, test repairs and implementation choices that fit accepted architecture should not be escalated unnecessarily.
 
@@ -334,18 +329,15 @@ Every build and commercial decision is tested against four simple product princi
 
 Trust is the result of repeatedly living these principles rather than a separate slogan.
 
-## 11. Dashboard update rule
+## 11. Archive rule
 
-This file is living execution truth, not a historical narrative.
+This file is now a **frozen historical snapshot**, not living execution truth.
 
-Update it whenever any of the following occurs:
+Do not update its old repository SHAs, OR-003 `NOW`, OR-004 `NEXT`, or Issue #95 references as if they were current. Current status changes belong in:
 
-- active work order changes;
-- PR opens, closes or merges;
-- an exact deployment changes the acceptance baseline;
-- a Founder test passes or fails;
-- a blocker is discovered or removed;
-- Foundry/Library runtime integration materially changes;
-- an external business is admitted to a pilot.
+- `docs/founder/AUREUS-DISCOVERY-EXECUTION-REGISTER.md`;
+- the applicable current work order;
+- live GitHub PR/issue/CI/release evidence;
+- the Living Release Gate and separate Accountable Steward acceptance record where relevant.
 
-For detailed work-order checkboxes and production blocker evidence, Issue #95 remains the current ordered execution ledger until superseded explicitly.
+If this historical snapshot contains a useful requirement, cite and reconcile that requirement into the current work order rather than reviving this file as a second control plane.

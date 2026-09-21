@@ -2,13 +2,13 @@
 
 ## Status
 
-Proposed docs-only architecture slice for independent review.
+**COMPLETED / MERGED architecture slice.** Accepted through PR #164. Its successor names remain planning anchors; current cross-program sequencing is controlled by `docs/founder/AUREUS-DISCOVERY-EXECUTION-REGISTER.md` after REG-001 acceptance.
 
-This work order does **not** change production behavior, model routing, authority, persistence, or the active Product V1 execution order by itself.
+This work order did **not** change production behavior, model routing, authority, persistence, or independently authorize a successor implementation order.
 
-## Base
+## Historical base
 
-Branch from exact current `main` after PR #163 merge and restoration of the prior tree.
+This slice was branched from the exact `main` that existed after PR #163 reconciliation. That base statement is historical evidence, not current repository status.
 
 ## Why this work exists
 
@@ -116,7 +116,7 @@ If a later slice introduces runtime orchestration materially beyond ADR-015's ac
 
 ## Acceptance criteria
 
-This docs PR passes only if independent review confirms:
+The architecture was reviewable only if independent review confirmed:
 
 - [ ] no contradiction with Executive Intelligence governance or Founder’s Office authority;
 - [ ] no duplicate intelligence subsystem is created;
@@ -156,11 +156,11 @@ The reviewer should actively look for:
 - `SAI-005` — consequence-scaled critic / verifier;
 - `SAI-006` — outcome evaluation + governed Help Strategy learning.
 
-These names are planning anchors, not authorization to implement out of order. Reconcile them against the active Product V1 execution registry before construction.
+These names are planning anchors, not authorization to implement out of order. Their current position is **Master Discovery & Execution Register item 09**, after the preceding work/authority/truth dependencies defined there. Do not use the historical Product V1 execution order to move them ahead of that register.
 
 ## Non-goals
 
-This PR does not:
+This architecture did not:
 
 - add a new model provider;
 - add a new runtime service;
@@ -171,7 +171,7 @@ This PR does not:
 - introduce autonomous consequential actions;
 - create a new constitutional authority;
 - make Foundry a live production dependency;
-- reorder the current launch plan.
+- independently reorder the current cross-program plan.
 
 ## Definition of done
 
