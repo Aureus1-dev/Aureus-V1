@@ -1,6 +1,6 @@
 # AUREUS-016 — Steward Voice & Interface Canon Reconciliation
 
-**Status:** READY FOR EXACT-HEAD CI + INDEPENDENT REVIEW / docs-only canon reconciliation  
+**Status:** REPAIRED AFTER INDEPENDENT HOLD / docs-only canon reconciliation  
 **Register parent:** Item 03 — AUREUS-016  
 **Predecessor:** REG-001 / PR #166  
 **Base:** live `main` at `ad684a72db1ccc784a3507ad41f234fa3eca371a`  
@@ -82,6 +82,20 @@ Historical draft material about Carry Board/Card, Mission Rooms, and ledger test
 
 No implementation of those capabilities belongs in AUREUS-016.
 
+### I. Founder decision — access dependency exception
+
+Independent review of exact head `834ead48ddc65bd5e0f63dfc24c265642eca8c29` correctly identified that the candidate changed the historical strict deliver-before-more-access rule without documenting it as a policy decision.
+
+The Founder explicitly approved the refined rule:
+
+- **deliver first remains the default**;
+- Aureus may ask for a new access/account/connection/authority dependency before delivering additional work only when the member's requested outcome genuinely cannot responsibly proceed without it;
+- convenience, efficiency, broader data collection, or `it would help` are not enough;
+- the request must be the smallest dependency needed, explain why it is needed now, what it unlocks, what remains possible without it, and revocability/choice where applicable;
+- access does not itself expand authority.
+
+This is an intentional supersession of the historical absolute rule. It is not a silent reconciliation assumption.
+
 ## 4. Deliverables
 
 ### 4.1 New reconciled canon
@@ -101,7 +115,7 @@ It must define at minimum:
 - never-re-ask / truthful re-verification;
 - shared internal state grammar;
 - Asking, Waiting, Recovering, Choosing, Done, Quiet contracts;
-- Carry Boundary rules for access/account/authority;
+- Carry Boundary rules for access/account/authority, including the explicit Founder-approved dependency exception;
 - reversibility and transparency principles;
 - appropriate Human Steward involvement;
 - accessibility/modality requirements;
@@ -121,7 +135,8 @@ Update Item 03 so:
 - on the AUREUS-016 review branch it is IN FLIGHT / VERIFYING;
 - once the accepted files are on `main`, Item 03 is COMPLETED / ACCEPTED;
 - Item 04 becomes current automatically;
-- UI-004 — Waiting is the first implementation slice.
+- UI-004 — Waiting is the first implementation slice;
+- the Founder-approved access dependency exception is recorded as an intentional policy supersession rather than an implicit weakening.
 
 Update current-item resolution generically so future sessions use live Git + the merge-stable item rule, not a stale PR-number-specific statement.
 
@@ -152,6 +167,7 @@ The canon is an experience standard, not a database.
 - Human-required actions may not be presented as completed AI actions.
 - Voice/text modality may not alter tenant, conversation, session, or Responsibility boundaries.
 - Preferred name/pronunciation is used to reduce repeated burden; it is not permission to expose identity outside the authorized context.
+- Dependency-first access asks must be smallest-necessary, purpose-bound, and tied to the member's stated/accepted outcome.
 
 ## 7. Non-goals
 
@@ -184,7 +200,8 @@ The reviewer should actively test whether this slice:
 9. falsely claims later Carry/Room/Ledger capabilities are live or authorized now;
 10. weakens Living Release Gate or human acceptance requirements;
 11. leaves the Master Register stale immediately after merge;
-12. converts concise communication into omission where consequence requires explanation.
+12. converts concise communication into omission where consequence requires explanation;
+13. lets the Founder-approved access dependency exception become a convenience loophole or broader permission grab.
 
 ## 9. Definition of done
 
@@ -195,15 +212,17 @@ AUREUS-016 is ready for independent review when:
 - [x] reconciled AUREUS-016 canon exists;
 - [x] AUREA-002 contains the explicit merge-stable supersession note;
 - [x] Master Register contains the AUREUS-016 -> Item 04 merge-stable transition;
+- [x] Founder access dependency decision is explicitly documented in canon/work order/register/PR;
 - [x] no runtime code/schema/workflow/release manifest is changed;
 - [x] net diff is limited to four intended documentation/governance files;
-- [ ] exact-head CI + Docker are green;
-- [ ] independent exact-head review returns no BLOCKER/HIGH;
-- [ ] Founder explicitly authorizes merge.
+- [ ] fresh exact-head CI + Docker are green after the policy-documentation repair;
+- [ ] fresh independent exact-head review returns no BLOCKER/HIGH;
+- [x] Founder explicitly approved the narrow access dependency policy decision;
+- [ ] Founder separately authorizes merge after verification.
 
 ## 10. Constructor evidence before PR
 
-Compared with live `main` at `ad684a72db1ccc784a3507ad41f234fa3eca371a`, the branch is 0 commits behind and changes exactly four files:
+Compared with live `main` at `ad684a72db1ccc784a3507ad41f234fa3eca371a`, the branch remains documentation/governance only and is intended to change exactly four files:
 
 - `docs/100-experience/AUREA-002 — ARRIVAL CANON` — modified;
 - `docs/100-experience/AUREUS-016 — STEWARD VOICE & INTERFACE CANON.md` — added;
@@ -211,6 +230,8 @@ Compared with live `main` at `ad684a72db1ccc784a3507ad41f234fa3eca371a`, the bra
 - `docs/work-orders/AUREUS-016-Steward-Voice-Interface-Canon-Reconciliation.md` — added.
 
 No application code, prompts, schemas, workflows, release manifests, or runtime configuration are changed.
+
+Prior exact-head verification evidence is invalid after any repair commit. Fresh CI/Docker and independent review must target the new exact head only.
 
 ## 11. Successor
 
