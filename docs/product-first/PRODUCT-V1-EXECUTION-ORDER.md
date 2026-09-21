@@ -1,7 +1,10 @@
 # Product V1 Execution Order
 
-**Status:** Active product execution registry  
-**Rule:** One work order, one draft PR, one exact head SHA, one acceptance record, one explicit successor.
+**Status:** HISTORICAL EXECUTION / REQUIREMENTS RECORD — not the current sequencing authority.  
+**Current sequencing authority:** `docs/founder/AUREUS-DISCOVERY-EXECUTION-REGISTER.md` once REG-001 is independently accepted and merged.  
+**Rule preserved from this record:** One work order, one draft PR, one exact head SHA, one acceptance record, one explicit successor.
+
+> This document preserves Product V1, Business, and Outcome & Responsibility requirements, decisions, evidence, and historical ordering. Any `active`, `current`, `next`, or ordered-release language below describes the program state when that section was written; it must not override the canonical Discovery & Execution Register. Requirements remain binding where applicable unless explicitly superseded through governed reconciliation.
 
 ## Release 0 — Convergence and truth
 
