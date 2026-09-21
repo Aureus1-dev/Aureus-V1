@@ -3,10 +3,10 @@
 **Status:** CANONICAL SEQUENCING REGISTER — bootstrap-safe across review and merge.  
 **Reconciled base:** `b1485f279aff07ebaefc1a409e01bd46c02d5e47` — merge of PR #162 / UI-003.  
 **Preparation branch:** `docs/master-discovery-execution-register`  
-**Current-item rule:** while this file exists only on the REG-001 review branch, REG-001 is the candidate under verification; once this accepted file exists on `main`, REG-001 is complete and **AUREUS-016 — Steward Voice & Interface canon reconciliation** is the current construction item.  
+**Current-item rule:** determine the active item from live Git and the merge-stable review-branch / accepted-on-`main` interpretation recorded on that item below. An unmerged candidate remains under verification; once its accepted files are present on `main`, its successor activates automatically. Historical snapshots do not determine current `main`.  
 **Founder direction:** replace overlapping sequencing sources with one ordered register while preserving requirements, evidence, history, and governance.
 
-> **Bootstrap rule:** repository location determines the transition without requiring a post-merge cleanup commit. Before the accepted REG-001 merge, this file is a candidate sequencing authority under independent review and existing accepted governance remains controlling. Once this exact accepted register lands on `main`, it is the single cross-program sequencing authority; Item 02 is then historical/completed and Item 03 is current. No later feature is authorized merely because it appears in this register.
+> **Bootstrap rule:** REG-001 established this register as the single cross-program sequencing authority. Successor items use the same merge-stable pattern: review-branch state is candidate evidence only; accepted-on-`main` state advances the queue without requiring a status-only cleanup commit. No later feature is authorized merely because it appears in this register.
 
 ## 1. Why this register exists
 
@@ -17,7 +17,7 @@ Aureus accumulated several legitimate but overlapping sources of execution truth
 - `release-gates/manifest.json` — Living Release Gate work-order registry;
 - merged `SAI-001` — Steward Answer Intelligence architecture and its SAI-002…SAI-006 successors;
 - GitHub Issue #143 plus the closed-unmerged PA-024 candidate — governed Skills / Context Compiler / adaptive intelligence direction;
-- the unmerged `docs/steward-voice-interface-standard` branch — Steward Voice & Interface canon;
+- the historical `docs/steward-voice-interface-standard` branch — source evidence for the fresh AUREUS-016 Voice & Interface canon reconciliation;
 - historical Founder walkthrough issues #95 and #145, whose checklists predate later repairs and the Living Release Gate;
 - later Founder discoveries: Truth / Service Ledger, Mission portfolio structure, Carry Board/Card, Mission Rooms, Artifact Factory, Housing as the first full Mission proof, Flourishing Model, Resource Marshal, Community Operating System, foundational Steward domains, and the Flourishing Economy / institutional scale sequence.
 
@@ -142,28 +142,31 @@ REG-001 acceptance proves that this register:
 
 ### 03 — AUREUS-016 Steward Voice & Interface canon reconciliation
 
-**Disposition:** DOCUMENTED / UNIMPLEMENTED  
-**Stage:** CANONICALIZED on an unmerged historical branch; requires fresh-main reconciliation.  
-**Activation:** this is the current construction item whenever this accepted register is present on `main`.  
-**Historical branch:** `docs/steward-voice-interface-standard`
+**Review-branch interpretation:** IN FLIGHT / VERIFYING when the AUREUS-016 changes exist only on `docs/aureus-016-voice-interface-reconciliation`; they remain candidate canon until exact-head independent review and Founder merge authorization.  
+**`main` interpretation after accepted merge:** COMPLETED / ACCEPTED Member Experience canon reconciliation; docs-only and no production deployment gate of its own.  
+**Work order:** `docs/work-orders/AUREUS-016-Steward-Voice-Interface-Canon-Reconciliation.md`  
+**Fresh branch:** `docs/aureus-016-voice-interface-reconciliation`  
+**Historical source branch:** `docs/steward-voice-interface-standard` at `4a9db08c4fa39982cf36ead4705d13b9798bb5d4`  
+**Successor activation:** once the accepted AUREUS-016 canon and this register transition are present on `main`, Item 04 becomes current automatically, beginning with **UI-004 — Waiting**.
 
-Do not merge that branch as-is. Its two documents must be transplanted onto fresh `main` and reconciled with #163, UI-003, LRG-001, Executive Intelligence, and SAI-001.
+AUREUS-016 must:
 
-Preserve the core doctrine:
-
-- the interface is the Steward’s body;
-- short, first-person, concrete language;
-- every ask carries its reason;
-- every wait carries holder / next chase truth;
-- bad news never arrives naked;
-- never re-ask known facts;
-- do not request more access without having delivered value since the last ask;
-- account/authority requests only at real Carry Boundaries;
-- one underlying work model across Listening, Understanding, Agreement, Working, Asking, Waiting, Choosing, Recovering, Done, and Quiet.
+- preserve `AUREUS-004 — THE STEWARD CANON` as the relationship-level Steward standard;
+- reconcile, rather than silently layer, the conflicting fixed-opening and always-first-question clauses in `AUREA-002 — ARRIVAL CANON`;
+- preserve PR #163 / UI-003 normal Hall opening: one `How can we help?`, one `Tell me what you want to accomplish.`, and the composer;
+- preserve early preferred-name/pronunciation care without turning it into a gate before help;
+- preserve short, first-person, concrete language and continuity across voice/text;
+- make every ask carry its reason and every wait carry truthful holder/chase information when known;
+- keep bad-news recovery, choice, done, and quiet as one underlying Steward state grammar;
+- place access/account/authority requests only at real Carry Boundaries and preserve reversibility/transparency;
+- keep SAI-001 as the intelligence/presentation architecture rather than duplicate it;
+- keep LRG as release authority and Human/Accountable Steward acceptance separate;
+- preserve later Carry Board/Card, Mission Rooms, and Truth/Service Ledger principles without implementing or reordering their registered slices.
 
 ### 04 — Steward interaction-state implementation slices
 
-**Disposition:** DISCOVERED / UNWRITTEN  
+**Disposition:** DISCOVERED / UNWRITTEN on `main` until AUREUS-016 is accepted.  
+**Activation:** once the accepted AUREUS-016 canon is present on `main`, Item 04 is current automatically.  
 **Dependencies:** accepted Voice & Interface canon + merged UI-003.
 
 Thin order:
@@ -353,9 +356,9 @@ Keep its successor order intact, but position SAI-002…006 at item 09 so the an
 
 Issue #143 remains open as DOCUMENTED / UNIMPLEMENTED architecture evidence, not a current queue. Do not resume PR #144 unchanged. The first runtime proof remains one bounded Housing skill after the integrated Housing vertical is ready.
 
-### Voice & Interface branch
+### Voice & Interface branches
 
-Preserve its two documents as canon candidates, but reconcile/transplant onto fresh current main at item 03 rather than merging the stale branch as-is.
+The historical `docs/steward-voice-interface-standard` branch is preserved as source evidence only and must not be merged unchanged. AUREUS-016 is reconstructed on fresh `docs/aureus-016-voice-interface-reconciliation` from post-REG-001 `main`. Once its accepted canon is on `main`, the historical branch remains evidence and Item 04 becomes current.
 
 ### Historical Founder walkthrough queues
 
@@ -407,9 +410,11 @@ The following are the acceptance conditions for the bootstrap slice. On the revi
 
 ## 10. Current-item resolution
 
-Use the repository location of this file rather than a stale prose timestamp:
+Determine current work from **live Git** plus the merge-stable interpretation on the relevant queue item; do not use historical SHAs or timestamps as a current-state substitute.
 
-- **If this file is only on PR #166 / its review branch:** REG-001 is the candidate under independent verification. Do not merge or start Item 03 from the branch merely because the document names it.
-- **If this accepted file is present on `main`:** REG-001 is complete. The canonical current construction item is **AUREUS-016 Steward Voice & Interface canon reconciliation**, transplanted/reconciled onto fresh `main` rather than merging its historical branch unchanged.
+For AUREUS-016 specifically:
 
-That rule is the transition. No post-merge edit is required merely to change REG-001 from “current” to “complete.”
+- **If the AUREUS-016 canon/register changes exist only on `docs/aureus-016-voice-interface-reconciliation`:** Item 03 is the candidate under construction/independent verification. Item 04 is not yet authorized by that branch.
+- **If the independently accepted AUREUS-016 canon and this register transition are present on `main`:** Item 03 is complete. The canonical current construction item is **Item 04 — Steward interaction-state implementation**, beginning with **UI-004 — Waiting**.
+
+That accepted-on-`main` transition is the queue advancement. No post-merge status-only edit is required merely to mark AUREUS-016 complete.
