@@ -1,6 +1,6 @@
 # AUREUS-016 — Steward Voice & Interface Canon Reconciliation
 
-**Status:** BUILDING / docs-only canon reconciliation  
+**Status:** READY FOR EXACT-HEAD CI + INDEPENDENT REVIEW / docs-only canon reconciliation  
 **Register parent:** Item 03 — AUREUS-016  
 **Predecessor:** REG-001 / PR #166  
 **Base:** live `main` at `ad684a72db1ccc784a3507ad41f234fa3eca371a`  
@@ -193,15 +193,26 @@ AUREUS-016 is ready for independent review when:
 - [x] fresh branch starts from post-REG-001 `main`;
 - [x] historical voice branch is used only as evidence/source material;
 - [x] reconciled AUREUS-016 canon exists;
-- [ ] AUREA-002 contains the explicit merge-stable supersession note;
-- [ ] Master Register contains the AUREUS-016 -> Item 04 merge-stable transition;
+- [x] AUREA-002 contains the explicit merge-stable supersession note;
+- [x] Master Register contains the AUREUS-016 -> Item 04 merge-stable transition;
 - [x] no runtime code/schema/workflow/release manifest is changed;
-- [ ] net diff is limited to the intended documentation/governance files;
+- [x] net diff is limited to four intended documentation/governance files;
 - [ ] exact-head CI + Docker are green;
 - [ ] independent exact-head review returns no BLOCKER/HIGH;
 - [ ] Founder explicitly authorizes merge.
 
-## 10. Successor
+## 10. Constructor evidence before PR
+
+Compared with live `main` at `ad684a72db1ccc784a3507ad41f234fa3eca371a`, the branch is 0 commits behind and changes exactly four files:
+
+- `docs/100-experience/AUREA-002 — ARRIVAL CANON` — modified;
+- `docs/100-experience/AUREUS-016 — STEWARD VOICE & INTERFACE CANON.md` — added;
+- `docs/founder/AUREUS-DISCOVERY-EXECUTION-REGISTER.md` — modified;
+- `docs/work-orders/AUREUS-016-Steward-Voice-Interface-Canon-Reconciliation.md` — added.
+
+No application code, prompts, schemas, workflows, release manifests, or runtime configuration are changed.
+
+## 11. Successor
 
 Once this accepted slice is present on `main`, Register Item 04 becomes current.
 
