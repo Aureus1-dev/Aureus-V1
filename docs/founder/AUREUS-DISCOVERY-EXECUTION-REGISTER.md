@@ -166,17 +166,21 @@ AUREUS-016 must:
 
 ### 04 — Steward interaction-state implementation slices
 
-**Disposition:** DISCOVERED / UNWRITTEN on `main` until AUREUS-016 is accepted.  
-**Activation:** once the accepted AUREUS-016 canon is present on `main`, Item 04 is current automatically.  
-**Dependencies:** accepted Voice & Interface canon + merged UI-003.
+**UI-004 review-branch interpretation:** IN FLIGHT / VERIFYING when the Waiting implementation exists only on `feat/ui-004-waiting`; UI-004 remains a production candidate until exact-head CI/Docker, independent review, Founder merge authorization, exact-deployment Living Release Gate, and Accountable Steward evidence are satisfied.  
+**`main` interpretation after accepted UI-004 merge:** UI-004 is COMPLETED / ACCEPTED as code; production deployment remains a separately evidenced fact. **UI-005 — Asking** becomes the current construction slice automatically.  
+**UI-004 work order:** `docs/work-orders/UI-004-Waiting.md`  
+**Dependencies:** accepted AUREUS-016 Voice & Interface canon + merged UI-003 Active Work Surface.  
+**UI-004 truth owners reused:** Responsibility status/ownership, conversation scope, and the accepted People Step-5 follow-through contract; no new wait/task persistence.
 
 Thin order:
 
-1. **UI-004 — Waiting** — holder, last chase, next chase, expected range, and “nothing you need to do” when true.
-2. **UI-005 — Asking** — one clear ask, why it is needed, what happens after, no re-asking established facts.
+1. **UI-004 — Waiting** — holder, real last/next follow-up when recorded, due/provenance when known, and `Nothing you need to do.` only when canonical ownership/review truth supports it. A due time is not silently relabeled as a response ETA, and generic activity is not relabeled as a chase.
+2. **UI-005 — Asking** — DISCOVERED / UNWRITTEN until accepted UI-004 is on `main`; one clear ask, why it is needed, what happens after, no re-asking established facts.
 3. **UI-006 — Bad News / Recovering** — what failed, what remains true, next safe route, holder, repair action.
 4. **UI-007 — Choosing** — real options, tradeoffs, uncertainty, authority, next action; Aureus does not silently decide for the person.
 5. **UI-008 — Done + Quiet** — verified completion/testimony and a quiet state that does not manufacture engagement.
+
+**UI-004 successor activation:** accepted UI-004 implementation plus this register transition on `main` advances the current construction item to **UI-005 — Asking**. The UI-004 exact-deployment gate and Accountable Steward walkthrough remain release/acceptance facts and must not be fabricated by queue advancement.
 
 LISTENING / UNDERSTANDING / AGREEMENT / WORKING remain part of the same state grammar unless implementation evidence proves a missing primitive.
 
@@ -415,9 +419,9 @@ The following are the acceptance conditions for the bootstrap slice. On the revi
 
 Determine current work from **live Git** plus the merge-stable interpretation on the relevant queue item; do not use historical SHAs or timestamps as a current-state substitute.
 
-For AUREUS-016 specifically:
+For UI-004 specifically:
 
-- **If the AUREUS-016 canon/register changes exist only on `docs/aureus-016-voice-interface-reconciliation`:** Item 03 is the candidate under construction/independent verification. Item 04 is not yet authorized by that branch.
-- **If the independently accepted AUREUS-016 canon and this register transition are present on `main`:** Item 03 is complete. The canonical current construction item is **Item 04 — Steward interaction-state implementation**, beginning with **UI-004 — Waiting**.
+- **If the UI-004 implementation/register changes exist only on `feat/ui-004-waiting`:** UI-004 is the current candidate under construction/independent verification. UI-005 is not authorized by that branch.
+- **If the independently accepted UI-004 implementation and this register transition are present on `main`:** UI-004 is complete as the accepted code slice; its exact-deployment and Accountable Steward evidence remain separate release facts. The canonical current construction item is **UI-005 — Asking**.
 
-That accepted-on-`main` transition is the queue advancement. No post-merge status-only edit is required merely to mark AUREUS-016 complete.
+That accepted-on-`main` transition is the queue advancement. No post-merge status-only edit is required merely to mark UI-004 complete.
