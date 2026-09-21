@@ -18,7 +18,7 @@ Aureus accumulated several legitimate but overlapping sources of execution truth
 - merged `SAI-001` — Steward Answer Intelligence architecture and its SAI-002…SAI-006 successors;
 - GitHub Issue #143 plus the closed-unmerged PA-024 candidate — governed Skills / Context Compiler / adaptive intelligence direction;
 - the unmerged `docs/steward-voice-interface-standard` branch — Steward Voice & Interface canon;
-- Founder walkthrough issues #95 and #145, whose checklists partly predate later repairs and the Living Release Gate;
+- historical Founder walkthrough issues #95 and #145, whose checklists predate later repairs and the Living Release Gate;
 - later Founder discoveries: Truth / Service Ledger, Mission portfolio structure, Carry Board/Card, Mission Rooms, Artifact Factory, Housing as the first full Mission proof, Flourishing Model, Resource Marshal, Community Operating System, foundational Steward domains, and the Flourishing Economy / institutional scale sequence.
 
 All remain evidence or requirements sources. Once REG-001 is accepted, they no longer independently determine what Aureus builds next.
@@ -68,16 +68,19 @@ Portfolio disposition:
 
 ### Open pull requests
 
-**None** at this snapshot.
+**None** at the reconciliation snapshot before REG-001 PR creation.
 
-### Open issues requiring reconciliation
+### Active open issues after REG-001 reconciliation
 
-- **#122 — PEOPLE-000:** Steps 1–6 are implemented/merged. Keep as the People domain ladder; point sequencing to this register.
-- **#143 — governed skills / adaptive intelligence:** relevant architecture anchor. Old PR #144 is closed unmerged. Housing remains the first bounded runtime proof when this item reaches its turn.
-- **#145 — Founder Walkthrough blocking product defects:** re-audit against later fixes (#146–#163, UI-003, voice/release-gate hardening). Retain only genuinely unresolved defects.
-- **#95 — older Founder Walkthrough launch plan:** preserve historical evidence; move still-valid acceptance requirements into the Living Release Gate/current work orders rather than keeping a competing release queue.
-- **#136 — PEOPLE-HOUSEHOLD-001:** implementation was merged through PR #137; confirm acceptance linkage, then disposition/close as stale execution work.
-- **#99 — temporary Prisma/deepmerge audit exception:** valid maintenance item; deferred until the external dependency changes.
+- **#122 — PEOPLE-000:** remains open as the People domain requirements ladder. Steps 1–6 are now explicitly marked complete; the issue points sequencing to this register and no longer claims Step 1 as the immediate target.
+- **#143 — governed skills / adaptive intelligence:** remains open as DOCUMENTED / UNIMPLEMENTED architecture evidence. It explicitly does not authorize immediate runtime work; Housing remains the first bounded skill proof at item 12. Old PR #144 stays historical evidence only.
+- **#99 — temporary Prisma/deepmerge audit exception:** remains open as DEFERRED MAINTENANCE. It resumes only when the upstream dependency trigger is satisfied and does not preempt this register.
+
+### Issues dispositioned during REG-001
+
+- **#136 — PEOPLE-HOUSEHOLD-001:** CLOSED / COMPLETED. PR #137 is the accepted Step-3 implementation record.
+- **#95 — older Founder Walkthrough ordered launch plan:** CLOSED / SUPERSEDED AS SEQUENCING. Historical requirements remain evidence; release acceptance moved to the Living Release Gate/current work orders.
+- **#145 — Founder Walkthrough blocking product defects:** CLOSED / SUPERSEDED AS A CURRENT QUEUE. Repaired items are linked to later PRs; residual UX evidence is retained for current Voice/Interface/state work and exact-deployment human walkthroughs.
 
 ### Completed foundations to reuse
 
@@ -325,7 +328,7 @@ Members are not charged as the solvency foundation. Institutions fund stewardshi
 
 ### Product V1 / Business-first order
 
-After REG-001 acceptance, `PRODUCT-V1-EXECUTION-ORDER.md` remains a requirements and historical evidence source, not an independent “next” authority.
+`PRODUCT-V1-EXECUTION-ORDER.md` is now explicitly labeled a historical execution / requirements record and points to this register for current sequencing.
 
 - merged Business/OR primitives remain reusable;
 - old unmerged #124 / #140 remain superseded candidates, not current execution;
@@ -334,7 +337,7 @@ After REG-001 acceptance, `PRODUCT-V1-EXECUTION-ORDER.md` remains a requirements
 
 ### PEOPLE-000
 
-Keep #122 as the People domain definition. Mark Steps 1–6 complete and direct sequencing questions to this register. Step 7 onward retains requirements value.
+Issue #122 now explicitly remains the People domain definition rather than the execution queue. Steps 1–6 are marked complete and sequencing points here. Step 7 onward retains requirements value.
 
 ### Living Release Gate
 
@@ -346,21 +349,26 @@ Keep its successor order intact, but position SAI-002…006 at item 09 so the an
 
 ### Governed Skills
 
-Keep Issue #143 as architecture evidence/anchor. Do not resume PR #144 unchanged. The first runtime proof remains one bounded Housing skill after the integrated Housing vertical is ready.
+Issue #143 remains open as DOCUMENTED / UNIMPLEMENTED architecture evidence, not a current queue. Do not resume PR #144 unchanged. The first runtime proof remains one bounded Housing skill after the integrated Housing vertical is ready.
 
 ### Voice & Interface branch
 
 Preserve its two documents as canon candidates, but reconcile/transplant onto fresh current main at item 03 rather than merging the stale branch as-is.
 
-## 7. Stale queue cleanup actions
+### Historical Founder walkthrough queues
 
-1. **#136:** verify PR #137 acceptance link, then disposition/close as stale execution work.
-2. **#145:** reconcile every blocker against later merged repairs and exact product evidence; retain only unresolved defects.
-3. **#95:** move still-valid acceptance requirements into LRG/manual/current work orders and stop treating it as an independent ordered queue.
-4. **#143:** keep open as governed-skills anchor until its Housing proof is reconciled and accepted.
-5. **#122:** update Steps 1–6 complete and point future execution order to this register.
-6. **#99:** keep deferred until its upstream dependency changes.
-7. Preserve closed-unmerged branches/PRs as historical evidence unless a separate branch-retention policy explicitly deletes them.
+Issues #95 and #145 are closed as superseded sequencing mechanisms. Their still-valid requirements remain historical evidence and feed current work orders/LRG/manual acceptance when relevant. Neither can independently reorder this register.
+
+## 7. REG-001 cleanup record
+
+1. **#136 — COMPLETE:** linked to accepted PR #137 and closed as completed.
+2. **#145 — COMPLETE:** reconciled against later repairs; closed as superseded current queue while preserving residual UX evidence.
+3. **#95 — COMPLETE:** closed as superseded ordered queue; still-valid acceptance ideas mapped to LRG/current/future work.
+4. **#143 — COMPLETE FOR REG-001:** remains open as governed-skills anchor, explicitly deferred to the Housing skill proof.
+5. **#122 — COMPLETE FOR REG-001:** Steps 1–6 marked complete and sequencing redirected here.
+6. **#99 — COMPLETE FOR REG-001:** remains open as deferred external-trigger maintenance and cannot preempt current sequence.
+7. **Product V1 order — COMPLETE FOR REG-001:** explicitly demoted from active registry to historical requirements record with pointer here.
+8. Preserve closed-unmerged branches/PRs as historical evidence unless a separate branch-retention policy explicitly deletes them.
 
 ## 8. Required fields for future work orders
 
@@ -386,12 +394,13 @@ REG-001 is ready for independent review only when:
 - this register is anchored to exact post-UI-003 main;
 - UI-003 is no longer described as an open PR;
 - current open PR/issue state is refreshed;
-- Product V1 guidance and Founder execution guidance point here for sequencing;
+- Product V1 guidance points here for sequencing while retaining its requirements/history;
 - PEOPLE-000 points here for order while retaining its domain ladder;
 - stale walkthrough issues are reconciled/dispositioned;
 - no competing document truthfully claims sole active sequencing authority without a pointer to this register;
 - future work orders are required to update the register;
 - no later feature implementation is included;
+- docs-only CI is green;
 - independent review confirms no lost requirement, silent supersession, duplicate truth universe, or governance weakening.
 
 ## 10. Immediate next action
