@@ -135,6 +135,87 @@ describe('UI-004 Waiting', () => {
     expect(within(waiting).queryByText('Nothing you need to do.')).not.toBeInTheDocument();
   });
 
+  it('does not resurrect a satisfied member-owned obligation from stale WAITING_ON_USER status', () => {
+    renderResponsibility(
+      makePersonalResponsibility({
+        status: 'WAITING_ON_USER',
+        successCriteria: {
+          type: 'PERSONAL_NEED_RESOLUTION',
+          step5FollowThrough: {
+            version: 'people-step5-obligation-v1',
+            owner: 'MEMBER',
+            requiredAction: 'Upload the requested proof of income.',
+            dueAt: '2026-09-24T17:00:00.000Z',
+            dueProvenance: 'REPORTED',
+            state: 'SATISFIED_REPORTED',
+            lastAttemptAt: '2026-09-21T14:00:00.000Z',
+            nextAttemptAt: null,
+            reviewRequired: false,
+          },
+        },
+      }),
+    );
+
+    expect(screen.queryByRole('region', { name: 'Waiting' })).not.toBeInTheDocument();
+    expect(screen.queryByText('Needs you')).not.toBeInTheDocument();
+    expect(screen.queryByText(/^You: /)).not.toBeInTheDocument();
+    expect(screen.getByText('That follow-up is no longer waiting. The underlying need remains open.')).toBeInTheDocument();
+    expect(screen.getByText(/^Aureus: Aureus continues carrying the underlying need\.$/)).toBeInTheDocument();
+  });
+
+  it('does not resurrect a satisfied third-party obligation from stale WAITING_ON_THIRD_PARTY status', () => {
+    renderResponsibility(
+      makePersonalResponsibility({
+        status: 'WAITING_ON_THIRD_PARTY',
+        successCriteria: {
+          type: 'PERSONAL_NEED_RESOLUTION',
+          step5FollowThrough: {
+            version: 'people-step5-obligation-v1',
+            owner: 'THIRD_PARTY',
+            requiredAction: 'The property manager must confirm the move-in date.',
+            dueAt: '2026-09-24T17:00:00.000Z',
+            dueProvenance: 'VERIFIED',
+            state: 'SATISFIED_VERIFIED',
+            lastAttemptAt: '2026-09-21T14:00:00.000Z',
+            nextAttemptAt: null,
+            reviewRequired: false,
+          },
+        },
+      }),
+    );
+
+    expect(screen.queryByRole('region', { name: 'Waiting' })).not.toBeInTheDocument();
+    expect(screen.queryByText('Held by An outside party')).not.toBeInTheDocument();
+    expect(screen.queryByText(/^An outside party: /)).not.toBeInTheDocument();
+    expect(screen.getByText('Aureus is still carrying the underlying need.')).toBeInTheDocument();
+  });
+
+  it('does not create Waiting from HUMAN_STEWARD ownership after verified satisfaction', () => {
+    renderResponsibility(
+      makePersonalResponsibility({
+        status: 'ACTIVE',
+        successCriteria: {
+          type: 'PERSONAL_NEED_RESOLUTION',
+          step5FollowThrough: {
+            version: 'people-step5-obligation-v1',
+            owner: 'HUMAN_STEWARD',
+            requiredAction: 'The assigned Human Steward must verify the housing callback.',
+            dueAt: '2026-09-24T17:00:00.000Z',
+            dueProvenance: 'VERIFIED',
+            state: 'SATISFIED_VERIFIED',
+            lastAttemptAt: '2026-09-21T14:00:00.000Z',
+            nextAttemptAt: null,
+            reviewRequired: false,
+          },
+        },
+      }),
+    );
+
+    expect(screen.queryByRole('region', { name: 'Waiting' })).not.toBeInTheDocument();
+    expect(screen.queryByText('Held by A Human Steward')).not.toBeInTheDocument();
+    expect(screen.queryByText('Needs you')).not.toBeInTheDocument();
+  });
+
   it('has no accessibility violations for a fully populated wait', async () => {
     const { container } = renderResponsibility(
       makePersonalResponsibility({
