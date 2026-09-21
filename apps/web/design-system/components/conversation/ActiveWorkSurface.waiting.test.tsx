@@ -216,6 +216,118 @@ describe('UI-004 Waiting', () => {
     expect(screen.queryByText('Needs you')).not.toBeInTheDocument();
   });
 
+  it('honors a new member-owned wait that begins after Step-5 satisfaction without reviving the old obligation', () => {
+    renderResponsibility(
+      makePersonalResponsibility({
+        status: 'WAITING_ON_USER',
+        events: [
+          {
+            id: 'wait-before-satisfaction',
+            type: 'USER_INPUT_REQUIRED',
+            actorClass: 'AUREUS',
+            actorUserId: null,
+            fromStatus: 'ACTIVE',
+            toStatus: 'WAITING_ON_USER',
+            sourceSystem: null,
+            sourceRecordType: null,
+            sourceRecordId: null,
+            sourceState: null,
+            evidenceLevel: null,
+            occurredAt: '2026-09-21T13:00:00.000Z',
+          },
+          {
+            id: 'new-wait-after-satisfaction',
+            type: 'USER_INPUT_REQUIRED',
+            actorClass: 'AUREUS',
+            actorUserId: null,
+            fromStatus: 'ACTIVE',
+            toStatus: 'WAITING_ON_USER',
+            sourceSystem: null,
+            sourceRecordType: null,
+            sourceRecordId: null,
+            sourceState: null,
+            evidenceLevel: null,
+            occurredAt: '2026-09-21T15:00:00.000Z',
+          },
+        ],
+        successCriteria: {
+          type: 'PERSONAL_NEED_RESOLUTION',
+          step5FollowThrough: {
+            version: 'people-step5-obligation-v1',
+            owner: 'MEMBER',
+            requiredAction: 'Upload the old proof of income.',
+            dueAt: '2026-09-24T17:00:00.000Z',
+            dueProvenance: 'REPORTED',
+            state: 'SATISFIED_REPORTED',
+            reportedSatisfiedAt: '2026-09-21T14:00:00.000Z',
+            verifiedSatisfiedAt: null,
+            lastAttemptAt: '2026-09-21T12:00:00.000Z',
+            nextAttemptAt: null,
+            reviewRequired: false,
+          },
+        },
+      }),
+    );
+
+    const waiting = screen.getByRole('region', { name: 'Waiting' });
+    expect(within(waiting).getByText('Held by You')).toBeInTheDocument();
+    expect(within(waiting).getByText('Aureus is waiting for your next step.')).toBeInTheDocument();
+    expect(within(waiting).queryByText('Upload the old proof of income.')).not.toBeInTheDocument();
+    expect(within(waiting).queryByText('Last follow-up')).not.toBeInTheDocument();
+    expect(within(waiting).queryByText('Due')).not.toBeInTheDocument();
+    expect(screen.getByText('Needs you')).toBeInTheDocument();
+    expect(screen.getByText(/^You: /)).toBeInTheDocument();
+  });
+
+  it('honors a new third-party wait after Step-5 satisfaction without reusing old Step-5 chase or due truth', () => {
+    renderResponsibility(
+      makePersonalResponsibility({
+        status: 'WAITING_ON_THIRD_PARTY',
+        events: [
+          {
+            id: 'new-external-wait-after-satisfaction',
+            type: 'EXTERNAL_WAIT_STARTED',
+            actorClass: 'AUREUS',
+            actorUserId: null,
+            fromStatus: 'ACTIVE',
+            toStatus: 'WAITING_ON_THIRD_PARTY',
+            sourceSystem: null,
+            sourceRecordType: null,
+            sourceRecordId: null,
+            sourceState: null,
+            evidenceLevel: null,
+            occurredAt: '2026-09-21T16:00:00.000Z',
+          },
+        ],
+        successCriteria: {
+          type: 'PERSONAL_NEED_RESOLUTION',
+          step5FollowThrough: {
+            version: 'people-step5-obligation-v1',
+            owner: 'THIRD_PARTY',
+            requiredAction: 'The old property manager callback must happen.',
+            dueAt: '2026-09-24T17:00:00.000Z',
+            dueProvenance: 'VERIFIED',
+            state: 'SATISFIED_VERIFIED',
+            reportedSatisfiedAt: null,
+            verifiedSatisfiedAt: '2026-09-21T14:00:00.000Z',
+            lastAttemptAt: '2026-09-21T12:00:00.000Z',
+            nextAttemptAt: null,
+            reviewRequired: false,
+          },
+        },
+      }),
+    );
+
+    const waiting = screen.getByRole('region', { name: 'Waiting' });
+    expect(within(waiting).getByText('Held by An outside party')).toBeInTheDocument();
+    expect(within(waiting).getByText('Aureus is waiting for an outside party to respond.')).toBeInTheDocument();
+    expect(within(waiting).queryByText('The old property manager callback must happen.')).not.toBeInTheDocument();
+    expect(within(waiting).queryByText('Last follow-up')).not.toBeInTheDocument();
+    expect(within(waiting).queryByText('Due')).not.toBeInTheDocument();
+    expect(within(waiting).getByText('Nothing you need to do.')).toBeInTheDocument();
+    expect(screen.getByText(/^An outside party: /)).toBeInTheDocument();
+  });
+
   it('has no accessibility violations for a fully populated wait', async () => {
     const { container } = renderResponsibility(
       makePersonalResponsibility({
