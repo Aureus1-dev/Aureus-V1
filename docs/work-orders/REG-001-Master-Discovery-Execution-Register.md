@@ -1,10 +1,11 @@
 # REG-001 — Master Discovery & Execution Register
 
-**Status:** READY FOR INDEPENDENT REVIEW / docs-only governance slice  
+**Status:** BOOTSTRAP-SAFE — review-branch candidate / completed automatically once the accepted file is on `main`  
 **Parent register item:** 02 — REG-001  
 **Predecessor:** UI-003 Active Work Surface / PR #162  
 **Post-UI-003 base:** `b1485f279aff07ebaefc1a409e01bd46c02d5e47`  
-**Release impact:** docs-only; no deployed product behavior changes and no new Living Release Gate contract is created.
+**Release impact:** docs-only; no deployed product behavior changes and no new Living Release Gate contract is created.  
+**Transition rule:** while this work order exists only on PR #166 / its review branch, REG-001 is under verification; once the accepted work order and register exist on `main`, REG-001 is complete and AUREUS-016 is the current construction item without requiring a post-merge status-edit PR.
 
 ## Purpose
 
@@ -41,6 +42,7 @@ This slice does **not** implement later product capabilities. It only reconciles
 11. Updated `CLAUDE.md` and `docs/ai/REPOSITORY_STEWARD.md` so future construction/review sessions begin from the Master Register, current work order, live Git state, Living Release Gate, and separate human acceptance rather than stale queues.
 12. Reconciled SAI-001 successor guidance to Master Register item 09 rather than the historical Product V1 execution order.
 13. Preserved the agreed successor order: Voice & Interface canon -> interaction-state slices -> Truth/Service Ledger -> Life Map/Mission -> Carry Board/Card -> Mission Rooms -> SAI-002…006 -> Artifact Factory -> Housing proof -> governed skills proof -> Flourishing Model -> Resource Marshal -> Community OS -> foundational domains -> Flourishing Economy / Business / institutional scale.
+14. Made the register and this work order merge-stable: review-branch semantics identify REG-001 as the candidate under verification; `main` semantics identify REG-001 as complete and activate AUREUS-016 automatically.
 
 ## Non-duplication and governance invariants
 
@@ -55,7 +57,7 @@ This slice does **not** implement later product capabilities. It only reconciles
 
 ## Definition of done
 
-REG-001 is ready for independent review when:
+On the review branch, REG-001 is ready for independent acceptance when:
 
 - [x] the master register is reconciled to current post-UI-003 `main` and contains no stale claim that PR #162 is open;
 - [x] PR/issue state is refreshed from GitHub;
@@ -64,8 +66,11 @@ REG-001 is ready for independent review when:
 - [x] future work orders are required to name their register parent/predecessor and update the register on acceptance;
 - [x] stale walkthrough issues are reconciled so there is one release/acceptance path;
 - [x] no later feature implementation is included;
+- [x] register/work-order semantics are merge-stable and do not require a follow-up commit merely to make AUREUS-016 current;
 - [ ] exact-head CI is green;
-- [ ] an independent reviewer confirms no lost requirement, silent supersession, duplicate truth system, or governance weakening.
+- [ ] an independent reviewer confirms no lost requirement, silent supersession, duplicate truth system, governance weakening, or stale post-merge current-item claim.
+
+Once those conditions are satisfied and the exact accepted PR is merged, the presence of this file on `main` is itself the durable completion state for REG-001. Do not leave REG-001 as a current build item on `main` and do not create a status-only cleanup PR.
 
 ## Independent review attack surface
 
@@ -78,8 +83,10 @@ The reviewer should specifically test whether REG-001 accidentally:
 5. lets Product V1, PEOPLE-000, Founder walkthrough issues, the old Control Center, or SAI independently reorder the queue;
 6. authorizes a later feature merely by documenting it;
 7. weakens constructor/reviewer separation or exact-head evidence rules;
-8. creates a second truth universe instead of pointing future work to accepted primitives.
+8. creates a second truth universe instead of pointing future work to accepted primitives;
+9. becomes stale immediately after merge by still claiming REG-001 is current.
 
 ## Successor
 
-After REG-001 is independently accepted and merged, the next construction candidate is the **AUREUS-016 Steward Voice & Interface canon reconciliation** on fresh current `main`.
+**Review-branch interpretation:** AUREUS-016 is only the declared successor; do not start it merely because this candidate names it.  
+**`main` interpretation after accepted merge:** REG-001 is complete and the current construction item is **AUREUS-016 Steward Voice & Interface canon reconciliation** on fresh current `main`.
