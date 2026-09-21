@@ -239,6 +239,8 @@ type Step5FollowThroughProjection = {
   state: string;
   lastAttemptAt: string | null;
   nextAttemptAt: string | null;
+  reportedSatisfiedAt: string | null;
+  verifiedSatisfiedAt: string | null;
   reviewRequired: boolean;
 };
 
@@ -266,6 +268,10 @@ function readStep5FollowThrough(successCriteria: unknown): Step5FollowThroughPro
     state: typeof value.state === 'string' ? value.state : 'PENDING',
     lastAttemptAt: typeof value.lastAttemptAt === 'string' ? value.lastAttemptAt : null,
     nextAttemptAt: typeof value.nextAttemptAt === 'string' ? value.nextAttemptAt : null,
+    reportedSatisfiedAt:
+      typeof value.reportedSatisfiedAt === 'string' ? value.reportedSatisfiedAt : null,
+    verifiedSatisfiedAt:
+      typeof value.verifiedSatisfiedAt === 'string' ? value.verifiedSatisfiedAt : null,
     reviewRequired: value.reviewRequired === true,
   };
 }
@@ -287,26 +293,56 @@ function statusHolder(status: ResponsibilityProjection['status']): CarryStateOwn
   }
 }
 
+function satisfactionStartedAt(
+  followThrough: Step5FollowThroughProjection | null,
+): string | null {
+  if (!followThroughIsSatisfied(followThrough) || !followThrough) return null;
+  // Reported satisfaction is the first point at which this bounded Step-5
+  // obligation stopped being a live wait. Later verification strengthens that
+  // truth but must not move the cutoff forward and accidentally hide a broader
+  // Responsibility wait that legitimately began in between.
+  return followThrough.reportedSatisfiedAt ?? followThrough.verifiedSatisfiedAt;
+}
+
+function hasPostSatisfactionWaitEvidence(
+  responsibility: ResponsibilityProjection,
+  followThrough: Step5FollowThroughProjection | null,
+): boolean {
+  const satisfiedAt = satisfactionStartedAt(followThrough);
+  if (!satisfiedAt || !statusHolder(responsibility.status)) return false;
+
+  // Fail closed: updatedAt, messages, tool calls, and unrelated evidence do not
+  // prove a new wait. The append-only Responsibility event must explicitly move
+  // this Responsibility into its *current* WAITING_* status after satisfaction.
+  return responsibility.events.some(
+    (event) => event.toStatus === responsibility.status && event.occurredAt > satisfiedAt,
+  );
+}
+
 function buildWaitingState(
   responsibility: ResponsibilityProjection,
   followThrough = readStep5FollowThrough(responsibility.successCriteria),
 ): CarryStateWaiting | null {
-  // Step 5 satisfaction closes this bounded wait only; it deliberately does
-  // not complete the underlying Personal Need Responsibility. A stale coarse
-  // WAITING_* status or HUMAN_STEWARD owner must therefore never resurrect
-  // the already-satisfied obligation as current Waiting truth.
-  if (followThroughIsSatisfied(followThrough)) return null;
+  const satisfied = followThroughIsSatisfied(followThrough);
+  const postSatisfactionWait = satisfied && hasPostSatisfactionWaitEvidence(responsibility, followThrough);
+
+  // Satisfaction closes only the bounded Step-5 wait. If the broader Personal
+  // Need later enters a genuinely new wait, its Responsibility event chronology
+  // is authoritative and that new wait must be honored. The old Step-5 action,
+  // due date, and follow-up timestamps are never reused to describe the new wait.
+  if (satisfied && !postSatisfactionWait) return null;
+  const activeFollowThrough = satisfied ? null : followThrough;
 
   const holderFromStatus = statusHolder(responsibility.status);
   const followThroughIsWaiting =
-    Boolean(followThrough) &&
-    (followThrough!.state === 'WAITING' || followThrough!.owner === 'HUMAN_STEWARD');
+    Boolean(activeFollowThrough) &&
+    (activeFollowThrough!.state === 'WAITING' || activeFollowThrough!.owner === 'HUMAN_STEWARD');
 
   if (!holderFromStatus && !followThroughIsWaiting) return null;
 
-  const holder = followThrough?.owner ?? holderFromStatus ?? 'AUREUS';
+  const holder = activeFollowThrough?.owner ?? holderFromStatus ?? 'AUREUS';
   const waitingOn =
-    followThrough?.requiredAction ??
+    activeFollowThrough?.requiredAction ??
     (holder === 'MEMBER'
       ? 'Aureus is waiting for your next step.'
       : holder === 'AUREUS'
@@ -315,17 +351,17 @@ function buildWaitingState(
           ? 'A Human Steward has the next step.'
           : 'Aureus is waiting for an outside party to respond.');
 
-  const noActionNeededFromMember = followThrough
-    ? holder !== 'MEMBER' && followThrough.state !== 'DISPUTED' && !followThrough.reviewRequired
+  const noActionNeededFromMember = activeFollowThrough
+    ? holder !== 'MEMBER' && activeFollowThrough.state !== 'DISPUTED' && !activeFollowThrough.reviewRequired
     : holder !== 'MEMBER';
 
   return {
     holder,
     waitingOn,
-    lastFollowUpAt: followThrough?.lastAttemptAt ?? null,
-    nextFollowUpAt: followThrough?.nextAttemptAt ?? null,
-    dueAt: followThrough?.dueAt ?? responsibility.dueAt ?? null,
-    dueProvenance: followThrough?.dueProvenance ?? null,
+    lastFollowUpAt: activeFollowThrough?.lastAttemptAt ?? null,
+    nextFollowUpAt: activeFollowThrough?.nextAttemptAt ?? null,
+    dueAt: activeFollowThrough?.dueAt ?? (satisfied ? null : responsibility.dueAt ?? null),
+    dueProvenance: activeFollowThrough?.dueProvenance ?? null,
     noActionNeededFromMember,
   };
 }
@@ -347,11 +383,11 @@ export function buildCarryState(
     responsibility.status === 'ACTIVE' &&
     !hasActiveGuideSession;
   const followThrough = readStep5FollowThrough(responsibility.successCriteria);
+  const currentStatusIsWaiting = statusHolder(responsibility.status) !== null;
   const satisfiedFollowThroughWithStaleWait =
     followThroughIsSatisfied(followThrough) &&
-    (responsibility.status === 'WAITING_ON_USER' ||
-      responsibility.status === 'WAITING_ON_AUREUS' ||
-      responsibility.status === 'WAITING_ON_THIRD_PARTY');
+    currentStatusIsWaiting &&
+    !hasPostSatisfactionWaitEvidence(responsibility, followThrough);
 
   return {
     workingOn: responsibility.objective,
