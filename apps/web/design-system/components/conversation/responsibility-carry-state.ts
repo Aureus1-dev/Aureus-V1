@@ -119,6 +119,10 @@ const APPLICATION_GUIDANCE_NEEDS_YOU =
   'Return to finish the guided application, or tell Aureus you applied or are not interested.';
 const GENERIC_NEEDS_YOU = 'Aureus needs something from you to continue — return to the conversation for details.';
 const RESUME_GUIDANCE_NEEDS_YOU = 'Resume the guided application to continue — Aureus is ready when you are.';
+const SATISFIED_FOLLOW_THROUGH_STATES = new Set([
+  'SATISFIED_REPORTED',
+  'SATISFIED_VERIFIED',
+]);
 
 function describeCarrying(responsibility: ResponsibilityProjection): string {
   const isApplicationGuidance = responsibility.kind === 'OPPORTUNITY_APPLICATION_GUIDANCE';
@@ -266,6 +270,10 @@ function readStep5FollowThrough(successCriteria: unknown): Step5FollowThroughPro
   };
 }
 
+function followThroughIsSatisfied(followThrough: Step5FollowThroughProjection | null): boolean {
+  return Boolean(followThrough && SATISFIED_FOLLOW_THROUGH_STATES.has(followThrough.state));
+}
+
 function statusHolder(status: ResponsibilityProjection['status']): CarryStateOwner | null {
   switch (status) {
     case 'WAITING_ON_AUREUS':
@@ -279,8 +287,16 @@ function statusHolder(status: ResponsibilityProjection['status']): CarryStateOwn
   }
 }
 
-function buildWaitingState(responsibility: ResponsibilityProjection): CarryStateWaiting | null {
-  const followThrough = readStep5FollowThrough(responsibility.successCriteria);
+function buildWaitingState(
+  responsibility: ResponsibilityProjection,
+  followThrough = readStep5FollowThrough(responsibility.successCriteria),
+): CarryStateWaiting | null {
+  // Step 5 satisfaction closes this bounded wait only; it deliberately does
+  // not complete the underlying Personal Need Responsibility. A stale coarse
+  // WAITING_* status or HUMAN_STEWARD owner must therefore never resurrect
+  // the already-satisfied obligation as current Waiting truth.
+  if (followThroughIsSatisfied(followThrough)) return null;
+
   const holderFromStatus = statusHolder(responsibility.status);
   const followThroughIsWaiting =
     Boolean(followThrough) &&
@@ -330,26 +346,44 @@ export function buildCarryState(
     responsibility.kind === 'OPPORTUNITY_APPLICATION_GUIDANCE' &&
     responsibility.status === 'ACTIVE' &&
     !hasActiveGuideSession;
+  const followThrough = readStep5FollowThrough(responsibility.successCriteria);
+  const satisfiedFollowThroughWithStaleWait =
+    followThroughIsSatisfied(followThrough) &&
+    (responsibility.status === 'WAITING_ON_USER' ||
+      responsibility.status === 'WAITING_ON_AUREUS' ||
+      responsibility.status === 'WAITING_ON_THIRD_PARTY');
 
   return {
     workingOn: responsibility.objective,
-    status: describeResponsibilityStatus(responsibility.status),
-    tone: describeStatusTone(responsibility.status),
+    status: satisfiedFollowThroughWithStaleWait
+      ? 'That follow-up is no longer waiting. The underlying need remains open.'
+      : describeResponsibilityStatus(responsibility.status),
+    tone: satisfiedFollowThroughWithStaleWait
+      ? 'active'
+      : describeStatusTone(responsibility.status),
     authorityNote: describeAuthorityBoundary(responsibility),
     carrying: isGuidanceAwaitingResume
       ? 'Aureus accepted this and is ready to continue — resume when you are ready.'
-      : describeCarrying(responsibility),
+      : satisfiedFollowThroughWithStaleWait
+        ? 'Aureus is still carrying the underlying need.'
+        : describeCarrying(responsibility),
     needsYou: isGuidanceAwaitingResume
       ? RESUME_GUIDANCE_NEEDS_YOU
-      : responsibility.status === 'WAITING_ON_USER'
-        ? describeNeedsYou(responsibility)
-        : null,
+      : satisfiedFollowThroughWithStaleWait
+        ? null
+        : responsibility.status === 'WAITING_ON_USER'
+          ? describeNeedsYou(responsibility)
+          : null,
     nextAction: isGuidanceAwaitingResume
       ? { description: RESUME_GUIDANCE_NEEDS_YOU, owner: 'MEMBER' }
-      : describeNextAction(responsibility),
+      : satisfiedFollowThroughWithStaleWait
+        ? { description: 'Aureus continues carrying the underlying need.', owner: 'AUREUS' }
+        : describeNextAction(responsibility),
     doneMeans: describeDoneMeans(responsibility.successCriteria),
     evidence: extractEvidence(responsibility),
     lastActivityAt: computeLastActivityAt(responsibility),
-    waiting: isGuidanceAwaitingResume ? null : buildWaitingState(responsibility),
+    waiting: isGuidanceAwaitingResume
+      ? null
+      : buildWaitingState(responsibility, followThrough),
   };
 }
