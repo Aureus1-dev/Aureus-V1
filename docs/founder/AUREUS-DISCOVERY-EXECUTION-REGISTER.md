@@ -159,6 +159,7 @@ AUREUS-016 must:
 - make every ask carry its reason and every wait carry truthful holder/chase information when known;
 - keep bad-news recovery, choice, done, and quiet as one underlying Steward state grammar;
 - place access/account/authority requests only at real Carry Boundaries and preserve reversibility/transparency;
+- record the Founder-approved refinement of the historical access rule: **deliver first by default, but when the member's requested outcome genuinely cannot responsibly proceed without a smallest-necessary access/account/connection/authority dependency, Aureus may ask for it before delivering additional work; convenience or broader data collection is not sufficient; the reason, unlocked work, alternatives, and revocability/choice must be explained; access never expands authority by itself**;
 - keep SAI-001 as the intelligence/presentation architecture rather than duplicate it;
 - keep LRG as release authority and Human/Accountable Steward acceptance separate;
 - preserve later Carry Board/Card, Mission Rooms, and Truth/Service Ledger principles without implementing or reordering their registered slices.
@@ -359,6 +360,8 @@ Issue #143 remains open as DOCUMENTED / UNIMPLEMENTED architecture evidence, not
 ### Voice & Interface branches
 
 The historical `docs/steward-voice-interface-standard` branch is preserved as source evidence only and must not be merged unchanged. AUREUS-016 is reconstructed on fresh `docs/aureus-016-voice-interface-reconciliation` from post-REG-001 `main`. Once its accepted canon is on `main`, the historical branch remains evidence and Item 04 becomes current.
+
+The AUREUS-016 reconciliation also records an explicit Founder policy decision refining the historical deliver-before-more-access rule: deliver first remains the default, with only a smallest-necessary dependency exception when the member's requested outcome genuinely cannot responsibly proceed without the requested access/account/connection/authority. This is an intentional supersession, not a silent weakening, and may not be used merely for convenience or broader data collection.
 
 ### Historical Founder walkthrough queues
 
