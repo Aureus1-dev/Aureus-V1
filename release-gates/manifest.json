@@ -16,6 +16,11 @@
       "id": "UI-004",
       "path": "docs/work-orders/UI-004-Waiting.md",
       "contractIds": ["core-deployment", "browser-first-session", "accountable-steward-walkthrough"]
+    },
+    {
+      "id": "UI-005",
+      "path": "docs/work-orders/UI-005-Asking.md",
+      "contractIds": ["core-deployment", "browser-first-session", "accountable-steward-walkthrough"]
     }
   ],
   "permanentContractIds": [
