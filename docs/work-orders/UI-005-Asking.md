@@ -85,7 +85,7 @@ The one requested thing is the canonical Step-5 `requiredAction`.
 For this bounded source:
 
 - **Why:** that member-held follow-through must happen before Aureus can continue that part of the work;
-- **Then:** after the member reports what happened, Aureus continues carrying the underlying need and keeps the next step visible;
+- **Then:** after the member returns with what happened, Aureus uses that result to work out the next responsible step while keeping the underlying need visible;
 - **If you cannot:** Aureus reassesses the route rather than treating the obligation as completed.
 
 A Step-5 due date is not converted into an effort estimate.
@@ -98,7 +98,7 @@ When an accepted `OPPORTUNITY_APPLICATION_GUIDANCE` Responsibility exists but no
 
 The reason must explicitly preserve the authority boundary: only the member may enter private information, attest, and submit. Aureus can guide the current application but cannot perform those member-required steps.
 
-The alternate route is truthful: if the member already submitted or is not continuing, they may say so instead; Aureus can record that as the member-reported outcome without claiming third-party approval or submission evidence it does not have.
+The alternate route must stay inside the behavior that is actually wired. If the member already submitted elsewhere or decided not to continue, they can reopen the existing application guide and use its matching outcome choice; Aureus records that member-reported outcome there without claiming third-party approval or submission evidence it does not have. UI-005 does not add message-to-outcome automation.
 
 ### 4.3 Coarse `WAITING_ON_USER` without a specific source
 
@@ -193,6 +193,7 @@ UI-005 does not:
 - create Mission/Carry/Room structures;
 - alter application submission authority;
 - add account/access asks;
+- add message-to-application-outcome or message-to-Step-5 mutation automation;
 - claim production acceptance before exact-deployment evidence.
 
 ## 11. Required adversarial proof
@@ -208,10 +209,11 @@ Tests/review must try to falsify at least:
 7. application resume omits the member-only entry/attestation/submission authority reason;
 8. application resume is still asked while a guide session is already active;
 9. the surface fabricates an effort estimate from a due date;
-10. the slice creates new ask/question persistence or a parallel work system;
-11. voice/text or conversation changes cause established context to be re-asked by this presentation layer;
-12. keyboard/screen-reader users lose request/reason/continuation truth;
-13. mobile layout makes the reason/continuation unreadable.
+10. the application alternate route claims message-to-outcome automation that does not exist;
+11. the slice creates new ask/question persistence or a parallel work system;
+12. voice/text or conversation changes cause established context to be re-asked by this presentation layer;
+13. keyboard/screen-reader users lose request/reason/continuation truth;
+14. mobile layout makes the reason/continuation unreadable.
 
 ## 12. Definition of done
 
