@@ -6,6 +6,11 @@
       "id": "LRG-001",
       "path": "docs/work-orders/LRG-001-Living-Release-Gate.md",
       "contractIds": ["core-deployment", "browser-first-session", "accountable-steward-walkthrough"]
+    },
+    {
+      "id": "UI-003",
+      "path": "docs/work-orders/UI-003-Active-Work-Surface.md",
+      "contractIds": ["core-deployment", "browser-first-session", "accountable-steward-walkthrough"]
     }
   ],
   "permanentContractIds": [

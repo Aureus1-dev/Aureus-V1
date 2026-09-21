@@ -27,7 +27,7 @@ export interface ConversationTimelineProps {
   onStartApplicationGuide?: (action: OpportunityActionDto) => void;
 }
 
-/** Exported so `VisibleWorkSummary`'s derivation in `ConversationSurface` can be scoped by the same current-exchange boundary as `latestCurrentMessages`, instead of a second, looser one. */
+/** Exported so `ActiveWorkSurface`'s derivation in `ConversationSurface` can be scoped by the same current-exchange boundary as `latestCurrentMessages`, instead of a second, looser one. */
 export type MessageEntry = Extract<VirtualTimelineEntry, { type: 'message' }>;
 type WorkEntry = Exclude<VirtualTimelineEntry, { type: 'message' }>;
 
@@ -67,7 +67,7 @@ function safeArguments(toolCall: ToolCallDto): Record<string, unknown> {
   }
 }
 
-/** Exported for `VisibleWorkSummary`'s "Aureus is carrying" line, which needs the same real receipts, not a second description of the same tool calls. */
+/** Exported for `ActiveWorkSurface`'s "Aureus is carrying" line, which needs the same real receipts, not a second description of the same tool calls. */
 export function describeToolCall(toolCall: ToolCallDto): string | null {
   const args = safeArguments(toolCall);
   switch (toolCall.name) {
@@ -89,8 +89,8 @@ export function describeToolCall(toolCall: ToolCallDto): string | null {
 }
 
 /**
- * Exported (independent audit, PR #158) so `ConversationSurface`'s Visible
- * Work summary shares this exact current-exchange boundary rather than
+ * Exported (independent audit, PR #158) so `ConversationSurface`'s Active
+ * Work Surface shares this exact current-exchange boundary rather than
  * deriving its own — a trailing pending member turn correctly excludes the
  * previous assistant reply's opportunity/tool-call state here, and that
  * exclusion must hold everywhere "current work" is displayed, not just here.
