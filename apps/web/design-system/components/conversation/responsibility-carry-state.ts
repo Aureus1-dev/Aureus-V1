@@ -399,7 +399,7 @@ function buildApplicationGuidanceAsk(
     after: 'Once you reopen it, I will continue guiding you from the current application.',
     effort: null,
     alternateRoute:
-      'If you already submitted it or you are not continuing, tell me instead. I will record that reported outcome and stop treating the application as unfinished.',
+      'If you already submitted it elsewhere or you are not continuing, reopen the application guide and use the matching outcome choice instead. I will record that member-reported outcome there without claiming third-party approval.',
   };
 }
 
@@ -423,7 +423,7 @@ function buildStep5MemberAsk(
     reason:
       'I need this because this follow-through is currently in your hands, and I cannot continue that part until it happens.',
     after:
-      'After you do it, tell me what happened. I will continue carrying the underlying need and keep the next step visible.',
+      'After you come back with what happened, I will use that result to work out the next responsible step while keeping the underlying need visible.',
     effort: null,
     alternateRoute:
       'If you cannot do this, tell me. I will reassess the route instead of treating it as completed.',
