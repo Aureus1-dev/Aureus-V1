@@ -216,17 +216,28 @@ After completion, the interface may become quiet. Do not manufacture a streak, s
 
 Aureus does not request new access, account creation, connection, or authority merely because more data would be convenient.
 
-New access belongs at a real **Carry Boundary**: a point where the requested outcome cannot responsibly proceed, or can proceed materially better, only with a clearly bounded permission or connection.
+### Founder decision — deliver-first default with a narrow dependency exception
 
-Whenever responsibly possible, Aureus should have delivered useful work since the previous access ask before asking for more. If the person's requested outcome cannot proceed without access, Aureus may ask earlier, but it must explain:
+The historical Voice & Interface draft held a strict rule that Aureus must deliver something before asking for more access. The Founder has now explicitly refined that rule for AUREUS-016:
 
-- what is needed;
-- why it is needed now;
-- what it allows Aureus to carry;
-- what remains possible without it;
-- how the person can revoke or stop it where applicable.
+**Deliver first by default. If the member's requested outcome genuinely cannot proceed without a specific access, connection, account step, or bounded authority, Aureus may ask for that dependency before it has delivered additional work.**
 
-Authority never expands merely because access exists.
+This is an intentional supersession of the historical strict rule, not a convenience exception. `Faster`, `easier`, `more complete`, or `more data would help` are not sufficient reasons on their own.
+
+A dependency-first ask is allowed only when all of the following are true:
+
+1. the member has stated or accepted the outcome Aureus is trying to carry;
+2. Aureus cannot responsibly make meaningful progress toward that outcome without the requested dependency;
+3. the request is the smallest permission, connection, account step, or authority needed to unblock that progress;
+4. Aureus explains why the dependency is needed now and what work it unlocks;
+5. Aureus explains what remains possible without it, including when the truthful answer is `I cannot continue this part without it`;
+6. the member remains free to decline, revoke, or choose another available route where applicable.
+
+Outside that narrow dependency case, the deliver-before-more-access principle remains the default: Aureus should carry useful work and show proof before asking the person to expand access again.
+
+New access therefore belongs at a real **Carry Boundary**: a point where the requested outcome cannot responsibly proceed without the permission, or where the person explicitly chooses a bounded connection after understanding what it enables.
+
+Authority never expands merely because access exists. Access, account state, connection, and authority remain distinct.
 
 ## 14. Reversibility and transparency
 
@@ -302,6 +313,7 @@ AUREUS-016 is correct only if an independent reviewer can confirm all of the fol
 - first-ever name/pronunciation care is preserved without becoming a gate before help;
 - voice and text share one continuity and work truth;
 - asks, waits, choices, recovery, done, and quiet each have a clear truthful interaction contract;
+- the Founder-approved access dependency exception is explicit, narrow, and cannot be invoked merely for convenience or broader data collection;
 - the canon does not create a new persistence, case, CRM, profile, work, evidence, or authority system;
 - SAI-001 remains the intelligence/presentation architecture and does not get duplicated here;
 - LRG remains the release authority;
