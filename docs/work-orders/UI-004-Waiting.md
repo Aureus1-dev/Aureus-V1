@@ -79,6 +79,20 @@ This is a presentation precedence rule only. It does not change Responsibility o
 
 ## 5. Waiting projection
 
+### 5.0 Satisfied Step-5 state is authoritative for that bounded wait
+
+Step 5 deliberately allows the bounded follow-through Obligation to become `SATISFIED_REPORTED` or `SATISFIED_VERIFIED` **without completing the underlying Personal Need Responsibility**.
+
+Therefore:
+
+- `SATISFIED_REPORTED` and `SATISFIED_VERIFIED` mean the Step-5 wait itself is no longer current;
+- an older coarse `WAITING_ON_USER`, `WAITING_ON_AUREUS`, or `WAITING_ON_THIRD_PARTY` Responsibility status may not resurrect that satisfied Obligation as Waiting;
+- `owner = HUMAN_STEWARD` may not create Waiting after the Step-5 state is satisfied;
+- a stale coarse `WAITING_ON_USER` may not continue to produce `Needs you` or a member-owned wait next-action after that Obligation is satisfied;
+- the underlying Personal Need remains open until its own Step-1 outcome evidence resolves or responsibly exhausts it.
+
+When this stale-status condition occurs, the surface should say that the follow-up is no longer waiting while keeping the underlying need visible as still open/carried. It must not silently claim the entire Personal Need is complete.
+
 ### 5.1 Holder
 
 Canonical holder maps from existing truth:
@@ -170,7 +184,9 @@ Tests/review must try to falsify at least:
 9. the slice creates a new task/wait persistence model;
 10. the UI exposes internal source pointers/history unnecessarily;
 11. keyboard/screen-reader users lose holder or timing truth;
-12. mobile layout makes the wait facts unreadable.
+12. mobile layout makes the wait facts unreadable;
+13. `SATISFIED_REPORTED` or `SATISFIED_VERIFIED` can be resurrected as Waiting by an old `WAITING_*` status or by `HUMAN_STEWARD` ownership;
+14. a satisfied member-owned Step-5 Obligation can continue to emit false `Needs you` or a member-owned wait next-action.
 
 ## 10. Definition of done
 
@@ -183,6 +199,7 @@ UI-004 is ready for independent review when:
 - [x] Step-5 last/next follow-up is displayed only from real attempt fields;
 - [x] due provenance is visible when Step-5 provides it;
 - [x] `Nothing you need to do.` is gated by real ownership/review truth;
+- [x] satisfied Step-5 state suppresses stale wait/Needs-you projection without falsely completing the underlying need;
 - [x] no new persistence/schema/scheduler is added;
 - [x] adversarial component/projection tests exist;
 - [ ] full web/API mechanical CI is green on the exact head;
