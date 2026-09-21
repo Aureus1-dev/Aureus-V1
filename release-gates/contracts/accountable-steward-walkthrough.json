@@ -1,0 +1,8 @@
+{
+  "id": "accountable-steward-walkthrough",
+  "order": 100,
+  "title": "Accountable Steward walkthrough",
+  "mode": "manual",
+  "evidenceFile": "accountable-steward-walkthrough.json",
+  "description": "Records the required mobile and desktop human walkthrough against the same exact deployed commit. Automation may never mark this contract complete."
+}

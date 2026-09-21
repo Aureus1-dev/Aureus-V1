@@ -62,3 +62,16 @@ The accountable steward signs only after every blocker is fixed and the exact de
 ## Recurrence
 
 This standard applies to every production release, provider/model change, authentication change, schema migration, permission change, and re-enabling of a previously gated surface. Any defect found by the accountable steward becomes a permanent automated regression test whenever technically possible and a permanent manual checklist item when it is not.
+
+## Living gate implementation
+
+The standard is implemented by one durable workflow: `.github/workflows/release-gate.yml`. It reads `release-gates/manifest.json`; it is not copied for each slice.
+
+- `activeWorkOrders` is the exact set of work orders the candidate is presently proving.
+- Each work order names the automated and manual contracts required for its acceptance.
+- `permanentContractIds` is the accumulating regression floor. A shipped capability or repaired defect stays here after its originating work order closes.
+- Automated contracts are discovered and run by `scripts/run-release-gates.mjs`.
+- Manual contracts remain explicit in the evidence packet and cannot be marked complete by automation.
+- Both deployed services must report the exact expected commit through `/version` (web) and `/health/version` (API). A missing identity or any web/API/candidate drift is an automatic `HOLD`.
+
+A future work order updates the registry and, only when necessary, contributes an automatically discovered descriptor below `release-gates/contracts/` plus a focused contract runner. It must not create a replacement release workflow. CI validates the registry, referenced work-order documents, contract uniqueness, runner paths, conditions, and the presence of both automated and manual coverage for every active work order.

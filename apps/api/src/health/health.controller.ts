@@ -20,11 +20,11 @@ export class HealthController {
   // liveness/readiness split keeps working unchanged.
   @Get()
   @HealthCheck()
-  @ApiOperation({ summary: 'Readiness check (alias of /health/ready) — includes database connectivity' })
+  @ApiOperation({
+    summary: 'Readiness check (alias of /health/ready) — includes database connectivity',
+  })
   check() {
-    return this.health.check([
-      () => this.prismaHealth.isHealthy('database'),
-    ]);
+    return this.health.check([() => this.prismaHealth.isHealthy('database')]);
   }
 
   // Liveness (PD-002): "is the process up and able to respond at all" —
@@ -46,9 +46,23 @@ export class HealthController {
   @HealthCheck()
   @ApiOperation({ summary: 'Readiness probe — database connectivity required to serve traffic' })
   ready() {
-    return this.health.check([
-      () => this.prismaHealth.isHealthy('database'),
-    ]);
+    return this.health.check([() => this.prismaHealth.isHealthy('database')]);
+  }
+
+  // A release is not exact-deployment evidence until the running service
+  // identifies the immutable source commit it is actually serving. Render
+  // supplies these values at runtime; AUREUS_COMMIT_SHA keeps the same
+  // contract available to other hosts without pretending an unknown build is
+  // a verified one. These identifiers are non-secret deployment metadata.
+  @Get('version')
+  @ApiOperation({ summary: 'Immutable deployment identity for exact-SHA release verification' })
+  version() {
+    return {
+      service: 'api',
+      commit: process.env.RENDER_GIT_COMMIT ?? process.env.AUREUS_COMMIT_SHA ?? null,
+      serviceId: process.env.RENDER_SERVICE_ID ?? null,
+      instanceId: process.env.RENDER_INSTANCE_ID ?? null,
+    };
   }
 
   // PD-009: diagnostic only, deliberately not part of /ready — an AI
@@ -57,10 +71,10 @@ export class HealthController {
   // most member-facing routes don't depend on AI at all.
   @Get('ai')
   @HealthCheck()
-  @ApiOperation({ summary: 'AI provider circuit-breaker state (diagnostic — does not gate readiness)' })
+  @ApiOperation({
+    summary: 'AI provider circuit-breaker state (diagnostic — does not gate readiness)',
+  })
   ai() {
-    return this.health.check([
-      () => this.aiProviderHealth.isHealthy('aiProvider'),
-    ]);
+    return this.health.check([() => this.aiProviderHealth.isHealthy('aiProvider')]);
   }
 }
