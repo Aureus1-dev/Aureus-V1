@@ -318,14 +318,8 @@ export function ConversationSurface({ initialMode = 'text' }: ConversationSurfac
     connectedExperiences.state.documents,
   );
 
-  // Visible Work grammar (UI Slice 1, repaired per independent audit on
-  // PR #158): every field is scoped to the CURRENT exchange only, sharing
-  // `ConversationTimeline`'s own `latestCurrentMessages` boundary rather
-  // than a second, looser derivation. `GoalDto` carries no `conversationId`
-  // (`lib/api/goals.ts`) — a member-global ACTIVE Journey goal describes no
-  // particular conversation, so it is never used here, not even as a
-  // fallback, to avoid an unrelated goal overriding what this conversation
-  // is actually doing right now.
+  // Active Work grammar: every conversational fallback field is scoped to
+  // the current exchange by the same boundary used by ConversationTimeline.
   const messageEntries = entries.filter(
     (entry): entry is MessageEntry => entry.type === 'message',
   );
@@ -340,50 +334,16 @@ export function ConversationSurface({ initialMode = 'text' }: ConversationSurfac
     .map(describeToolCall)
     .filter((receipt): receipt is string => Boolean(receipt));
 
-  // Production Carry State (UI Slice 2): once Aureus has formally accepted
-  // durable work, that Responsibility — not conversation text — becomes the
-  // authoritative source for every Visible Work field below. `carryState` is
-  // a pure projection (`responsibility-carry-state.ts`) of the real,
-  // conversation-scoped `applicationHelpResponsibility` this component
-  // already fetches from `GET /people-help/application/active`; it is
-  // deliberately null (never a fabricated "idle" object) when no durable
-  // Responsibility exists yet for this conversation, in which case the
-  // conversation-derived signals below remain the honest, pre-acceptance
-  // fallback — "conversation text may initiate work," but never overrides it.
-  //
-  // The effect above already clears both pieces of state synchronously on
-  // every conversation switch before refetching, but this equality check is
-  // kept as an explicit, independent guard (independent audit, PR #160):
-  // Carry State is only ever projected from a Responsibility whose own
-  // `originConversationId` actually matches the conversation being viewed,
-  // so a stale value could never be projected even if some future code path
-  // ever set this state outside that effect.
-  //
-  // This guard is not just for the Visible Work summary: the effect that
-  // fetches this state clears it in a `useEffect`, which runs AFTER the
-  // render caused by `activeConversationId` changing — so there is still one
-  // render where conversation B is active but conversation A's raw
-  // Responsibility/session remain in `applicationHelpResponsibility`/
-  // `applicationGuideSession`. Every consumer in this section (Visible Work,
-  // `ResponsibilityProgressCard`, `ApplicationGuidePanel`, the Resume
-  // action, and `hasActiveGuideSession`) must therefore read the
-  // conversation-matched values below, never the raw state directly —
-  // otherwise A's card/panel could render under B, and the stale Resume
-  // button's `originOpportunityId` (A's) could be submitted through
-  // `startApplicationGuideForOpportunity`, which always targets the
-  // *current* `state.activeConversationId` (B) — binding the wrong action to
-  // the wrong conversation (independent audit, PR #160).
+  // Once Aureus has formally accepted durable work, the real
+  // conversation-scoped Responsibility becomes authoritative. The explicit
+  // equality guards also protect the render immediately after a conversation
+  // switch, before the effect above has cleared/refetched raw state.
   const currentApplicationHelpResponsibility =
     applicationHelpResponsibility?.originConversationId === state.activeConversationId
       ? applicationHelpResponsibility
       : null;
   const currentApplicationGuideSession =
     applicationGuideSession?.conversationId === state.activeConversationId ? applicationGuideSession : null;
-  // Real, live session presence — not inferred from Responsibility.status.
-  // ACTIVE means only "non-terminal, no wait condition recorded"; it is not
-  // proof that Aureus is guiding anything in THIS session right now (OR-002
-  // accepts the Responsibility before the guide session necessarily exists,
-  // and a member can leave/return without an explicit pause).
   const hasActiveGuideSession = Boolean(currentApplicationGuideSession);
   const carryState = buildCarryState(currentApplicationHelpResponsibility, hasActiveGuideSession);
 
@@ -402,12 +362,6 @@ export function ConversationSurface({ initialMode = 'text' }: ConversationSurfac
   const evidence = carryState ? carryState.evidence : [];
   const lastActivityAt = carryState ? carryState.lastActivityAt : null;
 
-  // A prior turn's opportunity never survives into a new one: once the
-  // member starts a new turn, `currentMessages` (from `latestCurrentMessages`)
-  // no longer includes the previous assistant reply — even while the new
-  // reply is still pending — so `currentOpportunity` is already undefined
-  // here. This is the same boundary `ConversationTimeline` itself enforces,
-  // not a second, independent guard that could drift from it.
   const needsYou = carryState
     ? carryState.needsYou
     : currentOpportunity
@@ -500,15 +454,10 @@ export function ConversationSurface({ initialMode = 'text' }: ConversationSurfac
 
           {entries.length === 0 && !state.pendingResponse ? (
             <>
-              <p className={styles.promise}>
-                Tell Aureus what you want to accomplish.
-                <br />
-                Aureus figures out how to get it done.
-              </p>
               <EmptyState
                 titleAs="h1"
                 title="How can we help?"
-                description="Tell us what is happening in your own words—by typing or talking. We’ll take on as much as we responsibly can, and help you see it through."
+                description="Tell me what you want to accomplish."
               />
               <p className={styles.privacyNotice}>
                 We use what you share to respond. Aureus will ask before taking action or saving

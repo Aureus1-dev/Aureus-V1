@@ -10,7 +10,9 @@
 - [ ] Every defect fixed here has a regression test.
 - [ ] Auth, permission, migration, provider, and rollback effects were reviewed.
 - [ ] No unfinished or placeholder capability is newly advertised.
-- [ ] Exact-deployment release gate is planned or attached.
+- [ ] Current work order and its automated/manual contracts are registered in `release-gates/manifest.json` (or this change declares no release impact with a truthful reason).
+- [ ] Any shipped capability regression is promoted into `permanentContractIds`; the living workflow is not copied or replaced.
+- [ ] Exact-deployment Living Release Gate evidence is planned or attached.
 - [ ] Accountable steward walkthrough is planned or attached.
 
 Release decision: `HOLD` until the deployed-system gate and Accountable steward walkthrough both pass.

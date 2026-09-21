@@ -1,0 +1,14 @@
+{
+  "id": "browser-first-session",
+  "order": 20,
+  "title": "Real-browser first session and voice continuity",
+  "mode": "automated",
+  "runner": "scripts/browser-first-session-canary.mjs",
+  "evidenceFile": "browser-first-session-evidence.json",
+  "passResults": ["BROWSER_FIRST_SESSION_PASSED"],
+  "requiredWhen": {
+    "env": "RELEASE_REQUIRE_VOICE",
+    "equals": "true"
+  },
+  "description": "Proves the deployed Hall reaches Listening, ends normally, and returns to the same conversation in a real browser."
+}

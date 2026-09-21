@@ -64,6 +64,12 @@ jobs:
       - name: Validate Product Contract v1
         run: node contracts/product-v1/v1/validate-product-contracts.mjs
 
+      - name: Validate living release gate registry
+        run: pnpm run release:gate:validate
+
+      - name: Test living release gate registry
+        run: pnpm run test:release-gate
+
       # A green build is not launch-ready if a newly disclosed high/critical
       # vulnerability is already present in the resolved dependency graph.
       #

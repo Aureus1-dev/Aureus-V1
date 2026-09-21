@@ -190,14 +190,16 @@ describe('ConversationSurface', () => {
     expect(await screen.findByText('It sounds like you want to get started.')).toBeInTheDocument();
   });
 
-  it('leads the empty state with the front-door promise before any message is sent', async () => {
+  it('shows one primary prompt with one short supporting line — no duplicate "How can we help?" and no separate front-door promise', async () => {
     renderSurface();
-    expect(
-      await screen.findByText(
-        /Tell Aureus what you want to accomplish\.\s*Aureus figures out how to get it done\./,
-      ),
-    ).toBeInTheDocument();
-    expect(screen.getByText('How can we help?')).toBeInTheDocument();
+    expect(await screen.findByText('How can we help?')).toBeInTheDocument();
+    expect(screen.getByText('Tell me what you want to accomplish.')).toBeInTheDocument();
+    // Only one heading-level "How can we help?" — the composer must not
+    // restate it as its own placeholder (that duplication is exactly what
+    // made the mobile opening screen feel cluttered).
+    expect(screen.getAllByText('How can we help?')).toHaveLength(1);
+    expect(screen.queryByText(/Aureus figures out how to get it done/)).not.toBeInTheDocument();
+    expect(screen.queryByPlaceholderText('How can we help?')).not.toBeInTheDocument();
   });
 
   it('shows the Visible Work summary with real content once a message has been sent, and no "Needs you" absent a real signal', async () => {

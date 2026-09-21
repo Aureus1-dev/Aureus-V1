@@ -20,7 +20,7 @@ describe('MessageComposer', () => {
   it('keeps Talk available as a discreet composer control', () => {
     render(<MessageComposer value="" onChange={jest.fn()} onSubmit={jest.fn()} disabled={false} />);
     expect(screen.getByRole('button', { name: 'Talk to your steward' })).toBeInTheDocument();
-    expect(screen.getByPlaceholderText('How can we help?')).toBeInTheDocument();
+    expect(screen.getByPlaceholderText('Type your message…')).toBeInTheDocument();
   });
 
   it('disables the send button while a response is pending, preventing duplicate sends', () => {

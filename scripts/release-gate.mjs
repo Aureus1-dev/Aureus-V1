@@ -2,6 +2,7 @@
 
 const apiOrigin = requiredOrigin('RELEASE_API_ORIGIN');
 const webOrigin = requiredOrigin('RELEASE_WEB_ORIGIN');
+const expectedCommit = requiredCommit();
 const requireVoice = process.env.RELEASE_REQUIRE_VOICE !== 'false';
 // Render free services can take 50 seconds or more to wake. The gate should
 // prove the deployed application after a legitimate cold start, not fail just
@@ -38,6 +39,14 @@ function requiredOrigin(name) {
   return parsed.origin;
 }
 
+function requiredCommit() {
+  const value = process.env.RELEASE_EXPECTED_COMMIT ?? process.env.RELEASE_COMMIT_SHA;
+  if (!value || !/^[0-9a-f]{40}$/i.test(value)) {
+    throw new Error('RELEASE_EXPECTED_COMMIT must be the full 40-character deployed commit SHA');
+  }
+  return value.toLowerCase();
+}
+
 function json(text, label) {
   try {
     return JSON.parse(text);
@@ -51,6 +60,26 @@ function redactDiagnosticText(value) {
     .replace(/Bearer\s+[A-Za-z0-9._~+/=-]+/gi, 'Bearer [REDACTED]')
     .replace(/\b(?:sk|ek)[-_][A-Za-z0-9_-]{8,}\b/g, '[REDACTED_TOKEN]')
     .slice(0, 2_000);
+}
+
+function verifyDeploymentIdentity(payload, service) {
+  if (payload?.service !== service) {
+    failures.push(
+      `${service} version endpoint identified itself as ${payload?.service ?? 'unknown'}`,
+    );
+  }
+  const actualCommit = typeof payload?.commit === 'string' ? payload.commit.toLowerCase() : null;
+  evidence.push({
+    label: `${service} exact deployment identity`,
+    commit: actualCommit,
+    serviceId: payload?.serviceId ?? null,
+    instanceId: payload?.instanceId ?? null,
+  });
+  if (!actualCommit) {
+    failures.push(`${service} deployment did not report an immutable commit SHA`);
+  } else if (actualCommit !== expectedCommit) {
+    failures.push(`${service} deployment is ${actualCommit}, expected ${expectedCommit}`);
+  }
 }
 
 async function captureAiFailureDiagnostic(conversationId, auth) {
@@ -77,7 +106,10 @@ async function captureAiFailureDiagnostic(conversationId, auth) {
     );
 
     if (!failed) {
-      evidence.push({ label: 'live Steward provider diagnostic unavailable', reason: 'no failed request record found' });
+      evidence.push({
+        label: 'live Steward provider diagnostic unavailable',
+        reason: 'no failed request record found',
+      });
       return;
     }
 
@@ -105,6 +137,18 @@ async function run() {
     failures.push('web front door did not render the Aureus application');
   if (/Cannot GET \/|Application loading/i.test(web.text))
     failures.push('web front door returned an API error or hosting interstitial');
+
+  const webVersion = json(
+    (await request('web deployment version', `${webOrigin}/version`)).text,
+    'web deployment version',
+  );
+  verifyDeploymentIdentity(webVersion, 'web');
+
+  const apiVersion = json(
+    (await request('API deployment version', `${apiOrigin}/health/version`)).text,
+    'API deployment version',
+  );
+  verifyDeploymentIdentity(apiVersion, 'api');
 
   const live = await request('API liveness', `${apiOrigin}/health/live`);
   if (json(live.text, 'API liveness').status !== 'ok')
@@ -196,7 +240,7 @@ async function run() {
     JSON.stringify(
       {
         result: failures.length ? 'HOLD' : 'AUTOMATED_GATE_PASSED',
-        commit: process.env.RELEASE_COMMIT_SHA ?? 'unrecorded',
+        expectedCommit,
         webOrigin,
         apiOrigin,
         evidence,
