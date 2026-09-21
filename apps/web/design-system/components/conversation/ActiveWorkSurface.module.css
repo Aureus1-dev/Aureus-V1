@@ -35,45 +35,45 @@
   padding: 0.3rem var(--space-3);
   border-radius: var(--radius-full);
   background: color-mix(in srgb, var(--color-text-secondary) 12%, transparent);
-  color: var(--color-text-secondary);
+  color: var(--color-text-primary);
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-medium);
 }
 
-/* The dot is a secondary reinforcement, never the only signal — the plain-
-   language status text next to it always carries the actual meaning, so
-   status is never communicated by color alone. */
+/* Semantic hue is intentionally a secondary cue only. The status words use
+   textPrimary for WCAG AA normal-text contrast; the dot and tint carry the
+   semantic hue without making color the only signal. */
 .statusDot {
   width: 0.5rem;
   height: 0.5rem;
   border-radius: var(--radius-full);
-  background: currentColor;
+  background: var(--status-accent, var(--color-text-secondary));
   flex: 0 0 auto;
 }
 
 .toneActive {
+  --status-accent: var(--color-information);
   background: color-mix(in srgb, var(--color-information) 16%, transparent);
-  color: var(--color-information);
 }
 
 .toneAttention {
+  --status-accent: var(--color-warning);
   background: color-mix(in srgb, var(--color-warning) 16%, transparent);
-  color: var(--color-warning);
 }
 
 .toneBlocked {
+  --status-accent: var(--color-error);
   background: color-mix(in srgb, var(--color-error) 14%, transparent);
-  color: var(--color-error);
 }
 
 .toneComplete {
+  --status-accent: var(--color-success);
   background: color-mix(in srgb, var(--color-success) 16%, transparent);
-  color: var(--color-success);
 }
 
 .toneNeutral {
+  --status-accent: var(--color-text-secondary);
   background: color-mix(in srgb, var(--color-text-secondary) 12%, transparent);
-  color: var(--color-text-secondary);
 }
 
 .fieldLabel {
@@ -97,7 +97,8 @@
 
 /* Needs You is the one section that must never be missed — a bordered,
    warm-tinted callout rather than a plain row, and placed early in the
-   primary block, right after Carrying. */
+   primary block, right after Carrying. Semantic warning color stays on the
+   callout treatment; its words use textPrimary for normal-text contrast. */
 .needsYou {
   display: flex;
   flex-direction: column;
@@ -111,7 +112,7 @@
 
 .needsYouLabel {
   margin: 0;
-  color: var(--color-warning);
+  color: var(--color-text-primary);
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-semibold);
   letter-spacing: 0.02em;
