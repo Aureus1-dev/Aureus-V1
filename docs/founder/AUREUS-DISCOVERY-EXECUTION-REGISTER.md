@@ -1,12 +1,12 @@
 # Aureus Discovery & Execution Register
 
-**Status:** BUILDING — candidate canonical sequencing authority; not yet merged or accepted.  
+**Status:** CANONICAL SEQUENCING REGISTER — bootstrap-safe across review and merge.  
 **Reconciled base:** `b1485f279aff07ebaefc1a409e01bd46c02d5e47` — merge of PR #162 / UI-003.  
 **Preparation branch:** `docs/master-discovery-execution-register`  
-**Current slice:** REG-001  
+**Current-item rule:** while this file exists only on the REG-001 review branch, REG-001 is the candidate under verification; once this accepted file exists on `main`, REG-001 is complete and **AUREUS-016 — Steward Voice & Interface canon reconciliation** is the current construction item.  
 **Founder direction:** replace overlapping sequencing sources with one ordered register while preserving requirements, evidence, history, and governance.
 
-> This document becomes the single sequencing authority only after REG-001 receives independent review and is merged. Until then, existing accepted repository governance remains controlling. No later feature implementation is authorized by this document alone.
+> **Bootstrap rule:** repository location determines the transition without requiring a post-merge cleanup commit. Before the accepted REG-001 merge, this file is a candidate sequencing authority under independent review and existing accepted governance remains controlling. Once this exact accepted register lands on `main`, it is the single cross-program sequencing authority; Item 02 is then historical/completed and Item 03 is current. No later feature is authorized merely because it appears in this register.
 
 ## 1. Why this register exists
 
@@ -123,27 +123,27 @@ UI-003 no longer blocks construction of docs-only REG-001.
 
 ### 02 — REG-001 Master Discovery & Execution Register
 
-**Disposition:** IN FLIGHT  
-**Stage:** BUILDING / CANONICALIZING  
-**Branch:** `docs/master-discovery-execution-register`  
+**Review-branch interpretation:** IN FLIGHT / VERIFYING. PR #166 is the candidate and remains Draft/HOLD until fresh exact-head independent review passes.  
+**`main` interpretation after accepted merge:** COMPLETED / ACCEPTED. REG-001 is docs-only and creates no production deployment gate of its own.  
 **Work order:** `docs/work-orders/REG-001-Master-Discovery-Execution-Register.md`  
-**Dependency:** post-UI-003 main satisfied.
+**Dependency:** post-UI-003 main satisfied.  
+**Successor activation:** the presence of this accepted register on `main` makes Item 03 — AUREUS-016 — the current construction item automatically.
 
-Acceptance must:
+REG-001 acceptance proves that this register:
 
-- make this register the single sequencing authority;
-- classify older queues as requirements/evidence/historical/deferred rather than competing “next” lists;
-- refresh current PR/issue state;
-- reconcile stale Founder walkthrough issues;
-- preserve constructor/verifier separation and Living Release Gate doctrine;
-- require future work orders to name register parent/predecessor and update the register on acceptance;
-- avoid implementing any later feature.
+- is the single sequencing authority;
+- classifies older queues as requirements/evidence/historical/deferred rather than competing “next” lists;
+- reconciles current PR/issue state and stale Founder walkthrough queues;
+- preserves constructor/verifier separation and Living Release Gate doctrine;
+- requires future work orders to name register parent/predecessor and update the register on acceptance;
+- implements no later feature.
 
 ### 03 — AUREUS-016 Steward Voice & Interface canon reconciliation
 
 **Disposition:** DOCUMENTED / UNIMPLEMENTED  
 **Stage:** CANONICALIZED on an unmerged historical branch; requires fresh-main reconciliation.  
-**Branch:** `docs/steward-voice-interface-standard`
+**Activation:** this is the current construction item whenever this accepted register is present on `main`.  
+**Historical branch:** `docs/steward-voice-interface-standard`
 
 Do not merge that branch as-is. Its two documents must be transplanted onto fresh `main` and reconciled with #163, UI-003, LRG-001, Executive Intelligence, and SAI-001.
 
@@ -387,9 +387,9 @@ Every future work order should state:
 - successor item;
 - register row/status change required after acceptance.
 
-## 9. REG-001 definition of done
+## 9. REG-001 acceptance record
 
-REG-001 is ready for independent review only when:
+The following are the acceptance conditions for the bootstrap slice. On the review branch they are the review gate; once this accepted file is on `main`, they are the historical reason Item 02 is complete:
 
 - this register is anchored to exact post-UI-003 main;
 - UI-003 is no longer described as an open PR;
@@ -400,17 +400,14 @@ REG-001 is ready for independent review only when:
 - no competing document truthfully claims sole active sequencing authority without a pointer to this register;
 - future work orders are required to update the register;
 - no later feature implementation is included;
-- docs-only CI is green;
+- exact-head CI is green;
 - independent review confirms no lost requirement, silent supersession, duplicate truth universe, or governance weakening.
 
-## 10. Immediate next action
+## 10. Current-item resolution
 
-Current construction item: **REG-001**.
+Use the repository location of this file rather than a stale prose timestamp:
 
-Sequence:
+- **If this file is only on PR #166 / its review branch:** REG-001 is the candidate under independent verification. Do not merge or start Item 03 from the branch merely because the document names it.
+- **If this accepted file is present on `main`:** REG-001 is complete. The canonical current construction item is **AUREUS-016 Steward Voice & Interface canon reconciliation**, transplanted/reconciled onto fresh `main` rather than merging its historical branch unchanged.
 
-`finish REG-001 reconciliation -> docs CI -> independent exact-head review -> repair if needed -> Founder merge authorization -> merge REG-001`
-
-After REG-001 is accepted, the next construction candidate is:
-
-**AUREUS-016 Steward Voice & Interface canon reconciliation on fresh current main.**
+That rule is the transition. No post-merge edit is required merely to change REG-001 from “current” to “complete.”
