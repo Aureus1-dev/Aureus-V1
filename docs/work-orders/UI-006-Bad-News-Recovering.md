@@ -1,6 +1,6 @@
 # UI-006 — Bad News / Recovering
 
-**Status:** BUILDING / production-impacting interaction-state slice  
+**Status:** VERIFYING / production-impacting interaction-state slice  
 **Register parent:** Item 04 — Steward interaction-state implementation  
 **Predecessor:** UI-005 — Asking / PR #170  
 **Construction base:** `180da9bbc4b7d9ae00aa3f77ed8176a378179d4b` — merge of PR #170  
@@ -229,14 +229,14 @@ UI-006 is ready for independent review when:
 
 - [x] branch starts from exact UI-005 merge `180da9bbc4b7d9ae00aa3f77ed8176a378179d4b`;
 - [x] existing Active Work / Responsibility / Step-5 truth is reused;
-- [ ] bounded recovery projection is implemented;
-- [ ] canonical Step-5 `reviewReason` is exposed without inventing cause;
-- [ ] `BLOCKED`, `MISSED`, `DISPUTED`, and `RESPONSIBLY_EXHAUSTED` have fail-closed presentation behavior;
-- [ ] recovery suppresses duplicate Waiting / Asking / Next-action presentation of the same condition;
-- [ ] no new persistence/schema/API/scheduler is added;
-- [ ] focused adversarial projection/component tests exist;
-- [ ] UI-006 is registered against the permanent Living Release Gate contracts;
-- [ ] the register transition is included or explicitly proven merge-stable;
+- [x] bounded recovery projection is implemented and threaded through the production Conversation surface;
+- [x] canonical Step-5 `reviewReason` is exposed without inventing cause;
+- [x] `BLOCKED`, `MISSED`, `DISPUTED`, and `RESPONSIBLY_EXHAUSTED` have fail-closed presentation behavior;
+- [x] recovery suppresses duplicate Waiting / Asking / Next-action presentation of the same condition;
+- [x] no new persistence/schema/API/scheduler is added;
+- [x] focused adversarial projection/component tests exist;
+- [x] UI-006 is registered against the permanent Living Release Gate contracts;
+- [x] the merge-stable register transition is included;
 - [ ] full web/API mechanical CI is green on the exact head;
 - [ ] Docker Build Verification is green on the exact head;
 - [ ] independent exact-head review returns no BLOCKER/HIGH;
