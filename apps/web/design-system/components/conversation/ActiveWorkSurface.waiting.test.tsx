@@ -89,10 +89,13 @@ describe('UI-004 Waiting', () => {
       }),
     );
 
-    const waiting = screen.getByRole('region', { name: 'Waiting' });
-    expect(within(waiting).getByText('Held by You')).toBeInTheDocument();
-    expect(within(waiting).queryByText('Nothing you need to do.')).not.toBeInTheDocument();
-    expect(screen.getByText('Needs you')).toBeInTheDocument();
+    // UI-005: a member-owned, PENDING Step-5 obligation now projects a full
+    // structured ask inside "What Aureus needs from you" instead of the
+    // coarse Waiting block — the ask's presence is the proof that something
+    // is needed from the member, not a generic Waiting label.
+    const asking = screen.getByRole('region', { name: 'What Aureus needs from you' });
+    expect(within(asking).getByText('Upload the requested proof of income.')).toBeInTheDocument();
+    expect(screen.queryByRole('region', { name: 'Waiting' })).not.toBeInTheDocument();
   });
 
   it('does not relabel generic Responsibility activity as a last chase when no follow-through attempt exists', () => {

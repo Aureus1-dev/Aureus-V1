@@ -76,7 +76,14 @@ describe('ActiveWorkSurface', () => {
     renderFromResponsibility(makeResponsibility({ status: 'ACTIVE' }), false, { onResume });
 
     const surface = screen.getByRole('region', { name: 'Active work' });
-    expect(within(surface).queryByText(/guiding you/i)).not.toBeInTheDocument();
+    // The live-guiding phrase (state 1's "Guiding you through the verified
+    // application.") must not appear here — no session is active. The
+    // structured ask's own "Then I'll" continuation legitimately promises
+    // future guidance ("I will continue guiding you…"), so this checks the
+    // specific live-carrying phrase rather than the whole word "guiding".
+    expect(
+      within(surface).queryByText(/guiding you through the verified application/i),
+    ).not.toBeInTheDocument();
     expect(within(surface).getByText('I need one thing from you')).toBeInTheDocument();
     expect(within(surface).getByText('Resume the application when you are ready.')).toBeInTheDocument();
     expect(
