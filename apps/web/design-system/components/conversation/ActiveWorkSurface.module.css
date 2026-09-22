@@ -90,6 +90,65 @@
   overflow-wrap: anywhere;
 }
 
+/* UI-006 — bad news stays attached to truthful recovery context inside the
+   one Active Work surface. The error accent signals a setback, while every
+   important fact remains textual and fail-closed. */
+.recovery {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-lg);
+  border: 1px solid color-mix(in srgb, var(--color-error) 38%, var(--color-border));
+  background: color-mix(in srgb, var(--color-error) 7%, transparent);
+}
+
+.recoveryLabel,
+.recoveryChanged {
+  margin: 0;
+}
+
+.recoveryLabel {
+  color: var(--color-text-primary);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: 0.02em;
+}
+
+.recoveryChanged {
+  color: var(--color-text-primary);
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-medium);
+  line-height: var(--line-height-normal);
+  overflow-wrap: anywhere;
+}
+
+.recoveryFacts {
+  width: 100%;
+  margin: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
+  gap: var(--space-2) var(--space-4);
+}
+
+.recoveryFact {
+  min-width: 0;
+}
+
+.recoveryFact dt {
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+}
+
+.recoveryFact dd {
+  margin: 0.1rem 0 0;
+  color: var(--color-text-primary);
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-normal);
+  overflow-wrap: anywhere;
+}
+
 /* UI-004 — Waiting stays inside the one Active Work surface. It is visually
    calm and explicit about holder/follow-up truth without looking like a new
    dashboard, task card, or second workflow system. */
@@ -317,6 +376,7 @@
     gap: var(--space-2);
   }
 
+  .recoveryFacts,
   .waitingFacts,
   .askingFacts {
     grid-template-columns: 1fr;
