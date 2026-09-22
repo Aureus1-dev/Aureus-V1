@@ -60,8 +60,8 @@ export interface ConversationSurfaceProps {
  * surface. UI-004 extends the existing one Active Work presentation by
  * projecting the current conversation's canonical Personal Need
  * Responsibility when no narrower application-help Responsibility is active.
- * No second task/wait store is created; waiting truth comes from the existing
- * Responsibility and its Step-5 follow-through contract.
+ * UI-005 and UI-006 reuse that same projection for Asking and Recovering;
+ * no second task/wait/recovery store is created.
  */
 export function ConversationSurface({ initialMode = 'text' }: ConversationSurfaceProps) {
   const { session } = useSession();
@@ -186,7 +186,8 @@ export function ConversationSurface({ initialMode = 'text' }: ConversationSurfac
 
   // UI-004 — Waiting. Reuse the existing self-scoped Responsibility list to
   // locate the canonical Personal Need Responsibility for this conversation.
-  // This is a read projection only; it does not create or mutate work truth.
+  // UI-005 Asking and UI-006 Recovering continue to project from the same row;
+  // this remains a read projection only and does not create or mutate work truth.
   useEffect(() => {
     if (!session.accessToken || !state.activeConversationId) {
       setPersonalNeedResponsibility(null);
@@ -368,6 +369,7 @@ export function ConversationSurface({ initialMode = 'text' }: ConversationSurfac
   const status = carryState ? carryState.status : null;
   const tone = carryState ? carryState.tone : null;
   const authorityNote = carryState ? carryState.authorityNote : null;
+  const recovery = carryState ? carryState.recovery : null;
   const waiting = carryState ? carryState.waiting : null;
   const carrying = carryState
     ? carryState.carrying
@@ -434,6 +436,7 @@ export function ConversationSurface({ initialMode = 'text' }: ConversationSurfac
               status={status}
               tone={tone}
               carrying={carrying}
+              recovery={recovery}
               waiting={waiting}
               needsYou={needsYou}
               nextAction={nextAction}
