@@ -731,7 +731,7 @@ describe('ConversationSurface', () => {
     });
   });
 
-  it('does not claim Aureus is currently guiding, and assigns the next action to the member, for an ACTIVE Responsibility with no live guide session', async () => {
+  it('does not claim Aureus is currently guiding, and shows the structured resume ask, for an ACTIVE Responsibility with no live guide session', async () => {
     mockedApi.listConversations.mockResolvedValue({
       data: [{ id: 'conv-1', userId: 'member-1', title: 'Career grant', createdAt: 'x', updatedAt: 'x' }],
       total: 1,
@@ -755,14 +755,9 @@ describe('ConversationSurface', () => {
     expect(
       within(summary).getByText('Aureus accepted this and is ready to continue — resume when you are ready.'),
     ).toBeInTheDocument();
-    expect(within(summary).getByText('Needs you')).toBeInTheDocument();
-    expect(
-      within(summary).getByText('Resume the guided application to continue — Aureus is ready when you are.'),
-    ).toBeInTheDocument();
-    expect(within(summary).getByText('Next action')).toBeInTheDocument();
-    // Next action must be owned by the member, not Aureus, since no
-    // execution is actually occurring right now.
-    expect(within(summary).getByText(/^You: Resume the guided application/)).toBeInTheDocument();
+    expect(within(summary).getByText('I need one thing from you')).toBeInTheDocument();
+    expect(within(summary).getByText('Resume the application when you are ready.')).toBeInTheDocument();
+    expect(within(summary).queryByText('Next action')).not.toBeInTheDocument();
   });
 
   it('does not describe a completed Responsibility as currently being carried, and clears Needs you/Next action', async () => {
