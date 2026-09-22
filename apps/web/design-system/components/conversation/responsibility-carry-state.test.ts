@@ -59,7 +59,7 @@ describe('buildCarryState', () => {
     expect(state!.needsYou).toBeNull();
   });
 
-  it('does not claim Aureus is guiding, and identifies the real member action, for ACTIVE work with no live guide session', () => {
+  it('does not claim Aureus is guiding, and projects the sourced structured ask, for ACTIVE work with no live guide session', () => {
     // The backend's ACTIVE status alone never proves a session is open —
     // OR-002 accepts the Responsibility before the guide session necessarily
     // exists, and a member can leave without an explicit pause. Omitting the
@@ -68,14 +68,19 @@ describe('buildCarryState', () => {
     expect(state).not.toBeNull();
     expect(state!.carrying).not.toMatch(/guiding you/i);
     expect(state!.carrying).toMatch(/ready to continue/i);
-    expect(state!.needsYou).toMatch(/resume the guided application/i);
-    expect(state!.nextAction).toEqual({
-      description: state!.needsYou,
-      owner: 'MEMBER',
+    expect(state!.needsYou).toEqual({
+      request: 'Resume the application when you are ready.',
+      reason:
+        'Only you can enter private information, attest to it, and submit this application. I cannot do those steps for you.',
+      after: 'Once you reopen it, I will continue guiding you from the current application.',
+      effort: null,
+      alternateRoute:
+        'If you already submitted it elsewhere or you are not continuing, reopen the application guide and use the matching outcome choice instead. I will record that member-reported outcome there without claiming third-party approval.',
     });
+    expect(state!.nextAction).toBeNull();
   });
 
-  it('only shows "Needs you" when the Responsibility genuinely requires the member (WAITING_ON_USER, or ACTIVE guidance with no live session)', () => {
+  it('only creates the application resume ask when guidance genuinely requires the member', () => {
     const activeWithLiveSession = buildCarryState(makeResponsibility({ status: 'ACTIVE' }), true);
     expect(activeWithLiveSession!.needsYou).toBeNull();
 
@@ -87,11 +92,16 @@ describe('buildCarryState', () => {
     });
 
     const waitingOnUser = buildCarryState(makeResponsibility({ status: 'WAITING_ON_USER' }));
-    expect(waitingOnUser!.needsYou).toMatch(/return to finish the guided application/i);
-    expect(waitingOnUser!.nextAction).toEqual({
-      description: waitingOnUser!.needsYou,
-      owner: 'MEMBER',
+    expect(waitingOnUser!.needsYou).toEqual({
+      request: 'Resume the application when you are ready.',
+      reason:
+        'Only you can enter private information, attest to it, and submit this application. I cannot do those steps for you.',
+      after: 'Once you reopen it, I will continue guiding you from the current application.',
+      effort: null,
+      alternateRoute:
+        'If you already submitted it elsewhere or you are not continuing, reopen the application guide and use the matching outcome choice instead. I will record that member-reported outcome there without claiming third-party approval.',
     });
+    expect(waitingOnUser!.nextAction).toBeNull();
   });
 
   it('does not describe completed work as currently in progress, and clears "Needs you"/"Next action"', () => {

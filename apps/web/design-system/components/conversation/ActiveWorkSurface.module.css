@@ -169,6 +169,66 @@
   font-weight: var(--font-weight-medium);
 }
 
+/* UI-005 — Asking is one member-held request with its reason and continuation
+   attached. It intentionally reuses the Needs-you visual weight rather than
+   becoming a second workflow card or a multi-question form. */
+.asking {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-lg);
+  border: 1px solid color-mix(in srgb, var(--color-warning) 45%, var(--color-border));
+  background: color-mix(in srgb, var(--color-warning) 8%, transparent);
+}
+
+.askingLabel,
+.askingRequest {
+  margin: 0;
+}
+
+.askingLabel {
+  color: var(--color-text-primary);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: 0.02em;
+}
+
+.askingRequest {
+  color: var(--color-text-primary);
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-medium);
+  line-height: var(--line-height-normal);
+  overflow-wrap: anywhere;
+}
+
+.askingFacts {
+  width: 100%;
+  margin: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr));
+  gap: var(--space-2) var(--space-4);
+}
+
+.askingFact {
+  min-width: 0;
+}
+
+.askingFact dt {
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+}
+
+.askingFact dd {
+  margin: 0.1rem 0 0;
+  color: var(--color-text-primary);
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-normal);
+  overflow-wrap: anywhere;
+}
+
 .needsYou {
   display: flex;
   flex-direction: column;
@@ -257,7 +317,8 @@
     gap: var(--space-2);
   }
 
-  .waitingFacts {
+  .waitingFacts,
+  .askingFacts {
     grid-template-columns: 1fr;
   }
 }

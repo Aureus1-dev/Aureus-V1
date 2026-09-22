@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import type {
+  CarryStateAsk,
   CarryStateEvidenceEntry,
   CarryStateNextAction,
   CarryStateTone,
@@ -20,8 +21,12 @@ export interface ActiveWorkSurfaceProps {
   carrying: string;
   /** UI-004: canonical wait truth. Entire block is omitted when no real waiting state exists. */
   waiting?: CarryStateWaiting | null;
-  /** Only set when something real genuinely requires the member; omitted entirely otherwise. */
-  needsYou?: string | null;
+  /**
+   * UI-005: a structured canonical ask when truth supports it. A legacy string
+   * remains accepted for pre-Responsibility/opportunity surfaces that only know
+   * a coarse "Needs you" signal and must not fabricate missing ask details.
+   */
+  needsYou?: CarryStateAsk | string | null;
   /** The next executable step and who owns it — derived from real Responsibility status, never fabricated. */
   nextAction?: CarryStateNextAction | null;
   doneMeans: string;
@@ -57,12 +62,9 @@ function formatDateTime(value: string): string {
 
 /**
  * UI Slice 3 established this as the single presentation of one durable
- * Responsibility. UI-004 adds the Waiting grammar inside this same surface
- * rather than creating a second status card or task system.
- *
- * Every field is supplied by the caller from canonical Responsibility or
- * Step-5 follow-through truth. This component renders only what it is given
- * and never fabricates activity, ownership, chase dates, ETAs, or actions.
+ * Responsibility. UI-004 adds truthful Waiting. UI-005 adds one reasoned ask
+ * inside that same surface rather than creating a questionnaire or second work
+ * card. This component only renders canonical fields supplied by the caller.
  */
 export function ActiveWorkSurface({
   workingOn,
@@ -81,6 +83,9 @@ export function ActiveWorkSurface({
   guidePanel,
 }: ActiveWorkSurfaceProps) {
   const hasDetail = Boolean((evidence && evidence.length > 0) || lastActivityAt);
+  const structuredAsk =
+    needsYou && typeof needsYou !== 'string' ? needsYou : null;
+  const legacyNeedsYou = typeof needsYou === 'string' ? needsYou : null;
 
   return (
     <section className={styles.surface} aria-label="Active work">
@@ -109,13 +114,21 @@ export function ActiveWorkSurface({
             {waiting.lastFollowUpAt ? (
               <div className={styles.waitingFact}>
                 <dt>Last follow-up</dt>
-                <dd><time dateTime={waiting.lastFollowUpAt}>{formatDateTime(waiting.lastFollowUpAt)}</time></dd>
+                <dd>
+                  <time dateTime={waiting.lastFollowUpAt}>
+                    {formatDateTime(waiting.lastFollowUpAt)}
+                  </time>
+                </dd>
               </div>
             ) : null}
             {waiting.nextFollowUpAt ? (
               <div className={styles.waitingFact}>
                 <dt>Next follow-up</dt>
-                <dd><time dateTime={waiting.nextFollowUpAt}>{formatDateTime(waiting.nextFollowUpAt)}</time></dd>
+                <dd>
+                  <time dateTime={waiting.nextFollowUpAt}>
+                    {formatDateTime(waiting.nextFollowUpAt)}
+                  </time>
+                </dd>
               </div>
             ) : null}
             {waiting.dueAt ? (
@@ -123,7 +136,9 @@ export function ActiveWorkSurface({
                 <dt>Due</dt>
                 <dd>
                   <time dateTime={waiting.dueAt}>{formatDateTime(waiting.dueAt)}</time>
-                  {waiting.dueProvenance ? ` · ${waiting.dueProvenance === 'VERIFIED' ? 'verified' : 'reported'}` : ''}
+                  {waiting.dueProvenance
+                    ? ` · ${waiting.dueProvenance === 'VERIFIED' ? 'verified' : 'reported'}`
+                    : ''}
                 </dd>
               </div>
             ) : null}
@@ -134,10 +149,42 @@ export function ActiveWorkSurface({
         </section>
       ) : null}
 
-      {needsYou ? (
+      {structuredAsk ? (
+        <section className={styles.asking} aria-label="What Aureus needs from you">
+          <p className={styles.askingLabel}>I need one thing from you</p>
+          <p className={styles.askingRequest}>{structuredAsk.request}</p>
+          <dl className={styles.askingFacts}>
+            <div className={styles.askingFact}>
+              <dt>Why I need it</dt>
+              <dd>{structuredAsk.reason}</dd>
+            </div>
+            <div className={styles.askingFact}>
+              <dt>Then I’ll</dt>
+              <dd>{structuredAsk.after}</dd>
+            </div>
+            {structuredAsk.effort ? (
+              <div className={styles.askingFact}>
+                <dt>What it takes</dt>
+                <dd>{structuredAsk.effort}</dd>
+              </div>
+            ) : null}
+            {structuredAsk.alternateRoute ? (
+              <div className={styles.askingFact}>
+                <dt>If you can’t</dt>
+                <dd>{structuredAsk.alternateRoute}</dd>
+              </div>
+            ) : null}
+          </dl>
+          {onResume ? (
+            <Button type="button" disabled={resumeBusy} onClick={onResume}>
+              Continue with Aureus
+            </Button>
+          ) : null}
+        </section>
+      ) : legacyNeedsYou ? (
         <div className={styles.needsYou}>
           <p className={styles.needsYouLabel}>Needs you</p>
-          <p className={styles.needsYouText}>{needsYou}</p>
+          <p className={styles.needsYouText}>{legacyNeedsYou}</p>
           {onResume ? (
             <Button type="button" disabled={resumeBusy} onClick={onResume}>
               Continue with Aureus
@@ -181,7 +228,8 @@ export function ActiveWorkSurface({
 
           {lastActivityAt ? (
             <p className={styles.lastActivity}>
-              Last activity: <time dateTime={lastActivityAt}>{formatDateTime(lastActivityAt)}</time>
+              Last activity:{' '}
+              <time dateTime={lastActivityAt}>{formatDateTime(lastActivityAt)}</time>
             </p>
           ) : null}
         </details>

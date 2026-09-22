@@ -481,9 +481,13 @@ describe('ConversationSurface', () => {
         'Paused for you. Come back when you are ready and Aureus will pick it up here.',
       ),
     ).toBeInTheDocument();
-    expect(within(summary).getByText('Needs you')).toBeInTheDocument();
-    expect(within(summary).getByText('Next action')).toBeInTheDocument();
-    expect(within(summary).getByText(/^You: /)).toBeInTheDocument();
+    // UI-005: this ACTIVE-application-guidance Responsibility with no live
+    // guide session now projects a structured resume ask instead of the
+    // legacy "Needs you" label and a separate "Next action" row.
+    const asking = within(summary).getByRole('region', { name: 'What Aureus needs from you' });
+    expect(within(asking).getByText('Resume the application when you are ready.')).toBeInTheDocument();
+    expect(within(summary).queryByText('Needs you')).not.toBeInTheDocument();
+    expect(within(summary).queryByText('Next action')).not.toBeInTheDocument();
     expect(within(summary).getByText('Evidence')).toBeInTheDocument();
     expect(within(summary).getByText(/^Last activity/)).toBeInTheDocument();
   });
@@ -612,11 +616,13 @@ describe('ConversationSurface', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Alpha' }));
 
     // Alpha's own fetch resolves immediately and shows Alpha's real state,
-    // including its Needs You callout and its own Resume action (ACTIVE
+    // including its structured resume ask and its own Resume action (ACTIVE
     // with no session offers "Continue with Aureus").
     const alphaSummary = await screen.findByRole('region', { name: 'Active work' });
     expect(within(alphaSummary).getByText('Help me with the Alpha benefit application')).toBeInTheDocument();
-    expect(within(alphaSummary).getByText('Needs you')).toBeInTheDocument();
+    expect(
+      within(alphaSummary).getByRole('region', { name: 'What Aureus needs from you' }),
+    ).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /continue with aureus/i })).toBeInTheDocument();
 
     // Switch back to Beta, whose fetch is STILL unresolved. The History
@@ -731,7 +737,7 @@ describe('ConversationSurface', () => {
     });
   });
 
-  it('does not claim Aureus is currently guiding, and assigns the next action to the member, for an ACTIVE Responsibility with no live guide session', async () => {
+  it('does not claim Aureus is currently guiding, and shows the structured resume ask, for an ACTIVE Responsibility with no live guide session', async () => {
     mockedApi.listConversations.mockResolvedValue({
       data: [{ id: 'conv-1', userId: 'member-1', title: 'Career grant', createdAt: 'x', updatedAt: 'x' }],
       total: 1,
@@ -751,18 +757,19 @@ describe('ConversationSurface', () => {
     renderSurface();
 
     const summary = await screen.findByRole('region', { name: 'Active work' });
-    expect(within(summary).queryByText(/guiding you/i)).not.toBeInTheDocument();
+    // The live-guiding phrase must not appear — no session is active. The
+    // structured ask's own "Then I'll" continuation legitimately promises
+    // future guidance, so this checks the specific live-carrying phrase
+    // rather than the whole word "guiding".
+    expect(
+      within(summary).queryByText(/guiding you through the verified application/i),
+    ).not.toBeInTheDocument();
     expect(
       within(summary).getByText('Aureus accepted this and is ready to continue — resume when you are ready.'),
     ).toBeInTheDocument();
-    expect(within(summary).getByText('Needs you')).toBeInTheDocument();
-    expect(
-      within(summary).getByText('Resume the guided application to continue — Aureus is ready when you are.'),
-    ).toBeInTheDocument();
-    expect(within(summary).getByText('Next action')).toBeInTheDocument();
-    // Next action must be owned by the member, not Aureus, since no
-    // execution is actually occurring right now.
-    expect(within(summary).getByText(/^You: Resume the guided application/)).toBeInTheDocument();
+    expect(within(summary).getByText('I need one thing from you')).toBeInTheDocument();
+    expect(within(summary).getByText('Resume the application when you are ready.')).toBeInTheDocument();
+    expect(within(summary).queryByText('Next action')).not.toBeInTheDocument();
   });
 
   it('does not describe a completed Responsibility as currently being carried, and clears Needs you/Next action', async () => {

@@ -10,6 +10,19 @@ export interface CarryStateNextAction {
   owner: CarryStateOwner;
 }
 
+export interface CarryStateAsk {
+  /** The one canonical thing Aureus needs from the member. */
+  request: string;
+  /** Why this input/action is necessary now. */
+  reason: string;
+  /** What Aureus will do after the member provides it. */
+  after: string;
+  /** Expected effort only when canonical truth actually supports a useful statement. */
+  effort: string | null;
+  /** A truthful alternate route when the member cannot provide the requested thing. */
+  alternateRoute: string | null;
+}
+
 /**
  * A presentation-agnostic classification of lifecycle status, for selecting
  * a visual tone (e.g. a status accent) — never rendered as text itself.
@@ -45,8 +58,8 @@ export interface CarryStateWaiting {
  * The authoritative "Visible Work" projection of one durable Responsibility
  * (UI Slice 2 — Production Carry State). Every field here is read or derived
  * from the real, conversation-scoped, server-persisted Responsibility — never
- * from conversation text. UI-004 adds `waiting`, which is likewise only a
- * projection of existing Responsibility/Step-5 follow-through truth.
+ * from conversation text. UI-004 adds `waiting`; UI-005 adds a structured ask
+ * only when canonical work truth can support the request, reason, and next step.
  */
 export interface CarryState {
   workingOn: string;
@@ -54,7 +67,7 @@ export interface CarryState {
   /** Visual-only classification of `status` — see `CarryStateTone`. */
   tone: CarryStateTone;
   carrying: string;
-  needsYou: string | null;
+  needsYou: CarryStateAsk | string | null;
   nextAction: CarryStateNextAction | null;
   doneMeans: string;
   evidence: CarryStateEvidenceEntry[];
@@ -62,8 +75,7 @@ export interface CarryState {
   waiting: CarryStateWaiting | null;
   /**
    * The real authority/privacy boundary disclosure for this Responsibility's
-   * kind, where one is required (e.g. OR-002 guidance's "Aureus guides; you
-   * submit/attest" boundary) — null when no kind-specific disclosure applies.
+   * kind, where one applies — null when no kind-specific disclosure applies.
    */
   authorityNote: string | null;
 }
@@ -117,8 +129,10 @@ function describeAuthorityBoundary(responsibility: ResponsibilityProjection): st
 
 const APPLICATION_GUIDANCE_NEEDS_YOU =
   'Return to finish the guided application, or tell Aureus you applied or are not interested.';
-const GENERIC_NEEDS_YOU = 'Aureus needs something from you to continue — return to the conversation for details.';
-const RESUME_GUIDANCE_NEEDS_YOU = 'Resume the guided application to continue — Aureus is ready when you are.';
+const GENERIC_NEEDS_YOU =
+  'Aureus needs something from you to continue — return to the conversation for details.';
+const RESUME_GUIDANCE_NEEDS_YOU =
+  'Resume the guided application to continue — Aureus is ready when you are.';
 const SATISFIED_FOLLOW_THROUGH_STATES = new Set([
   'SATISFIED_REPORTED',
   'SATISFIED_VERIFIED',
@@ -225,9 +239,13 @@ function extractEvidence(responsibility: ResponsibilityProjection): CarryStateEv
 function computeLastActivityAt(responsibility: ResponsibilityProjection): string {
   const lastEventAt =
     responsibility.events.length > 0
-      ? [...responsibility.events].sort((a, b) => b.occurredAt.localeCompare(a.occurredAt))[0].occurredAt
+      ? [...responsibility.events].sort((a, b) =>
+          b.occurredAt.localeCompare(a.occurredAt),
+        )[0].occurredAt
       : null;
-  return lastEventAt && lastEventAt > responsibility.updatedAt ? lastEventAt : responsibility.updatedAt;
+  return lastEventAt && lastEventAt > responsibility.updatedAt
+    ? lastEventAt
+    : responsibility.updatedAt;
 }
 
 type Step5FollowThroughProjection = {
@@ -245,7 +263,9 @@ type Step5FollowThroughProjection = {
 };
 
 function readStep5FollowThrough(successCriteria: unknown): Step5FollowThroughProjection | null {
-  if (!successCriteria || typeof successCriteria !== 'object' || Array.isArray(successCriteria)) return null;
+  if (!successCriteria || typeof successCriteria !== 'object' || Array.isArray(successCriteria)) {
+    return null;
+  }
   const raw = (successCriteria as Record<string, unknown>).step5FollowThrough;
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null;
   const value = raw as Record<string, unknown>;
@@ -297,10 +317,6 @@ function satisfactionStartedAt(
   followThrough: Step5FollowThroughProjection | null,
 ): string | null {
   if (!followThroughIsSatisfied(followThrough) || !followThrough) return null;
-  // Reported satisfaction is the first point at which this bounded Step-5
-  // obligation stopped being a live wait. Later verification strengthens that
-  // truth but must not move the cutoff forward and accidentally hide a broader
-  // Responsibility wait that legitimately began in between.
   return followThrough.reportedSatisfiedAt ?? followThrough.verifiedSatisfiedAt;
 }
 
@@ -311,9 +327,6 @@ function hasPostSatisfactionWaitEvidence(
   const satisfiedAt = satisfactionStartedAt(followThrough);
   if (!satisfiedAt || !statusHolder(responsibility.status)) return false;
 
-  // Fail closed: updatedAt, messages, tool calls, and unrelated evidence do not
-  // prove a new wait. The append-only Responsibility event must explicitly move
-  // this Responsibility into its *current* WAITING_* status after satisfaction.
   return responsibility.events.some(
     (event) => event.toStatus === responsibility.status && event.occurredAt > satisfiedAt,
   );
@@ -324,19 +337,17 @@ function buildWaitingState(
   followThrough = readStep5FollowThrough(responsibility.successCriteria),
 ): CarryStateWaiting | null {
   const satisfied = followThroughIsSatisfied(followThrough);
-  const postSatisfactionWait = satisfied && hasPostSatisfactionWaitEvidence(responsibility, followThrough);
+  const postSatisfactionWait =
+    satisfied && hasPostSatisfactionWaitEvidence(responsibility, followThrough);
 
-  // Satisfaction closes only the bounded Step-5 wait. If the broader Personal
-  // Need later enters a genuinely new wait, its Responsibility event chronology
-  // is authoritative and that new wait must be honored. The old Step-5 action,
-  // due date, and follow-up timestamps are never reused to describe the new wait.
   if (satisfied && !postSatisfactionWait) return null;
   const activeFollowThrough = satisfied ? null : followThrough;
 
   const holderFromStatus = statusHolder(responsibility.status);
   const followThroughIsWaiting =
     Boolean(activeFollowThrough) &&
-    (activeFollowThrough!.state === 'WAITING' || activeFollowThrough!.owner === 'HUMAN_STEWARD');
+    (activeFollowThrough!.state === 'WAITING' ||
+      activeFollowThrough!.owner === 'HUMAN_STEWARD');
 
   if (!holderFromStatus && !followThroughIsWaiting) return null;
 
@@ -352,7 +363,9 @@ function buildWaitingState(
           : 'Aureus is waiting for an outside party to respond.');
 
   const noActionNeededFromMember = activeFollowThrough
-    ? holder !== 'MEMBER' && activeFollowThrough.state !== 'DISPUTED' && !activeFollowThrough.reviewRequired
+    ? holder !== 'MEMBER' &&
+      activeFollowThrough.state !== 'DISPUTED' &&
+      !activeFollowThrough.reviewRequired
     : holder !== 'MEMBER';
 
   return {
@@ -360,10 +373,72 @@ function buildWaitingState(
     waitingOn,
     lastFollowUpAt: activeFollowThrough?.lastAttemptAt ?? null,
     nextFollowUpAt: activeFollowThrough?.nextAttemptAt ?? null,
-    dueAt: activeFollowThrough?.dueAt ?? (satisfied ? null : responsibility.dueAt ?? null),
+    dueAt:
+      activeFollowThrough?.dueAt ?? (satisfied ? null : responsibility.dueAt ?? null),
     dueProvenance: activeFollowThrough?.dueProvenance ?? null,
     noActionNeededFromMember,
   };
+}
+
+function buildApplicationGuidanceAsk(
+  responsibility: ResponsibilityProjection,
+  hasActiveGuideSession: boolean,
+): CarryStateAsk | null {
+  if (
+    responsibility.kind !== 'OPPORTUNITY_APPLICATION_GUIDANCE' ||
+    hasActiveGuideSession ||
+    !['ACTIVE', 'WAITING_ON_USER'].includes(responsibility.status)
+  ) {
+    return null;
+  }
+
+  return {
+    request: 'Resume the application when you are ready.',
+    reason:
+      'Only you can enter private information, attest to it, and submit this application. I cannot do those steps for you.',
+    after: 'Once you reopen it, I will continue guiding you from the current application.',
+    effort: null,
+    alternateRoute:
+      'If you already submitted it elsewhere or you are not continuing, reopen the application guide and use the matching outcome choice instead. I will record that member-reported outcome there without claiming third-party approval.',
+  };
+}
+
+function buildStep5MemberAsk(
+  responsibility: ResponsibilityProjection,
+  followThrough: Step5FollowThroughProjection | null,
+): CarryStateAsk | null {
+  if (
+    responsibility.kind !== 'PERSONAL_NEED_RESOLUTION' ||
+    responsibility.status !== 'WAITING_ON_USER' ||
+    !followThrough ||
+    followThrough.owner !== 'MEMBER' ||
+    followThrough.reviewRequired ||
+    !['PENDING', 'WAITING'].includes(followThrough.state)
+  ) {
+    return null;
+  }
+
+  return {
+    request: followThrough.requiredAction,
+    reason:
+      'I need this because this follow-through is currently in your hands, and I cannot continue that part until it happens.',
+    after:
+      'After you come back with what happened, I will use that result to work out the next responsible step while keeping the underlying need visible.',
+    effort: null,
+    alternateRoute:
+      'If you cannot do this, tell me. I will reassess the route instead of treating it as completed.',
+  };
+}
+
+function buildAskingState(
+  responsibility: ResponsibilityProjection,
+  followThrough: Step5FollowThroughProjection | null,
+  hasActiveGuideSession: boolean,
+): CarryStateAsk | null {
+  return (
+    buildApplicationGuidanceAsk(responsibility, hasActiveGuideSession) ??
+    buildStep5MemberAsk(responsibility, followThrough)
+  );
 }
 
 /**
@@ -383,6 +458,11 @@ export function buildCarryState(
     responsibility.status === 'ACTIVE' &&
     !hasActiveGuideSession;
   const followThrough = readStep5FollowThrough(responsibility.successCriteria);
+  const structuredAsk = buildAskingState(
+    responsibility,
+    followThrough,
+    hasActiveGuideSession,
+  );
   const currentStatusIsWaiting = statusHolder(responsibility.status) !== null;
   const satisfiedFollowThroughWithStaleWait =
     followThroughIsSatisfied(followThrough) &&
@@ -403,23 +483,29 @@ export function buildCarryState(
       : satisfiedFollowThroughWithStaleWait
         ? 'Aureus is still carrying the underlying need.'
         : describeCarrying(responsibility),
-    needsYou: isGuidanceAwaitingResume
-      ? RESUME_GUIDANCE_NEEDS_YOU
+    needsYou: structuredAsk
+      ? structuredAsk
       : satisfiedFollowThroughWithStaleWait
         ? null
         : responsibility.status === 'WAITING_ON_USER'
           ? describeNeedsYou(responsibility)
           : null,
-    nextAction: isGuidanceAwaitingResume
-      ? { description: RESUME_GUIDANCE_NEEDS_YOU, owner: 'MEMBER' }
-      : satisfiedFollowThroughWithStaleWait
-        ? { description: 'Aureus continues carrying the underlying need.', owner: 'AUREUS' }
-        : describeNextAction(responsibility),
+    nextAction: structuredAsk
+      ? null
+      : isGuidanceAwaitingResume
+        ? { description: RESUME_GUIDANCE_NEEDS_YOU, owner: 'MEMBER' }
+        : satisfiedFollowThroughWithStaleWait
+          ? {
+              description: 'Aureus continues carrying the underlying need.',
+              owner: 'AUREUS',
+            }
+          : describeNextAction(responsibility),
     doneMeans: describeDoneMeans(responsibility.successCriteria),
     evidence: extractEvidence(responsibility),
     lastActivityAt: computeLastActivityAt(responsibility),
-    waiting: isGuidanceAwaitingResume
-      ? null
-      : buildWaitingState(responsibility, followThrough),
+    waiting:
+      isGuidanceAwaitingResume || structuredAsk
+        ? null
+        : buildWaitingState(responsibility, followThrough),
   };
 }
