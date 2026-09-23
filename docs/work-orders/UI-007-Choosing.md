@@ -1,6 +1,6 @@
 # UI-007 — Choosing
 
-**Status:** BUILDING / production-impacting interaction-state slice  
+**Status:** VERIFYING / production-impacting interaction-state slice  
 **Register parent:** Item 04 — Steward interaction-state implementation  
 **Predecessor:** UI-006 — Bad News / Recovering / PR #171  
 **Construction base:** `ed23c3ad7a0b5b9fe446814d32cbf7e2ee6e1c91` — merge of PR #171  
@@ -85,6 +85,8 @@ It must not invent:
 - a cost, deadline, risk, or eligibility claim absent from the canonical subject;
 - a claim that approval executes a third-party action when the existing contract only changes recommendation status.
 
+Because `CoordinatedPlanDto` embeds a point-in-time `RecommendationDto`, the UI may retain the **confirmed result of the existing approve/dismiss mutation** for the life of that rendered plan item so stale `PENDING` controls do not reappear. That is presentation continuity only, not a second durable decision record; failed mutations leave the choice unchanged.
+
 ### 4.2 City-resource-backed item
 
 For an existing `MatchedResourceDto`, UI-007 may show the source-backed fields that materially affect the decision, including when present:
@@ -96,6 +98,7 @@ For an existing `MatchedResourceDto`, UI-007 may show the source-backed fields t
 - eligibility requirements;
 - required documents;
 - referral requirement;
+- phone/contact detail when already present;
 - accessibility notes;
 - languages supported;
 - emergency-service status;
@@ -131,12 +134,12 @@ When a structured Choosing state is active for a pending plan item:
 
 - do not duplicate the same member decision as a generic `Needs you` sentence;
 - do not repeat the same decision as a separate `Next action` row;
-- do not create a second approval control elsewhere on the same Active Work presentation;
+- do not create a second approval control elsewhere on the same plan item;
 - do not erase the existing canonical plan/timeline artifact or its decision history.
 
 This is presentation deduplication only. No decision truth is rewritten.
 
-Recovery truth remains authoritative over stale decision presentation. A real blocking/recovery condition may suppress Choosing until the current canonical workflow again supports a decision.
+Recovery and terminal Responsibility truth remain authoritative over stale decision presentation. The plan is scoped to the conversation that produced it; switching conversations cannot silently preserve an actionable decision from another room. A real blocking/recovery or terminal condition makes the historical plan item non-actionable until current canonical workflow truth again supports a decision.
 
 ## 7. Authority and consent
 
@@ -202,11 +205,12 @@ Tests/review must try to falsify at least:
 6. approval is falsely described as third-party submission/execution;
 7. declining one route is falsely described as cancelling the underlying goal;
 8. a stale pending decision survives after accepted/declined/dismissed truth changes;
-9. recovery/blocker truth and Choosing contradict each other;
-10. the same decision appears simultaneously as Choice, generic Needs-you, and Next-action content;
-11. internal enum names leak into member-facing copy;
-12. keyboard/screen-reader/mobile users lose material tradeoff or uncertainty information;
-13. the slice creates a new persistence or decision-authority universe.
+9. recovery/blocker/terminal truth and Choosing contradict each other;
+10. a plan from another conversation remains actionable;
+11. a failed recommendation mutation is displayed as a successful decision;
+12. internal enum names leak into member-facing copy;
+13. keyboard/screen-reader/mobile users lose material tradeoff or uncertainty information;
+14. the slice creates a new persistence or decision-authority universe.
 
 ## 12. Definition of done
 
@@ -214,15 +218,15 @@ UI-007 is ready for independent review when:
 
 - [x] branch starts from exact UI-006 merge `ed23c3ad7a0b5b9fe446814d32cbf7e2ee6e1c91`;
 - [x] this work order defines the bounded Choosing contract before implementation;
-- [ ] existing plan/recommendation/resource-offer decision truth is reused rather than duplicated;
-- [ ] pending decisions can project source-backed relevance, tradeoffs, uncertainty, and authority;
-- [ ] existing real decision controls remain the only mutation path;
-- [ ] primary/supporting roles are not mislabeled as mutually exclusive options;
-- [ ] structured Choosing suppresses duplicate generic decision presentation;
-- [ ] recovery/terminal truth cannot be overridden by stale Choosing state;
-- [ ] no new persistence/schema/API is added unless independent reuse analysis proves an unavoidable gap and the work order is explicitly amended before code lands;
-- [ ] focused adversarial projection/component tests exist;
-- [ ] UI-007 is registered against the permanent Living Release Gate contracts;
+- [x] existing plan/recommendation/resource-offer decision truth is reused rather than duplicated;
+- [x] pending decisions project source-backed relevance, tradeoffs, uncertainty, and authority;
+- [x] existing real decision controls remain the only mutation path;
+- [x] primary/supporting roles are not mislabeled as mutually exclusive options;
+- [x] no second Choosing control or parallel decision presentation is introduced for the plan item;
+- [x] recovery/terminal truth and cross-conversation staleness cannot leave a historical plan actionable;
+- [x] no new persistence/schema/API is added;
+- [x] focused adversarial projection/component tests exist;
+- [x] UI-007 is registered against the permanent Living Release Gate contracts;
 - [ ] the merge-stable register transition is included;
 - [ ] full web/API mechanical CI is green on the exact head;
 - [ ] Docker Build Verification is green on the exact head;
