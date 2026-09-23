@@ -162,13 +162,22 @@ export function PlanCard({
   }
 
   const approve = async () => {
-    await onApprove();
-    if (isRecommendation) setConfirmedRecommendationDecision('ACCEPTED');
+    try {
+      await onApprove();
+      if (isRecommendation) setConfirmedRecommendationDecision('ACCEPTED');
+    } catch {
+      // The existing mutation owner reports/retains its own error truth. UI-007
+      // only refuses to claim the decision changed when that mutation failed.
+    }
   };
 
   const dismiss = async () => {
-    await onDismiss();
-    if (isRecommendation) setConfirmedRecommendationDecision('DISMISSED');
+    try {
+      await onDismiss();
+      if (isRecommendation) setConfirmedRecommendationDecision('DISMISSED');
+    } catch {
+      // Same fail-closed rule as approval: no successful mutation, no new truth.
+    }
   };
 
   return (
