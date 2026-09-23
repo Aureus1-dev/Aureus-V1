@@ -623,7 +623,7 @@ export function buildCarryState(
     evidence: extractEvidence(responsibility),
     lastActivityAt: computeLastActivityAt(responsibility),
     waiting:
-      recovery || isGuidanceAwaitingResume || structuredAsk
+      terminalResponsibilityIsAuthoritative || recovery || isGuidanceAwaitingResume || structuredAsk
         ? null
         : buildWaitingState(responsibility, followThrough),
   };
