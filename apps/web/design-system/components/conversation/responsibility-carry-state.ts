@@ -560,7 +560,13 @@ export function buildCarryState(
     responsibility.status === 'ACTIVE' &&
     !hasActiveGuideSession;
   const followThrough = readStep5FollowThrough(responsibility.successCriteria);
-  const step5Recovery = buildStep5Recovery(responsibility, followThrough);
+  const terminalResponsibilityIsAuthoritative =
+    responsibility.status === 'COMPLETED' ||
+    responsibility.status === 'RESPONSIBLY_EXHAUSTED' ||
+    responsibility.status === 'CANCELLED';
+  const step5Recovery = terminalResponsibilityIsAuthoritative
+    ? null
+    : buildStep5Recovery(responsibility, followThrough);
   const recovery = step5Recovery ?? buildResponsibilityRecovery(responsibility);
   const structuredAsk = recovery
     ? null
