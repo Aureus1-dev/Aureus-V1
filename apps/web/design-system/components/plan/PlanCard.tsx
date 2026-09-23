@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import type { PlanItemDto } from '../../../lib/api/plan';
 import type { MatchedResourceDto, ResourceOfferResponseValue } from '../../../lib/api/needs';
 import type { RecommendationSubject } from '../recommendations';
@@ -29,9 +30,9 @@ export interface PlanCardProps {
   /** UI-007: false when current Responsibility recovery/terminal truth makes this historical plan non-actionable. */
   choiceEnabled?: boolean;
   /** Existing mutation path: recommendation approve or resource-offer accept. */
-  onApprove: () => void;
+  onApprove: () => void | Promise<void>;
   /** Existing mutation path: recommendation dismiss or resource-offer decline. */
-  onDismiss: () => void;
+  onDismiss: () => void | Promise<void>;
 }
 
 interface ChoiceFact {
@@ -39,8 +40,13 @@ interface ChoiceFact {
   value: string;
 }
 
+type ConfirmedRecommendationDecision = 'ACCEPTED' | 'DISMISSED';
+
 function resourceFacts(resource: MatchedResourceDto): ChoiceFact[] {
   const facts: ChoiceFact[] = [];
+  if (!resource.isTestFixture && resource.verificationStatus === 'VERIFIED') {
+    facts.push({ label: 'Verification', value: 'Verified' });
+  }
   if (resource.cost) facts.push({ label: 'Cost', value: resource.cost });
   if (resource.eligibilityRequirements) {
     facts.push({ label: 'Eligibility', value: resource.eligibilityRequirements });
@@ -54,6 +60,7 @@ function resourceFacts(resource: MatchedResourceDto): ChoiceFact[] {
   });
   if (resource.serviceArea) facts.push({ label: 'Service area', value: resource.serviceArea });
   if (resource.hours) facts.push({ label: 'Hours', value: resource.hours });
+  if (resource.phone) facts.push({ label: 'Phone', value: resource.phone });
   if (resource.accessibilityNotes) {
     facts.push({ label: 'Accessibility', value: resource.accessibilityNotes });
   }
@@ -100,6 +107,12 @@ const RESOURCE_AUTHORITY =
  * without changing the underlying decision record. Unknown facts stay absent,
  * and Primary/Supporting roles are never rewritten as a hidden ranking or
  * mutually-exclusive comparison.
+ *
+ * CoordinatedPlanDto embeds a point-in-time RecommendationDto. The existing
+ * approve/dismiss endpoint does not mutate that embedded object, so this card
+ * remembers only a mutation that actually resolved successfully. This mirrors
+ * the established first-run confirmed-decision pattern and prevents stale
+ * PENDING controls without inventing a second durable decision record.
  */
 export function PlanCard({
   item,
@@ -114,8 +127,12 @@ export function PlanCard({
   const isRecommendation = item.source === 'RECOMMENDATION';
   const recommendation = isRecommendation ? item.recommendation! : null;
   const resource = isRecommendation ? null : item.cityResource!;
+  const [confirmedRecommendationDecision, setConfirmedRecommendationDecision] =
+    useState<ConfirmedRecommendationDecision | null>(null);
 
-  const recommendationPending = recommendation?.status === 'PENDING';
+  const effectiveRecommendationStatus =
+    confirmedRecommendationDecision ?? recommendation?.status ?? null;
+  const recommendationPending = effectiveRecommendationStatus === 'PENDING';
   const resourcePending = resource !== null && offerResponse === 'PENDING';
   const resourceRejected = resource?.verificationStatus === 'REJECTED';
   const choiceReady = choiceEnabled && (isRecommendation
@@ -126,9 +143,9 @@ export function PlanCard({
   const uncertainty = resource ? verificationCopy(resource) : null;
 
   let decisionSummary: string | null = null;
-  if (recommendation?.status === 'ACCEPTED') {
+  if (effectiveRecommendationStatus === 'ACCEPTED') {
     decisionSummary = 'You chose this recommendation.';
-  } else if (recommendation?.status === 'DISMISSED') {
+  } else if (effectiveRecommendationStatus === 'DISMISSED') {
     decisionSummary = 'You chose not to use this recommendation.';
   } else if (resource && offerResponse === 'ACCEPTED') {
     decisionSummary = 'You accepted this resource.';
@@ -143,6 +160,16 @@ export function PlanCard({
   } else if (resourceRejected) {
     decisionSummary = uncertainty;
   }
+
+  const approve = async () => {
+    await onApprove();
+    if (isRecommendation) setConfirmedRecommendationDecision('ACCEPTED');
+  };
+
+  const dismiss = async () => {
+    await onDismiss();
+    if (isRecommendation) setConfirmedRecommendationDecision('DISMISSED');
+  };
 
   return (
     <div className={styles.item}>
@@ -196,10 +223,10 @@ export function PlanCard({
           </p>
 
           <div className={styles.actions}>
-            <Button onClick={onApprove} disabled={deciding}>
+            <Button onClick={() => void approve()} disabled={deciding}>
               {deciding ? 'Saving…' : isRecommendation ? 'Choose this' : 'Use this resource'}
             </Button>
-            <Button variant="secondary" onClick={onDismiss} disabled={deciding}>
+            <Button variant="secondary" onClick={() => void dismiss()} disabled={deciding}>
               {isRecommendation ? 'Not this' : 'Not this resource'}
             </Button>
           </div>
