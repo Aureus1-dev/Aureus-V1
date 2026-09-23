@@ -26,6 +26,8 @@ export interface PlanCardProps {
   /** The member's existing response to a CITY_RESOURCE item's offer. */
   offerResponse: ResourceOfferResponseValue | null;
   deciding: boolean;
+  /** UI-007: false when current Responsibility recovery/terminal truth makes this historical plan non-actionable. */
+  choiceEnabled?: boolean;
   /** Existing mutation path: recommendation approve or resource-offer accept. */
   onApprove: () => void;
   /** Existing mutation path: recommendation dismiss or resource-offer decline. */
@@ -93,9 +95,11 @@ const RESOURCE_AUTHORITY =
  * surface instead of creating a second Choice store or approval path.
  *
  * Only pending, sufficiently sourced decisions render an active Choice region.
- * Accepted/dismissed/declined truth removes the controls. Unknown facts stay
- * absent, and Primary/Supporting roles are never rewritten as a hidden ranking
- * or mutually-exclusive comparison.
+ * Accepted/dismissed/declined truth removes the controls. Recovery/terminal
+ * Responsibility truth can also turn the plan into history-only presentation
+ * without changing the underlying decision record. Unknown facts stay absent,
+ * and Primary/Supporting roles are never rewritten as a hidden ranking or
+ * mutually-exclusive comparison.
  */
 export function PlanCard({
   item,
@@ -103,6 +107,7 @@ export function PlanCard({
   subject,
   offerResponse,
   deciding,
+  choiceEnabled = true,
   onApprove,
   onDismiss,
 }: PlanCardProps) {
@@ -113,9 +118,9 @@ export function PlanCard({
   const recommendationPending = recommendation?.status === 'PENDING';
   const resourcePending = resource !== null && offerResponse === 'PENDING';
   const resourceRejected = resource?.verificationStatus === 'REJECTED';
-  const choiceReady = isRecommendation
+  const choiceReady = choiceEnabled && (isRecommendation
     ? recommendationPending && Boolean(subject)
-    : resourcePending && !resourceRejected;
+    : resourcePending && !resourceRejected);
 
   const facts = resource ? resourceFacts(resource) : [];
   const uncertainty = resource ? verificationCopy(resource) : null;
@@ -129,6 +134,8 @@ export function PlanCard({
     decisionSummary = 'You accepted this resource.';
   } else if (resource && offerResponse === 'DECLINED') {
     decisionSummary = 'You declined this resource.';
+  } else if (!choiceEnabled && (recommendationPending || resourcePending)) {
+    decisionSummary = 'This earlier plan item is not an active choice while the current work state takes precedence.';
   } else if (isRecommendation && recommendationPending && !subject) {
     decisionSummary = 'Decision details are not available yet. I will not ask you to choose without the item details.';
   } else if (resource && offerResponse === null) {
