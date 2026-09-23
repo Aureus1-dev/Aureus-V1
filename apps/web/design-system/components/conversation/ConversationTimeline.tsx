@@ -21,6 +21,8 @@ export interface ConversationTimelineProps {
   pendingResponse: boolean;
   planSubjectsById: Record<string, RecommendationSubject>;
   planOfferResponseByCityResourceId: Record<string, ResourceOfferResponseValue>;
+  /** UI-007: false when current Responsibility recovery/terminal truth makes an older plan history-only. */
+  planChoiceEnabled?: boolean;
   isDecidingPlanItem: (item: PlanItemDto) => boolean;
   onApprovePlanItem: (item: PlanItemDto) => void;
   onDismissPlanItem: (item: PlanItemDto) => void;
@@ -112,6 +114,7 @@ function renderWorkEntry(
     ConversationTimelineProps,
     | 'planSubjectsById'
     | 'planOfferResponseByCityResourceId'
+    | 'planChoiceEnabled'
     | 'isDecidingPlanItem'
     | 'onApprovePlanItem'
     | 'onDismissPlanItem'
@@ -129,6 +132,7 @@ function renderWorkEntry(
               role={index === 0 ? 'Primary' : 'Supporting'}
               subject={subjectFor(item, props.planSubjectsById)}
               offerResponse={offerResponseFor(item, props.planOfferResponseByCityResourceId)}
+              choiceEnabled={props.planChoiceEnabled}
               deciding={props.isDecidingPlanItem(item)}
               onApprove={() => props.onApprovePlanItem(item)}
               onDismiss={() => props.onDismissPlanItem(item)}
@@ -166,6 +170,7 @@ export function ConversationTimeline({
   pendingResponse,
   planSubjectsById,
   planOfferResponseByCityResourceId,
+  planChoiceEnabled = true,
   isDecidingPlanItem,
   onApprovePlanItem,
   onDismissPlanItem,
@@ -251,6 +256,7 @@ export function ConversationTimeline({
             renderWorkEntry(entry, router, {
               planSubjectsById,
               planOfferResponseByCityResourceId,
+              planChoiceEnabled,
               isDecidingPlanItem,
               onApprovePlanItem,
               onDismissPlanItem,
