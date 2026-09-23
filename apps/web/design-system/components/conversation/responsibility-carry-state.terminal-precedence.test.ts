@@ -1,7 +1,9 @@
 import type { ResponsibilityDto } from '../../../lib/api/responsibilities';
 import { buildCarryState } from './responsibility-carry-state';
 
-function staleStep5(): Record<string, unknown> {
+function staleStep5(
+  overrides: Record<string, unknown> = {},
+): Record<string, unknown> {
   return {
     version: 'people-step5-obligation-v1',
     owner: 'MEMBER',
@@ -16,11 +18,13 @@ function staleStep5(): Record<string, unknown> {
     reviewRequired: true,
     reviewReason:
       'The current due time passed without evidence that the sourced obligation was satisfied.',
+    ...overrides,
   };
 }
 
 function makeResponsibility(
   status: ResponsibilityDto['status'],
+  step5Overrides: Record<string, unknown> = {},
 ): ResponsibilityDto {
   return {
     id: `responsibility-terminal-${status.toLowerCase()}`,
@@ -36,7 +40,7 @@ function makeResponsibility(
     originOpportunityId: null,
     successCriteria: {
       type: 'PERSONAL_NEED_RESOLUTION',
-      step5FollowThrough: staleStep5(),
+      step5FollowThrough: staleStep5(step5Overrides),
     },
     dueAt: null,
     retentionExpiresAt: null,
@@ -85,5 +89,36 @@ describe('UI-006 terminal Responsibility precedence', () => {
     expect(carry?.recovery).toBeNull();
     expect(carry?.needsYou).toBeNull();
     expect(carry?.nextAction).toBeNull();
+  });
+
+  it('does not resurrect Waiting after COMPLETED from stale Step-5 WAITING data', () => {
+    const carry = buildCarryState(
+      makeResponsibility('COMPLETED', {
+        state: 'WAITING',
+        reviewRequired: false,
+        reviewReason: null,
+      }),
+    );
+
+    expect(carry).not.toBeNull();
+    expect(carry?.status).toBe('This bounded responsibility is complete.');
+    expect(carry?.recovery).toBeNull();
+    expect(carry?.waiting).toBeNull();
+  });
+
+  it('does not resurrect Waiting after CANCELLED from a stale Human Steward Step-5 owner', () => {
+    const carry = buildCarryState(
+      makeResponsibility('CANCELLED', {
+        owner: 'HUMAN_STEWARD',
+        state: 'PENDING',
+        reviewRequired: false,
+        reviewReason: null,
+      }),
+    );
+
+    expect(carry).not.toBeNull();
+    expect(carry?.status).toBe('This responsibility was cancelled.');
+    expect(carry?.recovery).toBeNull();
+    expect(carry?.waiting).toBeNull();
   });
 });
