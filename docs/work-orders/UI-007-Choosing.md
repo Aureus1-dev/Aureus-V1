@@ -227,7 +227,7 @@ UI-007 is ready for independent review when:
 - [x] no new persistence/schema/API is added;
 - [x] focused adversarial projection/component tests exist;
 - [x] UI-007 is registered against the permanent Living Release Gate contracts;
-- [ ] the merge-stable register transition is included;
+- [x] the merge-stable register transition is included;
 - [ ] full web/API mechanical CI is green on the exact head;
 - [ ] Docker Build Verification is green on the exact head;
 - [ ] independent exact-head review returns no BLOCKER/HIGH;
