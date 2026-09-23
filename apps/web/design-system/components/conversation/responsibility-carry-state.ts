@@ -23,6 +23,21 @@ export interface CarryStateAsk {
   alternateRoute: string | null;
 }
 
+export interface CarryStateRecovery {
+  /** The canonical setback or changed condition. */
+  changed: string;
+  /** What remains true despite the setback. */
+  remainsTrue: string;
+  /** A real preservation/repair action Aureus already took, when one is proven. */
+  alreadyDone: string | null;
+  /** The next safe recovery route, only when current truth supports one. */
+  next: string | null;
+  /** The current recovery holder, only when independently proven. */
+  holder: CarryStateOwner | null;
+  /** A real recovery checkpoint (for example nextAttemptAt), never an inferred ETA. */
+  checkpointAt: string | null;
+}
+
 /**
  * A presentation-agnostic classification of lifecycle status, for selecting
  * a visual tone (e.g. a status accent) — never rendered as text itself.
@@ -58,8 +73,8 @@ export interface CarryStateWaiting {
  * The authoritative "Visible Work" projection of one durable Responsibility
  * (UI Slice 2 — Production Carry State). Every field here is read or derived
  * from the real, conversation-scoped, server-persisted Responsibility — never
- * from conversation text. UI-004 adds `waiting`; UI-005 adds a structured ask
- * only when canonical work truth can support the request, reason, and next step.
+ * from conversation text. UI-004 adds `waiting`; UI-005 adds a structured ask;
+ * UI-006 adds bounded recovery only when canonical setback truth supports it.
  */
 export interface CarryState {
   workingOn: string;
@@ -67,6 +82,7 @@ export interface CarryState {
   /** Visual-only classification of `status` — see `CarryStateTone`. */
   tone: CarryStateTone;
   carrying: string;
+  recovery: CarryStateRecovery | null;
   needsYou: CarryStateAsk | string | null;
   nextAction: CarryStateNextAction | null;
   doneMeans: string;
@@ -260,6 +276,7 @@ type Step5FollowThroughProjection = {
   reportedSatisfiedAt: string | null;
   verifiedSatisfiedAt: string | null;
   reviewRequired: boolean;
+  reviewReason: string | null;
 };
 
 function readStep5FollowThrough(successCriteria: unknown): Step5FollowThroughProjection | null {
@@ -293,6 +310,7 @@ function readStep5FollowThrough(successCriteria: unknown): Step5FollowThroughPro
     verifiedSatisfiedAt:
       typeof value.verifiedSatisfiedAt === 'string' ? value.verifiedSatisfiedAt : null,
     reviewRequired: value.reviewRequired === true,
+    reviewReason: typeof value.reviewReason === 'string' ? value.reviewReason : null,
   };
 }
 
@@ -441,6 +459,90 @@ function buildAskingState(
   );
 }
 
+function buildStep5Recovery(
+  responsibility: ResponsibilityProjection,
+  followThrough: Step5FollowThroughProjection | null,
+): CarryStateRecovery | null {
+  if (
+    responsibility.kind !== 'PERSONAL_NEED_RESOLUTION' ||
+    !followThrough ||
+    followThroughIsSatisfied(followThrough)
+  ) {
+    return null;
+  }
+
+  const isSetback =
+    ['BLOCKED', 'MISSED', 'DISPUTED'].includes(followThrough.state) ||
+    followThrough.reviewRequired;
+  if (!isSetback) return null;
+
+  const changed =
+    followThrough.reviewReason ??
+    (followThrough.state === 'BLOCKED'
+      ? 'This follow-through is blocked and needs a responsible continuation route.'
+      : followThrough.state === 'MISSED'
+        ? 'The current due time passed without evidence that this follow-through was satisfied.'
+        : followThrough.state === 'DISPUTED'
+          ? 'This follow-through has conflicting information that needs review.'
+          : 'This follow-through needs review before it can continue safely.');
+
+  const alreadyDone =
+    followThrough.state === 'MISSED'
+      ? 'I kept the underlying need open and marked this follow-through for responsible continuation.'
+      : followThrough.state === 'DISPUTED'
+        ? 'I preserved the verified due date while the conflict is reviewed.'
+        : 'I kept this follow-through open for review rather than treating it as complete.';
+
+  const next =
+    followThrough.state === 'DISPUTED'
+      ? 'Review the conflicting due-date truth before this follow-through moves again.'
+      : followThrough.state === 'BLOCKED'
+        ? 'Reassess the blocked follow-through and choose a responsible continuation route.'
+        : followThrough.state === 'MISSED'
+          ? 'Reassess what should happen next and choose a responsible continuation route before treating this as complete.'
+          : 'Review this follow-through and choose a responsible continuation route before it moves again.';
+
+  return {
+    changed,
+    remainsTrue:
+      'The underlying need is still open. This follow-through has not been treated as completed.',
+    alreadyDone,
+    next,
+    // Step-5 `owner` is the obligation owner, not necessarily the review/recovery
+    // holder. UI-006 fails closed instead of relabeling it.
+    holder: null,
+    checkpointAt: followThrough.nextAttemptAt,
+  };
+}
+
+function buildResponsibilityRecovery(
+  responsibility: ResponsibilityProjection,
+): CarryStateRecovery | null {
+  if (responsibility.status === 'BLOCKED') {
+    return {
+      changed: 'The current path is blocked.',
+      remainsTrue: 'The goal is still open. I have not marked it done.',
+      alreadyDone: 'I kept the work visible instead of dropping it.',
+      next: 'I’m reassessing how to responsibly continue.',
+      holder: 'AUREUS',
+      checkpointAt: null,
+    };
+  }
+
+  if (responsibility.status === 'RESPONSIBLY_EXHAUSTED') {
+    return {
+      changed: 'I could not find a responsible way to continue this path.',
+      remainsTrue: 'I have not marked the goal as achieved.',
+      alreadyDone: null,
+      next: 'There is no responsible next route recorded right now.',
+      holder: null,
+      checkpointAt: null,
+    };
+  }
+
+  return null;
+}
+
 /**
  * The bridge itself. Returns `null` when there is no durable Responsibility
  * to project. `hasActiveGuideSession` is real session presence — not derived
@@ -458,11 +560,17 @@ export function buildCarryState(
     responsibility.status === 'ACTIVE' &&
     !hasActiveGuideSession;
   const followThrough = readStep5FollowThrough(responsibility.successCriteria);
-  const structuredAsk = buildAskingState(
-    responsibility,
-    followThrough,
-    hasActiveGuideSession,
-  );
+  const terminalResponsibilityIsAuthoritative =
+    responsibility.status === 'COMPLETED' ||
+    responsibility.status === 'RESPONSIBLY_EXHAUSTED' ||
+    responsibility.status === 'CANCELLED';
+  const step5Recovery = terminalResponsibilityIsAuthoritative
+    ? null
+    : buildStep5Recovery(responsibility, followThrough);
+  const recovery = step5Recovery ?? buildResponsibilityRecovery(responsibility);
+  const structuredAsk = recovery
+    ? null
+    : buildAskingState(responsibility, followThrough, hasActiveGuideSession);
   const currentStatusIsWaiting = statusHolder(responsibility.status) !== null;
   const satisfiedFollowThroughWithStaleWait =
     followThroughIsSatisfied(followThrough) &&
@@ -471,40 +579,51 @@ export function buildCarryState(
 
   return {
     workingOn: responsibility.objective,
-    status: satisfiedFollowThroughWithStaleWait
-      ? 'That follow-up is no longer waiting. The underlying need remains open.'
-      : describeResponsibilityStatus(responsibility.status),
-    tone: satisfiedFollowThroughWithStaleWait
-      ? 'active'
-      : describeStatusTone(responsibility.status),
+    status: step5Recovery
+      ? 'This follow-through needs a responsible continuation before it can move forward.'
+      : satisfiedFollowThroughWithStaleWait
+        ? 'That follow-up is no longer waiting. The underlying need remains open.'
+        : describeResponsibilityStatus(responsibility.status),
+    tone: recovery
+      ? 'blocked'
+      : satisfiedFollowThroughWithStaleWait
+        ? 'active'
+        : describeStatusTone(responsibility.status),
     authorityNote: describeAuthorityBoundary(responsibility),
-    carrying: isGuidanceAwaitingResume
-      ? 'Aureus accepted this and is ready to continue — resume when you are ready.'
-      : satisfiedFollowThroughWithStaleWait
-        ? 'Aureus is still carrying the underlying need.'
-        : describeCarrying(responsibility),
-    needsYou: structuredAsk
-      ? structuredAsk
-      : satisfiedFollowThroughWithStaleWait
-        ? null
-        : responsibility.status === 'WAITING_ON_USER'
-          ? describeNeedsYou(responsibility)
-          : null,
-    nextAction: structuredAsk
-      ? null
+    carrying: step5Recovery
+      ? 'Aureus is keeping the underlying need open while this setback is reviewed.'
       : isGuidanceAwaitingResume
-        ? { description: RESUME_GUIDANCE_NEEDS_YOU, owner: 'MEMBER' }
+        ? 'Aureus accepted this and is ready to continue — resume when you are ready.'
         : satisfiedFollowThroughWithStaleWait
-          ? {
-              description: 'Aureus continues carrying the underlying need.',
-              owner: 'AUREUS',
-            }
-          : describeNextAction(responsibility),
+          ? 'Aureus is still carrying the underlying need.'
+          : describeCarrying(responsibility),
+    recovery,
+    needsYou: recovery
+      ? null
+      : structuredAsk
+        ? structuredAsk
+        : satisfiedFollowThroughWithStaleWait
+          ? null
+          : responsibility.status === 'WAITING_ON_USER'
+            ? describeNeedsYou(responsibility)
+            : null,
+    nextAction: recovery
+      ? null
+      : structuredAsk
+        ? null
+        : isGuidanceAwaitingResume
+          ? { description: RESUME_GUIDANCE_NEEDS_YOU, owner: 'MEMBER' }
+          : satisfiedFollowThroughWithStaleWait
+            ? {
+                description: 'Aureus continues carrying the underlying need.',
+                owner: 'AUREUS',
+              }
+            : describeNextAction(responsibility),
     doneMeans: describeDoneMeans(responsibility.successCriteria),
     evidence: extractEvidence(responsibility),
     lastActivityAt: computeLastActivityAt(responsibility),
     waiting:
-      isGuidanceAwaitingResume || structuredAsk
+      terminalResponsibilityIsAuthoritative || recovery || isGuidanceAwaitingResume || structuredAsk
         ? null
         : buildWaitingState(responsibility, followThrough),
   };

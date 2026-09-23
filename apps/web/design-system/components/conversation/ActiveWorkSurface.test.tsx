@@ -132,13 +132,17 @@ describe('ActiveWorkSurface', () => {
     expect(within(surface).getByText(/^An outside party: /)).toBeInTheDocument();
   });
 
-  it('state 5 — BLOCKED: visibly distinct from active work, next action stays with Aureus', () => {
+  it('state 5 — BLOCKED: visibly distinct from active work and recovery carries the next route without duplication', () => {
     renderFromResponsibility(makeResponsibility({ status: 'BLOCKED' }));
 
     const surface = screen.getByRole('region', { name: 'Active work' });
     expect(within(surface).getByText(/blocker/i)).toBeInTheDocument();
     expect(within(surface).queryByText('Needs you')).not.toBeInTheDocument();
-    expect(within(surface).getByText(/^Aureus: /)).toBeInTheDocument();
+
+    const recovery = within(surface).getByRole('region', { name: 'Recovery plan' });
+    expect(within(recovery).getByText('I’m reassessing how to responsibly continue.')).toBeInTheDocument();
+    expect(within(recovery).getByText('Aureus')).toBeInTheDocument();
+    expect(within(surface).queryByText('Next action')).not.toBeInTheDocument();
   });
 
   it('state 6 — COMPLETED with evidence: never described as in progress, evidence reflects real reported outcome, no Next action', () => {

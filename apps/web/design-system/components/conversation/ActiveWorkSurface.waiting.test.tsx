@@ -114,7 +114,7 @@ describe('UI-004 Waiting', () => {
     expect(within(waiting).getByText('Nothing you need to do.')).toBeInTheDocument();
   });
 
-  it('keeps review-required/disputed follow-through from claiming the member has nothing to do', () => {
+  it('hands review-required/disputed follow-through to recovery instead of a stale Waiting holder', () => {
     renderResponsibility(
       makePersonalResponsibility({
         successCriteria: {
@@ -129,13 +129,21 @@ describe('UI-004 Waiting', () => {
             lastAttemptAt: '2026-09-21T14:00:00.000Z',
             nextAttemptAt: null,
             reviewRequired: true,
+            reviewReason:
+              'The member reported a date that differs from the currently verified due date. Aureus preserved the verified date pending source review.',
           },
         },
       }),
     );
 
-    const waiting = screen.getByRole('region', { name: 'Waiting' });
-    expect(within(waiting).queryByText('Nothing you need to do.')).not.toBeInTheDocument();
+    const recovery = screen.getByRole('region', { name: 'Recovery plan' });
+    expect(
+      within(recovery).getByText(
+        'The member reported a date that differs from the currently verified due date. Aureus preserved the verified date pending source review.',
+      ),
+    ).toBeInTheDocument();
+    expect(within(recovery).queryByText('Held by')).not.toBeInTheDocument();
+    expect(screen.queryByRole('region', { name: 'Waiting' })).not.toBeInTheDocument();
   });
 
   it('does not resurrect a satisfied member-owned obligation from stale WAITING_ON_USER status', () => {

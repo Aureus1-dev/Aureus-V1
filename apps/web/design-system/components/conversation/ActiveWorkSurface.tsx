@@ -3,6 +3,7 @@ import type {
   CarryStateAsk,
   CarryStateEvidenceEntry,
   CarryStateNextAction,
+  CarryStateRecovery,
   CarryStateTone,
   CarryStateWaiting,
 } from './responsibility-carry-state';
@@ -19,6 +20,8 @@ export interface ActiveWorkSurfaceProps {
   tone?: CarryStateTone | null;
   /** What Aureus is actually doing right now — real signals only, never a decorative filler line. */
   carrying: string;
+  /** UI-006: canonical recovery truth. Entire block is omitted when no bounded setback source exists. */
+  recovery?: CarryStateRecovery | null;
   /** UI-004: canonical wait truth. Entire block is omitted when no real waiting state exists. */
   waiting?: CarryStateWaiting | null;
   /**
@@ -62,15 +65,17 @@ function formatDateTime(value: string): string {
 
 /**
  * UI Slice 3 established this as the single presentation of one durable
- * Responsibility. UI-004 adds truthful Waiting. UI-005 adds one reasoned ask
- * inside that same surface rather than creating a questionnaire or second work
- * card. This component only renders canonical fields supplied by the caller.
+ * Responsibility. UI-004 adds truthful Waiting. UI-005 adds one reasoned ask.
+ * UI-006 adds bounded recovery inside that same surface rather than creating a
+ * second incident/error card. This component only renders canonical fields
+ * supplied by the caller.
  */
 export function ActiveWorkSurface({
   workingOn,
   status,
   tone,
   carrying,
+  recovery,
   waiting,
   needsYou,
   nextAction,
@@ -102,6 +107,47 @@ export function ActiveWorkSurface({
         <span className={styles.fieldLabel}>Aureus is carrying</span>
         {carrying}
       </p>
+
+      {recovery ? (
+        <section className={styles.recovery} aria-label="Recovery plan">
+          <p className={styles.recoveryLabel}>Here’s what changed</p>
+          <p className={styles.recoveryChanged}>{recovery.changed}</p>
+          <dl className={styles.recoveryFacts}>
+            <div className={styles.recoveryFact}>
+              <dt>Still true</dt>
+              <dd>{recovery.remainsTrue}</dd>
+            </div>
+            {recovery.alreadyDone ? (
+              <div className={styles.recoveryFact}>
+                <dt>What I’ve done</dt>
+                <dd>{recovery.alreadyDone}</dd>
+              </div>
+            ) : null}
+            {recovery.next ? (
+              <div className={styles.recoveryFact}>
+                <dt>Next</dt>
+                <dd>{recovery.next}</dd>
+              </div>
+            ) : null}
+            {recovery.holder ? (
+              <div className={styles.recoveryFact}>
+                <dt>Held by</dt>
+                <dd>{OWNER_LABEL[recovery.holder]}</dd>
+              </div>
+            ) : null}
+            {recovery.checkpointAt ? (
+              <div className={styles.recoveryFact}>
+                <dt>Next check</dt>
+                <dd>
+                  <time dateTime={recovery.checkpointAt}>
+                    {formatDateTime(recovery.checkpointAt)}
+                  </time>
+                </dd>
+              </div>
+            ) : null}
+          </dl>
+        </section>
+      ) : null}
 
       {waiting ? (
         <section className={styles.waiting} aria-label="Waiting">
