@@ -530,8 +530,8 @@ export function ConversationSurface({ initialMode = 'text' }: ConversationSurfac
               planOfferResponseByCityResourceId={offerResponseByCityResourceId}
               planChoiceEnabled={planChoiceEnabled}
               isDecidingPlanItem={(item) => decidingKeys.includes(planItemKey(item))}
-              onApprovePlanItem={(item) => void decidePlanItem(item, true)}
-              onDismissPlanItem={(item) => void decidePlanItem(item, false)}
+              onApprovePlanItem={(item) => decidePlanItem(item, true)}
+              onDismissPlanItem={(item) => decidePlanItem(item, false)}
               onStartApplicationGuide={(action) => void startApplicationGuide(action)}
             />
           )}
