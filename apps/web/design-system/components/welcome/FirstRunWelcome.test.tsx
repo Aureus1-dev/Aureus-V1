@@ -334,7 +334,7 @@ describe('FirstRunWelcome — the unified Steward Experience arrival flow', () =
       expect(
         screen.getByText('This matches your goal of finding a better job.'),
       ).toBeInTheDocument();
-      await user.click(screen.getByRole('button', { name: 'Approve' }));
+      await user.click(await screen.findByRole('button', { name: 'Choose this' }));
       await waitFor(() =>
         expect(mockedRecommendations.approveRecommendation).toHaveBeenCalledWith(
           'token-123',
@@ -793,7 +793,7 @@ describe('FirstRunWelcome — Member Arrival: the Coordinated Plan replaces disc
     expect(screen.queryByText('Opportunities that might help')).not.toBeInTheDocument();
     expect(screen.getByText('This matches your goal of finding a better job.')).toBeInTheDocument();
 
-    await user.click(screen.getByRole('button', { name: 'Approve' }));
+    await user.click(await screen.findByRole('button', { name: 'Choose this' }));
     await waitFor(() =>
       expect(mockedRecommendations.approveRecommendation).toHaveBeenCalledWith(
         'token-123',
@@ -942,7 +942,7 @@ describe('FirstRunWelcome — Member Arrival: the Coordinated Plan replaces disc
     );
     await waitFor(() => expect(screen.getByText('Chester County Food Bank')).toBeInTheDocument());
 
-    await user.click(screen.getByRole('button', { name: 'Accept' }));
+    await user.click(screen.getByRole('button', { name: 'Use this resource' }));
     await waitFor(() =>
       expect(mockedNeeds.respondToOffer).toHaveBeenCalledWith(
         'token-123',

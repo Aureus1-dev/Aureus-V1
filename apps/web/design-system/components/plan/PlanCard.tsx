@@ -1,3 +1,5 @@
+'use client';
+
 import { useState } from 'react';
 import type { PlanItemDto } from '../../../lib/api/plan';
 import type { MatchedResourceDto, ResourceOfferResponseValue } from '../../../lib/api/needs';
@@ -30,9 +32,9 @@ export interface PlanCardProps {
   /** UI-007: false when current Responsibility recovery/terminal truth makes this historical plan non-actionable. */
   choiceEnabled?: boolean;
   /** Existing mutation path: recommendation approve or resource-offer accept. */
-  onApprove: () => void | Promise<void>;
+  onApprove: () => Promise<void>;
   /** Existing mutation path: recommendation dismiss or resource-offer decline. */
-  onDismiss: () => void | Promise<void>;
+  onDismiss: () => Promise<void>;
 }
 
 interface ChoiceFact {
@@ -188,9 +190,9 @@ export function PlanCard({
       </div>
 
       <div className={styles.summary}>
-        <h3 className={styles.title}>
+        <h2 className={styles.title}>
           {isRecommendation ? (subject?.title ?? item.categoryLabel) : resource!.organizationName}
-        </h3>
+        </h2>
         {isRecommendation ? (
           <>
             {subject?.description ? <p className={styles.description}>{subject.description}</p> : null}

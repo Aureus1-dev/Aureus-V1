@@ -128,7 +128,15 @@ describe('ConversationSurface UI-007 conversation isolation', () => {
       limit: 20,
       totalPages: 1,
     });
-    mockedApi.listMessages.mockResolvedValue([]);
+    mockedApi.listMessages.mockImplementation(async (_token, conversationId) => [
+      {
+        id: `message-${conversationId}`,
+        conversationId,
+        role: 'USER',
+        content: conversationId === 'conv-alpha' ? 'Alpha need' : 'Beta need',
+        createdAt: '2026-09-01T00:00:00.000Z',
+      },
+    ]);
     mockedGoals.listGoals.mockResolvedValue({
       data: [],
       total: 0,

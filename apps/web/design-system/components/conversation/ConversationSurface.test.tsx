@@ -1023,7 +1023,7 @@ describe('ConversationSurface', () => {
     api.buildPlan();
     await waitFor(() => expect(screen.getByText('This matches your goal.')).toBeInTheDocument());
 
-    await userEvent.click(screen.getByRole('button', { name: 'Choose this' }));
+    await userEvent.click(await screen.findByRole('button', { name: 'Choose this' }));
     await waitFor(() =>
       expect(mockedRecommendations.approveRecommendation).toHaveBeenCalledWith(
         'token-123',
