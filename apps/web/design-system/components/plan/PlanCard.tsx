@@ -29,10 +29,10 @@ export interface PlanCardProps {
   deciding: boolean;
   /** UI-007: false when current Responsibility recovery/terminal truth makes this historical plan non-actionable. */
   choiceEnabled?: boolean;
-  /** Existing mutation path: recommendation approve or resource-offer accept. Must resolve only after authoritative mutation succeeds. */
-  onApprove: () => Promise<void>;
-  /** Existing mutation path: recommendation dismiss or resource-offer decline. Must resolve only after authoritative mutation succeeds. */
-  onDismiss: () => Promise<void>;
+  /** Existing mutation path: recommendation approve or resource-offer accept. */
+  onApprove: () => void | Promise<void>;
+  /** Existing mutation path: recommendation dismiss or resource-offer decline. */
+  onDismiss: () => void | Promise<void>;
 }
 
 interface ChoiceFact {
