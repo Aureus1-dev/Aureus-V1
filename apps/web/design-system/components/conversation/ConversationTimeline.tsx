@@ -24,8 +24,8 @@ export interface ConversationTimelineProps {
   /** UI-007: false when current Responsibility recovery/terminal truth makes an older plan history-only. */
   planChoiceEnabled?: boolean;
   isDecidingPlanItem: (item: PlanItemDto) => boolean;
-  onApprovePlanItem: (item: PlanItemDto) => void;
-  onDismissPlanItem: (item: PlanItemDto) => void;
+  onApprovePlanItem: (item: PlanItemDto) => Promise<void>;
+  onDismissPlanItem: (item: PlanItemDto) => Promise<void>;
   onStartApplicationGuide?: (action: OpportunityActionDto) => void;
 }
 
