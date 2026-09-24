@@ -26,6 +26,11 @@
       "id": "UI-006",
       "path": "docs/work-orders/UI-006-Bad-News-Recovering.md",
       "contractIds": ["core-deployment", "browser-first-session", "accountable-steward-walkthrough"]
+    },
+    {
+      "id": "STEWARD-CARRY-001",
+      "path": "docs/work-orders/STEWARD-CARRY-001-Carry-First-Contract.md",
+      "contractIds": ["core-deployment", "browser-first-session", "accountable-steward-walkthrough"]
     }
   ],
   "permanentContractIds": [
