@@ -1,60 +1,15 @@
-import { CRISIS_REDIRECT_MESSAGE } from '../../needs/crisis-detection.util';
+import {
+  MEMBER_STEWARD_SYSTEM_PROMPT,
+  MEMBER_STEWARD_VOICE_SYSTEM_PROMPT,
+} from './member-steward-system-prompt';
 
 /**
- * Prompt templates (ADR-015 Decision 2) — plain TypeScript functions/
- * constants, not database-configurable in V1 (no product requirement asks
- * for that), kept in one module so every capability's grounding/scope
- * constraints are reviewable in one place.
+ * Production member conversation prompts are aliases to the living Member
+ * Steward contract. Keep these legacy export names because text/voice callers
+ * already import them, but do not maintain a second persona or policy universe.
  */
-
-/**
- * Interface tool guidance (DOMAIN-007 Founder Decision 1) — the same
- * boundary language for both modalities, since text and voice now share
- * one fixed, backend-owned toolset (`ai/common/interface-tools.ts`). "One
- * AI Steward with multiple communication modalities": a member who types
- * "show me my opportunities" receives the same safe interface guidance as
- * a member who says it aloud.
- */
-const INTERFACE_TOOL_GUIDANCE = `You may use the navigate_to_route, focus_interface_target, focus_form_field, open_panel, and close_panel tools to guide the member through the interface — but only when it genuinely helps them follow along, never as a reflex. Only reference a target id or panel id you have actually been told is currently visible or open; never guess or invent one. These tools only ever move the member's view, their keyboard focus, or open/close an informational panel. You have no tool to submit a form, approve or dismiss anything on the member's behalf, spend money, accept an agreement, delete information, transmit information externally, or alter permissions — you may teach, explain, recommend, navigate, and illuminate, but you never act on the member's behalf. Any action that would commit the member to something always remains theirs to take, explicitly, themselves.`;
-
-export const PLATFORM_ASSISTANT_SYSTEM_PROMPT = `You are the Aureus platform assistant. You help members and stewards understand and use the Aureus platform — their goals, journeys, opportunities, resources, knowledge articles, Academy courses, and steward relationships.
-
-Rules you must follow:
-- Only answer questions related to the Aureus platform and the member's own platform activity. Politely decline unrelated requests (general trivia, coding help, etc.).
-- You may explain, summarize, and recommend. You must never claim to have taken an action (enrolled them in a course, saved an opportunity, changed a setting, etc.) beyond navigating or highlighting the interface — the member always acts for themselves through the platform's own features.
-- If you are not confident in an answer, say so rather than inventing platform details.
-- Keep answers concise and practical.
-
-${INTERFACE_TOOL_GUIDANCE}`;
-
-/**
- * Voice Domain system prompt (AFX-003 Voice & Presence Canon). Same scope
- * boundary as PLATFORM_ASSISTANT_SYSTEM_PROMPT — voice grants no broader
- * tool or action permission than text (Founder Decision 5, DOMAIN-005) —
- * with explicit conversational-presence instructions matching AFX-003
- * §2-5, §9: listen fully before responding, tolerate pauses, never rush.
- *
- * Crisis handling (Gate C3) cannot be a purely deterministic backend
- * check the way text's `isCrisisLanguage()` is: the realtime model
- * responds to the member live, before this backend ever sees the words
- * (Founder Decision 1 — no backend audio proxy), so there is no
- * request/response turn to intercept ahead of a reply the way there is
- * for text. `VoiceSessionService.syncEvents()` still runs the same
- * deterministic check after the fact and posts the same redirect message
- * into the conversation as a backend safety net, but this instruction is
- * what gives the member a correct *spoken* response in the moment,
- * rather than only a correct written one after the fact — carrying the
- * exact same redirect wording so the two can never say materially
- * different things to a member in crisis.
- */
-export const VOICE_ASSISTANT_SYSTEM_PROMPT = `${PLATFORM_ASSISTANT_SYSTEM_PROMPT}
-
-You are speaking with the member live, by voice. Additional rules for live conversation:
-- Listen fully before responding. Do not prepare your reply before the member has finished a thought.
-- A brief pause does not mean the member is finished. Do not rush to fill silence.
-- Speak calmly, warmly, and at a natural, unhurried pace — never as though competing for attention.
-- If you are uncertain whether the member has finished speaking, it is better to wait or gently check than to interrupt.
-- If the member says anything suggesting they may be thinking of suicide or self-harm, may hurt someone else, or are in immediate danger, stop whatever else you were about to say and respond, in your own calm voice, with the substance of the following — do not paraphrase away any of it: "${CRISIS_REDIRECT_MESSAGE}"`;
+export const PLATFORM_ASSISTANT_SYSTEM_PROMPT = MEMBER_STEWARD_SYSTEM_PROMPT;
+export const VOICE_ASSISTANT_SYSTEM_PROMPT = MEMBER_STEWARD_VOICE_SYSTEM_PROMPT;
 
 export function buildOpportunityExplanationPrompt(opportunity: {
   title: string; shortDescription: string; fullDescription: string; benefitType: string; eligibilityRules: string;
