@@ -226,13 +226,9 @@ describe('ConversationSurface', () => {
     await screen.findByText('It sounds like you want to get started.');
 
     const summary = screen.getByRole('region', { name: 'Active work' });
-    // Outcome is the dominant heading — the member's own words, directly —
-    // not a labeled row like the other fields.
     expect(within(summary).getByRole('heading', { name: 'Hello, I need help.' })).toBeInTheDocument();
     expect(within(summary).getByText('Aureus is carrying')).toBeInTheDocument();
     expect(within(summary).getByText('Done means')).toBeInTheDocument();
-    // No opportunity action and no resumable application help were returned,
-    // so "Needs you" must not be invented.
     expect(within(summary).queryByText('Needs you')).not.toBeInTheDocument();
   });
 
@@ -244,11 +240,6 @@ describe('ConversationSurface', () => {
       createdAt: 'x',
       updatedAt: 'x',
     });
-    // `build-virtual-timeline.ts` orders entries by real `createdAt`
-    // timestamp (not call order), so replies must carry a real, correctly
-    // sequenced timestamp — captured at call time, exactly as the real API
-    // would — rather than the literal `'x'` other single-exchange tests in
-    // this file use, which only happens to sort correctly for one exchange.
     let replyCount = 0;
     mockedApi.sendMessage.mockImplementation(async () => {
       replyCount += 1;
@@ -282,15 +273,10 @@ describe('ConversationSurface', () => {
     expect(
       within(summary).getByText('Actually, I need help with something else entirely.'),
     ).toBeInTheDocument();
-    // The first request must not linger as "the current work" once a newer,
-    // different request has replaced it.
     expect(within(summary).queryByText('First request about job training.')).not.toBeInTheDocument();
   });
 
   it('never lets an unrelated member-global ACTIVE Journey goal override the current conversation\'s "Working on"', async () => {
-    // GoalDto carries no conversationId — an ACTIVE goal from a completely
-    // separate journey must never be substituted for what THIS conversation
-    // is currently about.
     mockedGoals.listGoals.mockResolvedValue({
       data: [
         {
@@ -361,10 +347,6 @@ describe('ConversationSurface', () => {
       sourceUrl: null,
       sourceType: 'ADMIN_ENTRY' as const,
     };
-    // Real, call-time timestamps — `build-virtual-timeline.ts` sorts entries
-    // by `createdAt`, and the literal `'x'` other single-exchange tests use
-    // sorts after any real ISO timestamp, which would silently corrupt
-    // ordering the moment a second real-timestamped message exists.
     mockedApi.sendMessage.mockImplementationOnce(async () => ({
       id: 'reply-1',
       conversationId: 'conv-1',
@@ -384,7 +366,6 @@ describe('ConversationSurface', () => {
       within(screen.getByRole('region', { name: 'Active work' })).getByText('Needs you'),
     ).toBeInTheDocument();
 
-    // Start a new turn whose reply has not arrived yet.
     let resolveSecond!: (value: Awaited<ReturnType<typeof conversationsApi.sendMessage>>) => void;
     mockedApi.sendMessage.mockReturnValueOnce(
       new Promise((resolve) => {
@@ -394,13 +375,9 @@ describe('ConversationSurface', () => {
     await userEvent.type(textarea, 'Actually, something unrelated now.');
     await userEvent.click(screen.getByRole('button', { name: 'Send' }));
 
-    // While the new reply is still pending, the previous turn's opportunity
-    // must not still be presented as something needing the member.
     await waitFor(() => {
       expect(
-        within(screen.getByRole('region', { name: 'Active work' })).queryByText(
-          'Needs you',
-        ),
+        within(screen.getByRole('region', { name: 'Active work' })).queryByText('Needs you'),
       ).not.toBeInTheDocument();
     });
 
@@ -413,9 +390,7 @@ describe('ConversationSurface', () => {
     });
     await screen.findByText('Second reply, no new opportunity.');
     expect(
-      within(screen.getByRole('region', { name: 'Active work' })).queryByText(
-        'Needs you',
-      ),
+      within(screen.getByRole('region', { name: 'Active work' })).queryByText('Needs you'),
     ).not.toBeInTheDocument();
   });
 
@@ -465,11 +440,7 @@ describe('ConversationSurface', () => {
     });
 
     renderSurface();
-
-    // Resumed automatically — this is durable, persisted Carry State, not
-    // something the member had to re-trigger this session.
     const summary = await screen.findByRole('region', { name: 'Active work' });
-    // Outcome is the dominant heading — the real objective, directly.
     expect(
       within(summary).getByRole('heading', {
         name: 'Help me work through the verified application for Career Training Grant',
@@ -481,9 +452,6 @@ describe('ConversationSurface', () => {
         'Paused for you. Come back when you are ready and Aureus will pick it up here.',
       ),
     ).toBeInTheDocument();
-    // UI-005: this ACTIVE-application-guidance Responsibility with no live
-    // guide session now projects a structured resume ask instead of the
-    // legacy "Needs you" label and a separate "Next action" row.
     const asking = within(summary).getByRole('region', { name: 'What Aureus needs from you' });
     expect(within(asking).getByText('Resume the application when you are ready.')).toBeInTheDocument();
     expect(within(summary).queryByText('Needs you')).not.toBeInTheDocument();
@@ -531,8 +499,6 @@ describe('ConversationSurface', () => {
     });
 
     renderSurface();
-
-    // Auto-resumes the most recently updated conversation (Beta) first.
     const betaSummary = await screen.findByRole('region', { name: 'Active work' });
     expect(within(betaSummary).getByText('Help me with the Beta benefit application')).toBeInTheDocument();
     expect(within(betaSummary).queryByText('Help me with the Alpha benefit application')).not.toBeInTheDocument();
@@ -578,9 +544,7 @@ describe('ConversationSurface', () => {
           }),
         };
       }
-      if (conversationId === 'conv-beta') {
-        return betaPending;
-      }
+      if (conversationId === 'conv-beta') return betaPending;
       return { session: null, responsibility: null };
     });
     mockedPeopleHelp.startPeopleApplicationHelp.mockResolvedValue({
@@ -607,17 +571,11 @@ describe('ConversationSurface', () => {
     });
 
     renderSurface();
-
-    // Auto-resumes Beta first (most recently updated) — its fetch is the
-    // still-pending one, so nothing durable is shown for it yet.
     await screen.findByText('How can we help?');
 
     await userEvent.click(screen.getByRole('button', { name: 'History' }));
     await userEvent.click(screen.getByRole('button', { name: 'Alpha' }));
 
-    // Alpha's own fetch resolves immediately and shows Alpha's real state,
-    // including its structured resume ask and its own Resume action (ACTIVE
-    // with no session offers "Continue with Aureus").
     const alphaSummary = await screen.findByRole('region', { name: 'Active work' });
     expect(within(alphaSummary).getByText('Help me with the Alpha benefit application')).toBeInTheDocument();
     expect(
@@ -625,25 +583,10 @@ describe('ConversationSurface', () => {
     ).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /continue with aureus/i })).toBeInTheDocument();
 
-    // Switch back to Beta, whose fetch is STILL unresolved. The History
-    // dialog is already open from selecting Alpha (selecting a conversation
-    // does not close it), so this clicks "Beta" directly rather than
-    // toggling "History" again, which would only close it. Alpha's
-    // objective/status/evidence must never appear as Beta's Carry State
-    // while Beta's own fetch is pending (independent audit, PR #160) — the
-    // effect clears state synchronously on every conversation switch rather
-    // than leaving the previous conversation's values rendered until the
-    // new fetch settles.
     await userEvent.click(screen.getByRole('button', { name: 'Beta' }));
 
     expect(screen.queryByText('Help me with the Alpha benefit application')).not.toBeInTheDocument();
     expect(screen.queryByRole('region', { name: 'Active work' })).not.toBeInTheDocument();
-    // Alpha's Active Work Surface — and, critically, its Resume action
-    // bound to Alpha's opportunity — must not still be on screen under Beta
-    // (a re-review finding: the stale card's onResume closed over Alpha's
-    // originOpportunityId while startApplicationGuideForOpportunity always
-    // targets the *current* conversation, which would have bound Alpha's
-    // opportunity to Beta's conversation on a fast click).
     expect(screen.queryByRole('button', { name: /continue with aureus/i })).not.toBeInTheDocument();
 
     resolveBeta({
@@ -661,8 +604,6 @@ describe('ConversationSurface', () => {
     expect(within(betaSummary).getByText('Help me with the Beta benefit application')).toBeInTheDocument();
     expect(within(betaSummary).queryByText('Help me with the Alpha benefit application')).not.toBeInTheDocument();
 
-    // Beta's own real card/Resume action now appears, and clicking it
-    // targets Beta's own opportunity — never Alpha's.
     await userEvent.click(screen.getByRole('button', { name: /continue with aureus/i }));
     await waitFor(() => {
       expect(mockedPeopleHelp.startPeopleApplicationHelp).toHaveBeenCalledWith(
@@ -718,19 +659,14 @@ describe('ConversationSurface', () => {
     });
 
     renderSurface();
-
-    // Auto-resumes Beta first (most recently updated, no active help).
     await screen.findByText('How can we help?');
     expect(screen.queryByRole('region', { name: 'Application guidance' })).not.toBeInTheDocument();
 
     await userEvent.click(screen.getByRole('button', { name: 'History' }));
     await userEvent.click(screen.getByRole('button', { name: 'Alpha' }));
 
-    // Alpha genuinely has an active guide session — its panel is real here.
     expect(await screen.findByRole('region', { name: 'Application guidance' })).toBeInTheDocument();
 
-    // Switching back to Beta, which has no application help at all, must
-    // not leave Alpha's ApplicationGuidePanel mounted.
     await userEvent.click(screen.getByRole('button', { name: 'Beta' }));
     await waitFor(() => {
       expect(screen.queryByRole('region', { name: 'Application guidance' })).not.toBeInTheDocument();
@@ -747,9 +683,6 @@ describe('ConversationSurface', () => {
     });
     mockedApi.listMessages.mockResolvedValue([]);
     mockedPeopleHelp.getActivePeopleApplicationHelp.mockResolvedValue({
-      // No active guide session — a real, valid state: OR-002 accepts the
-      // Responsibility before the guide session necessarily exists, and a
-      // member can leave/return without an explicit pause.
       session: null,
       responsibility: makeResponsibility({ status: 'ACTIVE' }),
     });
@@ -757,10 +690,6 @@ describe('ConversationSurface', () => {
     renderSurface();
 
     const summary = await screen.findByRole('region', { name: 'Active work' });
-    // The live-guiding phrase must not appear — no session is active. The
-    // structured ask's own "Then I'll" continuation legitimately promises
-    // future guidance, so this checks the specific live-carrying phrase
-    // rather than the whole word "guiding".
     expect(
       within(summary).queryByText(/guiding you through the verified application/i),
     ).not.toBeInTheDocument();
@@ -831,7 +760,6 @@ describe('ConversationSurface', () => {
       content: 'Sure, tell me more.',
       createdAt: 'x',
     });
-    // Explicit for clarity, though this is already the beforeEach default.
     mockedPeopleHelp.getActivePeopleApplicationHelp.mockResolvedValue({
       session: null,
       responsibility: null,
@@ -848,7 +776,6 @@ describe('ConversationSurface', () => {
     expect(
       within(summary).getByText('Nothing further in progress right now — ask for more anytime.'),
     ).toBeInTheDocument();
-    // No durable Responsibility exists, so none of the Carry-State-only rows are invented.
     expect(within(summary).queryByText('Status')).not.toBeInTheDocument();
     expect(within(summary).queryByText('Next action')).not.toBeInTheDocument();
     expect(within(summary).queryByText('Evidence')).not.toBeInTheDocument();
@@ -903,8 +830,6 @@ describe('ConversationSurface', () => {
 
     renderSurface();
 
-    // Resumed without any click on History/New — a returning member never
-    // lands on an empty "How can we help?" while a real conversation exists.
     expect(
       await screen.findByText('Welcome back — picking up where we left off.'),
     ).toBeInTheDocument();
@@ -970,7 +895,6 @@ describe('ConversationSurface', () => {
     expect(screen.getByRole('button', { name: 'Start voice conversation' })).toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: 'Start voice conversation' }));
 
-    // The same conversation is continued by voice, not a new one.
     expect(mockedVoiceApi.startVoiceSession).toHaveBeenCalledWith('token-123', 'conv-1');
 
     await userEvent.click(screen.getByRole('button', { name: 'Type' }));
@@ -1099,7 +1023,7 @@ describe('ConversationSurface', () => {
     api.buildPlan();
     await waitFor(() => expect(screen.getByText('This matches your goal.')).toBeInTheDocument());
 
-    await userEvent.click(screen.getByRole('button', { name: 'Approve' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Choose this' }));
     await waitFor(() =>
       expect(mockedRecommendations.approveRecommendation).toHaveBeenCalledWith(
         'token-123',
