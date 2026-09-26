@@ -31,6 +31,10 @@ const plan: CoordinatedPlanDto = {
 };
 
 describe('CoordinatedPlanStep', () => {
+  const subjectsById = {
+    'rec-1': { title: 'Career Training Grant', description: 'A training grant.' },
+    'rec-2': { title: 'Supporting Resource', description: 'A supporting resource.' },
+  };
   it('shows a loading state while building', () => {
     render(
       <CoordinatedPlanStep
@@ -96,7 +100,7 @@ describe('CoordinatedPlanStep', () => {
         plan={plan}
         building={false}
         error={null}
-        subjectsById={{}}
+        subjectsById={subjectsById}
         offerResponseByCityResourceId={{}}
         isDeciding={() => false}
         onApprove={onApprove}
@@ -106,9 +110,9 @@ describe('CoordinatedPlanStep', () => {
       />,
     );
 
-    const approveButtons = screen.getAllByRole('button', { name: 'Approve' });
-    expect(approveButtons).toHaveLength(2);
-    await userEvent.click(approveButtons[0]);
+    const chooseButtons = screen.getAllByRole('button', { name: 'Choose this' });
+    expect(chooseButtons).toHaveLength(2);
+    await userEvent.click(chooseButtons[0]);
     expect(onApprove).toHaveBeenCalledWith(primary);
   });
 

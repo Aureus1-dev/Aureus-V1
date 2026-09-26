@@ -452,8 +452,8 @@ export function FirstRunWelcome({ skipHospitality = false }: FirstRunWelcomeProp
             subjectsById={planSubjectsById}
             offerResponseByCityResourceId={offerResponseByCityResourceId}
             isDeciding={(item) => decidingPlanItemKeys.includes(planItemKey(item))}
-            onApprove={(item) => void decidePlanItem(item, true)}
-            onDismiss={(item) => void decidePlanItem(item, false)}
+            onApprove={(item) => decidePlanItem(item, true)}
+            onDismiss={(item) => decidePlanItem(item, false)}
             onRetry={() => void plan.buildPlan(arrivalNeedId)}
             onContinue={() => goToStep('stewardship-offer')}
           />

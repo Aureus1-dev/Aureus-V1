@@ -68,7 +68,9 @@ const opportunityAction = {
 };
 
 const defaultProps = {
-  planSubjectsById: {},
+  planSubjectsById: {
+    'rec-1': { title: 'Career Training Grant', description: 'A training grant.' },
+  },
   planOfferResponseByCityResourceId: {},
   isDecidingPlanItem: () => false,
   onApprovePlanItem: jest.fn(),
@@ -195,7 +197,7 @@ describe('ConversationTimeline — living conversation', () => {
     render(<ConversationTimeline entries={entries} pendingResponse={false} {...defaultProps} onApprovePlanItem={onApprove} />);
     expect(screen.getByRole('region', { name: 'Current work' })).toBeInTheDocument();
     expect(screen.getByText('Plan ready')).toBeInTheDocument();
-    await userEvent.click(screen.getByRole('button', { name: 'Approve' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Choose this' }));
     expect(onApprove).toHaveBeenCalledWith(plan.primary);
   });
 

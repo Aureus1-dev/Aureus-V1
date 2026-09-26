@@ -19,8 +19,8 @@ export interface CoordinatedPlanStepProps {
   subjectsById: Record<string, RecommendationSubject>;
   offerResponseByCityResourceId: Record<string, ResourceOfferResponseValue>;
   isDeciding: (item: PlanItemDto) => boolean;
-  onApprove: (item: PlanItemDto) => void;
-  onDismiss: (item: PlanItemDto) => void;
+  onApprove: (item: PlanItemDto) => Promise<void>;
+  onDismiss: (item: PlanItemDto) => Promise<void>;
   onRetry: () => void;
   onContinue: () => void;
 }
