@@ -31,6 +31,11 @@
       "id": "UI-007",
       "path": "docs/work-orders/UI-007-Choosing.md",
       "contractIds": ["core-deployment", "browser-first-session", "accountable-steward-walkthrough"]
+    },
+    {
+      "id": "STEWARD-CARRY-001",
+      "path": "docs/work-orders/STEWARD-CARRY-001-Carry-First-Contract.md",
+      "contractIds": ["core-deployment", "browser-first-session", "accountable-steward-walkthrough"]
     }
   ],
   "permanentContractIds": [
