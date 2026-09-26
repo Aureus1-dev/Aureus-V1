@@ -168,23 +168,25 @@ AUREUS-016 must:
 
 **UI-004 accepted-on-`main`:** COMPLETED / ACCEPTED as code. PR #169 merged as `f60df8d0f8ce0600b2449a77fa0051b8d3659753`; exact production deployment/Living Release Gate and Accountable Steward walkthrough remain separately evidenced release facts.  
 **UI-005 accepted-on-`main`:** COMPLETED / ACCEPTED as code. PR #170 merged as `180da9bbc4b7d9ae00aa3f77ed8176a378179d4b`; exact production deployment/Living Release Gate and Accountable Steward walkthrough remain separately evidenced release facts.  
-**UI-006 review-branch interpretation:** IN FLIGHT / BUILDING-VERIFYING when the Bad News / Recovering implementation exists only on `feat/ui-006-bad-news-recovering`; it remains a production candidate until exact-head CI/Docker, independent review, and Founder merge authorization are satisfied.  
-**`main` interpretation after accepted UI-006 merge:** UI-006 is COMPLETED / ACCEPTED as code; production deployment remains separately evidenced. **UI-007 — Choosing** becomes the current construction slice automatically.  
+**UI-006 accepted-on-`main`:** COMPLETED / ACCEPTED as code. PR #171 merged as `ed23c3ad7a0b5b9fe446814d32cbf7e2ee6e1c91`; exact production deployment/Living Release Gate and Accountable Steward walkthrough remain separately evidenced release facts.  
+**UI-007 review-branch interpretation:** IN FLIGHT / VERIFYING when the Choosing implementation exists only on `feat/ui-007-choosing` / PR #172; it remains a production candidate until exact-head CI/Docker, independent review, and Founder merge authorization are satisfied.  
+**`main` interpretation after accepted UI-007 merge:** UI-007 is COMPLETED / ACCEPTED as code; production deployment remains separately evidenced. **UI-008 — Done + Quiet** becomes the current construction slice automatically.  
 **UI-004 work order:** `docs/work-orders/UI-004-Waiting.md`  
 **UI-005 work order:** `docs/work-orders/UI-005-Asking.md`  
 **UI-006 work order:** `docs/work-orders/UI-006-Bad-News-Recovering.md`  
-**Dependencies:** accepted AUREUS-016 Voice & Interface canon + merged UI-003 Active Work Surface + accepted UI-004 Waiting + accepted UI-005 Asking.  
-**UI-006 truth owners reused:** existing Active Work surface; conversation-scoped Responsibility `BLOCKED` / `RESPONSIBLY_EXHAUSTED` truth; bounded People Step-5 `BLOCKED` / `MISSED` / `DISPUTED`, `reviewRequired`, `reviewReason`, and real `nextAttemptAt`; no new recovery persistence, retry engine, or parallel work model.
+**UI-007 work order:** `docs/work-orders/UI-007-Choosing.md`  
+**Dependencies:** accepted AUREUS-016 Voice & Interface canon + merged UI-003 Active Work Surface + accepted UI-004 Waiting + accepted UI-005 Asking + accepted UI-006 Bad News / Recovering.  
+**UI-007 truth owners reused:** existing coordinated-plan `primary` / `supporting` roles; existing `RecommendationDto` pending/accepted/dismissed truth and approve/dismiss actions; existing resource-offer pending/accepted/declined truth and respond action; source-backed `MatchedResourceDto` verification/cost/eligibility/document/referral/service/accessibility facts; current conversation ownership; existing Responsibility recovery/terminal precedence; no new decision persistence, ranking model, hidden score, or authority path.
 
 Thin order:
 
 1. **UI-004 — Waiting** — COMPLETED / ACCEPTED as code. Holder, real last/next follow-up when recorded, due/provenance when known, and `Nothing you need to do.` only when canonical ownership/review truth supports it. A due time is not silently relabeled as a response ETA, generic activity is not relabeled as a chase, and a later broader wait after Step-5 satisfaction requires explicit post-satisfaction Responsibility transition evidence.
 2. **UI-005 — Asking** — COMPLETED / ACCEPTED as code. One sourced ask, why it is needed, what Aureus will do after receiving it, truthful effort only when known, an alternate route when one exists, and no re-asking established facts. Coarse `WAITING_ON_USER` alone may not fabricate a specific request.
-3. **UI-006 — Bad News / Recovering** — IN FLIGHT on its review branch. What failed or changed, what remains true, what Aureus actually preserved/did, next safe route when one exists, holder only when independently proven, repair/review action, and a real checkpoint only when one exists. No cause, holder, alternate, or retry date may be fabricated merely to make bad news feel active.
-4. **UI-007 — Choosing** — real options, tradeoffs, uncertainty, authority, next action; Aureus does not silently decide for the person.
+3. **UI-006 — Bad News / Recovering** — COMPLETED / ACCEPTED as code. What failed or changed, what remains true, what Aureus actually preserved/did, next safe route when one exists, holder only when independently proven, repair/review action, and a real checkpoint only when one exists. Terminal Responsibility truth suppresses stale Step-5 recovery/waiting projections.
+4. **UI-007 — Choosing** — IN FLIGHT / VERIFYING on PR #172. Real pending decisions only; source-backed relevance/tradeoffs/uncertainty; explicit member authority; existing approve/dismiss/respond mutation paths; no hidden ranking, fabricated confidence, cross-conversation stale choice, or choice that overrides recovery/terminal truth.
 5. **UI-008 — Done + Quiet** — verified completion/testimony and a quiet state that does not manufacture engagement.
 
-**UI-006 successor activation:** accepted UI-006 implementation plus this register transition on `main` advances the current construction item to **UI-007 — Choosing**. The UI-006 exact-deployment gate and Accountable Steward walkthrough remain release/acceptance facts and must not be fabricated by queue advancement.
+**UI-007 successor activation:** accepted UI-007 implementation plus this register transition on `main` advances the current construction item to **UI-008 — Done + Quiet**. The UI-007 exact-deployment gate and Accountable Steward walkthrough remain release/acceptance facts and must not be fabricated by queue advancement.
 
 LISTENING / UNDERSTANDING / AGREEMENT / WORKING remain part of the same state grammar unless implementation evidence proves a missing primitive.
 
@@ -423,9 +425,9 @@ The following are the acceptance conditions for the bootstrap slice. On the revi
 
 Determine current work from **live Git** plus the merge-stable interpretation on the relevant queue item; do not use historical SHAs or timestamps as a current-state substitute.
 
-For UI-006 specifically:
+For UI-007 specifically:
 
-- **If the UI-006 implementation/register changes exist only on `feat/ui-006-bad-news-recovering`:** UI-006 is the current candidate under construction/independent verification. UI-007 is not authorized by that branch.
-- **If the independently accepted UI-006 implementation and this register transition are present on `main`:** UI-006 is complete as the accepted code slice; its exact-deployment and Accountable Steward evidence remain separate release facts. The canonical current construction item is **UI-007 — Choosing**.
+- **If the UI-007 implementation/register changes exist only on `feat/ui-007-choosing` / PR #172:** UI-007 is the current candidate under construction/independent verification. UI-008 is not authorized by that branch.
+- **If the independently accepted UI-007 implementation and this register transition are present on `main`:** UI-007 is complete as the accepted code slice; its exact-deployment and Accountable Steward evidence remain separate release facts. The canonical current construction item is **UI-008 — Done + Quiet**.
 
-That accepted-on-`main` transition is the queue advancement. No post-merge status-only edit is required merely to mark UI-006 complete.
+That accepted-on-`main` transition is the queue advancement. No post-merge status-only edit is required merely to mark UI-007 complete.

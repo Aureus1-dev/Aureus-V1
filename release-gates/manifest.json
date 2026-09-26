@@ -26,6 +26,11 @@
       "id": "UI-006",
       "path": "docs/work-orders/UI-006-Bad-News-Recovering.md",
       "contractIds": ["core-deployment", "browser-first-session", "accountable-steward-walkthrough"]
+    },
+    {
+      "id": "UI-007",
+      "path": "docs/work-orders/UI-007-Choosing.md",
+      "contractIds": ["core-deployment", "browser-first-session", "accountable-steward-walkthrough"]
     }
   ],
   "permanentContractIds": [

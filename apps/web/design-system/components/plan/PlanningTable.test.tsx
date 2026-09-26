@@ -108,7 +108,7 @@ describe('PlanningTable', () => {
     const user = userEvent.setup();
 
     await screen.findByText('This matches your goal of finding a better job.');
-    await user.click(screen.getByRole('button', { name: 'Approve' }));
+    await user.click(await screen.findByRole('button', { name: 'Choose this' }));
 
     await waitFor(() => expect(mockedRecommendations.approveRecommendation).toHaveBeenCalledWith('token-123', 'rec-1'));
   });

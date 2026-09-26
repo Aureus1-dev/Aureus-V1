@@ -98,11 +98,15 @@ export function PlanningTable() {
                 subject={item.source === 'RECOMMENDATION' ? (planSubjectsById[item.recommendation!.id] ?? null) : null}
                 offerResponse={null}
                 deciding={item.source === 'RECOMMENDATION' ? recommendations.isDeciding(item.recommendation!.id) : false}
-                onApprove={() => {
-                  if (item.source === 'RECOMMENDATION') void recommendations.approve(item.recommendation!.id);
+                onApprove={async () => {
+                  if (item.source === 'RECOMMENDATION') {
+                    await recommendations.approve(item.recommendation!.id);
+                  }
                 }}
-                onDismiss={() => {
-                  if (item.source === 'RECOMMENDATION') void recommendations.dismiss(item.recommendation!.id);
+                onDismiss={async () => {
+                  if (item.source === 'RECOMMENDATION') {
+                    await recommendations.dismiss(item.recommendation!.id);
+                  }
                 }}
               />
             );

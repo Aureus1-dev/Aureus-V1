@@ -60,8 +60,10 @@ export interface ConversationSurfaceProps {
  * surface. UI-004 extends the existing one Active Work presentation by
  * projecting the current conversation's canonical Personal Need
  * Responsibility when no narrower application-help Responsibility is active.
- * UI-005 and UI-006 reuse that same projection for Asking and Recovering;
- * no second task/wait/recovery store is created.
+ * UI-005 and UI-006 reuse that same projection for Asking and Recovering.
+ * UI-007 keeps coordinated-plan decisions scoped to the conversation that
+ * produced them and makes them history-only when recovery/terminal work truth
+ * takes precedence. No second task/wait/recovery/choice store is created.
  */
 export function ConversationSurface({ initialMode = 'text' }: ConversationSurfaceProps) {
   const { session } = useSession();
@@ -89,14 +91,26 @@ export function ConversationSurface({ initialMode = 'text' }: ConversationSurfac
   const [applicationGuideError, setApplicationGuideError] = useState<string | null>(null);
   const [applicationGuideStarting, setApplicationGuideStarting] = useState(false);
 
-  const [needId, setNeedId] = useState<string | undefined>(undefined);
-  const [needContent, setNeedContent] = useState<string | undefined>(undefined);
+  const [resolvedNeed, setResolvedNeed] = useState<{
+    conversationId: string;
+    id: string;
+    content?: string;
+  } | null>(null);
   const [planBuiltAt, setPlanBuiltAt] = useState<string | null>(null);
+  const [planConversationId, setPlanConversationId] = useState<string | null>(null);
   const previousPlanRef = useRef(plan.state.plan);
   const [decidingKeys, setDecidingKeys] = useState<string[]>([]);
-  const [offerResponseByCityResourceId, setOfferResponseByCityResourceId] = useState<
-    Record<string, ResourceOfferResponseValue>
+  const [offerResponseByConversationId, setOfferResponseByConversationId] = useState<
+    Record<string, Record<string, ResourceOfferResponseValue>>
   >({});
+
+  const currentNeed =
+    resolvedNeed?.conversationId === state.activeConversationId ? resolvedNeed : null;
+  const needId = currentNeed?.id;
+  const needContent = currentNeed?.content;
+  const currentOfferResponseByCityResourceId = state.activeConversationId
+    ? (offerResponseByConversationId[state.activeConversationId] ?? {})
+    : {};
 
   useEffect(() => {
     if (session.isAuthenticated) {
@@ -130,22 +144,29 @@ export function ConversationSurface({ initialMode = 'text' }: ConversationSurfac
   ]);
 
   useEffect(() => {
-    if (!session.accessToken || !state.activeConversationId) {
-      setNeedId(undefined);
-      setNeedContent(undefined);
-      return;
-    }
+    const conversationId = state.activeConversationId;
+    setResolvedNeed(null);
+    if (!session.accessToken || !conversationId) return;
+
     let cancelled = false;
     void (async () => {
       try {
         const needs = await getMyNeeds(session.accessToken!);
-        const match = needs.find((n) => n.conversationId === state.activeConversationId);
+        const match = needs.find((n) => n.conversationId === conversationId);
         if (!cancelled) {
-          setNeedId(match?.id);
-          setNeedContent(match?.content);
+          setResolvedNeed(
+            match
+              ? {
+                  conversationId,
+                  id: match.id,
+                  content: match.content,
+                }
+              : null,
+          );
         }
       } catch {
         // Best-effort lookup — a plan with no matching StatedNeed simply has no CITY_RESOURCE items to auto-offer.
+        if (!cancelled) setResolvedNeed(null);
       }
     })();
     return () => {
@@ -217,43 +238,81 @@ export function ConversationSurface({ initialMode = 'text' }: ConversationSurfac
     };
   }, [session.accessToken, state.activeConversationId]);
 
+  // A PlanContext plan has no conversation id of its own. Capture the active
+  // conversation only when a new plan object arrives so switching rooms cannot
+  // silently reuse or mutate a prior conversation's plan decision.
   useEffect(() => {
     if (plan.state.plan && plan.state.plan !== previousPlanRef.current) {
       setPlanBuiltAt(new Date().toISOString());
+      setPlanConversationId(state.activeConversationId ?? null);
+    } else if (!plan.state.plan) {
+      setPlanBuiltAt(null);
+      setPlanConversationId(null);
     }
     previousPlanRef.current = plan.state.plan;
-  }, [plan.state.plan]);
+  }, [plan.state.plan, state.activeConversationId]);
 
   useEffect(() => {
-    if (!plan.state.plan || !needId || !session.accessToken) return;
+    const conversationId = state.activeConversationId;
+    if (
+      !plan.state.plan ||
+      !currentNeed ||
+      !session.accessToken ||
+      !conversationId ||
+      currentNeed.conversationId !== conversationId ||
+      planConversationId !== conversationId
+    ) return;
+
+    const offerResponses = offerResponseByConversationId[conversationId] ?? {};
     const unoffered = [plan.state.plan.primary, ...plan.state.plan.supporting].filter(
       (item): item is PlanItemDto & { cityResource: NonNullable<PlanItemDto['cityResource']> } =>
         item.source === 'CITY_RESOURCE' &&
-        !(item.cityResource!.id in offerResponseByCityResourceId),
+        !(item.cityResource!.id in offerResponses),
     );
     if (unoffered.length === 0) return;
+
     let cancelled = false;
+    const resolvedNeedId = currentNeed.id;
     void Promise.all(
-      unoffered.map((item) => offerResource(session.accessToken!, needId, item.cityResource.id)),
+      unoffered.map((item) =>
+        offerResource(session.accessToken!, resolvedNeedId, item.cityResource.id),
+      ),
     ).then((offers) => {
       if (cancelled) return;
-      setOfferResponseByCityResourceId((previous) => {
-        const next = { ...previous };
+      setOfferResponseByConversationId((previous) => {
+        const nextForConversation = { ...(previous[conversationId] ?? {}) };
         offers.forEach((offer) => {
-          next[offer.citySheetEntryId] = offer.response;
+          nextForConversation[offer.citySheetEntryId] = offer.response;
         });
-        return next;
+        return {
+          ...previous,
+          [conversationId]: nextForConversation,
+        };
       });
     });
     return () => {
       cancelled = true;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [plan.state.plan, needId, session.accessToken]);
+  }, [
+    plan.state.plan,
+    planConversationId,
+    state.activeConversationId,
+    currentNeed,
+    session.accessToken,
+    offerResponseByConversationId,
+  ]);
 
+  const planBelongsToCurrentConversation = Boolean(
+    plan.state.plan &&
+    planBuiltAt &&
+    state.activeConversationId &&
+    planConversationId === state.activeConversationId,
+  );
   const builtPlan: BuiltPlan | null =
-    plan.state.plan && planBuiltAt ? { plan: plan.state.plan, builtAt: planBuiltAt } : null;
-  const planRecommendations = plan.state.plan
+    plan.state.plan && planBuiltAt && planBelongsToCurrentConversation
+      ? { plan: plan.state.plan, builtAt: planBuiltAt }
+      : null;
+  const planRecommendations = plan.state.plan && planBelongsToCurrentConversation
     ? [plan.state.plan.primary, ...plan.state.plan.supporting]
         .filter((item) => item.source === 'RECOMMENDATION')
         .map((item) => item.recommendation!)
@@ -288,23 +347,32 @@ export function ConversationSurface({ initialMode = 'text' }: ConversationSurfac
   };
 
   const decidePlanItem = async (item: PlanItemDto, accepted: boolean) => {
-    if (!session.accessToken) return;
+    const conversationId = state.activeConversationId;
+    if (
+      !session.accessToken ||
+      !conversationId ||
+      planConversationId !== conversationId ||
+      (item.source === 'CITY_RESOURCE' && !currentNeed)
+    ) return;
     const key = planItemKey(item);
     setDecidingKeys((keys) => [...keys, key]);
     try {
       if (item.source === 'RECOMMENDATION') {
         if (accepted) await recommendations.approve(item.recommendation!.id);
         else await recommendations.dismiss(item.recommendation!.id);
-      } else if (needId) {
+      } else if (currentNeed?.conversationId === conversationId) {
         const updated = await respondToOffer(
           session.accessToken,
-          needId,
+          currentNeed.id,
           item.cityResource!.id,
           accepted,
         );
-        setOfferResponseByCityResourceId((previous) => ({
+        setOfferResponseByConversationId((previous) => ({
           ...previous,
-          [updated.citySheetEntryId]: updated.response,
+          [conversationId]: {
+            ...(previous[conversationId] ?? {}),
+            [updated.citySheetEntryId]: updated.response,
+          },
         }));
       }
     } finally {
@@ -391,6 +459,14 @@ export function ConversationSurface({ initialMode = 'text' }: ConversationSurfac
   const doneMeans = carryState
     ? carryState.doneMeans
     : "You'll know this is done when Aureus gives you a clear result or next step.";
+
+  const responsibilityIsTerminal = Boolean(
+    primaryResponsibility &&
+      ['COMPLETED', 'CANCELLED', 'RESPONSIBLY_EXHAUSTED'].includes(primaryResponsibility.status),
+  );
+  const planChoiceEnabled = Boolean(
+    planBelongsToCurrentConversation && !recovery && !responsibilityIsTerminal,
+  );
 
   return (
     <div className={styles.surface}>
@@ -491,10 +567,11 @@ export function ConversationSurface({ initialMode = 'text' }: ConversationSurfac
               entries={entries}
               pendingResponse={state.pendingResponse}
               planSubjectsById={planSubjectsById}
-              planOfferResponseByCityResourceId={offerResponseByCityResourceId}
+              planOfferResponseByCityResourceId={currentOfferResponseByCityResourceId}
+              planChoiceEnabled={planChoiceEnabled}
               isDecidingPlanItem={(item) => decidingKeys.includes(planItemKey(item))}
-              onApprovePlanItem={(item) => void decidePlanItem(item, true)}
-              onDismissPlanItem={(item) => void decidePlanItem(item, false)}
+              onApprovePlanItem={(item) => decidePlanItem(item, true)}
+              onDismissPlanItem={(item) => decidePlanItem(item, false)}
               onStartApplicationGuide={(action) => void startApplicationGuide(action)}
             />
           )}
